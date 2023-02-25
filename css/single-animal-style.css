@@ -1,0 +1,63 @@
+.single-animal {
+  /*border     : 1px solid white;*/
+  box-shadow: 0 50px 10px #54595f !important;
+  padding: 10px;
+  margin: 10px 5px 10px 5px;
+}
+
+@media screen and (max-width: 768px) {
+  .animal-pic {
+    max-width: 75% !important;
+  }
+}
+
+.animal-pic {
+  margin-top: 15px;
+  margin-bottom: 15px;
+  margin-right: auto;
+  margin-left: auto;
+  max-width: 25%;
+  margin: 0 auto;
+  display: inline-flex;
+}
+
+.single-animal-name {
+  text-align: center;
+  font-size: 2em;
+  margin-top: 5px;
+}
+
+.animal-details {
+  text-align: center;
+}
+
+.animal-breed {
+  text-align: center;
+}
+
+.animal-description {
+  text-align: center;
+  display: none;
+}
+
+.animal-age {
+  text-align: center;
+}
+
+.adopt-button {
+  background-color: #0f9eda !important;
+  margin: 5px;
+  border-radius: 0.75rem;
+  box-shadow: rgba(0,0,0,0.5) 0px 0px 10px 0px;
+
+}
+
+.adopt-button:hover  {
+  background-color: #0d88bd !important;
+}
+
+.shelterluv-center-align {
+  text-align: center;
+  margin: 20px auto;
+}
+
