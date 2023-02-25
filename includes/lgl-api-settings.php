@@ -77,14 +77,14 @@ if (!class_exists("LGL_API_Settings")) {
                 ->set_default_value( 25 ),
        
                 Field::make( 'hidden', 'constituents_uri', __('Constituents URL'))
-                ->set_default_value('https://api.littlegreenlight.com/api/v1/constituents'),
+                ->set_default_value('https://api.littlegreenlight.com/api/v1/constituents.json'),
                 Field::make( 'html', 'endpoints_constituents', __('Database Endpoints') )
-	            ->set_html( sprintf( '<p>https://api.littlegreenlight.com/api/v1/constituents</p>')),
+	            ->set_html( sprintf( '<p>https://api.littlegreenlight.com/api/v1/constituents.json</p>')),
 
                 Field::make( 'hidden', 'membership_levels_uri', __('Memberships URL'))
-                ->set_default_value('https://api.littlegreenlight.com/api/v1/membership_levels'),
+                ->set_default_value('https://api.littlegreenlight.com/api/v1/membership_levels.json'),
                 Field::make( 'html', 'endpoints_membership_level', __('Database Endpoints') )
-	            ->set_html( sprintf( '<p>https://api.littlegreenlight.com/api/v1/membership_levels</p>')),
+	            ->set_html( sprintf( '<p>https://api.littlegreenlight.com/v1/membership_levels.json</p>')),
 
                 ) );
             }

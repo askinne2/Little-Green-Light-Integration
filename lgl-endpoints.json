@@ -1,0 +1,33 @@
+{
+    "version": "1.0.0",
+    "GET": [
+        {
+            "name":"Appeals",
+            "url": "/api/v1/appeals.json"
+        },
+        {
+            "name":"Attributes",
+            "url": "api/v1/attributes.json"
+        },
+        {
+            "name":"Campaigns",
+            "url": "/api/v1/categories.json"
+        },
+        {
+            "name":"Categories",
+            "url": "/api/v1/appeals.json"
+        },
+        {
+            "name":"Appeals",
+            "url": "/api/v1/appeals.json"
+        },
+        {
+            "name":"Appeals",
+            "url": "/api/v1/appeals.json"
+        },
+        {
+            "name":"Constituents",
+            "url": "/api/v1/constituents.json"
+        }
+    ]
+}

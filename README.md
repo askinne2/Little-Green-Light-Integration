@@ -1,8 +1,7 @@
-# Shelterluv Animals Plugin
+# Little Green Light Integration
 
+ Connect your Wordpress website to the Little Green Light CRM using their Dynamic API.
 
- This plugin fetches the animals listed in the Shelterluv database for an animal shelter and displays them by registering a Animal post type on a Wordpress site.
-
- A slideshow of all registered Animal Posts can be displayed by using the shortcode
-  [animal_slideshow]
+ [Little Green Light API Documentation](https://api.littlegreenlight.com/api-docs/)
+  
 

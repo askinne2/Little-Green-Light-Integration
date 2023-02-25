@@ -32,48 +32,49 @@ define('LOCAL_JSON', false);
 
 require_once 'includes/lgl-api-includes.php';
 require_once 'includes/lgl-api-settings.php';
+require_once 'includes/lgl-wp-users.php';
 
 add_action('template_redirect', 'lgl_shortcode', 10, 2);
 function lgl_shortcode($response) {
-
+	
 	$lgl = LGL_API::get_instance();
 	$lgl->shortcode_init();
-
+	
 }
 
 if (!class_exists("LGL_API")) {
 	/**
-    * class:   Little Green Light_API_Settings
-    * desc:    Creates the settings pages for the Little Green Light API plugin
-    */
+	* class:   Little Green Light_API_Settings
+	* desc:    Creates the settings pages for the Little Green Light API plugin
+	*/
 	class LGL_API
 	{
 		/**
-        * Class instance
-        *
-        * @var null|LGL_API
-        */
-        private static $instance = null;
-
-        /**
-        * Get instance
-        *
-        * @return LGL_API_
-        */
-        public static function get_instance() {
-            if (is_null(self::$instance)) {
-                self::$instance = new self();
-            }
-            return self::$instance;
-        }
-        
+		* Class instance
+		*
+		* @var null|LGL_API
+		*/
+		private static $instance = null;
+		
+		/**
+		* Get instance
+		*
+		* @return LGL_API_
+		*/
+		public static function get_instance() {
+			if (is_null(self::$instance)) {
+				self::$instance = new self();
+			}
+			return self::$instance;
+		}
+		
 		
 		const CRON_HOOK = 'lgl_cron_hook';
 		
 		var $request_uri;
 		var $args;
 		var $lgl_current_object;
-
+		
 		
 		
 		public function __construct()
@@ -209,7 +210,7 @@ if (!class_exists("LGL_API")) {
 				}
 			}
 		}
-
+		
 		public function run_update()
 		{
 			
@@ -218,10 +219,10 @@ if (!class_exists("LGL_API")) {
 			}
 			
 			// set up request arguments (API Key + Request URI)
-			$lgl = LGL_API_Settings::get_instance();
-			$api_key = $lgl->lgl_get_setting('api_key');
+			$lgl_settings = LGL_API_Settings::get_instance();
+			$api_key = $lgl_settings->lgl_get_setting('api_key');
 			$this->set_request_args($api_key);
-			$this->request_uri = $lgl->lgl_get_setting('constituents_uri');
+			$this->request_uri = $lgl_settings->lgl_get_setting('constituents_uri');
 			
 			ob_start();
 			
@@ -232,14 +233,25 @@ if (!class_exists("LGL_API")) {
 			
 			
 			$this->lgl_current_object = $this->request_and_sort($this->request_uri, $this->args);
-			$user = wp_get_current_user();
-			printf('<p>User ID: %s</p>', $user->data->ID);
+	
+			$lgl_users = LGL_WP_Users::get_instance();
+			$user_orders = $lgl_users->get_child_objects( $lgl_users->get_current_user_id() );
+			printf('<hr/><pre>');
+			print_r($user_orders);
+			printf('</pre>');
+			foreach($user_orders as $order) {
+				$myvals = get_post_meta($order);
+				foreach($myvals as $key=>$val)
+				{
+					echo $key . ' : ' . $val[0] . '<br/>';
+				}
+			}
 
-			printf('<pre>');
-			print_r(get_user_meta(wp_get_current_user()->data->ID));
-			print('</pre>');
 			
-
+			
+			
+			
+			
 			//$this->create_and_update_animals($this->lgl_current_object);
 			//$this->delete_adopted_animals($this->petID_array);
 			//$this->check_duplicate_animals();
@@ -248,4 +260,3 @@ if (!class_exists("LGL_API")) {
 		}
 	}
 }
-	
