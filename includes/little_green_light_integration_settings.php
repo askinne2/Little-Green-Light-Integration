@@ -1,11 +1,11 @@
 <?php
 
-if (!class_exists('Shelterluv_Animals_Settings')) {
-	class Shelterluv_Animals_Settings
+if (!class_exists('Little_Green_Light_Integration_Settings')) {
+	class Little_Green_Light_Integration_Settings
 	{
 
-		const SLUG = "Shelterluv-Animals-options";
-		const UPDATESLUG = "Shelterluv-Animals-update";
+		const SLUG = "Little_Green_Light_Integration-options";
+		const UPDATESLUG = "Little_Green_Light_Integration-update";
 
 		/**
 		 * Construct the plugin object
@@ -15,8 +15,8 @@ if (!class_exists('Shelterluv_Animals_Settings')) {
 			// register actions
 			//$this->add_my_options_page();
 			acf_add_options_page(array(
-				'page_title' => __('Shelterluv Settings', 'custom'),
-				'menu_title' => __('Shelterluv', 'custom'),
+				'page_title' => __('Little Green Light Settings', 'custom'),
+				'menu_title' => __('Little Green Light', 'custom'),
 				'menu_slug' => self::SLUG,
 				'capability' => 'manage_options',
 				'redirect' => false,
@@ -79,7 +79,7 @@ if (!class_exists('Shelterluv_Animals_Settings')) {
 							'label' => 'API Key',
 							'name' => 'api_key',
 							'type' => 'password',
-							'instructions' => 'Please enter your API Key from Shelterluv',
+							'instructions' => 'Please enter your API Key from Little Green Light',
 							'required' => 1,
 							'conditional_logic' => 0,
 							'wrapper' => array(
@@ -113,109 +113,7 @@ if (!class_exists('Shelterluv_Animals_Settings')) {
 					'active' => true,
 					'description' => '',
 				));
-
-				acf_add_local_field_group(
-					array(
-					'key' => 'animal_status',
-					'title' => 'Animal Statuses',
-					'fields' => array(
-						array(
-							'key' => 'animal_status1',
-							'label' => 'Animal Status 1',
-							'name' => 'animal_status1',
-							'type' => 'text',
-							'instructions' => 'Enter adoptable animal\'s status',
-							'required' => 0,
-							'conditional_logic' => 0,
-							'wrapper' => array(
-								'width' => '',
-								'class' => '',
-								'id' => '',
-							),
-							'default_value' => 'Available For Adoption',
-							'placeholder' => '',
-							'prepend' => '',
-							'append' => '',
-							'maxlength' => '',
-						),
-						array(
-							'key' => 'animal_status2',
-							'label' => 'Animal Status 2',
-							'name' => 'animal_status2',
-							'type' => 'text',
-							'instructions' => 'Enter adoptable animal\'s status',
-							'required' => 0,
-							'conditional_logic' => 0,
-							'wrapper' => array(
-								'width' => '',
-								'class' => '',
-								'id' => '',
-							),
-							'default_value' => 'Available for Adoption - Awaiting Spay/Neuter',
-							'placeholder' => '',
-							'prepend' => '',
-							'append' => '',
-							'maxlength' => '',
-						),
-						array(
-							'key' => 'animal_status3',
-							'label' => 'Animal Status 3',
-							'name' => 'animal_status3',
-							'type' => 'text',
-							'instructions' => 'Enter adoptable animal\'s status',
-							'required' => 0,
-							'conditional_logic' => 0,
-							'wrapper' => array(
-								'width' => '',
-								'class' => '',
-								'id' => '',
-							),
-							'default_value' => 'Available for Adoption - In Foster',
-							'placeholder' => '',
-							'prepend' => '',
-							'append' => '',
-							'maxlength' => '',
-						),
-						array(
-							'key' => 'animal_status4',
-							'label' => 'Animal Status 4',
-							'name' => 'animal_status4',
-							'type' => 'text',
-							'instructions' => 'Enter adoptable animal\'s status',
-							'required' => 0,
-							'conditional_logic' => 0,
-							'wrapper' => array(
-								'width' => '',
-								'class' => '',
-								'id' => '',
-							),
-							'default_value' => 'Awaiting Spay/Neuter - In Foster',
-							'placeholder' => '',
-							'prepend' => '',
-							'append' => '',
-							'maxlength' => '',
-						),
-					),
 					
-					'location' => array(
-						array(
-							array(
-								'param' => 'options_page',
-								'operator' => '==',
-								'value' => self::SLUG,
-							),
-						),
-					),
-					'menu_order' => 1,
-					'position' => 'normal',
-					'style' => 'default',
-					'label_placement' => 'top',
-					'instruction_placement' => 'label',
-					'hide_on_screen' => '',
-					'active' => true,
-					'description' => '',
-				));				
-
 			endif;
 			
 		}
@@ -254,6 +152,6 @@ if (!class_exists('Shelterluv_Animals_Settings')) {
 			return $links;
 		} // END public function plugin_settings_link($links)
 		*/
-	} // END class Shelterluv_Animals_Settings
+	} // END class Little_Green_Light_Integration_Settings
 
-} // END if(!class_exists('Shelterluv_Animals_Settings'))
+} // END if(!class_exists('Little_Green_Light_Integration_Settings'))
