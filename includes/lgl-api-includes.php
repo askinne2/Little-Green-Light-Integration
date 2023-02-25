@@ -1,5 +1,11 @@
 <?php
-/* adding for test */
+/**
+* File Name: lgl-api-includes.php
+* Version: 1.0
+* Plugin URI:  https://github.com/askinne2/Little-Green-Light-API
+* Description: This file registers custom styles for templates if needed
+* Author URI: http://github.com/askinne2
+*/
 if (!defined('ABSPATH')) {
 	exit; // Exit if accessed directly
 }

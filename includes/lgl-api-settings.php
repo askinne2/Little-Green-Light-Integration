@@ -67,21 +67,32 @@ if (!class_exists("LGL_API_Settings")) {
         
         
         public function lgl_settings_page() {
-            Container::make( 'theme_options', __( 'Example Plugin Page' ) )
+            Container::make( 'theme_options', __( 'Little Green Light Settings' ) )
             ->set_page_parent( 'options-general.php' )
             ->add_fields( array(
-                Field::make( 'text', 'dbi_api_key', 'API Key' ),
-                Field::make( 'text', 'dbi_results_limit', 'Results Limit' )
+                Field::make( 'text', 'api_key', 'API Key' ),
+                Field::make( 'text', 'results_limit', 'Results Limit' )
                 ->set_attribute( 'min', 1 )
                 ->set_attribute( 'max', 100 )
                 ->set_default_value( 25 ),
+       
+                Field::make( 'hidden', 'constituents_uri', __('Constituents URL'))
+                ->set_default_value('https://api.littlegreenlight.com/api/v1/constituents'),
+                Field::make( 'html', 'endpoints_constituents', __('Database Endpoints') )
+	            ->set_html( sprintf( '<p>https://api.littlegreenlight.com/api/v1/constituents</p>')),
+
+                Field::make( 'hidden', 'membership_levels_uri', __('Memberships URL'))
+                ->set_default_value('https://api.littlegreenlight.com/api/v1/membership_levels'),
+                Field::make( 'html', 'endpoints_membership_level', __('Database Endpoints') )
+	            ->set_html( sprintf( '<p>https://api.littlegreenlight.com/api/v1/membership_levels</p>')),
+
                 ) );
             }
             
             
             
             
-            public function lgl_get_api_setting( string $setting_name ) {
+            public function lgl_get_setting( string $setting_name ) {
                 return carbon_get_theme_option( $setting_name );
             }
         }
