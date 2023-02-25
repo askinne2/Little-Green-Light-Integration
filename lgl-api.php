@@ -41,8 +41,6 @@ function lgl_shortcode($response) {
 
 }
 
-
-
 if (!class_exists("LGL_API")) {
 	/**
     * class:   Little Green Light_API_Settings
@@ -66,19 +64,16 @@ if (!class_exists("LGL_API")) {
             if (is_null(self::$instance)) {
                 self::$instance = new self();
             }
-            
             return self::$instance;
         }
         
 		
-		const CRON_HOOK = 'shelterluv_update_animals';
+		const CRON_HOOK = 'lgl_cron_hook';
 		
 		var $request_uri;
 		var $args;
-		var $little_green_light_api;
-		var $petID_array;
 		var $lgl_current_object;
-		var $animal_images = array();
+
 		
 		
 		public function __construct()
@@ -237,6 +232,14 @@ if (!class_exists("LGL_API")) {
 			
 			
 			$this->lgl_current_object = $this->request_and_sort($this->request_uri, $this->args);
+			$user = wp_get_current_user();
+			printf('<p>User ID: %s</p>', $user->data->ID);
+
+			printf('<pre>');
+			print_r(get_user_meta(wp_get_current_user()->data->ID));
+			print('</pre>');
+			
+
 			//$this->create_and_update_animals($this->lgl_current_object);
 			//$this->delete_adopted_animals($this->petID_array);
 			//$this->check_duplicate_animals();
