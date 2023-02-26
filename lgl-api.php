@@ -34,7 +34,7 @@ require_once 'includes/lgl-api-includes.php';
 require_once 'includes/lgl-api-settings.php';
 require_once 'includes/lgl-wp-users.php';
 
-add_action('template_redirect', 'lgl_shortcode', 10, 2);
+add_action('template_redirect', 'lgl_shortcode', 10, );
 function lgl_shortcode($response) {
 	
 	$lgl = LGL_API::get_instance();
@@ -79,6 +79,8 @@ if (!class_exists("LGL_API")) {
 		
 		public function __construct()
 		{
+			add_action( 'jet-form-builder/custom-action/lgl-register-user', array($this, 'lgl_register_user'), 10, 2);
+
 			
 			
 			
@@ -210,6 +212,57 @@ if (!class_exists("LGL_API")) {
 				}
 			}
 		}
+
+		public function lgl_register_user($request, $action_handler) {
+
+			$post_id = ! empty( $request['inserted_post_id'] ) ? $request['inserted_post_id'] : false;
+			if ( ! $post_id ) {
+				return;
+			}
+
+			ob_start();
+			
+			$lgl_settings = LGL_API_Settings::get_instance();
+			$api_key = $lgl_settings->lgl_get_setting('api_key');
+			$this->set_request_args($api_key);
+			$this->request_uri = $lgl_settings->lgl_get_setting('constituents_uri');
+			echo "<h1>FUCK</h1>";
+
+			return ob_get_clean();
+
+
+			
+		
+			$response = wp_remote_get( $this->request_uri, $this->args );
+			$body = wp_remote_retrieve_body( $response );
+			$body = json_decode( $body, true );
+		
+
+			if ( $body ) {
+				$data = $body['data'][0];
+				printf('<hr/><hr/><pre>%s</pre>', $body);
+			//	update_post_meta( $post_id, 'api-response', $data['name'] );
+			}
+		
+			$redirect = get_permalink( $post_id );
+		
+			if ( ! $request['__is_ajax'] ) {
+				wp_safe_redirect( $redirect );
+				die();
+			} else {
+				$action_handler->response_data['redirect'] = $redirect;
+			}
+		
+		}
+		
+		public function lgl_delete_record($url, $args) {
+			
+		
+			$args = array(
+				'method' => 'DELETE'
+			);
+			$response = wp_remote_request( $url, $args );
+		}
 		
 		public function run_update()
 		{
@@ -233,12 +286,10 @@ if (!class_exists("LGL_API")) {
 			
 			
 			$this->lgl_current_object = $this->request_and_sort($this->request_uri, $this->args);
-	
+			
 			$lgl_users = LGL_WP_Users::get_instance();
 			$user_orders = $lgl_users->get_child_objects( $lgl_users->get_current_user_id() );
-			printf('<hr/><pre>');
-			print_r($user_orders);
-			printf('</pre>');
+
 			foreach($user_orders as $order) {
 				$myvals = get_post_meta($order);
 				foreach($myvals as $key=>$val)
@@ -246,7 +297,7 @@ if (!class_exists("LGL_API")) {
 					echo $key . ' : ' . $val[0] . '<br/>';
 				}
 			}
-
+			
 			
 			
 			

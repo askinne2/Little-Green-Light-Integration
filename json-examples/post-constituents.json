@@ -1,0 +1,105 @@
+{
+  "external_constituent_id": 0,
+  "is_org": false,
+  "constituent_contact_type_id": 0,
+  "constituent_contact_type_name": "",
+  "prefix": "",
+  "first_name": "",
+  "middle_name": "",
+  "last_name": "",
+  "suffix": "",
+  "spouse_name": "",
+  "org_name": "",
+  "job_title": "",
+  "addressee": "",
+  "salutation": "",
+  "is_deceased": false,
+  "deceased_date": "",
+  "annual_report_name": "",
+  "birthday": "date",
+  "gender": "",
+  "maiden_name": "",
+  "nick_name": "",
+  "spouse_nick_name": "",
+  "date_added": "date",
+  "alt_salutation": "",
+  "alt_addressee": "",
+  "honorary_name": "",
+  "assistant_name": "",
+  "marital_status_id": 0,
+  "marital_status_name": "",
+  "is_anon": false,
+  "email_addresses": [
+    {
+      "address": "",
+      "email_address_type_id": 1,
+      "email_type_name": "Home",
+      "is_preferred": false,
+      "not_current": false
+    }
+  ],
+  "phone_numbers": [
+    {
+      "number": "",
+      "phone_number_type_id": 1,
+      "phone_type_name": "Home",
+      "is_preferred": false,
+      "not_current": false
+    }
+  ],
+  "street_addresses": [
+    {
+      "street": "",
+      "street_address_type_id": 1,
+      "street_type_name": "Home",
+      "city": "",
+      "state": "",
+      "postal_code": "",
+      "county": "",
+      "country": "",
+      "seasonal_from": "01-01",
+      "seasonal_to": "12-31",
+      "seasonal": false,
+      "is_preferred": false,
+      "not_current": false
+    }
+  ],
+  "web_addresses": [
+    {
+      "url": "",
+      "web_address_type_id": 0,
+      "web_address_type_name": "",
+      "is_preferred": false
+    }
+  ],
+  "categories": [
+    {
+      "id": 0,
+      "name": "",
+      "key": "",
+      "keywords": [
+        {
+          "id": 0,
+          "name": "",
+          "short_code": ""
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "group_id": 0,
+      "group_name": "",
+      "date_start": "date",
+      "date_end": "date",
+      "is_current": false
+    }
+  ],
+  "custom_attrs": [
+    {
+      "id": 0,
+      "key": "",
+      "value": ""
+    }
+  ]
+}

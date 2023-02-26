@@ -18,8 +18,8 @@
             "url": "/api/v1/appeals.json"
         },
         {
-            "name":"Appeals",
-            "url": "/api/v1/appeals.json"
+            "name":"Constituents",
+            "url": "/api/v1/constituents.json"
         },
         {
             "name":"Appeals",

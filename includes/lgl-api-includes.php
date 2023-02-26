@@ -16,10 +16,10 @@ function Little_Green_Light_stylesheet()
 	//wp_enqueue_style('bootstrap_styles');
 
 	wp_register_style('Little_Green_Light_archive_styles', plugins_url(plugin_basename(__DIR__)) . '/css/taxonomy-adopt-animals.css');
-	wp_enqueue_style('Little_Green_Light_archive_styles');
+	//wp_enqueue_style('Little_Green_Light_archive_styles');
 
 	wp_register_style('Little_Green_Light_styles', plugins_url(plugin_basename(__DIR__)) . '/css/shelterluv_animals.css');
-	wp_enqueue_style('Little_Green_Light_styles');
+	//wp_enqueue_style('Little_Green_Light_styles');
 };
 add_action('wp_print_styles', 'Little_Green_Light_stylesheet');
 
