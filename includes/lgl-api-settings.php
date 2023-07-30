@@ -63,37 +63,92 @@ if (!class_exists("LGL_API_Settings")) {
         
         public function lgl_init() {
             add_action( 'carbon_fields_register_fields', array($this, 'lgl_settings_page') );
+           // add_action( 'carbon_fields_register_fields', array($this, 'set_membership_fields'));
         }
         
         
-        public function lgl_settings_page() {
+        public function lgl_settings_page() 
+        {
             Container::make( 'theme_options', __( 'Little Green Light Settings' ) )
             ->set_page_parent( 'options-general.php' )
             ->add_fields( array(
-                Field::make( 'text', 'api_key', 'API Key' ),
-                Field::make( 'text', 'results_limit', 'Results Limit' )
+
+                Field::make( 'text', 'api_key', __('API Key') ),
+
+                Field::make( 'text', 'results_limit', __('Results Limit') )
                 ->set_attribute( 'min', 1 )
                 ->set_attribute( 'max', 100 )
                 ->set_default_value( 25 ),
-       
+                
+                Field::make( 'text', 'results_offset', __('Default Offset') )
+                ->set_attribute( 'min', 25 )
+                ->set_attribute( 'max', 100 )
+                ->set_default_value( 25 ),
+                
                 Field::make( 'hidden', 'constituents_uri', __('Constituents URL'))
                 ->set_default_value('https://api.littlegreenlight.com/api/v1/constituents.json'),
                 Field::make( 'html', 'endpoints_constituents', __('Database Endpoints') )
-	            ->set_html( sprintf( '<p>https://api.littlegreenlight.com/api/v1/constituents.json</p>')),
+                ->set_html( sprintf( '<p>https://api.littlegreenlight.com/api/v1/constituents.json</p>')),
 
+                
+                Field::make( 'hidden', 'constituents_uri_search', __('Constituents Search URL'))
+                ->set_default_value('https://api.littlegreenlight.com/api/v1/constituents/search.json'),
+                Field::make( 'html', 'endpoints_constituents_search', __('Database Endpoints') )
+                ->set_html( sprintf( '<p>https://api.littlegreenlight.com/api/v1/constituents/search.json</p>')),
+                
                 Field::make( 'hidden', 'membership_levels_uri', __('Memberships URL'))
                 ->set_default_value('https://api.littlegreenlight.com/api/v1/membership_levels.json'),
                 Field::make( 'html', 'endpoints_membership_level', __('Database Endpoints') )
-	            ->set_html( sprintf( '<p>https://api.littlegreenlight.com/v1/membership_levels.json</p>')),
+                ->set_html( sprintf( '<p>https://api.littlegreenlight.com/v1/membership_levels.json</p>')),
+                
+                
+
+                Field::make( 'complex', 'membership_levels', __('Membership Level') )
+                ->add_fields( array (
+                    Field::make( 'text', 'membership_type', __('Membership Type ') )->set_default_value( 'Individual' )->set_required(TRUE),
+
+                    Field::make( 'text', 'membership_id', __('Membership ID ') )->set_default_value( 412 )->set_required(TRUE),
+                )),
+               
 
                 ) );
+
             }
             
-            
-            
+
+            public function set_membership_fields() {
+
+                $lgl = LGL_API::get_instance();
+                $response = $lgl->get_lgl_data( 'MEMBERSHIPS');
+                if ($response) {
+                    $lgl_membership_levels = $response->items;
+                  //  print_r($lgl_membership_levels);
+                } 
+
+                $levels = array_column($lgl_membership_levels, 'name');
+                //$this->debug ('levels', $levels);
+                $index = 0;
+                foreach ($lgl_membership_levels as $level) {
+                    $level = (array) $level;
+                    carbon_set_post_meta (10, 'membership_levels[' . $index . ']' , array(
+                        array ( 'membership_type' => $level['name'] ),
+                        array ( 'membership_id' => $level['id']),
+                    ));
+                  //  $this->debug ('setting', $index . $level['name']);
+                    $index++;
+                  }
+                
+            }
+  
             
             public function lgl_get_setting( string $setting_name ) {
                 return carbon_get_theme_option( $setting_name );
+            }
+
+            public function debug($string, $data=NULL) {
+                printf('<h6 style="color: red;">%s</h3><pre>', $string);
+                print_r($data);
+                printf('</pre>');
             }
         }
     }
