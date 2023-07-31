@@ -278,6 +278,7 @@ if (!class_exists("LGL_Constituents")) {
             public function set_payment($p) {
                 
                 $this->payment_data["external_id"] = 0;
+                /*
                 $this->payment_data["gift_type_id"] = ,
                 "gift_type_name" => "",
                 "gift_category_id" => 0,
