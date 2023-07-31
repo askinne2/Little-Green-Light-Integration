@@ -26,6 +26,8 @@ if (!defined('ABSPATH')) {
 	exit; // Exit if accessed directly
 }
 
+
+
 define('PLUGIN_DEBUG', TRUE);
 define('REMOVE_TRANSIENT', true);
 define('LOCAL_JSON', false);
@@ -34,6 +36,7 @@ require_once 'includes/lgl-api-includes.php';
 require_once 'includes/lgl-api-settings.php';
 require_once 'includes/lgl-wp-users.php';
 require_once 'includes/lgl-constituents.php';
+require_once 'includes/lgl-relations-manager.php';
 
 add_action('template_redirect', 'lgl_shortcode', 10, );
 function lgl_shortcode($response) {
@@ -184,6 +187,41 @@ if (!class_exists("LGL_API")) {
 					$endpoint = '/' . $lgl_id . '/memberships.json';
 					$this->request_uri = $base . $endpoint;
 					break;
+					
+					case 'PAYMENT_TYPES' ;
+					$base = 'https://api.littlegreenlight.com/api/v1';
+					$endpoint = '/payment_types.json';
+					$this->request_uri = $base . $endpoint;
+					break;
+					
+					case 'GIFT_TYPES' ;
+					$base = 'https://api.littlegreenlight.com/api/v1';
+					$endpoint = '/gift_types.json';
+					$this->request_uri = $base . $endpoint;
+					break;
+					
+					case 'GIFT_CATEGORIES' ;
+					$base = 'https://api.littlegreenlight.com/api/v1';
+					$endpoint = '/gift_categories.json';
+					$this->request_uri = $base . $endpoint;
+					break;
+					
+					case 'CAMPAIGNS' ;
+					$base = 'https://api.littlegreenlight.com/api/v1';
+					$endpoint = '/campaigns.json';
+					$this->request_uri = $base . $endpoint;
+					break;
+					
+					case 'FUNDS' ;
+					$base = 'https://api.littlegreenlight.com/api/v1';
+					$endpoint = '/funds.json';
+					$this->request_uri = $base . $endpoint;
+					break;
+
+
+					default ;
+					$this->debug('INCORRECT get_setting_flag');
+					return;
 				}
 			} else {
 				$this->debug ('get_lgl_data() needs a setting flag!');
@@ -418,7 +456,7 @@ if (!class_exists("LGL_API")) {
 					$this->lgl_add_object($response->id, $constituent->email_data, 'email_addresses.json' );
 					$this->lgl_add_object($response->id, $constituent->phone_data, 'phone_numbers.json' );
 					$this->lgl_add_object($response->id, $constituent->address_data, 'street_addresses.json');
-					$this->lgl_memberships($response->id, $constituent->membership_data, 'memberships.json');
+					$this->lgl_add_object($response->id, $constituent->membership_data, 'memberships.json');
 				}
 			}
 		}
@@ -491,6 +529,7 @@ if (!class_exists("LGL_API")) {
 			}		
 
 		}
+
 		
 		
 		
@@ -550,16 +589,72 @@ if (!class_exists("LGL_API")) {
 			if (REMOVE_TRANSIENT) {
 				$this->shelterluv_remove_transient();
 			}
-			$this->debug ('user', wp_get_current_user());
+			//$this->debug ('user', wp_get_current_user());
 
 
 			//$lgl_constituents = $this->get_all_constituents();
 			//if (PLUGIN_DEBUG) $this->debug("constitudents", $lgl_constituents);
 			
 			
-			$this->lgl_add_constituent( wp_get_current_user()->data->ID);
+
+			$payment_types = $this->get_lgl_data('PAYMENT_TYPES')->items;
+			$gift_types = $this->get_lgl_data('GIFT_TYPES')->items;
+			$this->debug('GIFTTYPES:' , $gift_types);
 			
+			$gift_categories = $this->get_lgl_data('GIFT_CATEGORIES')->items;
+			$this->debug('GIFT CATEGORIES:' , $gift_categories);
+
+			$campaigns = $this->get_lgl_data('CAMPAIGNS')->items;
+			$this->debug('CAMPAIGNS:' , $campaigns);
+
+			$funds = $this->get_lgl_data('FUNDS')->items;
+			$this->debug('FUNDS:' , $funds);
+
+			$key = array_search('Other Income', $gift_types);
+
+			$key = array_search('Other Income', array_column($gift_types, 'name'));
+			if ($key !== false) {
+				$this->debug('key', $gift_types[$key]);	
+				$payment = $gift_types[$key];
+			}
+			else {
+				printf('<h2>oh no...</h2>');
+			}
+
+			$p = array(
+				"gift_type_id" => $payment->id,
+				"gift_type_name" => $payment->name,
+				"gift_category_id" => 0,
+				"gift_category_name" => "",
+				"campaign_id" => 0,
+				"campaign_name" => "",
+				"fund_id" => 0,
+				"fund_name" => "",
+				"appeal_id" => 0,
+				"appeal_name" => "",
+				"event_id" => 0,
+				"event_name" => "",
+				"received_amount" => 0,
+				"received_date" => "date",
+				"payment_type_id" => 0,
+				"payment_type_name" => "",
+				"check_number" => "",
+				"deductible_amount" => 0,
+				"note" => "",
+				"ack_template_name" => "",
+				"deposit_date" => "date",
+				"deposited_amount" => 0,
+				"parent_gift_id" => 0,
+				"parent_external_id" => 0,
+				"team_member" => ""
+
+			);
+
+		//	$this->lgl_add_constituent( wp_get_current_user()->data->ID);
 			
+			$r = LGL_Relations_Manager::get_instance();
+			$r->get_all_relations();
+
 			$lgl_users = LGL_WP_Users::get_instance();
 			$user_orders = $lgl_users->get_child_objects( $lgl_users->get_current_user_id() );
 			if (!$user_orders) {

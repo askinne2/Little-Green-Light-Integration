@@ -7,6 +7,10 @@
 * Author URI: http://github.com/askinne2
 */
 
+if (!defined('ABSPATH')) {
+	exit; // Exit if accessed directly
+}
+
 define('USERS_DEBUG', false);
 
 if (!class_exists("LGL_WP_Users")) {
@@ -42,6 +46,12 @@ if (!class_exists("LGL_WP_Users")) {
             
         }
         
+        public function debug($string, $data=NULL) {
+			printf('<h6 style="color: red;">%s</h3><pre>', $string);
+			print_r($data);
+			printf('</pre>');
+		}
+
         public function get_current_user() {
             return wp_get_current_user();
         }
@@ -49,7 +59,7 @@ if (!class_exists("LGL_WP_Users")) {
         public function get_current_user_id() {
             $user_id = wp_get_current_user()->data->ID;
             if(USERS_DEBUG) {        
-                printf('<p>User ID: %s</p>', $user_id);
+                $this->debug('User ID', $user_id);
             }
             return $user_id;         
         }
@@ -86,8 +96,9 @@ if (!class_exists("LGL_WP_Users")) {
         */
         public function get_child_objects( $child_id ) {
             $related_url = get_site_url() . '/wp-json/jet-rel/11/children/'.$child_id;
-            printf('<h3>Related URL: %s</h3>', $related_url);
-            
+
+            $this->debug('RELATED URL', $related_url);
+
             /* perhaps a more secure method? 
             $request = new WP_REST_Request( 'GET', $related_url );
             $request->set_param( 'per_page', 20 );

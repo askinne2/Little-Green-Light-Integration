@@ -7,6 +7,11 @@
 * Author URI => http =>//github.com/askinne2
 */
 
+if (!defined('ABSPATH')) {
+	exit; // Exit if accessed directly
+}
+
+
 define('CONSTITUENTS_DEBUG', false);
 
 define('FILE_PATH', plugin_dir_path( __FILE__ ));
@@ -150,6 +155,51 @@ if (!class_exists("LGL_Constituents")) {
                     
                 );
 
+                $this->payment_data = (object) array(
+                    "external_id" => 0,
+                    "is_anon" => false,
+                    "gift_type_id" => 0,
+                    "gift_type_name" => "",
+                    "gift_category_id" => 0,
+                    "gift_category_name" => "",
+                    "campaign_id" => 0,
+                    "campaign_name" => "",
+                    "fund_id" => 0,
+                    "fund_name" => "",
+                    "appeal_id" => 0,
+                    "appeal_name" => "",
+                    "event_id" => 0,
+                    "event_name" => "",
+                    "received_amount" => 0,
+                    "received_date" => "date",
+                    "payment_type_id" => 0,
+                    "payment_type_name" => "",
+                    "check_number" => "",
+                    "deductible_amount" => 0,
+                    "note" => "",
+                    "ack_template_name" => "",
+                    "deposit_date" => "date",
+                    "deposited_amount" => 0,
+                    "parent_gift_id" => 0,
+                    "parent_external_id" => 0,
+                    "team_member" => ""
+                    /*"custom_fields" => array(
+                        (object) array(
+                            "id" => 0,
+                            "name" => "",
+                            "key" => "",
+                            "remove_previous_values" => false,
+                            "values" => array(
+                                (object) array(
+                                    "id" => 0,
+                                    "name" => ""
+                                )
+                            )
+                        )
+                    )*/
+                );
+                
+
                 
             } // end __construct()
 
@@ -223,6 +273,37 @@ if (!class_exists("LGL_Constituents")) {
                 $this->membership_data->note = 'Renewal via WP_LGL_API';
                 
                 
+            }
+
+            public function set_payment($p) {
+                
+                $this->payment_data["external_id"] = 0;
+                $this->payment_data["gift_type_id"] = ,
+                "gift_type_name" => "",
+                "gift_category_id" => 0,
+                "gift_category_name" => "",
+                "campaign_id" => 0,
+                "campaign_name" => "",
+                "fund_id" => 0,
+                "fund_name" => "",
+                "appeal_id" => 0,
+                "appeal_name" => "",
+                "event_id" => 0,
+                "event_name" => "",
+                "received_amount" => 0,
+                "received_date" => "date",
+                "payment_type_id" => 0,
+                "payment_type_name" => "",
+                "check_number" => "",
+                "deductible_amount" => 0,
+                "note" => "",
+                "ack_template_name" => "",
+                "deposit_date" => "date",
+                "deposited_amount" => 0,
+                "parent_gift_id" => 0,
+                "parent_external_id" => 0,
+                "team_member" => ""
+                */
             }
             
             public function set_data($user_id) {
