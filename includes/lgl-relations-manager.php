@@ -84,29 +84,26 @@ if (!class_exists("LGL_Relations_Manager")) {
         }
         
         public function debug($string, $data=NULL) {
+            if (RELATIONS_DEBUG) {
             printf('<h6 style="color: red;">%s</h3><pre>', $string);
             print_r($data);
             printf('</pre>');
+            }
         }
         
         public function get_all_relations() {
             $related_url = get_site_url() . '/wp-json/jet-rel/';
-            if (RELATIONS_DEBUG) $this->debug('ALL RELATIONS', $related_url);
+            //if (RELATIONS_DEBUG) $this->debug('ALL RELATIONS', $related_url);
             $raw_response = wp_remote_get($related_url);
             if (is_wp_error($raw_response) || '200' != wp_remote_retrieve_response_code($raw_response)) {
-                if (USERS_DEBUG) {
-                    print('wp_error:');
-                    printf('<pre>');
-                    print_r($raw_response);
-                    printf('</pre>');
-                }                
-                return 0;
+                $this->debug('wp_error', $raw_response);
+                return false;
             }
             
-           // $relations = json_decode(wp_remote_retrieve_body($raw_response));
+            $relations = json_decode(wp_remote_retrieve_body($raw_response));
 
 
-            $this->debug('DECODED', $this->all_relations);
+            //$this->debug('DECODED', $this->all_relations);
         }
     }
 }

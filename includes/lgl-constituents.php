@@ -153,54 +153,7 @@ if (!class_exists("LGL_Constituents")) {
                     "finish_date" => "date",
                     "note" => ""
                     
-                );
-
-                $this->payment_data = (object) array(
-                    "external_id" => 0,
-                    "is_anon" => false,
-                    "gift_type_id" => 0,
-                    "gift_type_name" => "",
-                    "gift_category_id" => 0,
-                    "gift_category_name" => "",
-                    "campaign_id" => 0,
-                    "campaign_name" => "",
-                    "fund_id" => 0,
-                    "fund_name" => "",
-                    "appeal_id" => 0,
-                    "appeal_name" => "",
-                    "event_id" => 0,
-                    "event_name" => "",
-                    "received_amount" => 0,
-                    "received_date" => "date",
-                    "payment_type_id" => 0,
-                    "payment_type_name" => "",
-                    "check_number" => "",
-                    "deductible_amount" => 0,
-                    "note" => "",
-                    "ack_template_name" => "",
-                    "deposit_date" => "date",
-                    "deposited_amount" => 0,
-                    "parent_gift_id" => 0,
-                    "parent_external_id" => 0,
-                    "team_member" => ""
-                    /*"custom_fields" => array(
-                        (object) array(
-                            "id" => 0,
-                            "name" => "",
-                            "key" => "",
-                            "remove_previous_values" => false,
-                            "values" => array(
-                                (object) array(
-                                    "id" => 0,
-                                    "name" => ""
-                                )
-                            )
-                        )
-                    )*/
-                );
-                
-
-                
+                );  
             } // end __construct()
 
             public function debug($string, $data=NULL) {
@@ -237,7 +190,7 @@ if (!class_exists("LGL_Constituents")) {
                 $this->address_data->postal_code = get_user_meta($user_id, 'user-postal-code', true);
                 
             }
-            
+          
             public function set_membership($user_id) {
 
                 $lgl_settings = LGL_API_Settings::get_instance();
