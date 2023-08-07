@@ -39,6 +39,10 @@ require_once 'includes/lgl-constituents.php';
 require_once 'includes/lgl-payments.php';
 require_once 'includes/lgl-relations-manager.php';
 
+
+require __DIR__.'/vendor/autoload.php';		
+
+
 add_action('template_redirect', 'lgl_shortcode', 10, );
 function lgl_shortcode($response) {
 	
@@ -85,7 +89,7 @@ if (!class_exists("LGL_API")) {
 		
 		public function __construct()
 		{
-			add_action( 'jet-form-builder/custom-action/lgl-register-user', array($this, 'lgl_register_user'), 10, 2);
+			add_action( 'jet-form-builder/custom-action/lgl_register_user', array($this, 'lgl_register_user'), 10, 2);
 			
 			$this->lgl_current_object = (object) array(
 				'items_count' => 0, 
@@ -143,6 +147,15 @@ if (!class_exists("LGL_API")) {
 				print_r($data);
 				printf('</pre>');
 			}
+		}
+
+		public function console($message) {
+			$debug = new \bdk\Debug(array(
+				'collect' => true,
+				'output' => true,
+			));
+			
+			$debug->log($message);
 		}
 		
 		public function set_request_uri($request_uri)
@@ -422,9 +435,9 @@ if (!class_exists("LGL_API")) {
 			
 			$result = $this->get_request($this->request_uri, $this->args);
 			if ($result && $result->items_count > 0) {
-				printf('<pre>') . print_r($result) . printf('</pre>');
-				//		if (PLUGIN_DEBUG) $this->debug('duplicate', $result);
-				return TRUE;
+				$this->debug('duplicate', $result);
+				
+				return $result->items[0]->id;
 			} else {
 				return FALSE;
 			}		
@@ -437,8 +450,8 @@ if (!class_exists("LGL_API")) {
 			
 			printf('<h2>%s %s</h2>', $constituent->personal_data->first_name, $constituent->personal_data->last_name);
 			
-			
-			if ($this->lgl_search_by_name($constituent->personal_data->first_name . '%20' . $constituent->personal_data->last_name) == FALSE) {
+			$existing_contact_id = $this->lgl_search_by_name($constituent->personal_data->first_name . '%20' . $constituent->personal_data->last_name);
+			if ($existing_contact_id == FALSE) {
 				
 				$this->debug('UNIQUE CONTACT<br>pre-enocde', $constituent->personal_data);
 				
@@ -455,19 +468,28 @@ if (!class_exists("LGL_API")) {
 				if ($response) {
 					/* success now add the other fields */
 					$this->debug("NEW CONTACT", $response);
-					$new_constitudent_id = $response->id;
+					$new_constituent_id = $response->id;
 					$this->lgl_add_object($response->id, $constituent->email_data, 'email_addresses.json' );
 					$this->lgl_add_object($response->id, $constituent->phone_data, 'phone_numbers.json' );
 					$this->lgl_add_object($response->id, $constituent->address_data, 'street_addresses.json');
 					$this->lgl_add_object($response->id, $constituent->membership_data, 'memberships.json');
+					
+					return $new_constituent_id;
+					
+				} else {
+					$this->debug('failed to insert NEW CONTACT');
+					return false;
 				}
+			} else if ($existing_contact_id) {
+				return $existing_contact_id;
+				
 			}
 		}
 		
 		/**
 		* lgl_add_object()
 		*
-		* @var lgl_id 	| ID of new user in Little Green Light
+		* @var lgl_id 	| ID of user to add data to in Little Green Light
 		* @var data 	| data to add
 		* @var uri 		| API endpoint URI
 		* @return lgl_id upon success
@@ -493,10 +515,10 @@ if (!class_exists("LGL_API")) {
 			if ($response) {
 				/* success now add the other fields */
 				$this->debug("DATA ADDED", $response);
-				return $response->item_id;
+				return $response;
 			} else {
 				$this->debug("adding email FAILURE", $response);
-				return;
+				return false;
 			}		
 		}
 		
@@ -508,33 +530,66 @@ if (!class_exists("LGL_API")) {
 		* @var uri 		| API endpoint URI
 		* @return lgl_id upon success
 		*/
-		public function lgl_memberships($lgl_id, $data, $uri) {
+		public function lgl_add_membership_payment($lgl_id) {
+			//$this->lgl_search_by_name()
 			
-			$constituent = LGL_Constituents::get_instance();			
+			$lgl_users = LGL_WP_Users::get_instance();
+			$user_orders = $lgl_users->get_child_objects( $lgl_users->get_current_user_id() );
 			
-			// set up request arguments (API Key + Request URI)
-			$lgl_settings = LGL_API_Settings::get_instance();
-			$api_key = $lgl_settings->lgl_get_setting('api_key');
-			$this->set_request_args($api_key);
+			$lgl_payments = LGL_Payments::get_instance();
 			
-			$constituent_uri = $lgl_settings->lgl_get_setting('constituents_uri');			
-			$endpoint = '/' . $lgl_id . '/' . $uri;
-			$this->request_uri = $constituent_uri . $endpoint;
-			$this->set_request_args($api_key, json_encode($data));
-			
-			$response = $this->post_request($this->request_uri, $this->args);
-			if ($response) {
-				$this->debug("DATA ADDED", $response);
-				return $response->id;
+			if (!$user_orders) {
+				printf('<h3>no users orders</h3>');
+				
 			} else {
-				$this->debug("adding email FAILURE", $response);
-				return;
-			}		
+				printf('<pre>');
+				foreach($user_orders as $order) {
+					$this->debug('<hr/>', $order);
+					$post_order = get_post($order);
+					
+					if (strcmp($post_order->post_type, 'ui_membership_orders') === 0 ) {
+						$this->debug('order', $post_order);
+						$post_meta = get_post_meta($order);
+						$p = $lgl_payments->setup_membership_payment($this, $lgl_users->get_current_user_id(), $post_order, $post_meta);
+						$this->debug('Payment Info ------', $p);
+						
+						$lgl_payment_id = $this->lgl_add_object($lgl_id, $p, 'gifts.json');
+						return $lgl_payment_id;
+						break;
+						
+						/*
+						foreach($post_meta as $key=>$val)
+						{
+							printf('%s : %s<br>', $key, implode($val));
+							//echo $key . ' : ' . $val[0] . '<br/>';
+							if (strcmp($key, 'purchase_type') === 0 && str_contains($val[0], 'Membership')) {
+								
+								$p = $lgl_payments->setup_membership_payment($this, $lgl_users->get_current_user_id(), $post_order, $post_meta);
+								$this->debug('Payment Info ------', $p);
+								
+							} 
+							
+						}
+						*/
+					}
+					
+				}
+				printf('</pre>');
+			}
+			return false;
+			
 			
 		}
 		
 		
-		
+		/**
+		* lgl_register_user()
+		*
+		* @var lgl_id 	| ID of new user in Little Green Light
+		* @var data 	| data to add
+		* @var uri 		| API endpoint URI
+		* @return lgl_id upon success
+		*/
 		
 		public function lgl_register_user($request, $action_handler) {
 			
@@ -548,7 +603,8 @@ if (!class_exists("LGL_API")) {
 			$api_key = $lgl_settings->lgl_get_setting('api_key');
 			$this->set_request_args($api_key);
 			$this->request_uri = $lgl_settings->lgl_get_setting('constituents_uri');
-			echo "<h1>FUCK</h1>";
+			$this->console('fuck');
+			
 			
 			
 			
@@ -573,6 +629,7 @@ if (!class_exists("LGL_API")) {
 			} else {
 				$action_handler->response_data['redirect'] = $redirect;
 			}
+			return ob_get_clean();
 			
 		}
 		
@@ -584,7 +641,7 @@ if (!class_exists("LGL_API")) {
 			);
 			$response = wp_remote_request( $url, $args );
 		}
-
+		
 		
 		public function run_update()
 		{
@@ -602,60 +659,13 @@ if (!class_exists("LGL_API")) {
 			
 			
 			
-			
-			/*
-			$key = array_search('Memberships', array_column($gift_categories, 'display_name'));
-			if ($key !== false) {
-				$this->debug('Memberships Keys', $gift_categories[$key]);	
-				$category_object = $gift_categories[$key];
-			}
-			else {
-				$this->debug('Couldn\'t find Array key');
-			}
-			$key = array_search('Membership Fees', array_column($campaigns, 'name'));
-			if ($key !== false) {
-				$this->debug('Memberships Keys', $campaigns[$key]);	
-				$campaign_object = $campaigns[$key];
-			}
-			else {
-				$this->debug('Couldn\'t find Array key');
-			}
-			*/
-			
-			
-			//	$this->lgl_add_constituent( wp_get_current_user()->data->ID);
+			$lgl_id = $this->lgl_add_constituent( wp_get_current_user()->data->ID);
+			$this->console('added constituent');
 			
 			$r = LGL_Relations_Manager::get_instance();
 			$r->get_all_relations();
 			
-			$lgl_users = LGL_WP_Users::get_instance();
-			$user_orders = $lgl_users->get_child_objects( $lgl_users->get_current_user_id() );
-
-			$lgl_payments = LGL_Payments::get_instance();
-
-			if (!$user_orders) {
-				printf('<h3>no users orders</h3>');
-				
-			} else {
-				printf('<pre>');
-				foreach($user_orders as $order) {
-					$this->debug('<hr/>', $order);
-					$post_meta = get_post_meta($order);
-					foreach($post_meta as $key=>$val)
-					{
-						echo $key . ' : ' . $val[0] . '<br/>';
-						if (str_contains($val[0], 'Membership')) {
-							$p = $lgl_payments->setup_payment($this, 'Membership', $lgl_users->get_current_user_id());
-							$this->debug('Payment Info ------', $p);
-							
-						} 
-						
-					}
-				}
-				printf('</pre>');
-			}
-			
-			
+			//$payment_id = $this->lgl_add_membership_payment($lgl_id);
 			
 			
 			//$this->create_and_update_animals($this->lgl_current_object);

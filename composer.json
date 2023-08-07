@@ -1,5 +1,6 @@
 {
     "require": {
-        "htmlburger/carbon-fields": "^3.5"
+        "htmlburger/carbon-fields": "^3.5",
+        "bdk/debug": "^3.0"
     }
 }
