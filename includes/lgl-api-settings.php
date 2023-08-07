@@ -33,7 +33,7 @@ if (!class_exists("LGL_API_Settings")) {
     * class:   Little Green Light_API_Settings
     * desc:    Creates the settings pages for the Little Green Light API plugin
     */
-    class LGL_API_Settings
+    class LGL_API_Settings3
     {
         /**
         * Class instance
