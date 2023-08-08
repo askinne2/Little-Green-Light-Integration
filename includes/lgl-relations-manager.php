@@ -101,7 +101,9 @@ if (!class_exists("LGL_Relations_Manager")) {
             }
             
             $relations = json_decode(wp_remote_retrieve_body($raw_response));
-
+            if ($relations) {
+                return $relations;
+            }
 
             //$this->debug('DECODED', $this->all_relations);
         }

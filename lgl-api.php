@@ -48,8 +48,8 @@ function lgl_shortcode($response) {
 	
 	$lgl = LGL_API::get_instance();
 	$lgl->shortcode_init();
-	
 }
+
 
 if (!class_exists("LGL_API")) {
 	/**
@@ -89,7 +89,6 @@ if (!class_exists("LGL_API")) {
 		
 		public function __construct()
 		{
-			add_action( 'jet-form-builder/custom-action/lgl_register_user', array($this, 'lgl_register_user'), 10, 2);
 			
 			$this->lgl_current_object = (object) array(
 				'items_count' => 0, 
@@ -146,17 +145,22 @@ if (!class_exists("LGL_API")) {
 				printf('<h6 style="color: red;">%s</h3><pre>', $string);
 				print_r($data);
 				printf('</pre>');
+
+				error_log($string . print_r($data, true));
+
+				
 			}
 		}
 
 		public function console($message) {
-			$debug = new \bdk\Debug(array(
+			$dbug = new \bdk\Debug(array(
 				'collect' => true,
 				'output' => true,
 			));
 			
-			$debug->log($message);
+			$dbug->log($message);
 		}
+
 		
 		public function set_request_uri($request_uri)
 		{
@@ -248,7 +252,7 @@ if (!class_exists("LGL_API")) {
 			
 			$raw_response = wp_remote_get($this->request_uri, $this->args);
 			if (is_wp_error($raw_response) || '200' != wp_remote_retrieve_response_code($raw_response)) {
-				$this->debug('wp_error', $raw_response);
+				$this->debug('get_lgl_data() error:', json_decode($raw_response['body']));			
 				return false;
 			}
 			$response = json_decode(wp_remote_retrieve_body($raw_response));
@@ -269,7 +273,7 @@ if (!class_exists("LGL_API")) {
 		{
 			$raw_response = wp_remote_get($request_uri, $args);
 			if (is_wp_error($raw_response) || '200' != wp_remote_retrieve_response_code($raw_response)) {
-				$this->debug('wp_error', $raw_response);
+				$this->debug('get_request() error:', json_decode($raw_response['body']));
 				return false;
 			}
 			$response = json_decode(wp_remote_retrieve_body($raw_response));
@@ -290,7 +294,7 @@ if (!class_exists("LGL_API")) {
 		{
 			$raw_response = wp_remote_post($request_uri, $args);
 			if (is_wp_error($raw_response) || '200' != wp_remote_retrieve_response_code($raw_response)) {
-				$this->debug('wp_error', $raw_response);			
+				$this->debug('post_request() error:', json_decode($raw_response['body']));			
 				return false;
 			}
 			$response = json_decode(wp_remote_retrieve_body($raw_response));
@@ -431,13 +435,13 @@ if (!class_exists("LGL_API")) {
 			$search_query = '/search.json?q%5B%5D=name%3D' . $name;			
 			
 			$this->request_uri = $this->request_uri . $search_query; 
-			$this->debug('searching for', $this->request_uri);
+			$this->debug('searching for', $name);
 			
 			$result = $this->get_request($this->request_uri, $this->args);
 			if ($result && $result->items_count > 0) {
 				$this->debug('duplicate', $result);
-				
 				return $result->items[0]->id;
+
 			} else {
 				return FALSE;
 			}		
@@ -451,11 +455,10 @@ if (!class_exists("LGL_API")) {
 			printf('<h2>%s %s</h2>', $constituent->personal_data->first_name, $constituent->personal_data->last_name);
 			
 			$existing_contact_id = $this->lgl_search_by_name($constituent->personal_data->first_name . '%20' . $constituent->personal_data->last_name);
-			if ($existing_contact_id == FALSE) {
+			if ($existing_contact_id === FALSE) {
 				
 				$this->debug('UNIQUE CONTACT<br>pre-enocde', $constituent->personal_data);
-				
-				
+								
 				$personal_content = json_encode($constituent->personal_data);
 				
 				$lgl_settings = LGL_API_Settings::get_instance();
@@ -501,9 +504,7 @@ if (!class_exists("LGL_API")) {
 			$api_key = $lgl_settings->lgl_get_setting('api_key');
 			$this->set_request_args($api_key);
 			
-			$constituent_uri = $lgl_settings->lgl_get_setting('constituents_uri');
-			
-			
+			$constituent_uri = $lgl_settings->lgl_get_setting('constituents_uri');			
 			
 			$endpoint = '/' . $lgl_id . '/' . $uri;
 			
@@ -517,7 +518,7 @@ if (!class_exists("LGL_API")) {
 				$this->debug("DATA ADDED", $response);
 				return $response;
 			} else {
-				$this->debug("adding email FAILURE", $response);
+				$this->debug("adding " . $uri . " FAILURE");
 				return false;
 			}		
 		}
@@ -537,6 +538,8 @@ if (!class_exists("LGL_API")) {
 			$user_orders = $lgl_users->get_child_objects( $lgl_users->get_current_user_id() );
 			
 			$lgl_payments = LGL_Payments::get_instance();
+			//$lgl_payments->retrieve_payment_types();
+
 			
 			if (!$user_orders) {
 				printf('<h3>no users orders</h3>');
@@ -546,7 +549,9 @@ if (!class_exists("LGL_API")) {
 				foreach($user_orders as $order) {
 					$this->debug('<hr/>', $order);
 					$post_order = get_post($order);
-					
+					foreach ($post_order as $key=>$val) {
+						printf('%s : %s<br>', $key, $val);
+
 					if (strcmp($post_order->post_type, 'ui_membership_orders') === 0 ) {
 						$this->debug('order', $post_order);
 						$post_meta = get_post_meta($order);
@@ -555,7 +560,7 @@ if (!class_exists("LGL_API")) {
 						
 						$lgl_payment_id = $this->lgl_add_object($lgl_id, $p, 'gifts.json');
 						return $lgl_payment_id;
-						break;
+
 						
 						/*
 						foreach($post_meta as $key=>$val)
@@ -572,6 +577,7 @@ if (!class_exists("LGL_API")) {
 						}
 						*/
 					}
+				}
 					
 				}
 				printf('</pre>');
@@ -597,30 +603,26 @@ if (!class_exists("LGL_API")) {
 			if ( ! $post_id ) {
 				return;
 			}
-			
-			
-			$lgl_settings = LGL_API_Settings::get_instance();
-			$api_key = $lgl_settings->lgl_get_setting('api_key');
-			$this->set_request_args($api_key);
-			$this->request_uri = $lgl_settings->lgl_get_setting('constituents_uri');
-			$this->console('fuck');
-			
-			
-			
-			
-			
-			
-			$response = wp_remote_get( $this->request_uri, $this->args );
-			$body = wp_remote_retrieve_body( $response );
-			$body = json_decode( $body, true );
-			
-			
-			if ( $body ) {
-				$data = $body['data'][0];
-				printf('<hr/><hr/><pre>%s</pre>', $body);
-				//	update_post_meta( $post_id, 'api-response', $data['name'] );
+			ob_start();
+
+			$this->debug('Request', $request);
+			$this->debug('Action Handler', $action_handler);
+			$uid = $request['user_id'];
+			//$this->debug ('user', wp_get_current_user());
+
+			if ($uid != 0) {
+				$lgl_id = $this->lgl_add_constituent($uid);
+				if ($lgl_id) $this->debug('Constituent LGL ID: ', $lgl_id );
+				
+				$payment_id = $this->lgl_add_membership_payment($lgl_id);
+				if ($payment_id) $this->debug('Payment ID: ', $payment_id);
+
+				
+
+			} else {
+				$this->debug('fuck');
 			}
-			
+						
 			$redirect = get_permalink( $post_id );
 			
 			if ( ! $request['__is_ajax'] ) {
@@ -629,7 +631,7 @@ if (!class_exists("LGL_API")) {
 			} else {
 				$action_handler->response_data['redirect'] = $redirect;
 			}
-			return ob_get_clean();
+			ob_get_clean();
 			
 		}
 		
@@ -650,22 +652,35 @@ if (!class_exists("LGL_API")) {
 			if (REMOVE_TRANSIENT) {
 				$this->shelterluv_remove_transient();
 			}
-			//$this->debug ('user', wp_get_current_user());
 			
 			
 			//$lgl_constituents = $this->get_all_constituents();
 			//if (PLUGIN_DEBUG) $this->debug("constitudents", $lgl_constituents);
 			
+			/*
+			$membership = $this->get_lgl_data('MEMBERSHIPS');
+			if ($membership) $membership = $membership->items;
+			$this->debug('MEMBERSHIPS:' , $membership);
+			*/
 			
 			
+			$user = wp_get_current_user();
+			//$this->debug ('user', wp_get_current_user());
+
+			if ($user->data->ID != 0) {
+				$lgl_id = $this->lgl_add_constituent( $user->data->ID);
+				if ($lgl_id) $this->debug('Constituent LGL ID: ', $lgl_id );
+				
+				//$payment_id = $this->lgl_add_membership_payment($lgl_id);
+
+			} else {
+				$this->debug('not logged in');
+			}
 			
-			$lgl_id = $this->lgl_add_constituent( wp_get_current_user()->data->ID);
-			$this->console('added constituent');
 			
 			$r = LGL_Relations_Manager::get_instance();
-			$r->get_all_relations();
+			//$r->get_all_relations();
 			
-			//$payment_id = $this->lgl_add_membership_payment($lgl_id);
 			
 			
 			//$this->create_and_update_animals($this->lgl_current_object);
@@ -676,3 +691,6 @@ if (!class_exists("LGL_API")) {
 		}
 	}
 }
+
+
+add_action( 'jet-form-builder/custom-action/lgl_register_user', array(LGL_API::get_instance(), 'lgl_register_user'), 10, 2);

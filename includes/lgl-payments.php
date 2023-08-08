@@ -37,6 +37,8 @@ if (!class_exists("LGL_Payments")) {
 		var $category = array();
 		var $campaign = array();
 		var $fund = array();
+
+		var $lgl;
 		
 		
 		/**
@@ -86,26 +88,26 @@ if (!class_exists("LGL_Payments")) {
 				"team_member" => "",
 			);
 
-			$lgl = LGL_API::get_instance();
+			$this->lgl = LGL_API::get_instance();
 
-			$payment_types = $lgl->get_lgl_data('PAYMENT_TYPES');
+			$payment_types = $this->lgl->get_lgl_data('PAYMENT_TYPES');
 			if ($payment_types) $payment_types = $payment_types->items;
 			//$lgl->debug('PAYMENT TYPE:' , $payment_types);
 
 			
-			$gift_types = $lgl->get_lgl_data('GIFT_TYPES');
+			$gift_types = $this->lgl->get_lgl_data('GIFT_TYPES');
 			if ($gift_types) $gift_types = $gift_types->items;
 			//$lgl->debug('GIFTTYPES:' , $gift_types);
 			
-			$gift_categories = $lgl->get_lgl_data('GIFT_CATEGORIES');
+			$gift_categories = $this->lgl->get_lgl_data('GIFT_CATEGORIES');
 			if ($gift_categories) $gift_categories = $gift_categories->items;
 			//$lgl->debug('GIFT CATEGORIES:' , $gift_categories);
 			
-			$campaigns = $lgl->get_lgl_data('CAMPAIGNS');
+			$campaigns = $this->lgl->get_lgl_data('CAMPAIGNS');
 			if ($campaigns) $campaigns = $campaigns->items;
 			//$lgl->debug('CAMPAIGNS:' , $campaigns);
 			
-			$funds = $lgl->get_lgl_data('FUNDS');
+			$funds = $this->lgl->get_lgl_data('FUNDS');
 			if ($funds) $funds = $funds->items;
 			//$lgl->debug('FUNDS:' , $funds);
 			
@@ -145,7 +147,7 @@ if (!class_exists("LGL_Payments")) {
 		}
 		
 		/**
-		* setup_payment()
+		* setup_membership payment()
 		* @var $lgl - LGL_API() class object
 		* @var $payment_type - string to identify type of payment
 		* @var $uid - WP User ID
@@ -153,9 +155,6 @@ if (!class_exists("LGL_Payments")) {
 		* @return $p - payment_data object
 		*/
 		public function setup_membership_payment($lgl, $uid, $post_order, $order_meta) {
-			
-			
-
 			
 			if ($this->gift && $this->category && $this->campaign && $this->fund) {
 				$p = array(
