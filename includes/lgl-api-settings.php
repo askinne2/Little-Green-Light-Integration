@@ -15,19 +15,6 @@ if (!defined('ABSPATH')) {
 use Carbon_Fields\Container;
 use Carbon_Fields\Field;
 
-add_action( 'after_setup_theme', 'lgl_api_settings' );
-function lgl_api_settings() {
-    
-    $lgl = LGL_API_Settings::get_instance();
-    $lgl->lgl_init();
-    require_once( 'vendor/autoload.php' );
-    \Carbon_Fields\Carbon_Fields::boot();
-    
-}   
-
-
-
-
 if (!class_exists("LGL_API_Settings")) {
     /**
     * class:   Little Green Light_API_Settings
@@ -113,10 +100,11 @@ if (!class_exists("LGL_API_Settings")) {
 
                 ) );
 
-            }
+        }
             
 
-            public function set_membership_fields() {
+        public function set_membership_fields() 
+        {
 
                 $lgl = LGL_API::get_instance();
                 $response = $lgl->get_lgl_data( 'MEMBERSHIPS');
@@ -138,18 +126,31 @@ if (!class_exists("LGL_API_Settings")) {
                     $index++;
                   }
                 
-            }
+        }
   
             
-            public function lgl_get_setting( string $setting_name ) {
+        public function lgl_get_setting( string $setting_name ) 
+        {
                 return carbon_get_theme_option( $setting_name );
-            }
+        }
 
-            public function debug($string, $data=NULL) {
+        public function debug($string, $data=NULL) 
+        {
                 printf('<h6 style="color: red;">%s</h3><pre>', $string);
                 print_r($data);
                 printf('</pre>');
-            }
         }
     }
+}
     
+
+
+add_action( 'after_setup_theme', 'lgl_api_settings' );
+function lgl_api_settings() {
+    
+    $lgl = LGL_API_Settings::get_instance();
+    $lgl->lgl_init();
+    require_once( 'vendor/autoload.php' );
+    \Carbon_Fields\Carbon_Fields::boot();
+    
+}   
