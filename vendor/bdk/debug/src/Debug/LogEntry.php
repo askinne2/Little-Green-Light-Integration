@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug;
@@ -24,7 +24,7 @@ class LogEntry extends Event implements JsonSerializable
     /**
      * Regular expression for determining if argument contains "substitutions"
      *
-     * @var string
+     * @var non-empty-string
      */
     public $subRegex = '/%
         (?:
@@ -59,14 +59,15 @@ class LogEntry extends Event implements JsonSerializable
         $this->values = array(
             'appendLog' => true,
             'args' => $args,
-            'meta' => $meta,
+            'meta' => array(),
             'method' => $method,
-            'numArgs' => 0,     // number of initial non-meta aargs passed (does not include added default values)
+            'numArgs' => 0,     // number of initial non-meta args passed (does not include added default values)
             'return' => null,
         );
+        $this->setMeta($meta);
         $metaExtracted = $this->metaExtract($this->values['args']);
         $this->mergeDefaultArgs($defaultArgs, $argsToMeta);
-        $this->values['meta'] = \array_merge($this->values['meta'], $metaExtracted);
+        $this->setMeta($metaExtracted);
         $this->onSet($this->values);
     }
 
@@ -101,9 +102,19 @@ class LogEntry extends Event implements JsonSerializable
                 'trace' => $this->subject->backtrace->get(null, 0, $exception),
             ));
         }
+        $cfgRestore = array();
+        if (\in_array($this->values['method'], ['profileEnd', 'table', 'trace'], true)) {
+            $maxDepth = $this->subject->getCfg('maxDepth');
+            if ($maxDepth === 1) {
+                $this->subject->setCfg('maxDepth', 2, Debug::CONFIG_NO_RETURN);
+                $cfgRestore = array('maxDepth' => $maxDepth);
+            }
+        }
         foreach ($this->values['args'] as $i => $val) {
             $this->values['args'][$i] = $this->subject->abstracter->crate($val, $this->values['method']);
         }
+        $this->subject->setCfg($cfgRestore, Debug::CONFIG_NO_RETURN);
+        $this->removeNullMeta();
     }
 
     /**
@@ -169,6 +180,7 @@ class LogEntry extends Event implements JsonSerializable
 
     /**
      * Set meta value(s)
+     *
      * Value(s) get merged with existing values
      *
      * @param mixed $mixed (string) key or (array) key/value array
@@ -179,14 +191,23 @@ class LogEntry extends Event implements JsonSerializable
     public function setMeta($mixed, $val = null)
     {
         if (\is_array($mixed) === false) {
-            if ($val === null) {
-                /** @psalm-suppress EmptyArrayAccess */
-                unset($this->values['meta'][$mixed]);
-                return;
-            }
             $mixed = array($mixed => $val);
         }
+        if ($mixed === []) {
+            return;
+        }
         $this->setValue('meta', \array_merge($this->values['meta'], $mixed));
+    }
+
+    /**
+     * Remove null meta values
+     *
+     * @return void
+     */
+    private function removeNullMeta()
+    {
+        $remove = \array_filter($this->values['meta'], 'is_null');
+        $this->values['meta'] = \array_diff_key($this->values['meta'], $remove);
     }
 
     /**
@@ -254,6 +275,9 @@ class LogEntry extends Event implements JsonSerializable
         if (isset($values['meta']['appendGroup'])) {
             $this->values['meta']['appendGroup'] = $this->subject->html->sanitizeId($values['meta']['appendGroup']);
         }
+        if (isset($values['meta']['icon']) && \preg_match('/^:(.+):$/', $values['meta']['icon'], $matches)) {
+            $this->values['meta']['icon'] = $this->subject->getCfg('icons.' . $matches[1], Debug::CONFIG_DEBUG);
+        }
         $this->onSetMetaAttribs();
         if (\array_key_exists('channel', $values['meta'])) {
             $this->onSetMetaChannel();
@@ -277,7 +301,7 @@ class LogEntry extends Event implements JsonSerializable
             return;
         }
         if (!isset($meta['attribs']['class'])) {
-            $meta['attribs']['class'] = array();
+            $meta['attribs']['class'] = [];
         } elseif (\is_string($meta['attribs']['class'])) {
             $meta['attribs']['class'] = \explode(' ', $meta['attribs']['class']);
         }

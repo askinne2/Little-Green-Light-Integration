@@ -6,13 +6,19 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     v3.0
  */
 
 namespace bdk;
 
+use ArrayAccess;
 use bdk\Container\ServiceProviderInterface;
+use bdk\Container\Utility;
+use InvalidArgumentException;
+use OutOfBoundsException;
+use RuntimeException;
+use SplObjectStorage;
 
 /**
  * Container
@@ -29,34 +35,54 @@ use bdk\Container\ServiceProviderInterface;
  * @author Fabien Potencier
  * @author Brad Kent <bkfake-github@yahoo.com>
  */
-class Container implements \ArrayAccess
+class Container implements ArrayAccess
 {
+    /** @var array */
     private $cfg = array(
-        'allowOverride' => false,  // whether can update alreay built service
+        'allowOverride' => false,  // whether can update already built service
         'onInvoke' => null, // callable
     );
 
     /**
+     * Closures used to modify / extend service definitions when invoked
+     *
+     * @var array<string,Closure>
+     */
+    private $extenders;
+
+    /**
      * Closures flagged as factories
      *
-     * @var \SplObjectStorage
+     * @var SplObjectStorage
      */
     private $factories;
 
-    private $invoked = array();  // keep track of invoked service closures
+    /**
+     * Keep track of invoked service closures
+     *
+     * @var array<string,bool>
+     */
+    private $invoked = array();
 
+    /** @var array<string,bool> */
     private $keys = array();
 
     /**
-     * wrap anonymous functions with the protect() method to store them as value
+     * Wrap anonymous functions with the protect() method to store them as value
      *  vs treating as service
      *
-     * @var \SplObjectStorage
+     * @var SplObjectStorage
      */
     private $protected;
 
+    /**
+     * Populated with the original raw service/factory closure when invoked
+     *
+     * @var array<string,mixed>
+     */
     private $raw = array();
 
+    /** @var array<string,mixed> */
     private $values = array();
 
     /**
@@ -69,11 +95,55 @@ class Container implements \ArrayAccess
      */
     public function __construct($values = array(), $cfg = array())
     {
-        $this->factories = new \SplObjectStorage();
-        $this->protected = new \SplObjectStorage();
+        $this->factories = new SplObjectStorage();
+        $this->protected = new SplObjectStorage();
 
         $this->setCfg($cfg);
         $this->setValues($values);
+    }
+
+    /**
+     * Magic method
+     *
+     * Provide insight into the container
+     * exclude raw & values
+     *
+     * @return array
+     */
+    public function __debugInfo()
+    {
+        return array(
+            'cfg' => $this->cfg,
+            'invoked' => $this->invoked,
+            'keys' => $this->keys,
+            'raw' => "\x00notInspected\x00",
+            'values' => "\x00notInspected\x00",
+        );
+    }
+
+    /**
+     * Extends an object definition.
+     *
+     * Useful for
+     *  - Extend an existing object definition without necessarily loading that object.
+     *  - Ensure user-supplied factory is decorated with additional functionality.
+     *
+     * The callable should:
+     *  - take the value as its first argument and the container as its second argument
+     *  - return the modified value
+     *
+     * @param string   $name     The unique identifier for the object
+     * @param callable $callable A service definition to extend the original
+     *
+     * @return void
+     */
+    public function extend($name, $callable)
+    {
+        $this->assertExists($name);
+        Utility::assertInvokable($this->values[$name]);
+        Utility::assertInvokable($callable);
+
+        $this->extenders[$name] = $callable;
     }
 
     /**
@@ -87,19 +157,17 @@ class Container implements \ArrayAccess
      * @param callable $invokable A service definition to be used as a factory
      *
      * @return callable The passed callable
-     * @throws \InvalidArgumentException Service definition has to be a closure or an invokable object
+     * @throws InvalidArgumentException Service definition has to be a closure or an invokable object
      */
     public function factory($invokable)
     {
-        if (\is_object($invokable) === false || \method_exists($invokable, '__invoke') === false) {
-            throw new \InvalidArgumentException('Closure or invokable object expected.');
-        }
+        Utility::assertInvokable($invokable);
         $this->factories->attach($invokable);
         return $invokable;
     }
 
     /**
-     * Finds an entry of the container by its identifier and returns it.
+     * Finds an entry by its identifier and returns it.
      *
      * @param string $name Identifier of the entry to look for.
      *
@@ -139,7 +207,7 @@ class Container implements \ArrayAccess
      *
      * @return bool
      *
-     * @throws \OutOfBoundsException If the identifier is not defined
+     * @throws OutOfBoundsException If the identifier is not defined
      */
     public function needsInvoked($name)
     {
@@ -152,8 +220,7 @@ class Container implements \ArrayAccess
     }
 
     /**
-     * ArrayAccess
-     * Checks if a parameter or an object is set.
+     * ArrayAccess: Checks if a parameter or an object is set.
      *
      * @param string $name The unique identifier for the parameter or object
      *
@@ -166,73 +233,68 @@ class Container implements \ArrayAccess
     }
 
     /**
-     * ArrayAccess
-     * Gets a parameter or an object.
+     * ArrayAccess: Gets a parameter or an object.
      *
      * @param string $name The unique identifier for the parameter or object
      *
      * @return mixed The value of the parameter or an object
-     * @throws \OutOfBoundsException If the identifier is not defined
+     * @throws OutOfBoundsException If the identifier is not defined
      */
     #[\ReturnTypeWillChange]
     public function offsetGet($name)
     {
         $this->assertExists($name);
+
         if ($this->needsInvoked($name) === false) {
             return $this->values[$name];
         }
+
         if (isset($this->factories[$this->values[$name]])) {
             // we're a factory
             $val = $this->values[$name]($this);
-            if (\is_callable($this->cfg['onInvoke'])) {
-                $this->cfg['onInvoke']($val, $name, $this);
-            }
-            return $val;
+            return $this->onInvoke($name, $val);
         }
+
         // we're a service
         $raw = $this->values[$name];
         $this->invoked[$name] = true;
         $this->raw[$name] = $raw;
 
         $val = $raw($this);
-        if (\is_callable($this->cfg['onInvoke'])) {
-            $this->cfg['onInvoke']($val, $name, $this);
-        }
+        $val = $this->onInvoke($name, $val);
         $this->values[$name] = $val;
 
         return $val;
     }
 
     /**
-     * ArrayAccess
-     * Sets a parameter or an object.
+     * ArrayAccess: Sets a parameter or an object.
      *
-     * @param string $name  The unique identifier for the parameter or object
-     * @param mixed  $value The value of the parameter or a closure to define an object
+     * @param string $offset The unique identifier for the parameter or object
+     * @param mixed  $value  The value of the parameter or a closure to define an object
      *
-     * @throws \RuntimeException Prevent override of a already built service
+     * @throws RuntimeException Prevent override of a already built service
      * @return void
      */
     #[\ReturnTypeWillChange]
-    public function offsetSet($name, $value)
+    public function offsetSet($offset, $value)
     {
-        if (isset($this->invoked[$name]) && $this->cfg['allowOverride'] === false) {
-            throw new \RuntimeException(
-                \sprintf('Cannot update "%s" after it has been instantiated.', $name)
+        if (isset($this->invoked[$offset]) && $this->cfg['allowOverride'] === false) {
+            throw new RuntimeException(
+                \sprintf('Cannot update "%s" after it has been instantiated.', $offset)
             );
         }
 
-        $this->keys[$name] = true;
-        $this->values[$name] = $value;
+        $this->keys[$offset] = true;
+        $this->values[$offset] = $value;
         unset(
-            $this->invoked[$name],
-            $this->raw[$name]
+            $this->invoked[$offset],
+            $this->raw[$offset]
         );
     }
 
     /**
-     * ArrayAccess
-     * Unsets a parameter or an object.
+     * ArrayAccess: Unsets a parameter or an object.
      *
      * @param string $name The unique identifier for the parameter or object
      *
@@ -270,13 +332,11 @@ class Container implements \ArrayAccess
      * @param callable $invokable A callable to protect from being evaluated
      *
      * @return callable The passed callable
-     * @throws \InvalidArgumentException Service definition has to be a closure or an invokable object
+     * @throws InvalidArgumentException Service definition has to be a closure or an invokable object
      */
     public function protect($invokable)
     {
-        if (\is_object($invokable) === false || \method_exists($invokable, '__invoke') === false) {
-            throw new \InvalidArgumentException('Closure or invokable object expected.');
-        }
+        Utility::assertInvokable($invokable);
         $this->protected->attach($invokable);
         return $invokable;
     }
@@ -288,7 +348,7 @@ class Container implements \ArrayAccess
      *
      * @return mixed The value of the parameter or the closure defining an object
      *
-     * @throws \OutOfBoundsException If the identifier is not defined
+     * @throws OutOfBoundsException If the identifier is not defined
      */
     public function raw($name)
     {
@@ -359,14 +419,34 @@ class Container implements \ArrayAccess
      *
      * @return void
      *
-     * @throws \OutOfBoundsException If the identifier is not defined
+     * @throws OutOfBoundsException If the identifier is not defined
      */
     private function assertExists($name)
     {
         if ($this->offsetExists($name) === false) {
-            throw new \OutOfBoundsException(
+            throw new OutOfBoundsException(
                 \sprintf('Unknown identifier: "%s"', $name)
             );
         }
+    }
+
+    /**
+     * Called when service or factory is invoked
+     *
+     * @param string $name  The service or factory name
+     * @param mixed  $value The value returned by the definition
+     *
+     * @return mixed the value (possibly modified by extenders)
+     */
+    private function onInvoke($name, $value)
+    {
+        if (isset($this->extenders[$name])) {
+            $callable = $this->extenders[$name];
+            $value = $callable($value, $this);
+        }
+        if (\is_callable($this->cfg['onInvoke'])) {
+            $this->cfg['onInvoke']($value, $name, $this);
+        }
+        return $value;
     }
 }

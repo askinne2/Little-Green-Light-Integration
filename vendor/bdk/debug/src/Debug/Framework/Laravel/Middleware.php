@@ -6,14 +6,14 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Framework\Laravel;
 
 use bdk\Debug;
-use bdk\Debug\Abstraction\Abstracter;
+use bdk\Debug\Abstraction\Type;
 use Closure;
 use Error;
 use Exception;
@@ -69,7 +69,7 @@ class Middleware
      * Handle an incoming request.
      *
      * @param Request $request Request instance
-     * @param Closure $next    Next middleare handler
+     * @param Closure $next    Next middleware handler
      *
      * @return mixed
      */
@@ -100,12 +100,14 @@ class Middleware
     /**
      * Get displayed user information
      *
-     * @param User $user user interface
+     * @param User|null $user user interface
      *
      * @return array
      */
-    protected function getUserInformation(User $user = null)
+    protected function getUserInformation($user = null)
     {
+        $this->debug->utility->assertType($user, 'Illuminate\Foundation\Auth\User');
+
         // Defaults
         if ($user === null) {
             return array(
@@ -114,7 +116,7 @@ class Middleware
             );
         }
 
-        // The default auth identifer is the ID number, which isn't all that
+        // The default auth identifier is the ID number, which isn't all that
         // useful. Try username and email.
         $identifier = $user instanceof Authenticatable
             ? $user->getAuthIdentifier()
@@ -201,7 +203,7 @@ class Middleware
         $debug = $this->debug->rootInstance->getChannel(
             'User',
             array(
-                'channelIcon' => 'fa fa-user-o',
+                'channelIcon' => ':user:',
                 'nested' => false,
             )
         );
@@ -210,7 +212,7 @@ class Middleware
     }
 
     /**
-     * Set guart info
+     * Set guard info
      *
      * @param string $guardName Guard name
      *
@@ -329,15 +331,15 @@ class Middleware
         $debug = $this->debug->rootInstance->getChannel(
             'Session',
             array(
-                'channelIcon' => 'fa fa-suitcase',
+                'channelIcon' => ':session:',
                 'nested' => false,
             )
         );
         $debug->log(
-            $this->debug->abstracter->crateWithVals(
-                \get_class($this->container['session']),
-                array('typeMore' => Abstracter::TYPE_STRING_CLASSNAME)
-            )
+            $this->debug->abstracter->crateWithVals(\get_class($this->container['session']), array(
+                'type' => Type::TYPE_IDENTIFIER,
+                'typeMore' => Type::TYPE_IDENTIFIER_CLASSNAME,
+            ))
         );
         $debug->log(
             $this->container['session']->all()
@@ -354,6 +356,6 @@ class Middleware
      */
     protected function shouldCollect($name, $default = false)
     {
-        return $this->container['config']->get('phpDebugConsole.collect.' . $name, $default);
+        return $this->container['config']->get('phpDebugConsole.laravel.' . $name, $default);
     }
 }

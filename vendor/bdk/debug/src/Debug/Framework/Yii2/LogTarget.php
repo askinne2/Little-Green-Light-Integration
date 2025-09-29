@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Framework\Yii2;
@@ -21,9 +21,9 @@ use yii\log\Target;
  */
 class LogTarget extends Target
 {
-    public $except = array(
+    public $except = [
         'yii\db\Command::query',
-    );
+    ];
 
     public $exportInterval = 1;
 
@@ -44,19 +44,21 @@ class LogTarget extends Target
     /**
      * Constructor
      *
-     * @param Debug $debug  Debug instance
-     * @param array $config Configuration
+     * @param Debug|null $debug  Debug instance
+     * @param array      $config Configuration
      *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public function __construct(Debug $debug = null, $config = array())
+    public function __construct($debug = null, $config = array())
     {
+        \bdk\Debug\Utility::assertType($debug, 'bdk\Debug');
+
         if (!$debug) {
-            $debug = Debug::_getChannel('Yii');
+            $debug = Debug::getChannel('Yii');
         } elseif ($debug === $debug->rootInstance) {
             $debug = $debug->getChannel('Yii');
         }
-        $debug->backtrace->addInternalClass('yii\\', 1);
+        $debug->backtrace->addInternalClass('yii', 1);
         $this->debug = $debug;
         parent::__construct($config);
     }
@@ -71,7 +73,8 @@ class LogTarget extends Target
             static::filterMessages($messages, $this->getLevels(), $this->categories, $this->except)
         );
         $count = \count($this->messages);
-        if ($count > 0 && ($final || $this->exportInterval > 0 && $count >= $this->exportInterval)) {
+        $intervalMet = $final || ($this->exportInterval > 0 && $count >= $this->exportInterval);
+        if ($count > 0 && $intervalMet) {
             $oldExportInterval = $this->exportInterval;
             $this->exportInterval = 0;
             $this->export();
@@ -91,7 +94,7 @@ class LogTarget extends Target
     }
 
     /**
-     * Send log meessage to PhpDebugConsole
+     * Send log message to PhpDebugConsole
      *
      * @param array $message Yii log message
      *
@@ -109,7 +112,7 @@ class LogTarget extends Target
         $debug = $message['channel'];
         $method = $this->levelMap[$message['level']];
         $args = $this->handleMessageArgs($message);
-        \call_user_func_array(array($debug, $method), $args);
+        \call_user_func_array([$debug, $method], $args);
     }
 
     /**
@@ -121,19 +124,19 @@ class LogTarget extends Target
      */
     private function handleMessageArgs($message)
     {
-        $args = \array_filter(array(
+        $args = \array_filter([
             \ltrim($message['category'] . ':', ':'),
             $message['text'],
-        ));
+        ]);
         if ($message['level'] === Logger::LEVEL_PROFILE_END) {
             $messageBegin = \array_pop($this->profileStack);
             $text = \ltrim($messageBegin['category'] . ': ' . $messageBegin['text'], ': ');
             $duration = $message['timestamp'] - $messageBegin['timestamp'];
-            $args = array($text, $duration);
+            $args = [$text, $duration];
         } elseif ($message['level'] === Logger::LEVEL_TRACE) {
             $caption = \ltrim($message['category'] . ': ' . $message['text'], ': ');
             $message['meta']['trace'] = $message['trace'];
-            $args = array(false, $caption);
+            $args = [false, $caption];
         }
         if ($message['meta']) {
             $args[] = $message['channel']->meta($message['meta']);
@@ -172,7 +175,7 @@ class LogTarget extends Target
     }
 
     /**
-     * Set meta infor for Application category
+     * Set meta info for Application category
      *
      * @param array $message key/value'd Yii log message
      *
@@ -188,7 +191,7 @@ class LogTarget extends Target
     }
 
     /**
-     * Set meta infor for Caching namespace
+     * Set meta info for Caching namespace
      *
      * @param array $message key/value'd Yii log message
      *
@@ -198,7 +201,7 @@ class LogTarget extends Target
      */
     private function messageMetaCaching($message)
     {
-        $icon = 'fa fa-cube';
+        $icon = ':cache:';
         $message['category'] = null;
         $message['channel'] = $this->debug->getChannel('Cache', array(
             'channelIcon' => $icon,
@@ -208,7 +211,7 @@ class LogTarget extends Target
     }
 
     /**
-     * Set meta infor for Connection category
+     * Set meta info for Connection category
      *
      * @param array $message key/value'd Yii log message
      *
@@ -218,7 +221,7 @@ class LogTarget extends Target
      */
     private function messageMetaConnection($message)
     {
-        $icon = 'fa fa-database';
+        $icon = ':database:';
         $message['category'] = null;
         $message['channel'] = $this->debug->getChannel('PDO', array(
             'channelIcon' => $icon,
@@ -228,7 +231,7 @@ class LogTarget extends Target
     }
 
     /**
-     * Set meta infor for Module category
+     * Set meta info for Module category
      *
      * @param array $message key/value'd Yii log message
      *
@@ -238,7 +241,7 @@ class LogTarget extends Target
      */
     private function messageMetaModule($message)
     {
-        $icon = 'fa fa-puzzle-piece';
+        $icon = ':component:';
         $message['channel'] = $this->debug->getChannel($message['category'], array(
             'channelIcon' => $icon,
         ));
@@ -247,7 +250,7 @@ class LogTarget extends Target
     }
 
     /**
-     * Set meta infor for View category
+     * Set meta info for View category
      *
      * @param array $message key/value'd Yii log message
      *
@@ -257,7 +260,7 @@ class LogTarget extends Target
      */
     private function messageMetaView($message)
     {
-        $icon = 'fa fa-file-text-o';
+        $icon = ':template:';
         $message['channel'] = $this->debug->getChannel($message['category'], array(
             'channelIcon' => $icon,
         ));
@@ -275,22 +278,22 @@ class LogTarget extends Target
      */
     private function normalizeMessage($message)
     {
-        $message = \array_replace(array(
+        $message = \array_replace([
             null,
             null,
             null,
             null,
-            array(),
+            [],
             null,
-        ), $message);
-        $message = \array_combine(array(
+        ], $message);
+        $message = \array_combine([
             'text',
             'level',
             'category',
             'timestamp',
             'trace',
             'memory',
-        ), $message);
+        ], $message);
         if ($message['level'] === Logger::LEVEL_TRACE && empty($message['trace'])) {
             $message['level'] = Logger::LEVEL_INFO;
         }

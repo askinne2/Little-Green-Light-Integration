@@ -6,14 +6,14 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug;
 
 /**
- * Route Interface
+ * Interface providing means to get and set configuration
  */
 interface ConfigurableInterface
 {

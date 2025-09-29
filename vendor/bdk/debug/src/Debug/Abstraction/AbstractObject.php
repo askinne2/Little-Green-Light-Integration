@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.0
  */
 
 namespace bdk\Debug\Abstraction;
@@ -15,62 +15,74 @@ namespace bdk\Debug\Abstraction;
 use bdk\Debug;
 use bdk\Debug\AbstractComponent;
 use bdk\Debug\Abstraction\Abstracter;
-use bdk\Debug\Abstraction\AbstractObjectConstants;
-use bdk\Debug\Abstraction\AbstractObjectHelper;
-use bdk\Debug\Abstraction\AbstractObjectMethods;
-use bdk\Debug\Abstraction\AbstractObjectProperties;
-use bdk\Debug\Data;
-use bdk\Debug\Utility\PhpDoc;
-use Error;
-use ReflectionEnum;
+use bdk\Debug\Abstraction\Object\Abstraction as ObjectAbstraction;
+use bdk\Debug\Abstraction\Object\Constants;
+use bdk\Debug\Abstraction\Object\Definition;
+use bdk\Debug\Abstraction\Object\Helper;
+use bdk\Debug\Abstraction\Object\Methods;
+use bdk\Debug\Abstraction\Object\Properties;
+use bdk\Debug\Abstraction\Object\PropertiesInstance;
+use bdk\Debug\Abstraction\Object\Subscriber;
+use ReflectionClass;
+use ReflectionEnumUnitCase;
 use RuntimeException;
 
 /**
  * Abstracter:  Methods used to abstract objects
+ *
+ * @property-read Abstracter $abstracter
+ * @property-read Constants $constants
+ * @property-read Debug $debug
+ * @property-read Definition $definition
+ * @property-read Helper $helper
+ * @property-read Methods $methods
+ * @property-read Properties $properties
+ * @property-read PropertiesInstance $properties
  */
 class AbstractObject extends AbstractComponent
 {
-    // GENERAL
-    const PHPDOC_COLLECT = 1; // 2^0
-    const PHPDOC_OUTPUT = 2;  // 2^1
-    const OBJ_ATTRIBUTE_COLLECT = 4;
-    const OBJ_ATTRIBUTE_OUTPUT = 8;
-    const TO_STRING_OUTPUT = 16; // 2^4
     const BRIEF = 4194304; // 2^22
 
-    // CONSTANTS
-    const CONST_COLLECT = 32;
-    const CONST_OUTPUT = 64;
-    const CONST_ATTRIBUTE_COLLECT = 128;
-    const CONST_ATTRIBUTE_OUTPUT = 256; // 2^8
-
-    // CASE
+    // CASE (2^9 - 2^12)
     const CASE_COLLECT = 512;
     const CASE_OUTPUT = 1024;
     const CASE_ATTRIBUTE_COLLECT = 2048;
-    const CASE_ATTRIBUTE_OUTPUT = 4096; // 2^12
+    const CASE_ATTRIBUTE_OUTPUT = 4096;
 
-    // PROPERTIES
-    const PROP_ATTRIBUTE_COLLECT = 8192;
-    const PROP_ATTRIBUTE_OUTPUT = 16384; // 2^14
+    // CONSTANTS (2^5 - 2^8)
+    const CONST_COLLECT = 32;
+    const CONST_OUTPUT = 64;
+    const CONST_ATTRIBUTE_COLLECT = 128;
+    const CONST_ATTRIBUTE_OUTPUT = 256;
 
-    // METHODS
+    // METHODS (2^15 - 2^21, 2^23 - 2^24)
     const METHOD_COLLECT = 32768;
     const METHOD_OUTPUT = 65536;
+    const METHOD_DESC_OUTPUT = 524288;
     const METHOD_ATTRIBUTE_COLLECT = 131072;
     const METHOD_ATTRIBUTE_OUTPUT = 262144;
-    const METHOD_DESC_OUTPUT = 524288;
+    const METHOD_STATIC_VAR_COLLECT = 8388608; // 2^23
+    const METHOD_STATIC_VAR_OUTPUT = 16777216; // 2^24
+
+    const OBJ_ATTRIBUTE_COLLECT = 4;
+    const OBJ_ATTRIBUTE_OUTPUT = 8;
+
     const PARAM_ATTRIBUTE_COLLECT = 1048576;
     const PARAM_ATTRIBUTE_OUTPUT = 2097152; // 2^21
 
-    public static $cfgFlags = array(  // @phpcs:ignore SlevomatCodingStandard.Arrays.AlphabeticallySortedByKeys.IncorrectKeyOrder
-        // GENERAL
+    const PHPDOC_COLLECT = 1; // 2^0
+    const PHPDOC_OUTPUT = 2;
+
+    // PROPERTIES (2^13 - 2^14)
+    const PROP_ATTRIBUTE_COLLECT = 8192; // 2^13
+    const PROP_ATTRIBUTE_OUTPUT = 16384; // 2^14
+    const PROP_VIRTUAL_VALUE_COLLECT = 33554432; // 2^25
+
+    const TO_STRING_OUTPUT = 16; // 2^4
+
+    /** @var array<string,self::*> */
+    public static $cfgFlags = array(
         'brief' => self::BRIEF,
-        'objAttributeCollect' => self::OBJ_ATTRIBUTE_COLLECT,
-        'objAttributeOutput' => self::OBJ_ATTRIBUTE_OUTPUT,
-        'phpDocCollect' => self::PHPDOC_COLLECT,
-        'phpDocOutput' => self::PHPDOC_OUTPUT,
-        'toStringOutput' => self::TO_STRING_OUTPUT,
 
         // CASE
         'caseAttributeCollect' => self::CASE_ATTRIBUTE_COLLECT,
@@ -90,53 +102,90 @@ class AbstractObject extends AbstractComponent
         'methodCollect' => self::METHOD_COLLECT,
         'methodDescOutput' => self::METHOD_DESC_OUTPUT,
         'methodOutput' => self::METHOD_OUTPUT,
+        'methodStaticVarCollect' => self::METHOD_STATIC_VAR_COLLECT,
+        'methodStaticVarOutput' => self::METHOD_STATIC_VAR_OUTPUT,
+
+        'objAttributeCollect' => self::OBJ_ATTRIBUTE_COLLECT,
+        'objAttributeOutput' => self::OBJ_ATTRIBUTE_OUTPUT,
+
         'paramAttributeCollect' => self::PARAM_ATTRIBUTE_COLLECT,
         'paramAttributeOutput' => self::PARAM_ATTRIBUTE_OUTPUT,
+
+        'phpDocCollect' => self::PHPDOC_COLLECT,
+        'phpDocOutput' => self::PHPDOC_OUTPUT,
 
         // PROPERTIES
         'propAttributeCollect' => self::PROP_ATTRIBUTE_COLLECT,
         'propAttributeOutput' => self::PROP_ATTRIBUTE_OUTPUT,
+        'propVirtualValueCollect' => self::PROP_VIRTUAL_VALUE_COLLECT,
+
+        'toStringOutput' => self::TO_STRING_OUTPUT,
     );
 
-    public $helper;
-
+    /** @var Abstracter */
     protected $abstracter;
-    protected $debug;
+    /** @var Constants */
     protected $constants;
+    /** @var Debug */
+    protected $debug;
+    /** @var Definition */
+    protected $definition;
+    /** @var Helper */
+    protected $helper;
+    /** @var Methods */
     protected $methods;
+    /** @var Properties */
     protected $properties;
+    /** @var PropertiesInstance */
+    protected $propertiesInstance;
+
+    /** @var list<string> */
+    protected $readOnly = [
+        'abstracter',
+        'constants',
+        'debug',
+        'definition',
+        'helper',
+        'methods',
+        'properties',
+        'propertiesInstance',
+    ];
 
     /**
      * Default object abstraction values
      *
-     * @var array Array of key/values
+     *    stored separately:
+     *      attributes
+     *      cases  (enum cases)
+     *      constants
+     *      definition
+     *         extensionName
+     *         fileName
+     *         startLine
+     *      extends
+     *      implements
+     *      isFinal
+     *      methods
+     *      phpDoc
+     *    see also Definition::$values
+     *
+     * @var array<string,mixed> Array of key/values
      */
-    protected static $values = array(  // phpcs:ignore SlevomatCodingStandard.Arrays.AlphabeticallySortedByKeys.IncorrectKeyOrder
-        'type' => Abstracter::TYPE_OBJECT,
-        'attributes' => array(),
-        'cfgFlags' => 0,
+    protected static $values = array(
+        'cfgFlags' => 0, // will default to everything sans "brief" & 'virtualValueCollect'
         'className' => '',
-        'constants' => array(),
         'debugMethod' => '',
-        'definition' => array(
-            'fileName' => '',
-            'startLine' => 1,
-            'extensionName' => '',
-        ),
-        'extends' => array(),
-        'implements' => array(),
-        'isAnonymous' => false,
+        'interfacesCollapse' => array(),  // cfg.interfacesCollapse
         'isExcluded' => false,  // don't exclude if we're debugging directly
-        'isFinal' => false,
+        'isLazy' => false,
+        'isMaxDepth' => false,
         'isRecursion' => false,
-        'methods' => array(),  // if !methodCollect, may still get ['__toString']['returnValue']
-        'phpDoc' => array(
-            'desc' => null,
-            'summary' => null,
-            // additional tags
-        ),
+        'keys' => array(),
+        // methods may be populated with __toString info, or methods with staticVars
         'properties' => array(),
         'scopeClass' => '',
+        'sectionOrder' => array(),  // cfg.objectSectionOrder
+        'sort' => '',  // cfg.objectSort
         'stringified' => null,
         'traverseValues' => array(),  // populated if method is table
         'viaDebugInfo' => false,
@@ -145,264 +194,77 @@ class AbstractObject extends AbstractComponent
     /**
      * Constructor
      *
-     * @param Abstracter $abstracter abstracter instance
+     * @param Abstracter $abstracter Abstracter instance
      */
     public function __construct(Abstracter $abstracter)
     {
         $this->abstracter = $abstracter;
         $this->debug = $abstracter->debug;
-        $this->helper = new AbstractObjectHelper($this->debug->phpDoc);
-        $this->constants = new AbstractObjectConstants($abstracter, $this->helper);
-        $this->methods = new AbstractObjectMethods($abstracter, $this->helper);
-        $this->properties = new AbstractObjectProperties($abstracter, $this->helper);
-        if ($abstracter->debug->parentInstance) {
+        $this->helper = new Helper($this->debug->phpDoc);
+        $this->constants = new Constants($this);
+        $this->methods = new Methods($this);
+        $this->properties = new Properties($this);
+        $this->propertiesInstance = new PropertiesInstance($this);
+        $this->definition = new Definition($this);
+        if ($abstracter->debug->parentInstance === null) {
             // we only need to subscribe to these events from root channel
-            return;
+            $subscriber = new Subscriber($this);
+            $abstracter->debug->eventManager->addSubscriberInterface($subscriber);
         }
-        $abstracter->debug->eventManager->subscribe(Debug::EVENT_OBJ_ABSTRACT_START, array($this, 'onStart'));
-        $abstracter->debug->eventManager->subscribe(Debug::EVENT_OBJ_ABSTRACT_END, array($this, 'onEnd'));
     }
 
     /**
-     * returns information about an object
+     * Returns information about an object
      *
      * @param object|string $obj    Object (or classname) to inspect
      * @param string        $method Method requesting abstraction
      * @param array         $hist   (@internal) array & object history
      *
-     * @return Abstraction
+     * @return ObjectAbstraction
      * @throws RuntimeException
      */
-    public function getAbstraction($obj, $method = null, $hist = array())
+    public function getAbstraction($obj, $method = null, array $hist = array())
     {
-        $reflector = $this->debug->php->getReflector($obj);
-        $abs = new Abstraction(Abstracter::TYPE_OBJECT, \array_merge(
-            self::$values,
-            array(
-                'cfgFlags' => $this->getCfgFlags(),
-                'className' => $reflector->getName(),
-                'debugMethod' => $method,
-                'isAnonymous' => PHP_VERSION_ID >= 70000 && $reflector->isAnonymous(),
-                'isExcluded' => $hist && $this->isExcluded($obj),    // don't exclude if we're debugging directly
-                'isFinal' => $reflector->isFinal(),
-                'isRecursion' => \in_array($obj, $hist, true),
-                'scopeClass' => $this->getScopeClass($hist),
-                'viaDebugInfo' => $this->cfg['useDebugInfo'] && $reflector->hasMethod('__debugInfo'),
-            ),
-            array(
-                // these are temporary values available during abstraction
-                'collectPropertyValues' => true,
-                'fullyQualifyPhpDocType' => $this->cfg['fullyQualifyPhpDocType'],
-                'hist' => $hist,
-                'isTraverseOnly' => false,
-                'propertyOverrideValues' => array(),
-                'reflector' => $reflector,
-            )
-        ));
-        $abs['hist'][] = $obj;
+        $reflector = $this->debug->reflection->getReflector($obj);
+        if ($reflector instanceof ReflectionEnumUnitCase) {
+            $reflector = $reflector->getEnum();
+        }
+        $values = $this->getAbstractionValues($reflector, $obj, $method, $hist);
+        $definitionValueStore = $this->definition->getAbstraction($obj, $values);
+        $abs = new ObjectAbstraction($definitionValueStore, $values);
         $abs->setSubject($obj);
+        $abs['hist'][] = $obj;
         $this->doAbstraction($abs);
-        $this->absClean($abs);
+        $abs->clean();
         return $abs;
     }
 
     /**
-     * Get the default object abstraction values
+     * "Build" object abstraction values
      *
-     * @param array $values values to apply
+     * @param array<string,mixed> $values values to apply
      *
-     * @return array
+     * @return array<string,mixed>
      */
-    public static function buildObjValues(array $values = array())
+    public static function buildValues(array $values = array())
     {
-        $cfgFlags = \array_reduce(self::$cfgFlags, static function ($carry, $val) {
-            return $carry | $val;
-        }, 0);
-        $cfgFlags &= ~self::BRIEF;
-        return \array_merge(
-            self::$values,
-            array(
-                'cfgFlags' => $cfgFlags,
-            ),
-            $values
-        );
+        if (self::$values['cfgFlags'] === 0) {
+            // calculate default cfgFlags (everything except for "brief" & virtualValueCollect)
+            self::$values['cfgFlags'] = \array_reduce(self::$cfgFlags, static function ($carry, $val) {
+                return $carry | $val;
+            }, 0) & ~self::BRIEF & ~self::PROP_VIRTUAL_VALUE_COLLECT;
+        }
+        return \array_merge(self::$values, $values);
     }
 
     /**
-     * Debug::EVENT_OBJ_ABSTRACT_START event subscriber
+     * Populate rows or columns (traverseValues) if we're outputting as a table
      *
-     * @param Abstraction $abs Abstraction instance
-     *
-     * @return void
-     */
-    public function onStart(Abstraction $abs)
-    {
-        $obj = $abs->getSubject();
-        if ($obj instanceof \DateTime || $obj instanceof \DateTimeImmutable) {
-            // check for both DateTime and DateTimeImmutable
-            //   DateTimeInterface (and DateTimeImmutable) not available until Php 5.5
-            $abs['isTraverseOnly'] = false;
-            $abs['stringified'] = $obj->format(\DateTime::ISO8601);
-        } elseif ($obj instanceof \mysqli) {
-            $this->onStartMysqli($abs);
-        } elseif ($obj instanceof Data) {
-            $abs['propertyOverrideValues']['data'] = Abstracter::NOT_INSPECTED;
-        } elseif ($obj instanceof PhpDoc) {
-            $abs['propertyOverrideValues']['cache'] = Abstracter::NOT_INSPECTED;
-        } elseif ($obj instanceof AbstractObjectMethods) {
-            $abs['propertyOverrideValues']['methodCache'] = Abstracter::NOT_INSPECTED;
-        } elseif ($abs['isAnonymous']) {
-            $this->handleAnonymous($abs);
-        }
-    }
-
-    /**
-     * Debug::EVENT_OBJ_ABSTRACT_END event subscriber
-     *
-     * @param Abstraction $abs Abstraction instance
+     * @param ObjectAbstraction $abs Abstraction instance
      *
      * @return void
      */
-    public function onEnd(Abstraction $abs)
-    {
-        $obj = $abs->getSubject();
-        if ($obj instanceof \Exception && isset($abs['properties']['xdebug_message'])) {
-            $abs['properties']['xdebug_message']['debugInfoExcluded'] = true;
-        } elseif ($obj instanceof \mysqli && !$abs['collectPropertyValues']) {
-            $this->onEndMysqli($abs);
-        }
-        $this->promoteParamDescs($abs);
-    }
-
-    /**
-     * Sort things and remove temporary values
-     *
-     * @param Abstraction $abs Abstraction instance
-     *
-     * @return void
-     */
-    private function absClean(Abstraction $abs)
-    {
-        $keysTemp = array(
-            'collectPropertyValues',
-            'fullyQualifyPhpDocType',
-            'hist',
-            'isTraverseOnly',
-            'propertyOverrideValues',
-            'reflector',
-        );
-        $values = \array_diff_key($abs->getValues(), \array_flip($keysTemp));
-        if (!($abs['cfgFlags'] & self::PHPDOC_COLLECT)) {
-            $values['phpDoc']['desc'] = null;
-            $values['phpDoc']['summary'] = null;
-        }
-        if (!$abs['isRecursion'] && !$abs['isExcluded']) {
-            $this->helper->sort($values['constants'], $this->cfg['objectSort']);
-            $this->helper->sort($values['properties'], $this->cfg['objectSort']);
-            $this->helper->sort($values['methods'], $this->cfg['objectSort']);
-        }
-        $abs
-            ->setSubject(null)
-            ->setValues($values);
-    }
-
-    /**
-     * Add enum's case's @var desc (if exists) to phpDoc
-     *
-     * @param Abstraction $abs Abstraction instance
-     *
-     * @return void
-     */
-    private function addEnumCasePhpDoc(Abstraction $abs)
-    {
-        if (!($abs['cfgFlags'] & self::PHPDOC_COLLECT)) {
-            return;
-        }
-        $reflector = $abs['reflector'];
-        if (!($reflector instanceof ReflectionEnum)) {
-            return;
-        }
-        $name = $reflector->getProperty('name')->getValue($abs->getSubject());
-        $caseReflector = $reflector->getCase($name);
-        $desc = $this->helper->getPhpDocVar($caseReflector)['desc'];
-        if ($desc) {
-            $abs['phpDoc'] = \array_merge($abs['phpDoc'], array(
-                'desc' => \trim($abs['phpDoc']['summary'] . "\n" . $abs['phpDoc']['desc']),
-                'summary' => $desc,
-            ));
-        }
-    }
-
-    /**
-     * Populate definition, implements, & isTraverseOnly and Enum name
-     *
-     * Added before we check isExcluded
-     *
-     * @param Abstraction $abs Abstraction instance
-     *
-     * @return void
-     */
-    private function addMisc1(Abstraction $abs)
-    {
-        $reflector = $abs['reflector'];
-        $abs['definition'] = array(
-            // note that for a Closure object, this likely isn't the info we want...
-            //   will be populated with where the where the closure is defined
-            //   from AbstractObjectProperties::addClosure
-            'fileName' => $reflector->getFileName(),
-            'startLine' => $reflector->getStartLine(),
-            'extensionName' => $reflector->getExtensionName(),
-        );
-
-        $interfaceNames = $reflector->getInterfaceNames();
-        \sort($interfaceNames);
-        $abs['implements'] = $interfaceNames;
-
-        if ($abs['isRecursion'] && \in_array('UnitEnum', $abs['implements'], true)) {
-            $abs['properties']['name'] = array(
-                'value' => $abs->getSubject()->name,
-            );
-        }
-        $abs['isTraverseOnly'] = $this->isTraverseOnly($abs);
-    }
-
-    /**
-     * Populate attributes, extends, phpDoc, & traverseValues
-     *
-     * @param Abstraction $abs Abstraction instance
-     *
-     * @return void
-     */
-    private function addMisc2(Abstraction $abs)
-    {
-        $reflector = $abs['reflector'];
-        $abs['phpDoc'] = $this->helper->getPhpDoc($reflector);
-        $this->addEnumCasePhpDoc($abs);
-        if ($abs['isTraverseOnly']) {
-            \ksort($abs['phpDoc']);
-            $this->addTraverseValues($abs);
-            return;
-        }
-        if ($abs['cfgFlags'] & self::OBJ_ATTRIBUTE_COLLECT) {
-            $abs['attributes'] = $this->helper->getAttributes($reflector);
-        }
-        while ($reflector = $reflector->getParentClass()) {
-            if ($abs['phpDoc'] === array('summary' => null, 'desc' => null)) {
-                $abs['phpDoc'] = $this->helper->getPhpDoc($reflector);
-            }
-            $abs['extends'][] = $reflector->getName();
-        }
-        \ksort($abs['phpDoc']);
-    }
-
-    /**
-     * Populate rows or columns (traverseValues) if we're outputing as a table
-     *
-     * @param Abstraction $abs Abstraction instance
-     *
-     * @return void
-     */
-    private function addTraverseValues(Abstraction $abs)
+    private function addTraverseValues(ObjectAbstraction $abs)
     {
         if ($abs['traverseValues']) {
             return;
@@ -415,18 +277,19 @@ class AbstractObject extends AbstractComponent
     }
 
     /**
-     * Add attributes, constants, properties, methods, constants, etc
+     * Collect instance info
+     * Property values & static method variables
      *
-     * @param Abstraction $abs Abstraction instance
+     * @param ObjectAbstraction $abs Object abstraction instance
      *
      * @return void
      */
-    private function doAbstraction(Abstraction $abs)
+    private function doAbstraction(ObjectAbstraction $abs)
     {
-        $this->addMisc1($abs);
-        if ($abs['isRecursion']) {
+        if ($abs['isMaxDepth'] || $abs['isRecursion']) {
             return;
         }
+        $abs['isTraverseOnly'] = $this->helper->isTraverseOnly($abs);
         /*
             Debug::EVENT_OBJ_ABSTRACT_START subscriber may
             set isExcluded
@@ -440,15 +303,56 @@ class AbstractObject extends AbstractComponent
         if ($abs['isExcluded']) {
             return;
         }
-        $this->addMisc2($abs);
-        $this->constants->add($abs);
-        $this->constants->addCases($abs);
-        $this->methods->add($abs);
-        $this->properties->add($abs);
+        if ($abs['isTraverseOnly']) {
+            $this->addTraverseValues($abs);
+        }
+        $this->methods->addInstance($abs);  // method static variables
+        $this->propertiesInstance->add($abs);
         /*
-            Debug::EVENT_OBJ_ABSTRACT_END subscriber has free reign to modify abtraction array
+            Debug::EVENT_OBJ_ABSTRACT_END subscriber has free reign to modify abstraction values
         */
         $this->debug->publishBubbleEvent(Debug::EVENT_OBJ_ABSTRACT_END, $abs, $this->debug);
+    }
+
+    /**
+     * Get initial "top-level" values.
+     *
+     * @param ReflectionClass $reflector Reflection instance
+     * @param object|string   $obj       Object (or classname) to inspect
+     * @param string          $method    Method requesting abstraction
+     * @param array           $hist      (@internal) array & object history
+     *
+     * @return array{reflector:ReflectionClass,...<string,mixed>}
+     * @throws RuntimeException
+     */
+    protected function getAbstractionValues(ReflectionClass $reflector, $obj, $method = null, array $hist = array())
+    {
+        return \array_merge(
+            self::$values,
+            array(
+                'cfgFlags' => $this->getCfgFlags(),
+                'className' => $this->helper->getClassName($reflector),
+                'debugMethod' => $method,
+                'interfacesCollapse' => \array_values(\array_intersect($reflector->getInterfaceNames(), $this->cfg['interfacesCollapse'])),
+                'isExcluded' => $hist && $this->isExcluded($obj),    // don't exclude if we're debugging directly
+                'isLazy' => PHP_VERSION_ID >= 80400 && \is_object($obj) ? $reflector->isUninitializedLazyObject($obj) : false,
+                'isMaxDepth' => $this->cfg['maxDepth'] && \count($hist) === $this->cfg['maxDepth'],
+                'isRecursion' => \in_array($obj, $hist, true),
+                'scopeClass' => $this->getScopeClass($hist),
+                'sectionOrder' => $this->cfg['objectSectionOrder'],
+                'sort' => $this->cfg['objectSort'],
+                'viaDebugInfo' => $this->cfg['useDebugInfo'] && $reflector->hasMethod('__debugInfo'),
+            ),
+            array(
+                // these are temporary values available during abstraction
+                'collectPropertyValues' => true,
+                'fullyQualifyPhpDocType' => $this->cfg['fullyQualifyPhpDocType'],
+                'hist' => $hist,
+                'isTraverseOnly' => false,
+                'propertyOverrideValues' => array(),
+                'reflector' => $reflector,
+            )
+        );
     }
 
     /**
@@ -456,9 +360,10 @@ class AbstractObject extends AbstractComponent
      *
      * @return int bitmask
      */
-    private function getCfgFlags()
+    protected function getCfgFlags()
     {
         $flagVals = \array_intersect_key(self::$cfgFlags, \array_filter($this->cfg));
+        // see Abstracter::__construct which sets initial/default cfgFlags cfg vales
         $bitmask = \array_reduce($flagVals, static function ($carry, $val) {
             return $carry | $val;
         }, 0);
@@ -492,37 +397,6 @@ class AbstractObject extends AbstractComponent
     }
 
     /**
-     * Make anonymous class more user friendly
-     *
-     *  * adjust classname
-     *  * add file & line debug properties
-     *
-     * Where is this anonymous class notation documented?
-     *
-     * @param Abstraction $abs Abstraction instance
-     *
-     * @return void
-     */
-    private function handleAnonymous(Abstraction $abs)
-    {
-        $abs['className'] = $this->debug->php->friendlyClassName($abs['reflector']);
-        $properties = $abs['properties'];
-        $properties['debug.file'] = $this->properties->buildPropValues(array(
-            'type' => Abstracter::TYPE_STRING,
-            'value' => $abs['definition']['fileName'],
-            'valueFrom' => 'debug',
-            'visibility' => 'debug',
-        ));
-        $properties['debug.line'] = $this->properties->buildPropValues(array(
-            'type' => Abstracter::TYPE_INT,
-            'value' => (int) $abs['definition']['startLine'],
-            'valueFrom' => 'debug',
-            'visibility' => 'debug',
-        ));
-        $abs['properties'] = $properties;
-    }
-
-    /**
      * Is the passed object excluded from debugging?
      *
      * @param object $obj object (or classname) to test
@@ -547,7 +421,7 @@ class AbstractObject extends AbstractComponent
     private function isObjInList($obj, array $list)
     {
         $classname = \get_class($obj);
-        if (\array_intersect(array('*', $classname), $list)) {
+        if (\array_intersect(['*', $classname], $list)) {
             return true;
         }
         foreach ($list as $class) {
@@ -556,96 +430,5 @@ class AbstractObject extends AbstractComponent
             }
         }
         return false;
-    }
-
-    /**
-     * Test if only need to populate traverseValues
-     *
-     * @param Abstraction $abs Abstraction instance
-     *
-     * @return bool
-     */
-    private function isTraverseOnly(Abstraction $abs)
-    {
-        if ($abs['debugMethod'] === 'table' && \count($abs['hist']) < 4) {
-            $abs['cfgFlags'] &= ~self::CONST_COLLECT;  // set collect constants to "false"
-            $abs['cfgFlags'] &= ~self::METHOD_COLLECT;  // set collect methods to "false"
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Add mysqli property values
-     *
-     * @param Abstraction $abs Abstraction instance
-     *
-     * @return void
-     */
-    private function onEndMysqli(Abstraction $abs)
-    {
-        $obj = $abs->getSubject();
-        $propsAlwaysAvail = array(
-            'client_info','client_version','connect_errno','connect_error','errno','error','stat'
-        );
-        \set_error_handler(static function () {
-            // ignore error
-        });
-        $refObject = $abs['reflector'];
-        foreach ($propsAlwaysAvail as $name) {
-            if (!isset($abs['properties'][$name])) {
-                // stat property may be missing in php 7.4??
-                continue;
-            }
-            $abs['properties'][$name]['value'] = $refObject->getProperty($name)->getValue($obj);
-        }
-        \restore_error_handler();
-    }
-
-    /**
-     * Test if we can collect mysqli property values
-     *
-     * @param Abstraction $abs Abstraction instance
-     *
-     * @return void
-     */
-    private function onStartMysqli(Abstraction $abs)
-    {
-        /*
-            test if stat() throws an error (ie "Property access is not allowed yet")
-            if so, don't collect property values
-        */
-        \set_error_handler(static function ($errno, $errstr) {
-            throw new RuntimeException($errstr, $errno); // @codeCoverageIgnore
-        }, E_ALL);
-        try {
-            $mysqli = $abs->getSubject();
-            $mysqli->stat();
-        } catch (Error $e) {
-            $abs['collectPropertyValues'] = false;
-        } catch (RuntimeException $e) {
-            $abs['collectPropertyValues'] = false;
-        }
-        \restore_error_handler();
-    }
-
-    /**
-     * Reuse the phpDoc description from promoted __construct params
-     *
-     * @param Abstraction $abs Abstraction instance
-     *
-     * @return void
-     */
-    private function promoteParamDescs(Abstraction $abs)
-    {
-        if (isset($abs['methods']['__construct']) === false) {
-            return;
-        }
-        foreach ($abs['methods']['__construct']['params'] as $info) {
-            if ($info['isPromoted'] && $info['desc']) {
-                $paramName = \substr($info['name'], 1); // toss the "$"
-                $abs['properties'][$paramName]['desc'] = $info['desc'];
-            }
-        }
     }
 }

@@ -6,14 +6,15 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.0
  */
 
 namespace bdk\Debug\Route;
 
 use bdk\Debug;
 use bdk\Debug\Abstraction\Abstracter;
+use bdk\Debug\Abstraction\Type;
 use bdk\Debug\LogEntry;
 use bdk\PubSub\Event;
 
@@ -22,14 +23,17 @@ use bdk\PubSub\Event;
  */
 class Script extends AbstractRoute
 {
+    /** @var array<string,mixed> */
     protected $cfg = array(
-        'channels' => array('*'),
-        'channelsExclude' => array(
+        'channels' => ['*'],
+        'channelsExclude' => [
             'events',
             'files',
-        ),
+        ],
     );
-    protected $consoleMethods = array(
+
+    /** @var list<string> */
+    protected $consoleMethods = [
         'assert',
         // 'count',    // output as log
         'error',
@@ -43,7 +47,7 @@ class Script extends AbstractRoute
         'timeEnd',  // PHPDebugConsole never generates a timeEnd entry
         'trace',
         'warn',
-    );
+    ];
 
     /**
      * Constructor
@@ -60,36 +64,25 @@ class Script extends AbstractRoute
      * output the log as javascript
      *    which outputs the log to the console
      *
-     * @param Event $event Debug::EVENT_OUTPUT event object
+     * @param Event|null $event Debug::EVENT_OUTPUT event object
      *
      * @return string|void
      */
-    public function processlogEntries(Event $event)
+    public function processLogEntries($event = null)
     {
+        $this->debug->utility->assertType($event, 'bdk\PubSub\Event');
+
         $this->dumper->crateRaw = false;
         $this->data = $this->debug->data->get();
-        $errorStats = $this->debug->errorStats();
-        $errorStr = '';
-        if ($errorStats['inConsole']) {
-            $errorStr = 'Errors: ';
-            foreach ($errorStats['counts'] as $category => $vals) {
-                $errorStr .= $vals['inConsole'] . ' ' . $category . ', ';
-            }
-            $errorStr = \substr($errorStr, 0, -2);
-        }
-        $str = '';
-        $str .= '<script>' . "\n";
+        $str = '<script>' . "\n";
         $str .= $this->processLogEntryViaEvent(new LogEntry(
             $this->debug,
             'groupCollapsed',
-            array(
+            [
                 'PHP',
-                $this->debug->isCli()
-                    ? '$: ' . \implode(' ', $this->debug->getServerParam('argv', array()))
-                    : $this->debug->serverRequest->getMethod()
-                        . ' ' . $this->debug->redact((string) $this->debug->serverRequest->getUri()),
-                $errorStr,
-            )
+                $this->getRequestMethodUri(),
+                $this->getErrorSummary(),
+            ]
         ));
         $str .= $this->processAlerts();
         $str .= $this->processSummary();
@@ -114,46 +107,84 @@ class Script extends AbstractRoute
     public function processLogEntry(LogEntry $logEntry)
     {
         $method = $logEntry['method'];
-        if (\in_array($method, array('table', 'trace'), true)) {
+        if (\in_array($method, ['table', 'trace'], true)) {
             $logEntry->setMeta(array(
                 'forceArray' => false,
                 'undefinedAs' => Abstracter::UNDEFINED,
             ));
         }
         $this->dumper->processLogEntry($logEntry);
-        $method = $logEntry['method'];
-        $args = $logEntry['args'];
-        $meta = $logEntry['meta'];
-        if ($method === 'assert') {
-            \array_unshift($args, false);
-        } elseif (\in_array($method, array('error', 'warn'), true)) {
-            if (isset($meta['file'])) {
-                $args[] = \sprintf('%s: line %s', $meta['file'], $meta['line']);
-            }
-        } elseif ($method === 'table') {
-            $args = $this->dumper->valDumper->dump($args);
-        } elseif (\in_array($method, $this->consoleMethods, true) === false) {
-            $method = 'log';
-        }
-        $args = \json_encode($args, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $args = \substr($args, 1, -1);
-        $str = 'console.' . $method . '(' . $args . ');' . "\n";
+        $str = $this->buildConsoleCall($logEntry);
         $str = \str_replace(
-            array(
+            [
                 // ensure that </script> doesn't appear inside our <script>
                 '</script>',
-                \json_encode(Abstracter::TYPE_FLOAT_INF),
-                \json_encode(Abstracter::TYPE_FLOAT_NAN),
+                \json_encode(Type::TYPE_FLOAT_INF),
+                \json_encode(Type::TYPE_FLOAT_NAN),
                 \json_encode(Abstracter::UNDEFINED),
-            ),
-            array(
+            ],
+            [
                 '<\\/script>',
                 'Infinity',
                 'NaN',
                 'undefined',
-            ),
+            ],
             $str
         );
         return $str;
+    }
+
+    /**
+     * Build the console.xxxx() call
+     *
+     * @param LogEntry $logEntry LogEntry instance
+     *
+     * @return string
+     */
+    protected function buildConsoleCall(LogEntry $logEntry)
+    {
+        $method = $logEntry['method'];
+        $args = $logEntry['args'];
+        $meta = $logEntry['meta'];
+        switch ($method) {
+            case 'assert':
+                \array_unshift($args, false);
+                break;
+            case 'error':
+            case 'warn':
+                if (isset($meta['file'])) {
+                    $args[] = \sprintf('%s: line %s', $meta['file'], $meta['line']);
+                }
+                break;
+            case 'table':
+                $args = $this->dumper->valDumper->dump($args);
+                break;
+            default:
+                if (\in_array($method, $this->consoleMethods, true) === false) {
+                    $method = 'log';
+                }
+        }
+        $args = \json_encode($args, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $args = \substr($args, 1, -1);
+        return 'console.' . $method . '(' . $args . ');' . "\n";
+    }
+
+    /**
+     * Get number of errors per category
+     *
+     * @return string
+     */
+    private function getErrorSummary()
+    {
+        $errorStats = $this->debug->errorStats();
+        $errorStr = '';
+        if ($errorStats['inConsole']) {
+            $errorStr = 'Errors: ';
+            foreach ($errorStats['counts'] as $category => $vals) {
+                $errorStr .= $vals['inConsole'] . ' ' . $category . ', ';
+            }
+            $errorStr = \substr($errorStr, 0, -2);
+        }
+        return $errorStr;
     }
 }

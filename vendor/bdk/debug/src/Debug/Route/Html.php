@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.0
  */
 
 namespace bdk\Debug\Route;
@@ -23,9 +23,16 @@ use bdk\PubSub\Event;
  */
 class Html extends AbstractRoute
 {
+    /** @var ErrorSummary */
     protected $errorSummary;
+
+    /** @var Tabs */
     protected $tabs;
+
+    /** @var array<string,mixed> */
     protected $cfg = array();
+
+    /** @var array{css:array,script:array} */
     private $assets = array(
         'css' => array(),
         'script' => array(),
@@ -46,7 +53,7 @@ class Html extends AbstractRoute
             'drawer' => true,
             'filepathCss' => __DIR__ . '/../css/Debug.css',
             'filepathScript' => __DIR__ . '/../js/Debug.jquery.min.js',
-            'jqueryUrl' => '//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js',
+            'jqueryUrl' => '//ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
             'outputCss' => true,
             'outputScript' => true,
             'sidebar' => true,
@@ -85,6 +92,24 @@ class Html extends AbstractRoute
                 $this->addAsset($type, $asset);
             }
         }
+    }
+
+    /**
+     * Build icon markup
+     *
+     * @param string|null $icon Icon css class or html markup
+     *
+     * @return string
+     */
+    public function buildIcon($icon)
+    {
+        if (empty($icon)) {
+            return '';
+        }
+        if (\strpos($icon, '<') === false) {
+            $icon = '<i class="' . $icon . '" aria-hidden="true"></i>';
+        }
+        return $icon;
     }
 
     /**
@@ -128,12 +153,14 @@ class Html extends AbstractRoute
     /**
      * Return the log as HTML
      *
-     * @param Event $event Debug::EVENT_OUTPUT event object
+     * @param Event|null $event Debug::EVENT_OUTPUT event object
      *
      * @return string|void
      */
-    public function processLogEntries(Event $event)
+    public function processLogEntries($event = null)
     {
+        $this->debug->utility->assertType($event, 'bdk\PubSub\Event');
+
         if ($event['isTarget'] === false) {
             return;
         }
@@ -197,13 +224,9 @@ class Html extends AbstractRoute
     {
         $return = '';
         foreach ($assets as $asset) {
-            if (\preg_match('#[\r\n]#', $asset)) {
-                $return .= $asset . "\n";
-                continue;
-            }
-            // single line... potential filepath
-            if (\file_exists($asset)) {
-                $asset = \file_get_contents($asset);
+            // isFile "safely" checks if the value is an existing regular file
+            if ($this->debug->utility->isFile($asset)) {
+                $asset = \ltrim(\file_get_contents($asset), "\xef\xbb\xbf");
             }
             if ($asset === false) {
                 $asset = '/* PHPDebugConsole: unable to read file ' . $asset . ' */';
@@ -215,17 +238,17 @@ class Html extends AbstractRoute
     }
 
     /**
-     * Build HTML output
+     * Build debug attributes
      *
-     * @return string
+     * @return array
      */
-    private function buildOutput()
+    private function buildAttribs()
     {
         $lftDefault = \strtr(\ini_get('xdebug.file_link_format'), array(
             '%f' => '%file',
             '%l' => '%line',
         ));
-        $str = '<div' . $this->debug->html->buildAttribString(array(
+        return array(
             'class' => 'debug',
             // channel list gets built as log processed...  we'll str_replace this...
             'data-channel-name-root' => $this->channelNameRoot,
@@ -235,20 +258,7 @@ class Html extends AbstractRoute
                 'linkFilesTemplateDefault' => $lftDefault ?: null,
                 'tooltip' => $this->cfg['tooltip'],
             ),
-        )) . ">\n";
-        $str .= $this->buildStyleTag();
-        $str .= $this->buildScriptTag();
-        $str .= $this->buildHeader();
-        if ($this->cfg['outputScript']) {
-            $str .= '<div class="loading">Loading <i class="fa fa-spinner fa-pulse fa-2x fa-fw" aria-hidden="true"></i></div>' . "\n";
-        }
-        $str .= $this->tabs->buildTabPanes();
-        $str .= '</div>' . "\n"; // close .debug
-        $str = \preg_replace('#(<ul[^>]*>)\s+</ul>#', '$1</ul>', $str); // ugly, but want to be able to use :empty
-        $str = \strtr($str, array(
-            '{{channels}}' => \htmlspecialchars(\json_encode($this->buildChannelTree(), JSON_FORCE_OBJECT)),
-        ));
-        return $str;
+        );
     }
 
     /**
@@ -259,20 +269,20 @@ class Html extends AbstractRoute
     protected function buildChannelTree()
     {
         $channels = $this->dumper->channels;
-        $channelRoot = \reset($channels)->rootInstance;
-        \ksort($channels, SORT_NATURAL | SORT_FLAG_CASE);
+        $channelRoot = $this->debug->rootInstance;
         $tree = array();
-        foreach ($channels as $name => $channel) {
+        \ksort($channels, SORT_NATURAL | SORT_FLAG_CASE);
+        \array_walk($channels, static function (Debug $channel, $name) use ($channels, $channelRoot, &$tree) {
             $ref = &$tree;
             $path = \explode('.', $name);
             foreach ($path as $i => $k) {
+                // output may have only output general.foo
+                //   we still need general
+                $pathFq = \implode('.', \array_slice($path, 0, $i + 1));
+                $channel = isset($channels[$pathFq])
+                    ? $channels[$pathFq]
+                    : $channelRoot->getChannel($pathFq);
                 if (!isset($ref[$k])) {
-                    // output may have only output general.foo
-                    //   we still need general
-                    $pathFq = \implode('.', \array_slice($path, 0, $i + 1));
-                    $channel = isset($channels[$pathFq])
-                        ? $channels[$pathFq]
-                        : $channelRoot->getChannel($pathFq);
                     $ref[$k] = array(
                         'channels' => array(),
                         'options' => array(
@@ -283,7 +293,7 @@ class Html extends AbstractRoute
                 }
                 $ref = &$ref[$k]['channels'];
             }
-        }
+        });
         return $tree;
     }
 
@@ -303,6 +313,40 @@ class Html extends AbstractRoute
     }
 
     /**
+     * Build "loading" spinner
+     *
+     * @return string
+     */
+    private function buildLoading()
+    {
+        return $this->cfg['outputScript']
+            ? '<div class="loading">Loading ' . $this->buildIcon($this->debug->getCfg('icons.loading', Debug::CONFIG_DEBUG)) . '</div>' . "\n"
+            : '';
+    }
+
+    /**
+     * Build HTML output
+     *
+     * @return string
+     */
+    private function buildOutput()
+    {
+        $str = '<div' . $this->debug->html->buildAttribString($this->buildAttribs()) . ">\n"
+            . $this->buildStyleTag()
+            . $this->buildScriptTag()
+            . $this->buildHeader()
+            . $this->buildLoading()
+            . $this->tabs->buildTabPanes()
+            . '</div>' . "\n"; // close .debug
+
+        $str = \preg_replace('#(<ul[^>]*>)\s+</ul>#', '$1</ul>', $str); // ugly, but want to be able to use :empty
+        $str = \strtr($str, array(
+            '{{channels}}' => \htmlspecialchars(\json_encode($this->buildChannelTree(), JSON_FORCE_OBJECT)),
+        ));
+        return $str;
+    }
+
+    /**
      * Build <script> tag
      *
      * @return string
@@ -312,8 +356,8 @@ class Html extends AbstractRoute
         if (!$this->cfg['outputScript']) {
             return '';
         }
-        return '<script>window.jQuery || document.write(\'<script src="' . $this->cfg['jqueryUrl'] . '"><\/script>\')</script>' . "\n"
-            . '<script>'
+        return '<script defer>window.jQuery || document.write(\'<script src="' . $this->cfg['jqueryUrl'] . '"><\/script>\')</script>' . "\n"
+            . '<script defer>'
                 . $this->getScript() . "\n"
             . '</script>' . "\n";
     }

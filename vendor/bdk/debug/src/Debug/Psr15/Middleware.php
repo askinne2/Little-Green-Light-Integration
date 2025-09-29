@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Psr15;
@@ -27,21 +27,21 @@ use Psr\Http\Server\RequestHandlerInterface;
  */
 class Middleware extends AbstractComponent implements MiddlewareInterface
 {
-    /**
-     * @var Debug
-     */
+    /** @var Debug */
     private $debug;
 
     /**
      * Constructor
      *
-     * @param Debug $debug (optional) Debug instance (will use singleton if not provided)
-     * @param array $cfg   config/options
+     * @param Debug|null $debug (optional) Debug instance (will use singleton if not provided)
+     * @param array      $cfg   config/options
      *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public function __construct(Debug $debug = null, $cfg = array())
+    public function __construct($debug = null, $cfg = array())
     {
+        \bdk\Debug\Utility::assertType($debug, 'bdk\Debug');
+
         $this->debug = $debug ?: Debug::getInstance();
         $this->cfg = \array_merge(array(
             'catchException' => false,

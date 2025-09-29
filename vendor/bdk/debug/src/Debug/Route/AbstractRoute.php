@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.0
  */
 
 namespace bdk\Debug\Route;
@@ -23,8 +23,13 @@ use bdk\PubSub\Event;
  */
 abstract class AbstractRoute extends AbstractComponent implements RouteInterface
 {
+    /** @var Debug  */
     public $debug;
+
+    /** @var bool */
     protected $appendsHeaders = false;
+
+    /** @var string|bool */
     protected $channelName = null;
 
     /**
@@ -35,12 +40,19 @@ abstract class AbstractRoute extends AbstractComponent implements RouteInterface
      */
     protected $channelNameRoot = '';
 
-    protected $channelRegex;
+    /** @var string */
+    protected $channelRegex = '';
+
+    /** @var array<string,mixed> */
     protected $cfg = array(
-        'channels' => array('*'),
-        'channelsExclude' => array(),
+        'channels' => ['*'],
+        'channelsExclude' => [],
     );
+
+    /** @var array<string,mixed> */
     protected $data = array();
+
+    /** @var \bdk\Debug\Dump\Base */
     protected $dumper;
 
     /** @var array channelName => bool */
@@ -54,9 +66,6 @@ abstract class AbstractRoute extends AbstractComponent implements RouteInterface
     public function __construct(Debug $debug)
     {
         $this->debug = $debug;
-        $this->channelName = $this->debug->getCfg('channelName', Debug::CONFIG_DEBUG);
-        $this->channelNameRoot = $this->debug->getCfg('channelName', Debug::CONFIG_DEBUG);
-        $this->channelRegex = '#^' . \preg_quote($this->channelName, '#') . '(\.|$)#';
     }
 
     /**
@@ -73,7 +82,10 @@ abstract class AbstractRoute extends AbstractComponent implements RouteInterface
     public function getSubscriptions()
     {
         return array(
-            Debug::EVENT_OUTPUT => 'processLogEntries',
+            Debug::EVENT_OUTPUT => [
+                'setChannelName',
+                'processLogEntries',
+            ],
         );
     }
 
@@ -135,12 +147,14 @@ abstract class AbstractRoute extends AbstractComponent implements RouteInterface
     /**
      * Output the log as text
      *
-     * @param Event $event event object
+     * @param Event|null $event event object
      *
      * @return void
      */
-    public function processLogEntries(Event $event)
+    public function processLogEntries($event = null)
     {
+        $this->debug->utility->assertType($event, 'bdk\PubSub\Event');
+
         $this->dumper->crateRaw = false;
         $this->data = $this->debug->data->get();
         $event['return'] = ''
@@ -164,6 +178,21 @@ abstract class AbstractRoute extends AbstractComponent implements RouteInterface
     }
 
     /**
+     * Set channelName values
+     *
+     * @param Event $event Event instance
+     *
+     * @return void
+     */
+    public function setChannelName(Event $event)
+    {
+        $debug = $event->getSubject();
+        $this->channelName = $debug->getCfg('channelName', Debug::CONFIG_DEBUG);
+        $this->channelNameRoot = $debug->getCfg('channelName', Debug::CONFIG_DEBUG);
+        $this->setChannelRegex('#^' . \preg_quote($this->channelName, '#') . '(\.|$)#');
+    }
+
+    /**
      * Set channel name regex used to test if log entry should be output
      *
      * @param string $regex channel regex
@@ -176,7 +205,7 @@ abstract class AbstractRoute extends AbstractComponent implements RouteInterface
     }
 
     /**
-     * Test channel for inclussion
+     * Test channel for inclusion
      *
      * @param LogEntry $logEntry LogEntry instance
      *
@@ -195,6 +224,19 @@ abstract class AbstractRoute extends AbstractComponent implements RouteInterface
     protected function getDumper()
     {
         return $this->dumper;
+    }
+
+    /**
+     * Get request-method + request-uri or command line args
+     *
+     * @return string
+     */
+    protected function getRequestMethodUri()
+    {
+        return $this->debug->isCli()
+            ? '$: ' . \implode(' ', $this->debug->getServerParam('argv', array()))
+            : $this->debug->serverRequest->getMethod()
+                . ' ' . $this->debug->redact((string) $this->debug->serverRequest->getUri());
     }
 
     /**
@@ -243,10 +285,10 @@ abstract class AbstractRoute extends AbstractComponent implements RouteInterface
             return $this->shouldIncludeCache[$channelName];
         }
         if (empty($this->cfg['channels'])) {
-            $this->cfg['channels'] = array('*');
+            $this->cfg['channels'] = ['*'];
         }
         if (!isset($this->cfg['channelsExclude'])) {
-            $this->cfg['channelsExclude'] = array();
+            $this->cfg['channelsExclude'] = [];
         }
         $include = $this->testChannelNameMatch($channelName, $this->cfg['channels'])
             && !$this->testChannelNameMatch($channelName, $this->cfg['channelsExclude']);

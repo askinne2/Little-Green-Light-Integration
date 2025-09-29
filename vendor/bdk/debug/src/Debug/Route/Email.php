@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Route;
@@ -23,6 +23,7 @@ use bdk\PubSub\Event;
  */
 class Email implements RouteInterface
 {
+    /** @var Debug */
     public $debug;
 
     /**
@@ -56,12 +57,14 @@ class Email implements RouteInterface
     /**
      * Serializes and emails log
      *
-     * @param Event $event Generic event having Debug instance as subject
+     * @param Event|null $event Generic event having Debug instance as subject
      *
      * @return void
      */
-    public function processLogEntries(Event $event)
+    public function processLogEntries($event = null)
     {
+        $this->debug->utility->assertType($event, 'bdk\PubSub\Event');
+
         $debug = $event->getSubject();
         $this->debug->email(
             $debug->getCfg('emailTo', Debug::CONFIG_DEBUG),
@@ -88,13 +91,14 @@ class Email implements RouteInterface
             ? 'Command: ' . \implode(' ', $this->debug->getServerParam('argv', array()))
             : 'Request: ' . $this->debug->serverRequest->getMethod()
                 . ' ' . $this->debug->redact((string) $this->debug->serverRequest->getUri());
+        $body .= "\n\n";
         /*
-            List errors that occured
+            List errors that occurred
         */
         $errorStr = $this->buildErrorList();
         if ($errorStr) {
             $body .= 'Error(s):' . "\n"
-                . $errorStr . "\n";
+                . $errorStr . "\n\n";
         }
         /*
             "attach" serialized log to body

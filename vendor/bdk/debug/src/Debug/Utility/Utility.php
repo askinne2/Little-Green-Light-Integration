@@ -6,14 +6,16 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     1.2
  */
 
 namespace bdk\Debug;
 
-use Exception;
-use Psr\Http\Message\StreamInterface;
+use bdk\Debug;
+use bdk\Debug\Utility\Php as PhpUtil;
+use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * Utility methods
@@ -21,9 +23,39 @@ use Psr\Http\Message\StreamInterface;
 class Utility
 {
     /**
+     * Assert that a value is of a certain type
+     *
+     * PHPDebugConsole supports an extreme range of PHP versions : 5.4 - 8.4 (and beyond)
+     * `func(MyObj $obj = null)` has been deprecated in PHP 8.4
+     * must now be `func(?MyObj $obj = null)` (which is a php 7.1 feature)
+     * Workaround - remove type-hint when we allow null (not ideal) and call assertType
+     * When we drop support for php < 7.1, we can remove this method and do proper type-hinting
+     *
+     * @param mixed  $value     Value to test
+     * @param string $type      "array", "callable", "object", or className
+     * @param bool   $allowNull (true) allow null?
+     *
+     * @return void
+     *
+     * @throws InvalidArgumentException
+     */
+    public static function assertType($value, $type, $allowNull = true)
+    {
+        if (($allowNull && $value === null) || self::assertTypeCheck($value, $type)) {
+            return;
+        }
+        throw new InvalidArgumentException(\sprintf(
+            'Expected %s%s, got %s',
+            $type,
+            $allowNull ? ' (or null)' : '',
+            PhpUtil::getDebugType($value)
+        ));
+    }
+
+    /**
      * Emit headers queued for output directly using `header()`
      *
-     * @param array $headers array of headers
+     * @param array<array-key,string|string[]> $headers array of headers
      *                array(
      *                   array(name, value)
      *                   name => value
@@ -31,9 +63,9 @@ class Utility
      *                )
      *
      * @return void
-     * @throws \RuntimeException if headers already sent
+     * @throws RuntimeException if headers already sent
      */
-    public static function emitHeaders($headers)
+    public static function emitHeaders(array $headers)
     {
         if (!$headers) {
             return;
@@ -42,11 +74,11 @@ class Utility
         $line = 0;
         // phpcs:ignore SlevomatCodingStandard.Namespaces.FullyQualifiedGlobalFunctions.NonFullyQualified
         if (headers_sent($file, $line)) {
-            throw new \RuntimeException('Headers already sent: ' . $file . ', line ' . $line);
+            throw new RuntimeException('Headers already sent: ' . $file . ', line ' . $line);
         }
         foreach ($headers as $key => $val) {
             if (\is_int($key)) {
-                $key = $val[0];
+                $key = (string) $val[0];
                 $val = $val[1];
             }
             self::emitHeader($key, $val);
@@ -106,9 +138,10 @@ class Utility
         if ($returnInt) {
             return (int) $size;
         }
-        $units = array('B', 'kB', 'MB', 'GB', 'TB', 'PB');
+        $units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB'];
         $exp = (int) \floor(\log((float) $size, 1024));
         $pow = \pow(1024, $exp);
+        /** @psalm-suppress RedundantCast */
         $size = (int) $pow < 1
             ? '0 B'
             : \round($size / $pow, 2) . ' ' . $units[$exp];
@@ -119,10 +152,12 @@ class Utility
      * Returns sent/pending response header values for specified header
      *
      * @param string      $key       ('Content-Type') header to return
-     * @param null|string $delimiter (', ') if string, then join the header values
+     * @param string|null $delimiter (', ') if string, then join the header values
      *                                 if null, return array
      *
-     * @return array|string
+     * @return string|string[]
+     *
+     * @psalm-return ($delimiter is string ? string : string[])
      */
     public static function getEmittedHeader($key = 'Content-Type', $delimiter = ', ')
     {
@@ -138,10 +173,12 @@ class Utility
     /**
      * Returns sent/pending response headers
      *
+     * It is preferred to use PSR-7 (Http-Messaage) response interface over this method
+     *
      * The keys represent the header name as it will be sent over the wire, and
      * each value is an array of strings associated with the header.
      *
-     * @return array
+     * @return array<string,list<string>>
      */
     public static function getEmittedHeaders()
     {
@@ -149,54 +186,49 @@ class Utility
         $list = headers_list();
         $headers = array();
         foreach ($list as $header) {
-            list($key, $value) = \array_replace(array('', ''), \explode(': ', $header, 2));
+            list($key, $value) = \array_replace(['', ''], \explode(': ', $header, 2));
             $headers[$key][] = $value;
         }
         return $headers;
     }
 
     /**
-     * Get stream contents without affecting pointer
+     * Get current git branch for specified directory
      *
-     * @param StreamInterface $stream StreamInteface
-     *
-     * @return string
-     */
-    public static function getStreamContents(StreamInterface $stream)
-    {
-        try {
-            $pos = $stream->tell();
-            $body = (string) $stream; // __toString() is like getContents(), but without throwing exceptions
-            $stream->seek($pos);
-            return $body;
-            // @codeCoverageIgnoreStart
-        } catch (Exception $e) {
-            return '';
-            // @codeCoverageIgnoreEnd
-        }
-    }
-
-    /**
-     * Get current git branch
+     * @param string $dir (optional) defaults to current working dir
      *
      * @return string|null
      */
-    public static function gitBranch()
+    public static function gitBranch($dir = null)
     {
-        $redirect = \stripos(PHP_OS, 'WIN') !== 0
-            ? '2>/dev/null'
-            : '2> nul';  // @codeCoverageIgnore
-        $outputLines = array();
-        $returnStatus = 0;
-        // all branches are output
-        // current branch is preceeded with "*"
-        \exec('git branch ' . $redirect, $outputLines, $returnStatus);
-        $allLines = \implode("\n", $outputLines);
-        $matches = array();
-        \preg_match('#^\* (.+)$#m', $allLines, $matches);
-        return $matches
-            ? $matches[1]
-            : null;
+        // exec('git branch') may fail due due to permissions / rights
+        // navigate up until we find the ./git/HEAD file
+        $dir = $dir ?: \getcwd();
+        $parts = \explode(DIRECTORY_SEPARATOR, $dir);
+        $docRoot = Debug::getInstance()->getServerParam('DOCUMENT_ROOT');
+        $docRootParts = \explode(DIRECTORY_SEPARATOR, $docRoot);
+        $dirBreakParts = \array_slice($docRootParts, 0, -1);
+        for ($i = \count($parts); $i > 0; $i--) {
+            $dirParts = \array_slice($parts, 0, $i);
+            $gitHeadFilepath = \implode(DIRECTORY_SEPARATOR, \array_merge(
+                $dirParts,
+                ['.git', 'HEAD']
+            ));
+            if (\file_exists($gitHeadFilepath)) {
+                $fileLines = \file($gitHeadFilepath);
+                // line 0 should be something like:
+                // ref: refs/heads/branchName
+                $parts = \array_replace(
+                    [null, null, ''],
+                    \explode('/', $fileLines[0], 3)
+                );
+                return \trim($parts[2]);
+            }
+            if ($dirParts === $dirBreakParts) {
+                break;
+            }
+        }
+        return null;
     }
 
     /**
@@ -209,7 +241,7 @@ class Utility
     public static function httpMethodHasBody($method)
     {
         // don't expect a request body for these methods
-        $noBodyMethods = array('CONNECT', 'DELETE', 'GET', 'HEAD', 'OPTIONS', 'TRACE');
+        $noBodyMethods = ['CONNECT', 'DELETE', 'GET', 'HEAD', 'OPTIONS', 'TRACE'];
         return \in_array($method, $noBodyMethods, true) === false;
     }
 
@@ -219,6 +251,8 @@ class Utility
      * @param string $val value to test
      *
      * @return bool
+     *
+     * @psalm-assert-if-true string $val
      */
     public static function isFile($val)
     {
@@ -235,26 +269,67 @@ class Utility
     }
 
     /**
+     * Sort a list of files
+     *
+     * @param list<string> $files Files to sort
+     *
+     * @return list<string>
+     */
+    public static function sortFiles($files)
+    {
+        \usort($files, static function ($valA, $valB) {
+            $valA = \str_replace('_', '0', $valA);
+            $valB = \str_replace('_', '0', $valB);
+            $dirA = \dirname($valA);
+            $dirB = \dirname($valB);
+            return $dirA === $dirB
+                ? \strnatcasecmp($valA, $valB)
+                : \strnatcasecmp($dirA, $dirB);
+        });
+        return $files;
+    }
+
+    /**
+     * Test if value is of a certain type
+     *
+     * @param mixed  $value Value to test
+     * @param string $type  "array", "callable", "object", or className
+     *
+     * @return bool
+     */
+    private static function assertTypeCheck($value, $type)
+    {
+        switch ($type) {
+            case 'array':
+                return \is_array($value);
+            case 'callable':
+                return \is_callable($value);
+            case 'object':
+                return \is_object($value);
+            default:
+                return \is_a($value, $type);
+        }
+    }
+
+    /**
      * Emit a header
      *
-     * @param string       $name  Header name
-     * @param string|array $value Header value(s)
+     * @param string          $name  Header name
+     * @param string|string[] $value Header value(s)
      *
      * @return void
+     *
      * @phpcs:disable SlevomatCodingStandard.Namespaces.FullyQualifiedGlobalFunctions.NonFullyQualified
      */
     private static function emitHeader($name, $value)
     {
-        if (\is_array($value)) {
-            $val = \array_shift($value);
-            header($name . ': ' . $val);
-            foreach ($value as $val) {
-                // add (vs replace) the additional headers
-                header($name . ': ' . $val, false);
-            }
-            return;
+        $values = (array) $value;
+        $val = \array_shift($values);
+        header($name . ': ' . $val);
+        foreach ($values as $val) {
+            // add (vs replace) the additional values
+            header($name . ': ' . $val, false);
         }
-        header($name . ': ' . $value);
     }
 
     /**
@@ -285,10 +360,8 @@ class Utility
                 '%f' => $micros,                    // Microseconds: w/o leading zeros
             ));
         }
-        $dateInterval = new \DateInterval('PT0S');
-        $dateInterval->h = (int) $hours;
-        $dateInterval->i = (int) $min;
-        $dateInterval->s = (int) $sec;
+        $duration = \sprintf('PT%dH%dM%dS', (int) $hours, (int) $min, (int) $sec);
+        $dateInterval = new \DateInterval($duration);
         return $dateInterval->format($format);
     }
 
@@ -332,9 +405,9 @@ class Utility
         if (\preg_match('/^[\d,]+$/', $size)) {
             return (int) \str_replace(',', '', $size);
         }
-        $matches = array();
+        $matches = [];
         if (\preg_match('/^([\d,.]+)\s?([kmgtp])?b?$/i', $size, $matches)) {
-            $matches = \array_replace(array('', '', ''), $matches);
+            $matches = \array_replace(['', '', ''], $matches);
             $size = (float) \str_replace(',', '', $matches[1]);
             switch (\strtolower($matches[2])) {
                 case 'p':

@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.0
  */
 
 namespace bdk\Debug\Dump;
@@ -15,6 +15,9 @@ namespace bdk\Debug\Dump;
 use bdk\Debug;
 use bdk\Debug\AbstractComponent;
 use bdk\Debug\Abstraction\Abstracter;
+use bdk\Debug\Abstraction\Type;
+use bdk\Debug\Dump\Base\Value;
+use bdk\Debug\Dump\Substitution;
 use bdk\Debug\LogEntry;
 
 /**
@@ -22,10 +25,18 @@ use bdk\Debug\LogEntry;
  */
 class Base extends AbstractComponent
 {
+    /** @var bool */
     public $crateRaw = true;    // whether dump() should crate "raw" value
                                 //   when processing log this is set to false
-                                //   so not unecessarily re-crating arrays
+                                //   so not unnecessarily re-crating arrays
+    /** @var Debug */
     public $debug;
+
+    /**
+     * Used to style console.log alerts
+     *
+     * @var array<string,string>
+     */
     protected $alertStyles = array(
         'common' => 'padding: 5px;
             line-height: 26px;
@@ -44,9 +55,22 @@ class Base extends AbstractComponent
             border: 1px solid #faebcc;
             color: #8a6d3b;',
     );
+
+    /** @var string */
     protected $channelNameRoot;
+
+    /** @var list<string> */
+    protected $readOnly = [
+        'valDumper',
+    ];
+
+    /** @var Substitution */
     protected $substitution;
+
+    /** @var BaseValue */
     protected $valDumper;
+
+    /** @var array */
     private $tableInfo = array();
 
     /**
@@ -65,7 +89,7 @@ class Base extends AbstractComponent
     /**
      * Process log entry
      *
-     * Transmogrify log entry to chromelogger format
+     * Transmogrify log entry to chromeLogger format
      *
      * @param LogEntry $logEntry LogEntry instance
      *
@@ -74,20 +98,25 @@ class Base extends AbstractComponent
     public function processLogEntry(LogEntry $logEntry)
     {
         $method = $logEntry['method'];
-        if ($method === 'alert') {
-            return $this->methodAlert($logEntry);
+        $methodBuild = 'method' . \ucfirst($method);
+        $meta = $logEntry->getMeta();
+        $this->valDumper->optionStackPush($meta);
+        if (\method_exists($this, $methodBuild)) {
+            return $this->{$methodBuild}($logEntry);
         }
-        if (\in_array($method, array('group', 'groupCollapsed', 'groupEnd', 'groupSummary'), true)) {
+        if (\in_array($method, ['group', 'groupCollapsed', 'groupEnd', 'groupSummary'], true)) {
             return $this->methodGroup($logEntry);
         }
-        if (\in_array($method, array('profileEnd', 'table', 'trace'), true)) {
+        if (\in_array($method, ['profileEnd', 'table', 'trace'], true)) {
             return $this->methodTabular($logEntry);
         }
-        return $this->methodDefault($logEntry);
+        $return = $this->methodDefault($logEntry);
+        $this->valDumper->optionStackPop();
+        return $return;
     }
 
     /**
-     * Cooerce value to string
+     * Coerce value to string
      *
      * @param mixed $val  value
      * @param array $opts $options passed to dump
@@ -96,8 +125,8 @@ class Base extends AbstractComponent
      */
     public function substitutionAsString($val, $opts)
     {
-        list($type, $typeMore) = $this->debug->abstracter->getType($val);
-        if ($type === Abstracter::TYPE_ARRAY) {
+        list($type, $typeMore) = $this->debug->abstracter->type->getType($val);
+        if ($type === Type::TYPE_ARRAY) {
             $count = \count($val);
             if ($count) {
                 // replace with dummy array so browser console will display native Array(length)
@@ -105,7 +134,7 @@ class Base extends AbstractComponent
             }
             return $val;
         }
-        if ($type === Abstracter::TYPE_OBJECT) {
+        if ($type === Type::TYPE_OBJECT) {
             return (string) $val;   // __toString or className
         }
         $opts['type'] = $type;
@@ -116,12 +145,12 @@ class Base extends AbstractComponent
     /**
      * Get value dumper
      *
-     * @return \bdk\Debug\Dump\BaseValue
+     * @return BaseValue
      */
     protected function getValDumper()
     {
         if (!$this->valDumper) {
-            $this->valDumper = new BaseValue($this);
+            $this->valDumper = new Value($this);
         }
         return $this->valDumper;
     }
@@ -137,7 +166,7 @@ class Base extends AbstractComponent
     {
         $method = $logEntry->getMeta('level');
         if ($logEntry->containsSubstitutions()) {
-            $logEntry['method'] = \in_array($method, array('info', 'success'), true)
+            $logEntry['method'] = \in_array($method, ['info', 'success'], true)
                 ? 'info'
                 : 'log';
             $args = $this->substitution->process($logEntry['args']);
@@ -155,10 +184,10 @@ class Base extends AbstractComponent
             'warn' => 'log', // Just use log method... Chrome adds backtrace to warn(), which we don't want
         );
         $logEntry['method'] = $methodMap[$method];
-        $logEntry['args'] = array(
+        $logEntry['args'] = [
             '%c' . $logEntry['args'][0],
             \preg_replace('/\n\s*/', ' ', $style),
-        );
+        ];
     }
 
     /**
@@ -172,7 +201,7 @@ class Base extends AbstractComponent
     {
         $method = $logEntry['method'];
         $args = $logEntry['args'];
-        if (\in_array($method, array('assert', 'clear', 'error', 'info', 'log', 'warn'), true)) {
+        if (\in_array($method, ['assert', 'clear', 'error', 'info', 'log', 'warn'], true)) {
             if ($logEntry->containsSubstitutions()) {
                 $args = $this->substitution->process($args);
             }
@@ -235,7 +264,7 @@ class Base extends AbstractComponent
         foreach ($rows as $rowKey => $row) {
             $rows[$rowKey] = $this->methodTabularRow($row, $rowKey, $forceArray, $undefinedAs);
         }
-        $logEntry['args'] = array($rows);
+        $logEntry['args'] = [$rows];
         $this->tableInfo = array();
     }
 

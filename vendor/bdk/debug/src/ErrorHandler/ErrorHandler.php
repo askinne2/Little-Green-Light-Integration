@@ -4,12 +4,13 @@
  * @package   bdk\ErrorHandler
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2023 Brad Kent
- * @version   v3.2
+ * @copyright 2014-2025 Brad Kent
+ * @since     v3.3
  */
 
 namespace bdk;
 
+use bdk\Backtrace;
 use bdk\ErrorHandler\AbstractErrorHandler;
 use bdk\ErrorHandler\Error;
 use bdk\PubSub\Event;
@@ -24,16 +25,19 @@ use bdk\PubSub\Manager as EventManager;
  */
 class ErrorHandler extends AbstractErrorHandler
 {
-    const EVENT_ERROR = 'errorHandler.error';
-
     /** @var EventManager */
     public $eventManager;
-    protected $inShutdown = false;
-    protected $registered = false;
-    protected $prevDisplayErrors = null;
-    protected $prevErrorHandler = null;
-    protected $prevExceptionHandler = null;
 
+    /** @var bool */
+    protected $inShutdown = false;
+
+    /** @var bool */
+    protected $registered = false;
+
+    /** @var string|false previous display_errors setting (false if error getting/setting) */
+    protected $prevDisplayErrors = false;
+
+    /** @var static */
     private static $instance;
 
     /**
@@ -49,9 +53,10 @@ class ErrorHandler extends AbstractErrorHandler
         $this->cfg = array(
             'continueToPrevHandler' => true,    // whether to continue to previously defined handler (if there is/was a prev handler)
                                                 //   prev handler will not be called if error event propagation stopped
-            'errorFactory' => array($this, 'errorFactory'),
-            'errorReporting' => E_ALL | E_STRICT,   // what errors are handled by handler? bitmask or "system" to use runtime value
-                                                    //   note that if using "system", suppressed errors (via @ operator) will not be handled (we'll still handle fatal category)
+            'errorFactory' => [$this, 'errorFactory'],
+            'errorReporting' => E_ALL,  // what errors are handled by handler?
+                                        //   bitmask or "system" to use runtime value
+                                        //   note: if using "system", suppressed errors (via @ operator) will not be handled (we'll still handle fatal category)
             'errorThrow' => 0,          // bitmask: error types that should converted to ErrorException and thrown
             'onError' => null,          // callable : shortcut for subscribing to errorHandler.error Event
                                         //   will receive error Event object
@@ -65,11 +70,11 @@ class ErrorHandler extends AbstractErrorHandler
                                     //         if propagation not stopped, call error_log()
                                     //   'normal' : sets error[continueToNormal] = true;
                                     //         php will log error
-                                    //         script will hault
+                                    //         script will halt
                                     //   null : use error's error[continueToNormal] value
                                     //         continueToNormal true -> log
                                     //         continueToNormal false -> continue
-            'onFirstError' => null,     // callable : called on first error..   usefull for lazy-loading subscriberInterface
+            'onFirstError' => null,     // callable : called on first error..   useful for lazy-loading subscriberInterface
             'suppressNever' => E_ERROR | E_PARSE | E_RECOVERABLE_ERROR | E_USER_ERROR,
             // emailer options
             'emailer' => array(),
@@ -88,7 +93,8 @@ class ErrorHandler extends AbstractErrorHandler
         }
         $this->setCfg($cfg);
         $this->register();
-        $this->eventManager->subscribe(EventManager::EVENT_PHP_SHUTDOWN, array($this, 'onShutdown'), PHP_INT_MAX);
+        $this->eventManager->subscribe(EventManager::EVENT_PHP_SHUTDOWN, [$this, 'onShutdown'], PHP_INT_MAX);
+        $this->setData('errorReportingInitial', $this->errorReporting());
     }
 
     /**
@@ -99,11 +105,10 @@ class ErrorHandler extends AbstractErrorHandler
     public function errorReporting()
     {
         $errorReporting = $this->cfg['errorReporting'] === 'system'
-            ? \error_reporting() // note:  will return 0 if error suppression is active in call stack (via @ operator)
-                                //  our shutdown function unsuppresses fatal errors
+            ? \error_reporting() // note: error could be "suppressed"
             : $this->cfg['errorReporting'];
         if ($errorReporting === -1) {
-            $errorReporting = E_ALL | E_STRICT;
+            $errorReporting = E_ALL;
         }
         return $errorReporting;
     }
@@ -174,11 +179,11 @@ class ErrorHandler extends AbstractErrorHandler
     /**
      * Error handler
      *
-     * @param int    $errType error lavel / type (one of PHP's E_* constants)
+     * @param int    $errType error level / type (one of PHP's E_* constants)
      * @param string $errMsg  the error message
      * @param string $file    filepath the error was raised in
      * @param int    $line    the line the error was raised in
-     * @param array  $vars    active symbol table at point error occured
+     * @param array  $vars    active symbol table at point error occurred
      *
      * @return bool false: will be handled by standard PHP error handler
      *              true: we "handled" / will not be handed by PHP error handler
@@ -188,7 +193,7 @@ class ErrorHandler extends AbstractErrorHandler
     public function handleError($errType, $errMsg, $file, $line, $vars = array())
     {
         $error = $this->cfg['errorFactory']($this, $errType, $errMsg, $file, $line, $vars);
-        $this->anonymousCheck($error);
+        $this->data['uncaughtException'] = null;
         $this->toStringCheck($error);
         if (!$this->isErrTypeHandled($errType)) {
             // not handled
@@ -203,7 +208,7 @@ class ErrorHandler extends AbstractErrorHandler
         $this->data['errors'][ $error['hash'] ] = $error;
         if (!$error['isSuppressed']) {
             // only clear error caller via non-suppressed error
-            $this->data['errorCaller'] = array();
+            $this->setErrorCaller(array());
             // only publish event for non-suppressed error
             $this->eventManager->publish(self::EVENT_ERROR, $error);
             $this->throwError($error);
@@ -214,7 +219,7 @@ class ErrorHandler extends AbstractErrorHandler
     /**
      * Handle uncaught exceptions
      *
-     * This isn't strictly necesssary...  uncaught exceptions are a fatal error, which we can handle...
+     * This isn't strictly necessary...  uncaught exceptions are a fatal error, which we can handle...
      * However:
      *   * catching backtrace via shutdown function only possible if xdebug installed
      *   * xdebug_get_function_stack's magic seems powerless for uncaught exceptions!
@@ -226,16 +231,19 @@ class ErrorHandler extends AbstractErrorHandler
     public function handleException($exception)
     {
         // lets store the exception so we can use the backtrace it provides
-        //   error constructor will pull this
+        //   * error constructor will pull this
+        //   * we clear this in handleError() so any errors encountered
+        //      during exception handling will not use this
         $this->data['uncaughtException'] = $exception;
-        \http_response_code(500);
+        if (\headers_sent() === false) {
+            \http_response_code(500);
+        }
         $this->handleError(
             E_ERROR,
             'Uncaught exception \'' . \get_class($exception) . '\' with message ' . $exception->getMessage(),
             $exception->getFile(),
             $exception->getLine()
         );
-        $this->data['uncaughtException'] = null;
     }
 
     /**
@@ -289,30 +297,17 @@ class ErrorHandler extends AbstractErrorHandler
     public function register()
     {
         $errHandlerCur = $this->getErrorHandler();
-        if ($errHandlerCur !== array($this, 'handleError')) {
+        if ($errHandlerCur !== [$this, 'handleError']) {
             $this->prevErrorHandler = \set_error_handler(array($this, 'handleError'));
         }
 
         $exHandlerCur = $this->getExceptionHandler();
-        if ($exHandlerCur !== array($this, 'handleException')) {
+        if ($exHandlerCur !== [$this, 'handleException']) {
             $this->prevExceptionHandler = \set_exception_handler(array($this, 'handleException'));
         }
 
         $this->prevDisplayErrors = \ini_set('display_errors', '0');
         $this->registered = true;   // used by this->onShutdown()
-    }
-
-    /**
-     * Set data value
-     *
-     * @param string $key   what
-     * @param mixed  $value value
-     *
-     * @return void
-     */
-    public function setData($key, $value)
-    {
-        $this->data[$key] = $value;
     }
 
     /**
@@ -333,9 +328,7 @@ class ErrorHandler extends AbstractErrorHandler
     public function setErrorCaller($caller = null, $offset = 0)
     {
         if ($caller === null) {
-            $backtrace = \version_compare(PHP_VERSION, '5.4.0', '>=')
-                ? \debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $offset + 3)
-                : \debug_backtrace(false);   // don't provide object
+            $backtrace = Backtrace::get(null, $offset + 3);
             $index = isset($backtrace[$offset + 1])
                 ? $offset + 1
                 : \count($backtrace) - 1;
@@ -343,6 +336,7 @@ class ErrorHandler extends AbstractErrorHandler
                 ? $backtrace[$index]
                 : $backtrace[$index + 1]; // likely called via call_user_func.. need to go one more to get calling file & line
             $caller = array(
+                'evalLine' => $caller['evalLine'],
                 'file' => $caller['file'],
                 'line' => $caller['line'],
             );
@@ -363,13 +357,13 @@ class ErrorHandler extends AbstractErrorHandler
     public function unregister()
     {
         $errHandlerCur = $this->getErrorHandler();
-        if ($errHandlerCur === array($this, 'handleError')) {
+        if ($errHandlerCur === [$this, 'handleError']) {
             // we are the current error handler
             \restore_error_handler();
         }
 
         $exHandlerCur = $this->getExceptionHandler();
-        if ($exHandlerCur === array($this, 'handleException')) {
+        if ($exHandlerCur === [$this, 'handleException']) {
             // we are the current exception handler
             \restore_exception_handler();
         }
@@ -383,60 +377,6 @@ class ErrorHandler extends AbstractErrorHandler
     }
 
     /**
-     * Conditioanlly pass error or exception to previously defined handler
-     *
-     * @param Error $error Error instance
-     *
-     * @return bool
-     * @throws \Exception
-     */
-    protected function continueToPrevHandler(Error $error)
-    {
-        $this->handleUserError($error);
-        if ($error['continueToPrevHandler'] === false || $error->isPropagationStopped()) {
-            return $error['continueToNormal'] === false;
-        }
-        if ($error['exception']) {
-            $this->continueToPrevHandlerException($error);
-            return $error['continueToNormal'] === false;
-        }
-        if (!$this->prevErrorHandler) {
-            return $error['continueToNormal'] === false;
-        }
-        return \call_user_func(
-            $this->prevErrorHandler,
-            $error['type'],
-            $error['message'],
-            $error['file'],
-            $error['line'],
-            $error['vars']
-        );
-    }
-
-    /**
-     * Restore previous excption handler and re-throw or log exception
-     *
-     * @param Error $error Error instance
-     *
-     * @return void
-     * @throws \Exception
-     */
-    private function continueToPrevHandlerException(Error $error)
-    {
-        if ($this->prevExceptionHandler) {
-            /*
-                re-throw exception vs calling handler directly
-            */
-            \restore_exception_handler();
-            $this->data['uncaughtException'] = null;
-            throw $error['exception'];
-        }
-        if ($error['continueToNormal']) {
-            $error->log();
-        }
-    }
-
-    /**
      * Create Error instance
      *
      * @param self   $handler ErrorHandler instance
@@ -444,7 +384,7 @@ class ErrorHandler extends AbstractErrorHandler
      * @param string $errMsg  the error message
      * @param string $file    filepath the error was raised in
      * @param string $line    the line the error was raised in
-     * @param array  $vars    active symbol table at point error occured
+     * @param array  $vars    active symbol table at point error occurred
      *
      * @return Error
      */

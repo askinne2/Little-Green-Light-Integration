@@ -6,16 +6,18 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.0
  */
 
 namespace bdk\Debug\Dump\Html;
 
-use bdk\Debug\Abstraction\Abstracter;
 use bdk\Debug\Abstraction\Abstraction;
-use bdk\Debug\Dump\BaseValue;
+use bdk\Debug\Abstraction\Object\Abstraction as ObjectAbstraction;
+use bdk\Debug\Abstraction\Type;
+use bdk\Debug\Dump\Base\Value as BaseValue;
 use bdk\Debug\Dump\Html as Dumper;
+use bdk\Debug\Dump\Html\HtmlArray;
 use bdk\Debug\Dump\Html\HtmlObject;
 use bdk\Debug\Dump\Html\HtmlString;
 
@@ -26,6 +28,9 @@ use bdk\Debug\Dump\Html\HtmlString;
  */
 class Value extends BaseValue
 {
+    /** @var HtmlArray array dumper */
+    public $array;
+
     /** @var HtmlString string dumper */
     public $string;
 
@@ -44,40 +49,46 @@ class Value extends BaseValue
     {
         parent::__construct($dumper); // sets debug and dumper
         $this->html = $this->debug->html;
+        $this->array = new HtmlArray($this);
         $this->string = new HtmlString($this);
+        $this->optionStackPush(array(
+            'charHighlight' => true,
+            'sanitize' => true,
+            'sanitizeFirst' => true,
+            'visualWhiteSpace' => true,
+        ));
     }
 
     /**
      * Is value a timestamp?
      * Add classname & title if so
      *
-     * Extends Base
-     *
-     * @param mixed       $val value to check
-     * @param Abstraction $abs (optional) full abstraction
+     * @param mixed            $val value to check
+     * @param Abstraction|null $abs (optional) full abstraction
      *
      * @return string|false
      */
-    public function checkTimestamp($val, Abstraction $abs = null)
+    public function checkTimestamp($val, $abs = null)
     {
+        $this->debug->utility->assertType($abs, 'bdk\Debug\Abstraction\Abstraction');
+
         $date = parent::checkTimestamp($val, $abs);
-        if ($date === false) {
-            return false;
-        }
-        $this->setDumpOpt('postDump', function ($dumped, $opts) use ($val, $date) {
-            $attribsContainer = array(
-                'class' => array('timestamp', 'value-container'),
-                'title' => $date,
-            );
-            if ($opts['tagName'] === 'td') {
-                return $this->html->buildTag(
-                    'td',
-                    $attribsContainer,
-                    $this->html->buildTag('span', $opts['attribs'], $val)
+        if ($date) {
+            $this->optionSet('postDump', function ($dumped, $opts) use ($val, $date) {
+                $attribsContainer = array(
+                    'class' => ['timestamp', 'value-container'],
+                    'title' => $date,
                 );
-            }
-            return $this->html->buildTag('span', $attribsContainer, $dumped);
-        });
+                if ($opts['tagName'] === 'td') {
+                    return $this->html->buildTag(
+                        'td',
+                        $attribsContainer,
+                        $this->html->buildTag('span', $opts['attribs'], $val)
+                    );
+                }
+                return $this->html->buildTag('span', $attribsContainer, $dumped);
+            });
+        }
         return $date;
     }
 
@@ -92,168 +103,89 @@ class Value extends BaseValue
      */
     public function dump($val, $opts = array())
     {
-        $opts = $this->setDumpOptDefaults($val, $opts);
-        $val = parent::dump($val, $opts);
-        $this->dumpOptions['attribs']['class'][] = 't_' . $this->dumpOptions['type'];
-        if ($this->dumpOptions['typeMore'] !== null) {
-            $this->dumpOptions['attribs']['data-type-more'] = \trim($this->dumpOptions['typeMore']);
+        $opts = $this->getPerValueOptions($val, $opts);
+        $this->optionStackPush($opts);
+        $val = $this->doDump($val);
+        if ($this->optionsCurrent['type']) {
+            $this->optionsCurrent['attribs']['class'][] = 't_' . $this->optionsCurrent['type'];
         }
-        $tagName = $this->dumpOptions['tagName'];
-        if ($tagName === '__default__') {
-            $tagName = $this->dumpOptions['type'] === Abstracter::TYPE_OBJECT
-                ? 'div'
-                : 'span';
+        if (\in_array($this->optionsCurrent['typeMore'], [null, Type::TYPE_RAW], true) === false) {
+            $this->optionsCurrent['attribs']['data-type-more'] = \trim($this->optionsCurrent['typeMore']);
         }
+        $tagName = $this->optionsCurrent['tagName'];
         if ($tagName) {
-            $val = $this->html->buildTag($tagName, $this->dumpOptions['attribs'], $val);
+            $val = $this->html->buildTag($tagName, $this->optionsCurrent['attribs'], $val);
         }
-        if ($this->dumpOptions['postDump']) {
-            $val = \call_user_func($this->dumpOptions['postDump'], $val, $this->dumpOptions);
+        if ($this->optionsCurrent['postDump']) {
+            $val = \call_user_func($this->optionsCurrent['postDump'], $val, $this->optionsCurrent);
         }
+        $this->optionStackPop();
         return $val;
     }
 
     /**
-     * Get "option" of value being dumped
+     * Wrap classname in span.classname
      *
-     * @param string $what (optional) name of option to get (ie sanitize, type, typeMore)
+     * if namespaced additionally wrap namespace in span.namespace
      *
-     * @return mixed
+     * @param string|array $val     classname or classname(::|->)name (method/property/const)
+     * @param string       $what    ("className"), "const", or "function" - specify what we're marking if ambiguous
+     * @param string       $tagName ("span") html tag to use
+     * @param array        $attribs (optional) additional html attributes for classname span (such as title)
+     * @param bool         $wbr     (false) whether to add a <wbr /> after the classname
+     *
+     * @return string html snippet
      */
-    public function getDumpOpt($what = null)
+    public function markupIdentifier($val, $what = 'className', $tagName = 'span', $attribs = array(), $wbr = false)
     {
-        $val = parent::getDumpOpt($what);
-        if ($what === 'tagName' && $val === '__default__') {
-            $val = 'span';
-            if (parent::getDumpOpt('type') === Abstracter::TYPE_OBJECT) {
-                $val = 'div';
-            }
+        $parts = \array_map([$this->string, 'dump'], $this->parseIdentifier($val, $what));
+        $class = 'classname';
+        $classOrNamespace = $this->wrapNamespace($parts['classname']);
+        if ($parts['namespace']) {
+            $class = 'namespace';
+            $classOrNamespace = $parts['namespace'];
         }
-        return $val;
+        $classOrNamespace = $this->html->buildTag(
+            $tagName,
+            $this->debug->arrayUtil->mergeDeep(array(
+                'class' => [$class],
+            ), (array) $attribs),
+            $classOrNamespace
+        ) . '<wbr />';
+        $classOrNamespace = \preg_replace('#<' . $tagName . '[^>]*></' . $tagName . '><wbr />#', '', $classOrNamespace);
+        $parts2 = \array_filter(\array_intersect_key($parts, \array_flip(['operator', 'name'])));
+        foreach ($parts2 as $key => $value) {
+            $parts[$key] = '<span class="t_' . $key . '">' . $value . '</span>';
+        }
+        $html = \implode($parts['operator'], \array_filter([$classOrNamespace, $parts['name']]));
+        return $wbr === false
+            ? \str_replace('<wbr />', '', $html)
+            : $html;
     }
 
     /**
-     * Set "option" of value being dumped
+     * Set one or more "options" for value being dumped
      *
      * @param array|string $what name of value to set (or key/value array)
      * @param mixed        $val  value
      *
      * @return void
      */
-    public function setDumpOpt($what, $val = null)
+    public function optionSet($what, $val = null)
     {
         if ($what === 'attribs' && empty($val['class'])) {
             // make sure class is set
-            $val['class'] = array();
+            $val['class'] = [];
         }
-        parent::setDumpOpt($what, $val);
+        parent::optionSet($what, $val);
     }
 
     /**
-     * Wrap classname in span.classname
-     * if namespaced additionally wrap namespace in span.namespace
-     * If callable, also wrap with .t_operator and .t_identifier
-     *
-     * @param mixed  $val        classname or classname(::|->)name (method/property/const)
-     * @param string $asFunction (false) specify we're marking up a function
-     * @param string $tagName    ("span") html tag to use
-     * @param array  $attribs    (optional) additional html attributes for classname span
-     * @param bool   $wbr        (false)
-     *
-     * @return string
+     * {@inheritDoc}
      */
-    public function markupIdentifier($val, $asFunction = false, $tagName = 'span', $attribs = array(), $wbr = false)
+    protected function dumpArray(array $array, $abs = null)
     {
-        $parts = $this->parseIdentifier($val, $asFunction);
-        $operator = '<span class="t_operator">' . \htmlspecialchars($parts['operator']) . '</span>';
-        if ($parts['classname']) {
-            $classname = $parts['classname'];
-            $idx = \strrpos($classname, '\\');
-            if ($idx) {
-                $classname = '<span class="namespace">' . \str_replace('\\', '\\<wbr />', \substr($classname, 0, $idx + 1)) . '</span>'
-                    . \substr($classname, $idx + 1);
-            }
-            $parts['classname'] = $this->debug->html->buildTag(
-                $tagName,
-                $this->debug->arrayUtil->mergeDeep(array(
-                    'class' => array('classname'),
-                ), (array) $attribs),
-                $classname
-            ) . '<wbr />';
-        }
-        $parts['identifier'] = $parts['identifier']
-            ? '<span class="t_identifier">' . $parts['identifier'] . '</span>'
-            : '';
-        $html = \implode($operator, \array_filter(array($parts['classname'], $parts['identifier']), 'strlen'));
-        if ($wbr === false) {
-            $html = \str_replace('<wbr />', '', $html);
-        }
-        return $html;
-    }
-
-    /**
-     * Dump array as html
-     *
-     * @param array $array array
-     *
-     * @return string html
-     */
-    protected function dumpArray($array)
-    {
-        $opts = \array_merge(array(
-            'asFileTree' => false,
-            'expand' => null,
-            'showListKeys' => true,
-        ), $this->getDumpOpt());
-        if (empty($array)) {
-            return '<span class="t_keyword">array</span>'
-                . '<span class="t_punct">()</span>';
-        }
-        if ($opts['expand'] !== null) {
-            $this->setDumpOpt('attribs.data-expand', $opts['expand']);
-        }
-        if ($opts['asFileTree']) {
-            $this->setDumpOpt('attribs.class.__push__', 'array-file-tree');
-        }
-        $showKeys = $opts['showListKeys'] || !$this->debug->arrayUtil->isList($array);
-        $html = '<span class="t_keyword">array</span>'
-            . '<span class="t_punct">(</span>' . "\n"
-            . '<ul class="array-inner list-unstyled">' . "\n";
-        foreach ($array as $key => $val) {
-            $html .= $this->dumpArrayValue($key, $val, $showKeys);
-        }
-        $html .= '</ul>'
-            . '<span class="t_punct">)</span>';
-        return $html;
-    }
-
-    /**
-     * Dump an array key/value pair
-     *
-     * @param int|string $key     key
-     * @param mixed      $val     value
-     * @param bool       $withKey include key with value?
-     *
-     * @return string
-     */
-    private function dumpArrayValue($key, $val, $withKey)
-    {
-        return $withKey
-            ? "\t" . '<li>'
-                . $this->html->buildTag(
-                    'span',
-                    array(
-                        'class' => array(
-                            't_int' => \is_int($key),
-                            't_key' => true,
-                        ),
-                    ),
-                    $this->dump($key, array('tagName' => null)) // don't wrap it
-                )
-                . '<span class="t_operator">=&gt;</span>'
-                . $this->dump($val)
-            . '</li>' . "\n"
-            : "\t" . $this->dump($val, array('tagName' => 'li')) . "\n";
+        return $this->array->dump($array, $abs);
     }
 
     /**
@@ -277,45 +209,47 @@ class Value extends BaseValue
      */
     protected function dumpCallable(Abstraction $abs)
     {
-        return (!$abs['hideType'] ? '<span class="t_type">callable</span> ' : '')
-            . $this->markupIdentifier($abs);
+        $this->optionSet('type', null); // don't output t_callable class
+        if ($this->optionGet('tagName') !== 'td') {
+            $this->optionSet('tagName', null);
+        }
+        return '<span class="t_type">callable</span> '
+            . '<span class="t_identifier" data-type-more="callable">'
+            . $this->markupIdentifier($abs['value'], 'callable')
+            . '</span>';
     }
 
     /**
-     * Dump "const" abstration as html
-     *
-     * Object constant or method param's default value
+     * {@inheritDoc}
+     */
+    protected function dumpFloat($val, $abs = null)
+    {
+        $this->debug->utility->assertType($abs, 'bdk\Debug\Abstraction\Abstraction');
+
+        if ($val === Type::TYPE_FLOAT_INF) {
+            return 'INF';
+        }
+        if ($val === Type::TYPE_FLOAT_NAN) {
+            return 'NaN';
+        }
+        $this->checkTimestamp($val, $abs);
+        return $val;
+    }
+
+    /**
+     * Dump identifier (constant, classname, method, property)
      *
      * @param Abstraction $abs const abstraction
      *
      * @return string
      */
-    protected function dumpConst(Abstraction $abs)
+    protected function dumpIdentifier(Abstraction $abs)
     {
-        $this->setDumpOpt('attribs.title', $abs['value']
-            ? 'value: ' . $this->debug->getDump('text')->valDumper->dump($abs['value'])
-            : null);
-        return $this->markupIdentifier($abs['name']);
-    }
-
-    /**
-     * Dump float value
-     *
-     * @param float       $val float value
-     * @param Abstraction $abs (optional) full abstraction
-     *
-     * @return float|string
-     */
-    protected function dumpFloat($val, Abstraction $abs = null)
-    {
-        if ($val === Abstracter::TYPE_FLOAT_INF) {
-            return 'INF';
+        if (isset($abs['backedValue']) && \in_array($this->optionGet('attribs.title'), [null, ''], true)) {
+            $valueAsString = $this->debug->getDump('text')->valDumper->dump($abs['backedValue']);
+            $this->optionSet('attribs.title', 'value: ' . $valueAsString);
         }
-        if ($val === Abstracter::TYPE_FLOAT_NAN) {
-            return 'NaN';
-        }
-        $this->checkTimestamp($val, $abs);
-        return $val;
+        return $this->markupIdentifier($abs['value'], $abs['typeMore']);
     }
 
     /**
@@ -331,18 +265,12 @@ class Value extends BaseValue
     /**
      * Dump object as html
      *
-     * @param Abstraction $abs Object Abstraction instance
+     * @param ObjectAbstraction $abs Object Abstraction instance
      *
      * @return string
      */
-    protected function dumpObject(Abstraction $abs)
+    protected function dumpObject(ObjectAbstraction $abs)
     {
-        /*
-            Were we debugged from inside or outside of the object?
-        */
-        $this->setDumpOpt('attribs.data-accessible', $abs['scopeClass'] === $abs['className']
-            ? 'private'
-            : 'public');
         return $this->object->dump($abs);
     }
 
@@ -353,20 +281,22 @@ class Value extends BaseValue
      */
     protected function dumpRecursion()
     {
-        $this->setDumpOpt('tagName', null); // don't wrap value span
+        $this->optionSet('type', Type::TYPE_ARRAY);
         return '<span class="t_keyword">array</span> <span class="t_recursion">*RECURSION*</span>';
     }
 
     /**
      * Dump string
      *
-     * @param string      $val string value
-     * @param Abstraction $abs (optional) full abstraction
+     * @param string           $val string value
+     * @param Abstraction|null $abs (optional) full abstraction
      *
      * @return string
      */
-    protected function dumpString($val, Abstraction $abs = null)
+    protected function dumpString($val, $abs = null)
     {
+        $this->debug->utility->assertType($abs, 'bdk\Debug\Abstraction\Abstraction');
+
         return $this->string->dump($val, $abs);
     }
 
@@ -381,7 +311,7 @@ class Value extends BaseValue
     }
 
     /**
-     * Dump Abstraction::TYPE_UNKNOWN
+     * Dump Type::TYPE_UNKNOWN
      *
      * @param Abstraction $abs resource abstraction
      *
@@ -408,16 +338,16 @@ class Value extends BaseValue
     /**
      * Get dump options
      *
-     * @param mixed $val  value being dumpted
+     * @param mixed $val  value being dumped
      * @param array $opts options for string values
      *                      addQuotes, sanitize, visualWhitespace, etc
      *
-     * @return array
+     * @return array<string,mixed>
      */
-    private function setDumpOptDefaults($val, $opts)
+    protected function getPerValueOptions($val, $opts)
     {
         $attribs = array(
-            'class' => array(),
+            'class' => [],
         );
         if ($val instanceof Abstraction && \is_array($val['attribs'])) {
             $attribs = \array_merge(
@@ -425,11 +355,33 @@ class Value extends BaseValue
                 $val['attribs']
             );
         }
-        $opts = \array_merge(array(
-            'attribs' => $attribs,
-            'postDump' => null,
-            'tagName' => '__default__',
-        ), $opts);
-        return $opts;
+        $parentOptions = parent::getPerValueOptions($val, $opts);
+        return \array_merge(
+            $parentOptions,
+            array(
+                'attribs' => $attribs,
+                'postDump' => null,
+                'tagName' => $parentOptions['type'] === Type::TYPE_OBJECT
+                    ? 'div'
+                    : 'span',
+            ),
+            $opts
+        );
+    }
+
+    /**
+     * Wrap the namespace portion of the identifier in a span.namespace
+     *
+     * @param string $identifier (class name or function name)
+     *
+     * @return string html snippet
+     */
+    private function wrapNamespace($identifier)
+    {
+        $idx = \strrpos($identifier, '\\');
+        return $idx
+            ? '<span class="namespace">' . \str_replace('\\', '\\<wbr />', \substr($identifier, 0, $idx + 1)) . '</span>'
+                . \substr($identifier, $idx + 1)
+            : $identifier;
     }
 }

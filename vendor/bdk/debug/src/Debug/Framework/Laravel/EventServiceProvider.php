@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Framework\Laravel;
@@ -23,7 +23,7 @@ class EventServiceProvider extends BaseEventServiceProvider
 {
     protected $listen = [
         KernelEvents::REQUEST => [
-            array(ServiceProvider::class, 'onRequest'),
+            [ServiceProvider::class, 'onRequest'],
         ],
     ];
 }

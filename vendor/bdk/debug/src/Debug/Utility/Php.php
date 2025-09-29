@@ -6,20 +6,14 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Utility;
 
+use bdk\Debug\Utility\Reflection;
 use Exception;
-use ReflectionClass;
-use ReflectionClassConstant;
-use ReflectionEnum;
-use ReflectionMethod;
-use ReflectionObject;
-use ReflectionProperty;
-use Reflector;
 use UnitEnum;
 
 /**
@@ -32,7 +26,29 @@ class Php
     const IS_CALLABLE_SYNTAX_ONLY = 4;
     const IS_CALLABLE_NO_CALL = 8; // don't test for __call / __callStatic methods
 
-    public static $allowedClasses = array();
+    /** @var string[] list of allowed-to-be-unserialized classes passed to unserializeSafe */
+    protected static $allowedClasses = [];
+
+    /**
+     * Return the build date of the PHP binary
+     *
+     * @return string|null
+     */
+    public static function buildDate()
+    {
+        if (\defined('PHP_BUILD_DATE')) {
+            return PHP_BUILD_DATE;
+        }
+
+        \ob_start();
+        \phpinfo(INFO_GENERAL);
+        $phpInfo = \ob_get_clean();
+        $phpInfo = \strip_tags($phpInfo);
+        \preg_match('/Build Date (?:=> )?([^\n]*)/', $phpInfo, $matches);
+        return $matches
+            ? $matches[1]
+            : null;
+    }
 
     /**
      * Get friendly classname for given classname or object
@@ -44,19 +60,54 @@ class Php
      */
     public static function friendlyClassName($mixed)
     {
-        $reflector = static::getReflector($mixed, true);
+        $reflector = Reflection::getReflector($mixed, true);
         if ($reflector && \method_exists($reflector, 'getDeclaringClass')) {
             $reflector = $reflector->getDeclaringClass();
         }
-        if (PHP_VERSION_ID < 70000 || $reflector->isAnonymous() === false) {
-            return $reflector->getName();
+        return self::getDebugTypeObject($reflector->getName());
+    }
+
+    /**
+     * Gets the type name of a variable in a way that is suitable for debugging
+     *
+     * like php's `get_debug_type`, but will return
+     *  - 'callable' for callable array
+     *  - enum name for enum value
+     *
+     * @param mixed $val The value being type checked
+     *
+     * @return string
+     *
+     * @see https://github.com/symfony/polyfill/blob/main/src/Php80/Php80.php
+     */
+    public static function getDebugType($val)
+    {
+        if (PHP_VERSION_ID >= 80000 && \in_array(\gettype($val), ['array', 'object'], true) === false) {
+            return \get_debug_type($val);
         }
-        // anonymous class
-        $parentClassRef = $reflector->getParentClass();
-        $extends = $parentClassRef
-            ? $parentClassRef->getName()
-            : null;
-        return ($extends ?: \current($reflector->getInterfaceNames()) ?: 'class') . '@anonymous';
+
+        switch (true) {
+            case $val === null:
+                return 'null';
+            case \is_bool($val):
+                return 'bool';
+            case \is_string($val):
+                return 'string';
+            case \is_array($val):
+                return self::isCallable($val)
+                    ? 'callable'
+                    : 'array';
+            case \is_int($val):
+                return 'int';
+            case \is_float($val):
+                return 'float';
+            case \is_object($val):
+                return self::getDebugTypeObject($val);
+            case $val instanceof \__PHP_Incomplete_Class:
+                return '__PHP_Incomplete_Class';
+            default:
+                return self::getDebugTypeResource($val);
+        }
     }
 
     /**
@@ -67,49 +118,20 @@ class Php
     public static function getIncludedFiles()
     {
         $includedFiles = \get_included_files();
-        \usort($includedFiles, static function ($valA, $valB) {
-            $valA = \str_replace('_', '0', $valA);
-            $valB = \str_replace('_', '0', $valB);
-            $dirA = \dirname($valA);
-            $dirB = \dirname($valB);
-            return $dirA === $dirB
-                ? \strnatcasecmp($valA, $valB)
-                : \strnatcasecmp($dirA, $dirB);
-        });
-        return $includedFiles;
+        return \bdk\Debug\Utility::sortFiles($includedFiles);
     }
 
     /**
-     * Get Reflector for given value
+     * Return path to the loaded php.ini file along with .ini files parsed from the additional ini dir
      *
-     * Accepts:
-     *   * object
-     *   * Reflector
-     *   * string  class
-     *   * string  class::method()
-     *   * string  class::$property
-     *   * string  class::CONSTANT
-     *
-     * @param object|string $mixed      object, or string
-     * @param bool          $returnSelf (false) if passed obj is a Reflector, return it
-     *
-     * @return Reflector|null
+     * @return array
      */
-    public static function getReflector($mixed, $returnSelf = false)
+    public static function getIniFiles()
     {
-        if ($mixed instanceof Reflector && $returnSelf) {
-            return $mixed;
-        }
-        if ($mixed instanceof UnitEnum) {
-            return new ReflectionEnum($mixed);
-        }
-        if (\is_object($mixed)) {
-            return new ReflectionObject($mixed);
-        }
-        if (\is_string($mixed)) {
-            return static::getReflectorFromString($mixed);
-        }
-        return null;
+        return \array_merge(
+            [\php_ini_loaded_file()],
+            \array_filter(\preg_split('#\s*[,\r\n]+\s*#', \trim((string) \php_ini_scanned_files())))
+        );
     }
 
     /**
@@ -124,7 +146,7 @@ class Php
      * @param string|array $val  value to check
      * @param int          $opts bitmask of IS_CALLABLE_x constants
      *                         IS_CALLABLE_ARRAY_ONLY
-     *                             must be array(x, 'method')
+     *                             must be `[x, 'method']`
      *                             (does not apply for Closure and invokable obj)
      *                         IS_CALLABLE_OBJ_ONLY
      *                             if array, first value must be object
@@ -173,8 +195,7 @@ class Php
      */
     public static function memoryLimit()
     {
-        $iniVal = \trim(\ini_get('memory_limit') ?: \get_cfg_var('memory_limit'));
-        return $iniVal ?: '128M';
+        return \trim(\ini_get('memory_limit') ?: \get_cfg_var('memory_limit')) ?: '128M';
     }
 
     /**
@@ -195,7 +216,7 @@ class Php
             return \unserialize($serialized);
         }
         if ($allowedClasses === false) {
-            $allowedClasses = array();
+            $allowedClasses = [];
         }
         $allowedClasses[] = 'stdClass';
         self::$allowedClasses = \array_unique($allowedClasses);
@@ -210,49 +231,52 @@ class Php
     }
 
     /**
-     * String to Reflector
+     * Get friendly class name
      *
-     * Accepts:
-     *   * 'class'              ReflectionClass
-     *   * 'class::method()'    ReflectionMethod
-     *   * 'class::$property'   ReflectionProperty
-     *   * 'class::CONSTANT'    ReflectionClassConstant (if Php >= 7.1)
-     *   * 'enum::CASE'         ReflectionEnumUnitCase
+     * @param object $obj Object to inspect
      *
-     * @param string $string string representing class, method, property, or class constant
-     *
-     * @return Reflector|null
+     * @return string
      */
-    private static function getReflectorFromString($string)
+    private static function getDebugTypeObject($obj)
     {
-        $regex = '/^'
-            . '(?P<class>[\w\\\]+)' // classname
-            . '(?:::(?:'
-                . '(?P<constant>\w+)|'       // constant
-                . '(?:\$(?P<property>\w+))|' // property
-                . '(?:(?P<method>\w+)\(\))|' // method
-            . '))?'
-            . '$/';
-        $matches = array();
-        \preg_match($regex, $string, $matches);
-        $defaults = \array_fill_keys(array('class', 'constant', 'property', 'method'), null);
-        $matches = \array_merge($defaults, $matches);
-        if ($matches['method']) {
-            return new ReflectionMethod($matches['class'], $matches['method']);
+        if ($obj instanceof UnitEnum) {
+            return \get_class($obj) . '::' . $obj->name;
         }
-        if ($matches['property']) {
-            return new ReflectionProperty($matches['class'], $matches['property']);
+        $class = \is_object($obj)
+            ? \get_class($obj)
+            : $obj;
+        if (\strpos($class, '@') === false) {
+            return $class;
         }
-        if ($matches['constant'] && PHP_VERSION_ID >= 80100 && \enum_exists($matches['class'])) {
-            return (new ReflectionEnum($matches['class']))->getCase($matches['constant']);
+        $class = \get_parent_class($class) ?: \key(\class_implements($class)) ?: 'class';
+        return $class . '@anonymous';
+    }
+
+    /**
+     * Get resource type
+     *
+     * This method is only used for php < 8.0
+     *
+     * @param mixed $val Resource
+     *
+     * @return string
+     */
+    private static function getDebugTypeResource($val)
+    {
+        // @phpcs:ignore Squiz.WhiteSpace.ScopeClosingBrace
+        \set_error_handler(static function () {});
+        $type = \get_resource_type($val);
+        \restore_error_handler();
+
+        if ($type === null) {
+            // closed resource (php < 7.2)
+            $type = 'closed';
         }
-        if ($matches['constant'] && PHP_VERSION_ID >= 70100) {
-            return new ReflectionClassConstant($matches['class'], $matches['constant']);
+        if ($type === 'Unknown') {
+            $type = 'closed';
         }
-        if ($matches['class']) {
-            return new ReflectionClass($matches['class']);
-        }
-        return null;
+
+        return 'resource (' . $type . ')';
     }
 
     /**
@@ -277,14 +301,13 @@ class Php
         if (\is_object($val[0])) {
             return self::isCallableArrayObj($val, $opts);
         }
-        if ($opts & self::IS_CALLABLE_OBJ_ONLY) {
-            return false;
-        }
-        return self::isCallableArrayString($val, $opts);
+        return $opts & self::IS_CALLABLE_OBJ_ONLY
+            ? false
+            : self::isCallableArrayString($val, $opts);
     }
 
     /**
-     * Test if array(obj, 'method') is callable
+     * Test if `[obj, 'method']` is callable
      *
      * @param array $val  array to test
      * @param int   $opts bitmask of IS_CALLABLE_x constants
@@ -305,7 +328,7 @@ class Php
     }
 
     /**
-     * Test if array('string', 'method') is callable
+     * Test if `['string', 'method']` is callable
      *
      * @param array $val  array to test
      * @param int   $opts bitmask of IS_CALLABLE_x constants
@@ -341,12 +364,13 @@ class Php
      */
     private static function unserializeSafeModify($serialized)
     {
-        $matches = array();
+        $matches = [];
         $offset = 0;
         $regex = '/(^|;)([OC]):(\d+):"([\w\\\\]+)":(\d+):\{/';
-        $regexKeys = array('full', 'prefix', 'type', 'strlen', 'classname', 'length');
+        $regexKeys = ['full', 'prefix', 'type', 'strlen', 'classname', 'length'];
         $serializedNew = '';
         while (\preg_match($regex, $serialized, $matches, PREG_OFFSET_CAPTURE, $offset)) {
+            /** @var array<string,int> */
             $offsets = array();
             foreach ($regexKeys as $i => $key) {
                 $matches[$key] = $matches[$i][0];
@@ -378,7 +402,10 @@ class Php
     private static function unserializeSafeModifyMatch($matches, $offsets, &$offset)
     {
         $offset = $offsets['full'] + \strlen($matches['full']);
-        if (\strlen($matches['classname']) !== (int) $matches['strlen'] || \in_array($matches['classname'], self::$allowedClasses, true)) {
+        if (
+            \strlen($matches['classname']) !== (int) $matches['strlen']
+            || \in_array($matches['classname'], self::$allowedClasses, true)
+        ) {
             return $matches['full'];
         }
         if ($matches['type'] === 'O') {

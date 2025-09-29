@@ -4,24 +4,31 @@
  * @package   bdk\ErrorHandler
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2023 Brad Kent
- * @version   v3.2
+ * @copyright 2014-2025 Brad Kent
+ * @since     v3.3
  */
 
 namespace bdk\ErrorHandler;
+
+use OutOfBoundsException;
 
 /**
  * Base "component" methods
  */
 class AbstractComponent
 {
-    /** @var array */
+    /** @var array<string,mixed> */
     protected $cfg = array();
-    protected $readOnly = array();
+
+    /** @var list<string> */
+    protected $readOnly = [];
+
+    /** @var callable */
     protected $setCfgMergeCallable = 'array_replace_recursive';
 
     /**
      * Magic getter
+     *
      * Get inaccessible / undefined properties
      * Lazy load child classes
      *
@@ -41,6 +48,26 @@ class AbstractComponent
             return $this->{$prop};
         }
         return null;
+    }
+
+    /**
+     * Magic setter
+     *
+     * @param string $prop  Property name
+     * @param mixed  $value Property value
+     *
+     * @return void
+     *
+     * @throws OutOfBoundsException if key does not exist or is read only
+     */
+    public function __set($prop, $value)
+    {
+        $setter = 'set' . \ucfirst($prop);
+        if (\method_exists($this, $setter)) {
+            $this->{$setter}($value);
+            return;
+        }
+        throw new OutOfBoundsException('Property ' . $prop . ' does not exist or is read-only');
     }
 
     /**
@@ -72,9 +99,7 @@ class AbstractComponent
             return $this->{$first}->getCfg(\array_slice($path, 1));
         }
         $return = $this->cfg;
-        $path = \array_reverse($path);
-        while ($path) {
-            $key = \array_pop($path);
+        foreach ($path as $key) {
             if (isset($return[$key])) {
                 $return = $return[$key];
                 continue;
@@ -87,8 +112,8 @@ class AbstractComponent
     /**
      * Set one or more config values
      *
-     *    setCfg('key', 'value')
-     *    setCfg(array('k1'=>'v1', 'k2'=>'v2'))
+     *     setCfg('key', 'value')
+     *     setCfg(array('k1'=>'v1', 'k2'=>'v2'))
      *
      * Calls self::postSetCfg() with new values and previous values
      *
@@ -124,8 +149,6 @@ class AbstractComponent
      * @param array $prev previous config values
      *
      * @return void
-     *
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     protected function postSetCfg($cfg = array(), $prev = array())
     {

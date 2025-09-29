@@ -6,44 +6,41 @@
  * @package   bdk\PubSub
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v2.4
+ * @copyright 2014-2025 Brad Kent
+ * @since     v3.0
  * @link      http://www.github.com/bkdotcom/PubSub
  */
 
 namespace bdk\PubSub;
 
-use ArrayAccess;
-use ArrayIterator;
-use IteratorAggregate;
-
 /**
- * Event
+ * Represents a basic event
  *
- * Events are passed to event subscribres/listeners
+ * Events are passed to event subscribers/listeners
+ *
+ * @template Subject of mixed
+ * @template TKey    of array-key
+ * @template TValue  of mixed
+ *
+ * @template-extends ValueStore<TKey, TValue>
  */
-class Event implements ArrayAccess, IteratorAggregate
+class Event extends ValueStore
 {
+    /**
+     * @var Subject Event subject - usually object or callable
+     */
+    protected $subject = null;
+
     /**
      * @var bool Whether event subscribers should be called
      */
     private $propagationStopped = false;
 
     /**
-     * @var mixed Event subject: usually object or callable
-     */
-    protected $subject = null;
-
-    /**
-     * @var array Array of key/values
-     */
-    protected $values = array();
-
-    /**
      * Construct an event with optional subject and values
      *
-     * @param mixed $subject The subject of the event (usually an object)
-     * @param array $values  Values to store in the event
+     * @param Subject            $subject The subject of the event (usually an object)
+     * @param array<TKey,TValue> $values  Values to store in the event
      */
     public function __construct($subject = null, array $values = array())
     {
@@ -54,7 +51,11 @@ class Event implements ArrayAccess, IteratorAggregate
     /**
      * Magic Method
      *
-     * @return array
+     * @return array{
+     *    propagationStopped: bool,
+     *    subject: class-string|mixed,
+     *    values: array<TKey, TValue>,
+     * }
      */
     public function __debugInfo()
     {
@@ -70,45 +71,11 @@ class Event implements ArrayAccess, IteratorAggregate
     /**
      * Get Event's "subject"
      *
-     * @return mixed The observer subject
+     * @return Subject Usually the object that published the event
      */
     public function getSubject()
     {
         return $this->subject;
-    }
-
-    /**
-     * Get value by key.
-     *
-     * @param string $key Value name
-     *
-     * @return mixed
-     */
-    public function getValue($key)
-    {
-        return $this->offsetGet($key);
-    }
-
-    /**
-     * Get all stored values
-     *
-     * @return array
-     */
-    public function getValues()
-    {
-        return $this->values;
-    }
-
-    /**
-     * Does specified key have a value?
-     *
-     * @param string $key Value name
-     *
-     * @return bool
-     */
-    public function hasValue($key)
-    {
-        return \array_key_exists($key, $this->values);
     }
 
     /**
@@ -126,37 +93,6 @@ class Event implements ArrayAccess, IteratorAggregate
     }
 
     /**
-     * Set event value
-     *
-     * @param string $key   Value name
-     * @param mixed  $value Value
-     *
-     * @return $this
-     */
-    public function setValue($key, $value)
-    {
-        $this->values[$key] = $value;
-        $this->onSet(array(
-            $key => $value,
-        ));
-        return $this;
-    }
-
-    /**
-     * Clears existing values and sets new values
-     *
-     * @param array $values key=>value array of values
-     *
-     * @return $this
-     */
-    public function setValues(array $values = array())
-    {
-        $this->values = $values;
-        $this->onSet($values);
-        return $this;
-    }
-
-    /**
      * Stops the propagation of the event
      *
      * No further event subscribers will be called
@@ -166,88 +102,5 @@ class Event implements ArrayAccess, IteratorAggregate
     public function stopPropagation()
     {
         $this->propagationStopped = true;
-    }
-
-    /**
-     * ArrayAccess hasValue.
-     *
-     * @param string $key Array key
-     *
-     * @return bool
-     */
-    #[\ReturnTypeWillChange]
-    public function offsetExists($key)
-    {
-        return isset($this->values[$key]);
-    }
-
-    /**
-     * ArrayAccess getValue.
-     *
-     * @param string $key Array key
-     *
-     * @return mixed
-     */
-    #[\ReturnTypeWillChange]
-    public function &offsetGet($key)
-    {
-        if ($this->hasValue($key)) {
-            return $this->values[$key];
-        }
-        $null = null;
-        return $null;
-    }
-
-    /**
-     * ArrayAccess setValue
-     *
-     * @param string $key   Array key to set
-     * @param mixed  $value Value
-     *
-     * @return void
-     */
-    #[\ReturnTypeWillChange]
-    public function offsetSet($key, $value)
-    {
-        $this->setValue($key, $value);
-    }
-
-    /**
-     * ArrayAccess interface
-     *
-     * @param string $key Array key
-     *
-     * @return void
-     */
-    #[\ReturnTypeWillChange]
-    public function offsetUnset($key)
-    {
-        unset($this->values[$key]);
-    }
-
-    /**
-     * IteratorAggregate interface
-     *
-     * Iterate over the object like an array.
-     *
-     * @return ArrayIterator
-     */
-    #[\ReturnTypeWillChange]
-    public function getIterator()
-    {
-        return new ArrayIterator($this->values);
-    }
-
-    /**
-     * Extend me to perform action after setting value/values
-     *
-     * @param array $values key => values  being set
-     *
-     * @return void
-     *
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
-     */
-    protected function onSet($values = array())
-    {
     }
 }

@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     1.3b
  */
 
 namespace bdk\Debug\Route;
@@ -23,16 +23,20 @@ class Firephp extends AbstractRoute
 {
     const FIREPHP_PROTO_VER = '0.3';
 
+    /** @var bool */
     protected $appendsHeaders = true;
 
+    /** @var array<string,mixed> */
     protected $cfg = array(
-        'channels' => array('*'),
-        'channelsExclude' => array(
+        'channels' => ['*'],
+        'channelsExclude' => [
             'events',
             'files',
-        ),
+        ],
         'messageLimit' => 99999,
     );
+
+    /** @var array<string,string> */
     protected $firephpMethods = array(
         'error' => 'ERROR',
         'group' => 'GROUP_START',
@@ -43,7 +47,11 @@ class Firephp extends AbstractRoute
         'table' => 'TABLE',
         'warn' => 'WARN',
     );
+
+    /** @var int */
     protected $messageIndex = 0;
+
+    /** @var Event|null */
     protected $outputEvent;
 
     /**
@@ -60,27 +68,24 @@ class Firephp extends AbstractRoute
     /**
      * Output the log via FirePHP headers
      *
-     * @param Event $event Debug::EVENT_OUTPUT Event object
+     * @param Event|null $event Debug::EVENT_OUTPUT Event object
      *
      * @return void
      */
-    public function processLogEntries(Event $event)
+    public function processLogEntries($event = null)
     {
+        $this->debug->utility->assertType($event, 'bdk\PubSub\Event');
+
         $this->dumper->crateRaw = false;
         $this->outputEvent = $event;
         $this->data = $this->debug->data->get();
-        $event['headers'][] = array('X-Wf-Protocol-1', 'http://meta.wildfirehq.org/Protocol/JsonStream/0.2');
-        $event['headers'][] = array('X-Wf-1-Plugin-1', 'http://meta.firephp.org/Wildfire/Plugin/FirePHP/Library-FirePHPCore/' . self::FIREPHP_PROTO_VER);
-        $event['headers'][] = array('X-Wf-1-Structure-1', 'http://meta.firephp.org/Wildfire/Structure/FirePHP/FirebugConsole/0.1');
-        // FirePHP in a CLI environment??  Sure, why not.
-        $heading = $this->debug->isCli()
-            ? '$: ' . \implode(' ', $this->debug->getServerParam('argv', array()))
-            : $this->debug->serverRequest->getMethod()
-                . ' ' . $this->debug->redact((string) $this->debug->serverRequest->getUri());
+        $event['headers'][] = ['X-Wf-Protocol-1', 'http://meta.wildfirehq.org/Protocol/JsonStream/0.2'];
+        $event['headers'][] = ['X-Wf-1-Plugin-1', 'http://meta.firephp.org/Wildfire/Plugin/FirePHP/Library-FirePHPCore/' . self::FIREPHP_PROTO_VER];
+        $event['headers'][] = ['X-Wf-1-Structure-1', 'http://meta.firephp.org/Wildfire/Structure/FirePHP/FirebugConsole/0.1'];
         $this->processLogEntryViaEvent(new LogEntry(
             $this->debug,
             'groupCollapsed',
-            array('PHP: ' . $heading)
+            ['PHP: ' . $this->getRequestMethodUri()]
         ));
         $this->processAlerts();
         $this->processSummary();
@@ -89,7 +94,7 @@ class Firephp extends AbstractRoute
             $this->debug,
             'groupEnd'
         ));
-        $event['headers'][] = array('X-Wf-1-Index', $this->messageIndex);
+        $event['headers'][] = ['X-Wf-1-Index', $this->messageIndex];
         $this->data = array();
         $this->dumper->crateRaw = true;
     }
@@ -109,13 +114,13 @@ class Firephp extends AbstractRoute
         $value = null;
         if ($method === 'alert') {
             $value = $this->methodAlert($logEntry);
-        } elseif (\in_array($method, array('group', 'groupCollapsed'), true)) {
+        } elseif (\in_array($method, ['group', 'groupCollapsed'], true)) {
             $logEntry['firephpMeta']['Label'] = $args[0];
             $logEntry['firephpMeta']['Collapsed'] = $method === 'groupCollapsed'
                 // yes, strings
                 ? 'true'
                 : 'false';
-        } elseif (\in_array($method, array('profileEnd', 'table', 'trace'), true)) {
+        } elseif (\in_array($method, ['profileEnd', 'table', 'trace'], true)) {
             $value = $this->methodTabular($logEntry);
         } elseif (\count($args)) {
             $this->dumper->processLogEntry($logEntry);
@@ -196,9 +201,9 @@ class Firephp extends AbstractRoute
         $value = $args[0];
         if ($firephpTable) {
             $value = array();
-            $value[] = \array_merge(array(''), \array_keys(\current($args[0])));
+            $value[] = \array_merge([''], \array_keys(\current($args[0])));
             foreach ($args[0] as $k => $row) {
-                $value[] = \array_merge(array($k), \array_values($row));
+                $value[] = \array_merge([$k], \array_values($row));
             }
         }
         return $this->dumper->valDumper->dump($value);
@@ -215,10 +220,10 @@ class Firephp extends AbstractRoute
     private function setFirephpHeader($meta, $value = null)
     {
         \ksort($meta);  // for consistency / testing
-        $msg = \json_encode(array(
+        $msg = \json_encode([
             $meta,
             $value,
-        ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $structureIndex = 1;    // refers to X-Wf-1-Structure-1
         $parts = \explode("\n", \rtrim(\chunk_split($msg, 5000, "\n")));
         $numParts = \count($parts);
@@ -229,7 +234,7 @@ class Firephp extends AbstractRoute
             $headerValue = ($i === 0 ? \strlen($msg) : '')
                 . '|' . $part . '|'
                 . ($i < $numParts - 1 ? '\\' : '');
-            $this->outputEvent['headers'][] = array($headerName, $headerValue);
+            $this->outputEvent['headers'][] = [$headerName, $headerValue];
         }
     }
 

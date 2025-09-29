@@ -6,15 +6,15 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b3
  */
 
 namespace bdk\Debug\Collector;
 
 use bdk\Debug;
 use bdk\Debug\Plugin\Redaction;
-use bdk\HttpMessage\UriUtils;
+use bdk\HttpMessage\Utility\Uri as UriUtils;
 use Oauth as OAuthBase;
 use OAuthException;
 
@@ -23,9 +23,16 @@ use OAuthException;
  */
 class OAuth extends OAuthBase
 {
+    /** @var Debug */
     protected $debugger;
-    protected $icon = 'fa fa-handshake-o';
+
+    /** @var string */
+    protected $icon = ':authorize:';
+
+    /** @var float */
     private $elapsed;
+
+    /** @var OAuthException|null */
     private $exception;
 
     /**
@@ -43,7 +50,7 @@ class OAuth extends OAuthBase
     {
         parent::__construct($consumerKey, $consumerSecret, $signatureMethod, $authType);
         if ($debug === null) {
-            $debug = Debug::_getChannel('OAuth', array('channelIcon' => $this->icon));
+            $debug = Debug::getChannel('OAuth', array('channelIcon' => $this->icon));
         } elseif ($debug === $debug->rootInstance) {
             $debug = $debug->getChannel('OAuth', array('channelIcon' => $this->icon));
         }
@@ -157,10 +164,10 @@ class OAuth extends OAuthBase
      */
     private function additionalInfo($url)
     {
-        $debugInfo = \array_diff_key($this->getDebugInfo(), \array_flip(array(
+        $debugInfo = \array_diff_key($this->getDebugInfo(), \array_flip([
             'headers_sent', 'body_sent', 'headers_recv', 'body_recv',
             // "sbs" may be only key remaining
-        )));
+        ]));
         $lastResponseInfo = \array_merge(array(
             'download_content_length' => 0,
             'size_download' => 0,
@@ -191,15 +198,15 @@ class OAuth extends OAuthBase
         // values available in the headers or elsewhere
         $this->debugger->log('OAuth Parameters', $this->oauthParams(), $this->debugger->meta('cfg', 'abstracter.stringMinLen.encoded', -1));
         $this->debugger->log('additional info', $this->additionalInfo($url));
-        $this->debugger->log('request headers', $this->debugger->redactHeaders($debugInfo['headers_sent']), $this->debugger->meta('icon', 'fa fa-arrow-right'));
+        $this->debugger->log('request headers', $this->debugger->redactHeaders($debugInfo['headers_sent']), $this->debugger->meta('icon', ':send:'));
         if (isset($debugInfo['body_sent'])) {
             $this->debugger->log('request body', $debugInfo['body_sent'], $this->debugger->meta(array(
-                'icon' => 'fa fa-arrow-right',
+                'icon' => ':send:',
                 'redact' => true,
             )));
         }
-        $this->debugger->log('response headers', $debugInfo['headers_recv'], $this->debugger->meta('icon', 'fa fa-arrow-left'));
-        $this->debugger->log('response body', $debugInfo['body_recv'], $this->debugger->meta('icon', 'fa fa-arrow-left'));
+        $this->debugger->log('response headers', $debugInfo['headers_recv'], $this->debugger->meta('icon', ':receive:'));
+        $this->debugger->log('response body', $debugInfo['body_recv'], $this->debugger->meta('icon', ':receive:'));
         if ($this->exception) {
             $this->debugger->warn(\get_class($this->exception), $this->exception->getMessage());
         }
@@ -212,7 +219,7 @@ class OAuth extends OAuthBase
      */
     private function oauthParams()
     {
-        $oauthParamKeys = array(
+        $oauthParamKeys = [
             'oauth_consumer_key',
             'oauth_nonce',
             'oauth_signature',
@@ -220,7 +227,7 @@ class OAuth extends OAuthBase
             'oauth_timestamp',
             'oauth_token',
             'oauth_version',
-        );
+        ];
         $oauthParams = array();
         $debugInfo = $this->getDebugInfo();
         if (\preg_match('/^Authorization:\s+([^\r]+)/m', $debugInfo['headers_sent'], $matches)) {
@@ -256,7 +263,7 @@ class OAuth extends OAuthBase
         $return = false;
         $this->debugger->time();
         try {
-            $return = \call_user_func_array(array('OAuth', $method), $args);
+            $return = \call_user_func_array(['OAuth', $method], $args);
         } catch (OAuthException $e) {
             $this->exception = $e;
         }

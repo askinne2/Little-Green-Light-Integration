@@ -6,15 +6,18 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Collector;
 
+use BadMethodCallException;
 use bdk\Debug;
 use bdk\Debug\Collector\SimpleCache\CallInfo;
+use bdk\Debug\Collector\SimpleCache\CompatTrait;
 use bdk\PubSub\Event;
+use Exception;
 use Psr\SimpleCache\CacheInterface;
 use RuntimeException;
 use Traversable;
@@ -24,131 +27,70 @@ use Traversable;
  */
 class SimpleCache implements CacheInterface
 {
+    use CompatTrait;
+
+    /** @var Debug */
     public $debug;
+
+    /** @var CacheInterface */
     protected $cache;
-    protected $icon = 'fa fa-cube';
+
+    /** @var string */
+    protected $icon = ':cache:';
+
+    /** @var list<CallInfo> */
     protected $loggedActions = array();
 
     /**
      * Constructor
      *
      * @param CacheInterface $cache SimpleCache instance
-     * @param Debug          $debug (optional) Specify PHPDebugConsole instance
+     * @param Debug|null     $debug (optional) Specify PHPDebugConsole instance
      *                                if not passed, will create PDO channel on singleton instance
      *                                if root channel is specified, will create a PDO channel
      *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public function __construct(CacheInterface $cache, Debug $debug = null)
+    public function __construct(CacheInterface $cache, $debug = null)
     {
+        \bdk\Debug\Utility::assertType($debug, 'bdk\Debug');
+
         if (!$debug) {
-            $debug = Debug::_getChannel('SimpleCache', array('channelIcon' => $this->icon));
+            $debug = Debug::getChannel('SimpleCache', array('channelIcon' => $this->icon));
         } elseif ($debug === $debug->rootInstance) {
             $debug = $debug->getChannel('SimpleCache', array('channelIcon' => $this->icon));
         }
         $this->cache = $cache;
         $this->debug = $debug;
-        $this->debug->eventManager->subscribe(Debug::EVENT_OUTPUT, array($this, 'onDebugOutput'), 1);
+        $this->debug->eventManager->subscribe(Debug::EVENT_OUTPUT, [$this, 'onDebugOutput'], 1);
     }
 
     /**
      * Magic method... inaccessible method called.
      *
-     * @param string $name method name
-     * @param array  $args method arguments
+     * @param string $method method name
+     * @param array  $args   method arguments
      *
      * @return mixed
+     *
+     * @throws BadMethodCallException
      */
-    public function __call($name, $args)
+    public function __call($method, array $args)
     {
+        if (\method_exists($this->cache, $method) === false) {
+            throw new BadMethodCallException('method ' . __CLASS__ . '::' . $method . ' is not defined');
+        }
         // we'll just pass the first arg since we don't know what we're dealing with
         $keys = !empty($args[0])
             ? $args[0]
             : null;
-        return $this->profileCall($name, $args, false, $keys);
+        return $this->profileCall($method, $args, false, $keys);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public function get($key, $default = null)
-    {
-        return $this->profileCall('get', \func_get_args(), false, $key);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function set($key, $value, $ttl = null)
-    {
-        return $this->profileCall('set', \func_get_args(), true, $key);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function delete($key)
-    {
-        return $this->profileCall('delete', \func_get_args(), false, $key);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function clear()
-    {
-        return $this->profileCall('clear', array(), true);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function getMultiple($keys, $default = null)
-    {
-        $keysDebug = array();
-        if ($keys instanceof Traversable) {
-            $keysDebug = \iterator_to_array($keys, false);
-        } elseif (\is_array($keys)) {
-            $keysDebug = $keys;
-        }
-        return $this->profileCall('getMultiple', \func_get_args(), false, $keysDebug);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function setMultiple($values, $ttl = null)
-    {
-        $keysDebug = array();
-        if ($values instanceof Traversable) {
-            $keysDebug = \array_keys(\iterator_to_array($values));
-        } elseif (\is_array($values)) {
-            $keysDebug = \array_keys($values);
-        }
-        return $this->profileCall('setMultiple', \func_get_args(), true, $keysDebug);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function deleteMultiple($keys)
-    {
-        $keysDebug = array();
-        if ($keys instanceof Traversable) {
-            $keysDebug = \iterator_to_array($keys, false);
-        } elseif (\is_array($keys)) {
-            $keysDebug = $keys;
-        }
-        return $this->profileCall('deleteMultiple', \func_get_args(), true, $keysDebug);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function has($key)
-    {
-        return $this->profileCall('has', \func_get_args(), false, $key);
-    }
+    /*
+    Defined in CompatTrait:
+        get, set, delete, clear, getMultiple, setMultiple, deleteMultiple, has
+    */
 
     /**
      * Debug::EVENT_OUTPUT subscriber
@@ -238,6 +180,28 @@ class SimpleCache implements CacheInterface
     }
 
     /**
+     * Get the keys being get/set/deleted
+     *
+     * @param iterable $keysOrValues keys or key=>value pairs
+     * @param bool     $isValues     key/values ?
+     *
+     * @return array
+     */
+    protected function keysDebug($keysOrValues, $isValues = false)
+    {
+        $keysDebug = array();
+        if ($keysOrValues instanceof Traversable) {
+            $keysDebug = \iterator_to_array($keysOrValues, $isValues);
+        } elseif (\is_array($keysOrValues)) {
+            $keysDebug = $keysOrValues;
+        }
+        if ($isValues) {
+            $keysDebug = \array_keys($keysDebug);
+        }
+        return $keysDebug;
+    }
+
+    /**
      * Profiles a call to a PDO method
      *
      * @param string       $method            SimpleCache method
@@ -252,18 +216,19 @@ class SimpleCache implements CacheInterface
     {
         $info = new CallInfo($method, $keyOrKeys);
 
-        $exception = null;
+        $exception = null; // unexpected exception / will be re-thrown
+        $failureException = null; // method returned false
         $result = null;
         try {
-            $result = \call_user_func_array(array($this->cache, $method), $args);
+            $result = \call_user_func_array([$this->cache, $method], $args);
             if ($isSuccessResponse && $result === false) {
-                $exception = new RuntimeException();
+                $failureException = new RuntimeException(__CLASS__ . '::' . $method . '() failed');
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $exception = $e;
         }
 
-        $info->end($exception);
+        $info->end($exception ?: $failureException);
         $this->addCallInfo($info);
 
         if ($exception) {

@@ -6,13 +6,16 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Framework\Yii1_1;
 
 use bdk\Debug;
+use bdk\Debug\Collector\StatementInfo;
+use bdk\Debug\Collector\StatementInfoLogger;
+use bdk\Debug\LogEntry;
 use CLogger;
 use CLogRoute;
 use Exception;
@@ -23,10 +26,13 @@ use Yii;
  */
 class LogRoute extends CLogRoute
 {
+    /** @var string specify levels handled by route */
     public $levels = 'error, info, profile, trace, warning';
 
+    /** @var Debug */
     private $debug;
 
+    /** @var array<non-empty-string,string> */
     private $levelMap = array(
         CLogger::LEVEL_ERROR => 'error',
         CLogger::LEVEL_INFO => 'log',
@@ -35,15 +41,19 @@ class LogRoute extends CLogRoute
         CLogger::LEVEL_WARNING => 'warn',
     );
 
-    /**
-     * @var array stack of yii begin-profile log entries
-     */
+    /** @var LogEntryMeta */
+    protected $meta;
+
+    /** @var array<string,bool> */
+    private $messageHashes = array();
+
+    /** @var array stack of yii begin-profile log entries */
     private $stack;
 
     /**
      * @var array $except An array of categories to exclude from logging.
-     *                                  Regex pattern matching is supported
-     *                                  We exclude system.db categories... handled via pdo wrapper
+     *                      Regex pattern matching is supported
+     *                      We exclude system.db categories... handled via pdo wrapper
      */
     protected $except = array(
         '/^system\.db\./',
@@ -52,18 +62,21 @@ class LogRoute extends CLogRoute
     /**
      * Constructor
      *
-     * @param Debug $debug Debug instance
-     * @param array $opts  Route options
+     * @param Debug|null $debug Debug instance
+     * @param array      $opts  Route options
      *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public function __construct(Debug $debug = null, $opts = array())
+    public function __construct($debug = null, $opts = array())
     {
+        \bdk\Debug\Utility::assertType($debug, 'bdk\Debug');
+
         if (!$debug) {
-            $debug = Debug::_getChannel('Yii');
+            $debug = Debug::getChannel('Yii');
         } elseif ($debug === $debug->rootInstance) {
             $debug = $debug->getChannel('Yii');
         }
+        $this->meta = new LogRouteMeta($debug);
         foreach ($opts as $k => $v) {
             $setter = 'set' . \ucfirst($k);
             if (\method_exists($this, $setter)) {
@@ -83,13 +96,12 @@ class LogRoute extends CLogRoute
     /**
      * Retrieves filtered log messages from logger for further processing.
      *
-     * Extends CLogRoute
-     *
      * @param CLogger $logger      logger instance
      * @param bool    $processLogs whether to process the logs after they are collected from the logger. ALWAYS TRUE NOW!
      *
      * @return void
      */
+    #[\Override]
     public function collectLogs($logger, $processLogs = false)
     {
         $processLogs = true;
@@ -121,35 +133,12 @@ class LogRoute extends CLogRoute
      *
      * @return void
      */
+    #[\Override]
     public function init()
     {
         parent::init();
         // send each entry to debugger immediately
         Yii::getLogger()->autoFlush = 1;
-    }
-
-    /**
-     * Find backtrace frame that called log()
-     *
-     * @return array backtrace frame or empty array
-     */
-    private function getCallerInfo()
-    {
-        $callerInfo = array();
-        $backtrace = \debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 13);
-        foreach ($backtrace as $i => $frame) {
-            $method = $frame['class'] . '::' . $frame['function'];
-            if (\in_array($method, array('CLogger::log', 'YiiBase::log'), true) === false) {
-                continue;
-            }
-            $callerInfo = $frame;
-            // check if log called by some other wrapper method
-            if (\in_array($backtrace[$i + 1]['function'], array('log', 'error', 'warn', 'warning'), true)) {
-                $callerInfo = $backtrace[$i + 1];
-            }
-            break;
-        }
-        return $callerInfo;
     }
 
     /**
@@ -162,20 +151,44 @@ class LogRoute extends CLogRoute
     protected function isExcluded(array $logEntry)
     {
         $category = $logEntry[2];
-        if (\strpos($category, 'system.db') === 0 && \preg_match('/^(Opening|Closing)/', $logEntry[0])) {
+        $level = $logEntry[1];
+        if (\strpos($category, 'system.db.') === 0 && \preg_match('/^(Opening|Closing)/', $logEntry[0])) {
             return false;
         }
-        foreach ($this->except as $exceptCat) {
-            //  If found, we skip
-            if (\trim(\strtolower($exceptCat)) === \trim(\strtolower($category))) {
+        if ($category === 'application' && $level === CLogger::LEVEL_TRACE && \preg_match('/^(Begin|Commit|Rollback) transaction/', $logEntry[0])) {
+            // we will log these via our PDO collector
+            return true;
+        }
+        if ($level === CLogger::LEVEL_WARNING) {
+            $hash = \md5($logEntry[0]);
+            if (isset($this->messageHashes[$hash])) {
+                // we've already logged this warning
                 return true;
             }
-            //  Check for regex
-            if ($exceptCat[0] === '/' && \preg_match($exceptCat, $category)) {
-                return true;
+            $this->messageHashes[$hash] = true;
+        }
+        return $this->isExcludedTest($category);
+    }
+
+    /**
+     * Test except string against category
+     *
+     * @param string $category logEntry category
+     *
+     * @return bool
+     */
+    private function isExcludedTest($category)
+    {
+        $category = \trim(\strtolower($category));
+        $isMatch = false;
+        foreach ($this->except as $except) {
+            if (\trim(\strtolower($except)) === $category) {
+                $isMatch = true;
+            } elseif ($except[0] === '/' && \preg_match($except, $category)) {
+                $isMatch = true;
             }
         }
-        return false;
+        return $isMatch;
     }
 
     /**
@@ -187,216 +200,21 @@ class LogRoute extends CLogRoute
      */
     protected function normalizeMessage(array $logEntry)
     {
-        $logEntry = \array_combine(
-            array('message', 'level', 'category', 'time'),
-            $logEntry
-        );
-        $logEntry = \array_merge($logEntry, array(
+        $keys = ['message', 'level', 'category', 'time'];
+        return \array_merge(array(
             'channel' => $this->debug,
             'meta' => array(),
-            'trace' => array(),
-        ));
-        $haveTrace = $logEntry['level'] === CLogger::LEVEL_TRACE || YII_DEBUG && YII_TRACE_LEVEL > 0;
-        if ($haveTrace === false) {
-            return $logEntry;
-        }
-        return $this->parseTrace($logEntry);
-    }
-
-    /**
-     * Determine channel
-     *
-     * @param array $logEntry key/valued Yii log entry
-     *
-     * @return array
-     */
-    protected function messageMeta(array $logEntry)
-    {
-        $logEntry = $this->messageMetaTrace($logEntry);
-        $logEntry = $this->messageMetaCaller($logEntry);
-        $categoryFuncs = array(
-            '/^system\\./' => 'messageMetaSystem',
-            '/^system\\.caching/' => 'messageMetaSystemCaching',
-            'application' => 'messageMetaApplication',
-            'system.CModule' => 'messageMetaSystemCmodule',
-        );
-        foreach ($categoryFuncs as $match => $method) {
-            $isMatch = $match[0] === '/'
-                ? \preg_match($match, $logEntry['category'])
-                : $match === $logEntry['category'];
-            if ($isMatch) {
-                return $this->{$method}($logEntry);
-            }
-        }
-        return $logEntry;
-    }
-
-    /**
-     * Add file & line meta to error and warning
-     *
-     * @param array $logEntry key/valued Yii log entry
-     *
-     * @return array
-     */
-    private function messageMetaCaller(array $logEntry)
-    {
-        if (\in_array($logEntry['level'], array(CLogger::LEVEL_ERROR, CLogger::LEVEL_WARNING), true) === false) {
-            return $logEntry;
-        }
-        if (\array_intersect_key($logEntry['meta'], \array_flip(array('file', 'line')))) {
-            return $logEntry;
-        }
-        $callerInfo = $this->getCallerInfo();
-        if ($callerInfo) {
-            $logEntry['meta']['file'] = $callerInfo['file'];
-            $logEntry['meta']['line'] = $callerInfo['line'];
-        }
-        return $logEntry;
-    }
-
-    /**
-     * Handle category: application
-     *
-     * @param array $logEntry key/valued Yii log entry
-     *
-     * @return array
-     *
-     * @SuppressWarnings(PHPMD.UnusedPrivateMethod)
-     */
-    private function messageMetaApplication(array $logEntry)
-    {
-        $logEntry['category'] = null;
-        $logEntry['channel'] = $this->debug->getChannel('app');
-        return $logEntry;
-    }
-
-    /**
-     * Handle category: system.xxx
-     *
-     * @param array $logEntry key/valued Yii log entry
-     *
-     * @return array
-     *
-     * @SuppressWarnings(PHPMD.UnusedPrivateMethod)
-     */
-    private function messageMetaSystem(array $logEntry)
-    {
-        $channelName = 'system misc';
-        $icon = 'fa fa-cogs';
-        $logEntry['channel'] = $this->debug->getChannel($channelName, array(
-            'icon' => $icon,
-        ));
-        $logEntry['meta']['icon'] = $icon;
-        return $logEntry;
-    }
-
-    /**
-     * Handle category: system.caching
-     *
-     * @param array $logEntry key/valued Yii log entry
-     *
-     * @return array
-     *
-     * @SuppressWarnings(PHPMD.UnusedPrivateMethod)
-     */
-    private function messageMetaSystemCaching(array $logEntry)
-    {
-        $channelName = \str_replace('system.caching.', '', $logEntry['category']);
-        $icon = 'fa fa-cube';
-        $logEntry['category'] = $channelName;
-        $logEntry['channel'] = $this->debug->getChannel($channelName, array(
-            'channelIcon' => $icon,
-            'channelShow' => false,
-        ));
-        $logEntry['message'] = \preg_replace('# (to|from) cache$#', '', $logEntry['message']);
-        $logEntry['meta']['icon'] = $icon;
-        $logEntry['trace'] = array();
-        if ($logEntry['level'] === CLogger::LEVEL_TRACE) {
-            $logEntry['level'] = CLogger::LEVEL_INFO;
-        }
-        return $logEntry;
-    }
-
-    /**
-     * Handle category: system.CModule
-     *
-     * @param array $logEntry key/valued Yii log entry
-     *
-     * @return array
-     *
-     * @SuppressWarnings(PHPMD.UnusedPrivateMethod)
-     */
-    private function messageMetaSystemCmodule(array $logEntry)
-    {
-        $channelName = 'CModule';
-        $icon = 'fa fa-puzzle-piece';
-        $logEntry['channel'] = $this->debug->getChannel($channelName, array(
-            'channelIcon' => $icon,
-            'channelShow' => false,
-        ));
-        $logEntry['meta']['icon'] = $icon;
-        return $logEntry;
-    }
-
-    /**
-     * If trace is pressent, set file & line meta
-     * If CLogger::LEVEL_ERROR, move trace to meta
-     *
-     * @param array $logEntry key/valued Yii log entry
-     *
-     * @return array
-     */
-    private function messageMetaTrace(array $logEntry)
-    {
-        if ($logEntry['trace']) {
-            $logEntry['meta']['file'] = $logEntry['trace'][0]['file'];
-            $logEntry['meta']['line'] = $logEntry['trace'][0]['line'];
-            if ($logEntry['level'] === CLogger::LEVEL_ERROR) {
-                $logEntry['meta']['trace'] = $logEntry['trace'];
-                unset($logEntry['trace']);
-            }
-        }
-        return $logEntry;
-    }
-
-    /**
-     * Yii's logger appends trace info to log message as a string
-     * extract it and move to 'trace'
-     *
-     * @param array $logEntry key/valued logentry
-     *
-     * @return array
-     */
-    private function parseTrace(array $logEntry)
-    {
-        // if YII_DEBUG is on, we may have trace info
-        $regex = '#^in (.+) \((\d+)\)$#m';
-        $matches = array();
-        \preg_match_all($regex, $logEntry['message'], $matches, PREG_SET_ORDER);
-        // remove the trace info from the message
-        $logEntry['message'] = \rtrim(\preg_replace($regex, '', $logEntry['message']));
-        foreach ($matches as $line) {
-            $file = $line[1];
-            if (\strpos($file, __DIR__) === 0) {
-                continue;
-            }
-            $logEntry['trace'][] = array(
-                'file' => $file,
-                'line' => (int) $line[2],
-            );
-        }
-        return $logEntry;
+        ), \array_combine($keys, $logEntry));
     }
 
     /**
      * Route log messages to PHPDebugConsole
      *
-     * Extends CLogRoute
-     *
      * @param array $logs list of log messages
      *
      * @return void
      */
+    #[\Override]
     protected function processLogs($logs = array())
     {
         try {
@@ -407,7 +225,7 @@ class LogRoute extends CLogRoute
                 $this->processLogEntry($message);
             }
             //  Processed, clear!
-            $this->logs = null;
+            $this->logs = array();
         } catch (Exception $e) {
             \trigger_error(__METHOD__ . ': Exception processing application logs: ' . $e->getMessage());
         }
@@ -423,29 +241,109 @@ class LogRoute extends CLogRoute
     protected function processLogEntry(array $logEntry)
     {
         $logEntry = $this->normalizeMessage($logEntry);
-        $logEntry = $this->messageMeta($logEntry);
-        if ($logEntry['level'] === CLogger::LEVEL_PROFILE) {
-            $this->processLogEntryProfile($logEntry);
+        $logEntry = $this->meta->messageMeta($logEntry);
+        $handled = false;
+        if (\strpos((string) $logEntry['category'], 'system.caching') === 0 && \preg_match('/^(Saving|Serving) "yii:dbquery/', $logEntry['message'])) {
+            $handled = $this->processSqlCachingLogEntry($logEntry);
+        }
+        if ($handled) {
             return;
         }
-        if ($logEntry['level'] === CLogger::LEVEL_TRACE) {
-            if (\count($logEntry['trace']) > 1) {
-                $this->processLogEntryTrace($logEntry);
-                return;
-            }
-            $logEntry['level'] = CLogger::LEVEL_INFO;
+        $method = 'processLogEntry' . \ucfirst($logEntry['level']);
+        $method = \method_exists($this, $method)
+            ? $method
+            : 'processLogEntryDefault';
+        $this->{$method}($logEntry);
+    }
+
+    /**
+     * Convert SQL caching log entry to a statementInfo log entry
+     *
+     * @param array $logEntry our key/value'd log entry
+     *
+     * @return bool
+     */
+    private function processSqlCachingLogEntry(array $logEntry)
+    {
+        $returnValue = 'saved to cache';
+        if (\strpos($logEntry['message'], 'Serving') === 0) {
+            $this->processSqlCachingLogEntryServe($logEntry);
+            $returnValue = 'from cache';
         }
-        $args = array();
+
+        $groupId = StatementInfoLogger::lastGroupId();
+        $groupLogEntry = $this->debug->data->get('log.' . $groupId);
+        if (empty($groupLogEntry)) {
+            // collect is/was off?
+            return true;
+        }
+
+        $debug = $groupLogEntry->getSubject();
+        $debug->log(new LogEntry(
+            $debug,
+            'groupEndValue',
+            array($this->debug->abstracter->crateWithVals($returnValue, array(
+                'attribs' => array('class' => 'badge bg-info fw-bold'),
+            ))),
+            array(
+                'appendGroup' => $groupId,
+                'icon' => ':cache:',
+                'level' => 'info',
+            )
+        ));
+
+        return true;
+    }
+
+    /**
+     * If we have a "Serving" log entry, process it as a statementInfo log entry
+     *
+     * @param array $logEntry our key/value'd log entry
+     *
+     * @return void
+     */
+    private function processSqlCachingLogEntryServe(array $logEntry)
+    {
+        $regEx = '/^Serving\ "
+            yii:dbquery:[^:]+:
+            (?P<connectionString>\S+:\S+):
+            (?P<userName>\S+):
+            (?P<sql>.*?)
+            (?::(?P<params>a:\d+:\{.*\}))?
+            "\ from\ cache$/sx';
+        \preg_match($regEx, $logEntry['message'], $matches);
+        $statementInfo = new StatementInfo(
+            $matches['sql'],
+            $matches['params'] ? \unserialize($matches['params']) : array()
+        );
+        $pdo = Yii::app()->phpDebugConsole->pdoCollector->getInstance($matches['connectionString']);
+        $pdo->getStatementInfoLogger()->log($statementInfo, array(
+            'attribs' => array('class' => 'logentry-muted'),
+        ));
+    }
+
+    /**
+     * Process Yii log entry
+     *
+     * @param array $logEntry our key/value'd log entry
+     *
+     * @return void
+     */
+    private function processLogEntryDefault(array $logEntry)
+    {
         $debug = $logEntry['channel'];
-        if ($logEntry['category']) {
-            $args[] = $logEntry['category'] . ':';
-        }
-        $args[] = $logEntry['message'];
+        $method = $this->levelMap[$logEntry['level']];
+        $args = \array_filter([
+            \ltrim($logEntry['category'] . ':', ':'),
+            $logEntry['message'],
+        ]);
         if ($logEntry['meta']) {
+            if (!empty($logEntry['meta']['trace'])) {
+                $logEntry['meta']['columns'] = ['file', 'line'];
+            }
             $args[] = $debug->meta($logEntry['meta']);
         }
-        $method = $this->levelMap[$logEntry['level']];
-        \call_user_func_array(array($debug, $method), $args);
+        \call_user_func_array([$debug, $method], $args);
     }
 
     /**
@@ -463,15 +361,15 @@ class LogRoute extends CLogRoute
             $this->stack[] = $logEntry;
             return;
         }
+        $debug = $logEntry['channel'];
+        $method = $this->levelMap[$logEntry['level']];
         $logEntryBegin = \array_pop($this->stack);
         $message = $logEntryBegin['category']
             ? $logEntryBegin['category'] . ': ' . $logEntryBegin['message']
             : $logEntryBegin['message'];
         $duration = $logEntry['time'] - $logEntryBegin['time'];
-        $debug = $logEntry['channel'];
-        $method = $this->levelMap[$logEntry['level']];
-        $args = array($message, $duration);
-        \call_user_func_array(array($debug, $method), $args);
+        $args = [$message, $duration];
+        \call_user_func_array([$debug, $method], $args);
     }
 
     /**
@@ -483,14 +381,18 @@ class LogRoute extends CLogRoute
      */
     private function processLogEntryTrace(array $logEntry)
     {
+        if (empty($logEntry['meta']['trace'])) {
+            $logEntry['level'] = CLogger::LEVEL_INFO;
+            $this->processLogEntryDefault($logEntry);
+            return;
+        }
+        $debug = $logEntry['channel'];
+        $method = $this->levelMap[$logEntry['level']];
         $caption = $logEntry['category']
             ? $logEntry['category'] . ': ' . $logEntry['message']
             : $logEntry['message'];
-        $logEntry['meta']['columns'] = array('file', 'line');
-        $logEntry['meta']['trace'] = $logEntry['trace'];
-        $debug = $logEntry['channel'];
-        $method = $this->levelMap[$logEntry['level']];
-        $args = array(false, $caption, $debug->meta($logEntry['meta']));
-        \call_user_func_array(array($debug, $method), $args);
+        $logEntry['meta']['columns'] = ['file', 'line'];
+        $args = [false, $caption, $debug->meta($logEntry['meta'])];
+        \call_user_func_array([$debug, $method], $args);
     }
 }

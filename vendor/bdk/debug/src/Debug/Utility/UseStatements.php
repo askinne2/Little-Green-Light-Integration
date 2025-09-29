@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Utility;
@@ -19,11 +19,18 @@ use ReflectionClass;
  *
  * @see https://www.php.net/manual/en/language.namespaces.importing.php
  * @see https://www.php.net/manual/en/language.namespaces.definitionmultiple.php
+ *
+ * @psalm-type useStatements = array<'class'|'function'|'const', array<string, string>>
  */
 class UseStatements
 {
+    /** @var array<string,useStatements> */
     protected static $cache = array();
+
+    /** @var array{class:string,alias:string}|null */
     protected static $currentUse = null;
+
+    /** @var array<'class'|'function'|'const',array<empty,empty>> */
     protected static $categories = array(
         'class' => array(),
         'const' => array(),
@@ -37,9 +44,17 @@ class UseStatements
      * @var string|null
      */
     protected static $groupNamespace = null;
+
+    /** @var string|null */
     protected static $namespace = null;
+
+    /** @var string|null */
     protected static $record = null;        // 'class', 'const', 'function', or 'namespace'
+
+    /** @var string|null */
     protected static $recordPart = null;    // 'alias' or 'class'
+
+    /** @var useStatements  */
     protected static $useStatements = array();
 
     /**
@@ -47,7 +62,7 @@ class UseStatements
      *
      * @param ReflectionClass $reflector ReflectionClass instance
      *
-     * @return array
+     * @return useStatements
      */
     public static function getUseStatements(ReflectionClass $reflector)
     {
@@ -58,7 +73,7 @@ class UseStatements
         if (isset(self::$cache[$name])) {
             return self::$cache[$name];
         }
-        $source = self::getPreceedingLines($reflector->getFileName(), $reflector->getStartLine());
+        $source = self::getPrecedingLines($reflector->getFileName(), $reflector->getStartLine());
         $useStatements = \strpos($source, 'use')
             ? self::extractUse($source)
             : array();
@@ -75,7 +90,7 @@ class UseStatements
      *
      * @param string $source php code
      *
-     * @return array
+     * @return array<string,useStatements> Use statements grouped by namespace
      */
     public static function extractUse($source)
     {
@@ -128,7 +143,7 @@ class UseStatements
      *
      * @return string
      */
-    private static function getPreceedingLines($file, $startLine)
+    private static function getPrecedingLines($file, $startLine)
     {
         $file = \fopen($file, 'r');
         $line = 0;
@@ -162,7 +177,7 @@ class UseStatements
     /**
      * Record the specified token
      *
-     * @param array $token Token to record
+     * @param array|string $token Token to record
      *
      * @return void
      */
@@ -183,7 +198,7 @@ class UseStatements
      *
      * @return void
      */
-    private static function recordTokenArray($token)
+    private static function recordTokenArray($token) // phpcs:ignore Generic.Metrics.CyclomaticComplexity
     {
         switch (self::$record) {
             case 'namespace':
@@ -292,11 +307,11 @@ class UseStatements
     /**
      * Sort use statements by namespace & alias
      *
-     * @param array $statements use statement array
+     * @param array<string,useStatements> $statements use statement grouped by namespace
      *
-     * @return array
+     * @return array<string,useStatements>
      */
-    private static function sort($statements)
+    private static function sort(array $statements)
     {
         \ksort($statements);
         foreach ($statements as &$nsStatements) {

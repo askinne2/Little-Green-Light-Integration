@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Plugin;
@@ -24,7 +24,22 @@ class LogEnv implements SubscriberInterface
 {
     use AssertSettingTrait;
 
+    /** @var Debug|null */
     private $debug;
+
+    /** @var array<string|mixed> */
+    private $iniValues = array();
+
+    /**
+     * Constructor
+     */
+    public function __construct()
+    {
+        $this->iniValues = array(
+            'sessionUseCookies' => \ini_get('session.use_cookies'),
+            'sessionUseOnlyCookies' => \ini_get('session.use_only_cookies'),
+        );
+    }
 
     /**
      * {@inheritDoc}
@@ -32,26 +47,27 @@ class LogEnv implements SubscriberInterface
     public function getSubscriptions()
     {
         return array(
-            Debug::EVENT_PLUGIN_INIT => 'onPluginInit',
+            Debug::EVENT_BOOTSTRAP => 'onBootstrap',
         );
     }
 
     /**
-     * Debug::EVENT_PLUGIN_INIT subscriber
+     * Debug::EVENT_BOOTSTRAP subscriber
      *
-     * @param Event $event Debug::EVENT_PLUGIN_INIT Event instance
+     * @param Event $event Debug::EVENT_BOOTSTRAP Event instance
      *
      * @return void
      */
-    public function onPluginInit(Event $event)
+    public function onBootstrap(Event $event)
     {
         $this->debug = $event->getSubject();
+
         $collectWas = $this->debug->setCfg('collect', true);
 
         $this->logGitInfo();
         $this->logSession();
 
-        $this->debug->setCfg('collect', $collectWas);
+        $this->debug->setCfg('collect', $collectWas, Debug::CONFIG_NO_RETURN);
     }
 
     /**
@@ -63,10 +79,10 @@ class LogEnv implements SubscriberInterface
     {
         $name = $this->debug->getCfg('sessionName', Debug::CONFIG_DEBUG);
         $names = $name
-            ? array($name)
-            : array('PHPSESSID', 'SESSIONID', 'SESSION_ID', 'SESSID', 'SESS_ID');
+            ? [$name]
+            : ['PHPSESSID', 'SESSIONID', 'SESSION_ID', 'SESSID', 'SESS_ID'];
         $namesFound = array();
-        $useCookies = \filter_var(\ini_get('session.use_cookies'), FILTER_VALIDATE_BOOLEAN);
+        $useCookies = \filter_var($this->iniValues['sessionUseCookies'], FILTER_VALIDATE_BOOLEAN);
         if ($useCookies) {
             $cookies = $this->debug->serverRequest->getCookieParams();
             $keys = \array_keys($cookies);
@@ -75,7 +91,7 @@ class LogEnv implements SubscriberInterface
         if ($namesFound) {
             return \array_shift($namesFound);
         }
-        $useOnlyCookies = \filter_var(\ini_get('session.use_only_cookies'), FILTER_VALIDATE_BOOLEAN);
+        $useOnlyCookies = \filter_var($this->iniValues['sessionUseOnlyCookies'], FILTER_VALIDATE_BOOLEAN);
         if ($useOnlyCookies === false) {
             $queryParams = $this->debug->serverRequest->getQueryParams();
             $keys = \array_keys($queryParams);
@@ -105,9 +121,9 @@ class LogEnv implements SubscriberInterface
         $this->debug->log(
             '%cgit branch: %c%s',
             'font-weight:bold;',
-            'font-size:1.5em; background-color:#DDD; padding:0 .3em;',
+            'font-size:1.5em; background-color:#CCC; color:#000; padding:0 .3em;',
             $branch,
-            $this->debug->meta('icon', 'fa fa-github fa-lg')
+            $this->debug->meta('icon', ':github:')
         );
         $this->debug->groupEnd();
     }
@@ -130,7 +146,7 @@ class LogEnv implements SubscriberInterface
 
         $debugWas = $this->debug;
         $this->debug = $this->debug->rootInstance->getChannel('Session', array(
-            'channelIcon' => 'fa fa-suitcase',
+            'channelIcon' => ':session:',
             'nested' => false,
         ));
         $this->logSessionSettings($namePassed);
@@ -150,12 +166,10 @@ class LogEnv implements SubscriberInterface
         $settings = array(
             array('name' => 'session.cookie_httponly'),
             array(
-                'filter' => FILTER_VALIDATE_INT,
                 'name' => 'session.cookie_lifetime',
                 'valCompare' => 0,
             ),
             array(
-                'filter' => FILTER_DEFAULT,
                 'msg' => 'should not be PHPSESSID (just as %cexpose_php%c should be disabled)',
                 'name' => 'session.name',
                 'operator' => '!=',
@@ -168,7 +182,7 @@ class LogEnv implements SubscriberInterface
                 'valCompare' => false,
             ),
         );
-        \array_walk($settings, array($this, 'assertSetting'));
+        \array_walk($settings, [$this, 'assertSetting']);
         $this->debug->log('session.cache_limiter', \ini_get('session.cache_limiter'));
         if (\session_module_name() === 'files') {
             // aka session.save_handler
@@ -182,20 +196,22 @@ class LogEnv implements SubscriberInterface
      * @param string $sessionNamePassed Name of session name passed in request
      *
      * @return void
+     *
+     * @phpcs:disable SlevomatCodingStandard.Namespaces.FullyQualifiedGlobalFunctions.NonFullyQualified
      */
     private function logSessionVals($sessionNamePassed)
     {
         $namePrev = null;
-        if (\session_status() !== PHP_SESSION_ACTIVE) {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
             if ($sessionNamePassed === null) {
                 $this->debug->log('Session Inactive / No session id passed in request');
                 return;
             }
-            $namePrev = \session_name($sessionNamePassed);
-            \session_start();
+            $namePrev = session_name($sessionNamePassed);
+            session_start();
         }
-        if (\session_status() === PHP_SESSION_ACTIVE) {
-            $this->debug->log('session name', \session_name());
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $this->debug->log('session name', session_name());
             $this->debug->log('session id', \session_id());
             $sessionVals = $_SESSION;
             \ksort($sessionVals);
@@ -212,7 +228,7 @@ class LogEnv implements SubscriberInterface
             if (PHP_VERSION_ID >= 50600) {
                 \session_abort();
             }
-            \session_name($namePrev);
+            session_name($namePrev);
             unset($_SESSION);
         }
     }

@@ -4,8 +4,8 @@
  * @package   bdk\ErrorHandler
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2023 Brad Kent
- * @version   v3.2
+ * @copyright 2014-2025 Brad Kent
+ * @since     v3.2
  */
 
 namespace bdk\ErrorHandler\Plugin;
@@ -13,6 +13,7 @@ namespace bdk\ErrorHandler\Plugin;
 use bdk\ErrorHandler;
 use bdk\ErrorHandler\AbstractComponent;
 use bdk\ErrorHandler\Error;
+use bdk\PubSub\Event;
 use bdk\PubSub\Manager as EventManager;
 use bdk\PubSub\SubscriberInterface;
 
@@ -25,8 +26,12 @@ use bdk\PubSub\SubscriberInterface;
  */
 class Emailer extends AbstractComponent implements SubscriberInterface
 {
-    /** @var bdk\ErrorHandler\Plugin\Stats */
+    const EVENT_EMAIL = 'errorHandler.email';
+
+    /** @var \bdk\ErrorHandler\Plugin\Stats */
     private $stats = null;
+
+    /** @var array<string,mixed> */
     protected $serverParams = array();
 
     /**
@@ -45,9 +50,9 @@ class Emailer extends AbstractComponent implements SubscriberInterface
             'emailFrom' => null,            // null = use php's default (php.ini: sendmail_from)
             'emailFunc' => 'mail',
             'emailMask' => E_ERROR | E_PARSE | E_COMPILE_ERROR | E_WARNING | E_USER_ERROR | E_USER_NOTICE,
-            'emailMin' => 60,               // 0 = no throttle
+            'emailMin' => 60 * 4,               // 0 = no throttle
             'emailThrottledSummary' => true,    // if errors have been throttled, should we email a summary email of throttled errors?
-                                                //    (first occurance of error is never throttled)
+                                                //    (first occurrence of error is never throttled)
             'emailTo' => !empty($this->serverParams['SERVER_ADMIN'])
                 ? $this->serverParams['SERVER_ADMIN']
                 : null,
@@ -62,10 +67,10 @@ class Emailer extends AbstractComponent implements SubscriberInterface
     public function getSubscriptions()
     {
         return array(
-            ErrorHandler::EVENT_ERROR => array(
-                array('onErrorHighPri', PHP_INT_MAX - 1),
-                array('onErrorLowPri', PHP_INT_MAX * -1 + 1),
-            ),
+            ErrorHandler::EVENT_ERROR => [
+                ['onErrorHighPri', PHP_INT_MAX - 1],
+                ['onErrorLowPri', PHP_INT_MAX * -1 + 1],
+            ],
             EventManager::EVENT_PHP_SHUTDOWN => 'onPhpShutdown',
         );
     }
@@ -119,14 +124,12 @@ class Emailer extends AbstractComponent implements SubscriberInterface
         }
         if ($error['email']) {
             $this->emailErr($error);
-            $error['stats']['email']['emailedTo'] = $this->cfg['emailTo'];
-            $error['stats']['email']['timestamp'] = \time();
         }
     }
 
     /**
      * Php shutdown event listener
-     * Send a summary of errors that have not occured recently, but have occured since notification
+     * Send a summary of errors that have not occurred recently, but have occurred since notification
      *
      * @return void
      */
@@ -172,12 +175,12 @@ class Emailer extends AbstractComponent implements SubscriberInterface
         if ($this->cfg['emailBacktraceDumper']) {
             return \call_user_func($this->cfg['emailBacktraceDumper'], $backtrace);
         }
-        $search = array(
+        $search = [
             ")\n\n",
-        );
-        $replace = array(
+        ];
+        $replace = [
             ")\n",
-        );
+        ];
         $str = \print_r($backtrace, true);
         $str = \preg_replace('#\bArray\n\(#', 'array(', $str);
         $str = \preg_replace('/\barray\s+\(\s+\)/s', 'array()', $str); // single-lineify empty arrays
@@ -197,21 +200,7 @@ class Emailer extends AbstractComponent implements SubscriberInterface
      */
     private function buildBodyError(Error $error)
     {
-        $emailBody = \implode("\n", array(
-            'datetime: ' . \date($this->cfg['dateTimeFmt']),
-            'type: ' . $error['type'] . ' (' . $error['typeStr'] . ')',
-            'message: ' . $error->getMessageText(),
-            'file: ' . $error['file'],
-            'line: ' . $error['line'],
-        )) . "\n";
-        if ($this->isCli === false) {
-            $emailBody .= \implode("\n", array(
-                'remote_addr: ' . $this->serverParams['REMOTE_ADDR'],
-                'http_host: ' . $this->serverParams['HTTP_HOST'],
-                'referer: ' . (isset($this->serverParams['HTTP_REFERER']) ? $this->serverParams['HTTP_REFERER'] : 'null'),
-                'request_uri: ' . $this->serverParams['REQUEST_URI'],
-            )) . "\n";
-        }
+        $emailBody = $this->buildBodyValues($error);
         if (!empty($_POST)) {
             $emailBody .= 'post params: ' . \var_export($_POST, true) . "\n";
         }
@@ -225,7 +214,37 @@ class Emailer extends AbstractComponent implements SubscriberInterface
     }
 
     /**
-     * Build summary of errors that haven't occured in a while
+     * Build string containing error values
+     *
+     * @param Error $error Error instance
+     *
+     * @return string
+     */
+    private function buildBodyValues(Error $error)
+    {
+        $string = \implode("\n", [
+            'datetime: ' . \date($this->cfg['dateTimeFmt']),
+            'type: ' . $error['type'] . ' (' . $error['typeStr'] . ')',
+            'message: ' . $error->getMessageText(),
+            'file: ' . $error['file'],
+            'line: ' . $error['line'],
+        ]) . "\n";
+        if ($this->isCli === false) {
+            $string .= \implode("\n", [
+                'remote_addr: ' . $this->serverParams['REMOTE_ADDR'],
+                'http_host: ' . $this->serverParams['HTTP_HOST'],
+                'referer: ' . (isset($this->serverParams['HTTP_REFERER'])
+                    ? $this->serverParams['HTTP_REFERER']
+                    : 'null'),
+                'request method: ' . $this->serverParams['REQUEST_METHOD'],
+                'request uri: ' . $this->serverParams['REQUEST_URI'],
+            ]) . "\n";
+        }
+        return $string;
+    }
+
+    /**
+     * Build summary of errors that haven't occurred in a while
      *
      * @param array $errors errors to include in summary
      *
@@ -233,11 +252,16 @@ class Emailer extends AbstractComponent implements SubscriberInterface
      */
     protected function buildBodySummary($errors)
     {
-        $emailBody = '';
+        $request = $this->isCli
+            ? \implode(' ', $this->serverParams['argv'])
+            : $this->serverParams['HTTP_HOST'] . $this->serverParams['REQUEST_URI'];
+
+        $emailBody = 'This summary sent via ' . $request . "\n\n";
+
         foreach ($errors as $errStats) {
             $countSinceLine = isset($errStats['email'])
                 ? \sprintf(
-                    'Has occured %s times since %s' . "\n",
+                    'Has occurred %s times since %s' . "\n",
                     $errStats['email']['countSince'],
                     \date($this->cfg['dateTimeFmt'], $errStats['email']['timestamp'])
                 )
@@ -269,6 +293,7 @@ class Emailer extends AbstractComponent implements SubscriberInterface
         if ($fromAddr) {
             $addHeadersStr .= 'From: ' . $fromAddr;
         }
+        $body = \str_replace("\x00", '\x00', $body);
         \call_user_func($this->cfg['emailFunc'], $toAddr, $subject, $body, $addHeadersStr);
     }
 
@@ -288,11 +313,20 @@ class Emailer extends AbstractComponent implements SubscriberInterface
             $emailBody .= 'Error has occurred ' . $countSince . ' times since last email (' . $dateTimePrev . ').' . "\n\n";
         }
         $emailBody .= $this->buildBodyError($error);
-        $this->email(
-            $this->cfg['emailTo'],
-            $this->getSubject($error),
-            $emailBody
-        );
+
+        $values = $error->getSubject()->eventManager->publish(self::EVENT_EMAIL, new Event(
+            $error,
+            array(
+                'body' => $emailBody,
+                'subject' => $this->getSubject($error),
+                'to' => $this->cfg['emailTo'],
+            )
+        ))->getValues();
+
+        $this->email($values['to'], $values['subject'], $values['body']);
+
+        $error['stats']['email']['emailedTo'] = $values['to'];
+        $error['stats']['email']['timestamp'] = \time();
     }
 
     /**

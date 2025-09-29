@@ -66,7 +66,7 @@ if (!class_exists("LGL_Relations_Manager")) {
                 'url' => get_site_url(). '/wp-json/jet-rel/22'
             );
             $this->user_to_class_registrations = array( 
-                'id' => 16,
+                'id' => 1,
                 'url' => get_site_url(). '/wp-json/jet-rel/16'
             );
             $this->user_to_orders = array( 

@@ -4,8 +4,8 @@
  * @package   bdk\ErrorHandler
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2023 Brad Kent
- * @version   v3.2
+ * @copyright 2014-2025 Brad Kent
+ * @since     v3.2
  */
 
 namespace bdk\ErrorHandler\Plugin;
@@ -53,8 +53,8 @@ interface StatsStoreInterface
 
     /**
      * Return list of errors that have
-     * not occured since their cutoff
-     * have occured since their last email
+     * not occurred since their cutoff
+     * have occurred since their last email
      *
      * @return array
      */

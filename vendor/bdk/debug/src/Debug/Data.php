@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug;
@@ -19,14 +19,19 @@ use bdk\Debug;
  */
 class Data
 {
+    /** @var Debug */
     private $debug;
+
+    /** @var \bdk\Debug\Utility\ArrayUtil */
     private $arrayUtil;
 
+    /** @var array<string,mixed> */
     protected $data = array(
         'alerts'            => array(), // alert entries.  alerts will be shown at top of output when possible
+        'classDefinitions'  => array(),
         'entryCountInitial' => 0,       // store number of log entries created during init
         'headers'           => array(), // headers that need to be output (ie chromeLogger & firePhp)
-        'isObCache'         => false,
+        'isObBuffer'        => false,
         'log'               => array(),
         'logSummary'        => array(), // summary log entries grouped by priority
         'outputSent'        => false,
@@ -36,6 +41,7 @@ class Data
         ),
     );
 
+    /** @var \bdk\Debug\LogEntry[] */
     protected $logRef;          // points to either log or logSummary[priority]
 
     /**
@@ -65,7 +71,7 @@ class Data
             return $data;
         }
         $data = $this->arrayUtil->pathGet($this->data, $path);
-        return \is_array($data) && \in_array($path, array('logSummary'), true)
+        return \is_array($data) && \in_array($path, ['logSummary'], true)
             ? $this->arrayUtil->copy($data, false)
             : $data;
     }
@@ -93,7 +99,7 @@ class Data
             $key = \is_array($path)
                 ? $path[0]
                 : $path;
-            $setLogDest = \in_array($key, array('alerts', 'log', 'logSummary'), true);
+            $setLogDest = \in_array($key, ['alerts', 'log', 'logSummary'], true);
             $this->arrayUtil->pathSet($this->data, $path, $value);
         } elseif (\is_array($path)) {
             $this->data = \array_merge($this->data, $path);
@@ -102,10 +108,10 @@ class Data
             return;
         }
         if (!$this->data['log']) {
-            $this->debug->methodGroup->reset('main');
+            $this->debug->getPlugin('methodGroup')->reset('main');
         }
         if (!$this->data['logSummary']) {
-            $this->debug->methodGroup->reset('summary');
+            $this->debug->getPlugin('methodGroup')->reset('summary');
         }
         $this->setLogDest();
     }
@@ -180,17 +186,30 @@ class Data
             if ($inGroup === false) {
                 continue;
             }
-            $method = $logEntry['method'];
-            if (\in_array($method, array('group', 'groupCollapsed'), true)) {
-                $depth++;
-            } elseif ($method === 'groupEnd') {
-                $depth--;
-            }
+            $depth = $this->findGroupEndDepth($logEntry['method'], $depth);
             if ($depth === 0) {
                 return $key;
             }
         }
         return false;
+    }
+
+    /**
+     * Increment or decrement current group depth
+     *
+     * @param string $method LogEntry method
+     * @param int    $depth  group depth
+     *
+     * @return int
+     */
+    private function findGroupEndDepth($method, $depth)
+    {
+        if (\in_array($method, ['group', 'groupCollapsed'], true)) {
+            $depth++;
+        } elseif ($method === 'groupEnd') {
+            $depth--;
+        }
+        return $depth;
     }
 
     /**
@@ -226,7 +245,7 @@ class Data
      */
     private function setLogDest($where = 'auto')
     {
-        $priority = $this->debug->methodGroup->getCurrentPriority();
+        $priority = $this->debug->getPlugin('methodGroup')->getCurrentPriority();
         if ($where === 'auto') {
             $where = $priority === 'main'
                 ? 'main'
@@ -238,14 +257,14 @@ class Data
                 break;
             case 'main':
                 $this->logRef = &$this->data['log'];
-                $this->debug->methodGroup->setLogDest('main');
+                $this->debug->getPlugin('methodGroup')->setLogDest('main');
                 break;
             case 'summary':
                 if (!isset($this->data['logSummary'][$priority])) {
                     $this->data['logSummary'][$priority] = array();
                 }
                 $this->logRef = &$this->data['logSummary'][$priority];
-                $this->debug->methodGroup->setLogDest('summary');
+                $this->debug->getPlugin('methodGroup')->setLogDest('summary');
         }
     }
 }

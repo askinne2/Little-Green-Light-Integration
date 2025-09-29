@@ -6,12 +6,13 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Plugin;
 
+use bdk\Debug;
 use bdk\Debug\LogEntry;
 
 /**
@@ -19,10 +20,21 @@ use bdk\Debug\LogEntry;
  */
 trait CustomMethodTrait
 {
+    /** @var Debug */
     private $debug;
 
     /**
-     * Debug::EVENT_LOG event subscriber
+     * {@inheritDoc}
+     */
+    public function getSubscriptions()
+    {
+        return array(
+            Debug::EVENT_CUSTOM_METHOD => 'onCustomMethod',
+        );
+    }
+
+    /**
+     * Debug::EVENT_CUSTOM_METHOD event subscriber
      *
      * @param LogEntry $logEntry logEntry instance
      *
@@ -35,8 +47,13 @@ trait CustomMethodTrait
             return;
         }
         $this->debug = $logEntry->getSubject();
+        $args = $logEntry['args'];
+        $meta = $logEntry['meta'];
+        if ($meta) {
+            $args[] = $this->debug->meta($meta);
+        }
         $logEntry['handled'] = true;
-        $logEntry['return'] = \call_user_func_array(array($this, $method), $logEntry['args']);
+        $logEntry['return'] = \call_user_func_array([$this, $method], $args);
         $logEntry->stopPropagation();
     }
 }

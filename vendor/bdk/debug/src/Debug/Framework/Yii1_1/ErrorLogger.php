@@ -6,16 +6,18 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Framework\Yii1_1;
 
 use bdk\Debug;
+use bdk\Debug\Framework\Yii1_1\Component as DebugComponent;
 use bdk\Debug\Framework\Yii1_1\LogRoute;
 use bdk\ErrorHandler;
 use bdk\ErrorHandler\Error;
+use Bdk\PubSub\Event;
 use bdk\PubSub\Manager as EventManager;
 use bdk\PubSub\SubscriberInterface;
 use Yii;
@@ -27,16 +29,24 @@ use Yii;
  */
 class ErrorLogger implements SubscriberInterface
 {
+    /** @var Debug */
     protected $debug;
+
+    /** @var DebugComponent */
     protected $component;
+
+    /** @var list<string> Error hashes */
     protected $ignoredErrors = array();
+
+    /** @var list<string> list of paths... we will "ignore" errors occurring in these paths */
+    private $pathsIgnoreError = array();
 
     /**
      * Constructor
      *
-     * @param Debug $debugComponent PHPDebugConsole component
+     * @param DebugComponent $debugComponent PHPDebugConsole component
      */
-    public function __construct($debugComponent)
+    public function __construct(DebugComponent $debugComponent)
     {
         $this->component = $debugComponent;
         $this->debug = $debugComponent->debug->rootInstance;
@@ -45,6 +55,27 @@ class ErrorLogger implements SubscriberInterface
         */
         $this->debug->errorHandler->unregister();
         $this->debug->errorHandler->register();
+
+        $this->addIgnorePath($this->debug->getCfg('yii.pathsIgnoreError'));
+    }
+
+    /**
+     * Add path to ignore
+     *
+     * @param string|array $path Path(s) to ignore
+     *
+     * @return void
+     */
+    public function addIgnorePath($path)
+    {
+        \array_map(function ($path) {
+            $path = \preg_replace_callback('/:([\w\.]+):/', static function (array $matches) {
+                return Yii::getPathOfAlias($matches[1]);
+            }, $path);
+            $path = \preg_replace('#' . DIRECTORY_SEPARATOR . '+#', DIRECTORY_SEPARATOR, $path);
+            $this->pathsIgnoreError[] = $path;
+        }, (array) $path);
+        $this->pathsIgnoreError = \array_unique($this->pathsIgnoreError);
     }
 
     /**
@@ -53,12 +84,27 @@ class ErrorLogger implements SubscriberInterface
     public function getSubscriptions()
     {
         return array(
-            Debug::EVENT_OUTPUT => array('onDebugOutput', 1),
-            ErrorHandler::EVENT_ERROR => array(
-                array('onErrorLow', -1),
-                array('onErrorHigh', 1),
-            ),
+            Debug::EVENT_CONFIG => 'onDebugConfig',
+            Debug::EVENT_OUTPUT => ['onDebugOutput', 1],
+            ErrorHandler::EVENT_ERROR => [
+                ['onErrorLow', -1],
+                ['onErrorHigh', 1],
+            ],
         );
+    }
+
+    /**
+     * Debug::EVENT_CONFIG subscriber
+     *
+     * @param Event $event Event instance
+     *
+     * @return void
+     */
+    public function onDebugConfig(Event $event)
+    {
+        if ($event['isTarget'] && isset($event['debug']['yii']['pathsIgnoreError'])) {
+            $this->addIgnorePath($event['debug']['yii']['pathsIgnoreError']);
+        }
     }
 
     /**
@@ -82,6 +128,10 @@ class ErrorLogger implements SubscriberInterface
      */
     public function onErrorHigh(Error $error)
     {
+        if ($error['isFirstOccur'] === false) {
+            $error->stopPropagation();
+            return;
+        }
         if ($this->isIgnorableError($error)) {
             $error->stopPropagation();          // don't log it now
             $error['isSuppressed'] = true;
@@ -113,6 +163,9 @@ class ErrorLogger implements SubscriberInterface
         $enabledWas = $logRoute->enabled;
         $logRoute->enabled = false;
         if ($error['exception']) {
+            // Yii's exception handler calls `restore_error_handler()`
+            //   make sure it restores to our error handler
+            \set_error_handler([$this->debug->errorHandler, 'handleError']);
             $this->component->yiiApp->handleException($error['exception']);
         } elseif ($error['category'] === Error::CAT_FATAL) {
             $this->republishShutdown();
@@ -130,19 +183,14 @@ class ErrorLogger implements SubscriberInterface
      */
     private function isIgnorableError(Error $error)
     {
-        $ignorableCats = array(Error::CAT_DEPRECATED, Error::CAT_NOTICE, Error::CAT_STRICT);
+        $ignorableCats = [Error::CAT_DEPRECATED, Error::CAT_NOTICE, Error::CAT_STRICT, Error::CAT_WARNING];
         if (\in_array($error['category'], $ignorableCats, true) === false) {
             return false;
         }
         /*
             "Ignore" minor internal framework errors
         */
-        $pathsIgnore = array(
-            Yii::getPathOfAlias('system'),
-            Yii::getPathOfAlias('webroot') . '/protected/extensions',
-            Yii::getPathOfAlias('webroot') . '/protected/components',
-        );
-        foreach ($pathsIgnore as $pathIgnore) {
+        foreach ($this->pathsIgnoreError as $pathIgnore) {
             if (\strpos($error['file'], $pathIgnore) === 0) {
                 return true;
             }
@@ -174,6 +222,7 @@ class ErrorLogger implements SubscriberInterface
         );
         foreach ($hashes as $hash) {
             $error = $this->debug->errorHandler->get('error', $hash);
+            $error['isSuppressed'] = true;
             $debug->log($error);
         }
         $debug->groupEnd();
@@ -194,7 +243,8 @@ class ErrorLogger implements SubscriberInterface
     private function republishShutdown()
     {
         $eventManager = $this->debug->eventManager;
-        foreach ($eventManager->getSubscribers(EventManager::EVENT_PHP_SHUTDOWN) as $callable) {
+        foreach ($eventManager->getSubscribers(EventManager::EVENT_PHP_SHUTDOWN) as $subscriberInfo) {
+            $callable = $subscriberInfo['callable'];
             $eventManager->unsubscribe(EventManager::EVENT_PHP_SHUTDOWN, $callable);
             if (\is_array($callable) && $callable[0] === $this->debug->errorHandler) {
                 break;

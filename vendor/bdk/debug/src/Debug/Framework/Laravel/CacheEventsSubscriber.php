@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Framework\Laravel;
@@ -33,32 +33,36 @@ class CacheEventsSubscriber
         KeyWritten::class => 'written',
     );
 
+    /** @var Debug */
     protected $debug;
+
+    /** @var array<string,mixed> */
     protected $options = array(
         'collectValues' => true,
-        'icon' => 'fa fa-cube',
+        'icon' => ':cache:',
     );
-    protected $loggedActions = array();
 
     /**
      * Constructor
      *
-     * @param array $options Options
-     * @param Debug $debug   (optional) Specify PHPDebugConsole instance
-     *                         if not passed, will create PDO channel on singleton instance
-     *                         if root channel is specified, will create a PDO channel
+     * @param array      $options Options
+     * @param Debug|null $debug   (optional) Specify PHPDebugConsole instance
+     *                              if not passed, will create PDO channel on singleton instance
+     *                              if root channel is specified, will create a PDO channel
      *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public function __construct($options = array(), Debug $debug = null)
+    public function __construct($options = array(), $debug = null)
     {
+        \bdk\Debug\Utility::assertType($debug, 'bdk\Debug');
+
         $this->options = \array_merge($this->options, $options);
         $channelOptions = array(
             'channelIcon' => $this->options['icon'],
             'channelShow' => false,
         );
         if (!$debug) {
-            $debug = Debug::_getChannel('cache', $channelOptions);
+            $debug = Debug::getChannel('cache', $channelOptions);
         } elseif ($debug === $debug->rootInstance) {
             $debug = $debug->getChannel('cache', $channelOptions);
         }
@@ -82,14 +86,14 @@ class CacheEventsSubscriber
     /**
      * Subscribe to events
      *
-     * @param Dispatcher $dispatcher Dispater interface
+     * @param Dispatcher $dispatcher Dispatcher interface
      *
      * @return void
      */
     public function subscribe(Dispatcher $dispatcher)
     {
         foreach (\array_keys($this->classMap) as $eventClass) {
-            $dispatcher->listen($eventClass, array($this, 'onCacheEvent'));
+            $dispatcher->listen($eventClass, [$this, 'onCacheEvent']);
         }
     }
 }

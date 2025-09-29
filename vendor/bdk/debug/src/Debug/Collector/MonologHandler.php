@@ -6,13 +6,14 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Collector;
 
 use bdk\Debug;
+use bdk\Debug\Collector\MonologHandler\CompatTrait;
 use InvalidArgumentException;
 use Monolog\Handler\PsrHandler;
 use Monolog\Logger;
@@ -23,6 +24,8 @@ use Psr\Log\LoggerInterface;
  */
 class MonologHandler extends PsrHandler
 {
+    use CompatTrait;
+
     /**
      * Constructor
      *
@@ -52,9 +55,16 @@ class MonologHandler extends PsrHandler
     }
 
     /**
-     * {@inheritDoc}
+     * the `handle` method
+     *
+     * Handle method provided by MonologHandlerCompatTrait (to support different method signatures in interface)
+     *
+     * @param array $record The record to handle
+     *
+     * @return bool true means that this handler handled the record, and that bubbling is not permitted.
+     *                      false means the record was either not processed or that this handler allows bubbling.
      */
-    public function handle(array $record)
+    protected function doHandle(array $record)
     {
         $this->logger->log(
             \strtolower($record['level_name']),

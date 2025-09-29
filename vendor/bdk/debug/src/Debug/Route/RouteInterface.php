@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.1
  */
 
 namespace bdk\Debug\Route;
@@ -37,11 +37,11 @@ interface RouteInterface extends SubscriberInterface
      * Process log collectively (alerts, summary, log...)
      * likely implemented as a subscriber for the Debug::EVENT_OUTPUT event
      *
-     * @param Event $event Event instance
+     * @param Event|null $event Event instance
      *
      * @return mixed
      */
-    public function processLogEntries(Event $event);
+    public function processLogEntries($event = null);
 
     /**
      * Process log entry

@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Collector\MySqli;
@@ -22,9 +22,16 @@ use mysqli_stmt as mysqliStmtBase;
  */
 class MySqliStmt extends mysqliStmtBase
 {
+    /** @var string */
     private $query;
+
+    /** @var MySqli */
     private $mysqli;
+
+    /** @var list<mixed> */
     private $params = array();
+
+    /** @var list<string> */
     private $types = array();
 
     /**

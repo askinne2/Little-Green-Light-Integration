@@ -6,30 +6,42 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Dump\Html;
 
-use bdk\Debug\Abstraction\Abstracter;
+use bdk\Debug;
 use bdk\Debug\Abstraction\Abstraction;
+use bdk\Debug\Abstraction\Type;
 use bdk\Debug\Dump\Html\HtmlStringEncoded;
 use bdk\Debug\Dump\Html\Value as ValDumper;
+use bdk\Debug\Utility\Utf8;
+use Closure;
 use RuntimeException;
 
 /**
- * Output object as HTML
+ * Output value with HTML markup
+ *
+ * @property-read HtmlStringBinary  $binary
+ * @property-read HtmlStringEncoded $encoded
  */
 class HtmlString
 {
+    /** @var Debug */
+    public $debug;
+
+    /** @var bool */
     public $detectFiles = false;
 
-    public $debug;
+    /** @var ValDumper */
     public $valDumper;
 
+    /** @var array<string,mixed> */
     protected $lazy = array(
-        'dumpEncoded' => null,
+        'binary' => null,
+        'encoded' => null,
     );
 
     /**
@@ -70,26 +82,28 @@ class HtmlString
     /**
      * Dump string
      *
-     * @param string      $val string value
-     * @param Abstraction $abs (optional) full abstraction
+     * @param string           $val string value
+     * @param Abstraction|null $abs (optional) full abstraction
      *
      * @return string
      */
-    public function dump($val, Abstraction $abs = null)
+    public function dump($val, $abs = null)
     {
+        $this->debug->utility->assertType($abs, 'bdk\Debug\Abstraction\Abstraction');
+
         if (\is_numeric($val)) {
             $this->valDumper->checkTimestamp($val, $abs);
         }
+        $return = $abs
+            ? $this->dumpAbs($abs)
+            : $this->doDump($val);
         if ($this->detectFiles && $this->debug->utility->isFile($val)) {
-            $this->valDumper->setDumpOpt('attribs.data-file', true);
+            $this->valDumper->optionSet('attribs.data-file', true);
         }
-        if (!$this->valDumper->getDumpOpt('addQuotes')) {
-            $this->valDumper->setDumpOpt('attribs.class.__push__', 'no-quotes');
+        if (!$this->valDumper->optionGet('addQuotes')) {
+            $this->valDumper->optionSet('attribs.class.__push__', 'no-quotes');
         }
-        if ($abs) {
-            return $this->dumpAbs($abs);
-        }
-        return $this->dumpHelper($val);
+        return $return;
     }
 
     /**
@@ -102,24 +116,14 @@ class HtmlString
      */
     public function dumpAsSubstitution($val, $opts)
     {
-        $isBinary = $val instanceof Abstraction && $val['typeMore'] === Abstracter::TYPE_STRING_BINARY;
-        if ($isBinary === false) {
-            // we do NOT wrap in <span>...  log('<a href="%s">link</a>', $url);
-            $opts['tagName'] = null;
-            return $this->valDumper->dump($val, $opts);
+        $isBinary = $val instanceof Abstraction && $val['typeMore'] === Type::TYPE_STRING_BINARY;
+        if ($isBinary) {
+            $val['brief'] = true;
+            return $this->binary->dump($val);
         }
-        // TYPE_STRING_BINARY
-        if (!$val['value']) {
-            return 'Binary data not collected';
-        }
-        $str = $this->debug->utf8->dump($val['value']);
-        $diff = $val['strlen']
-            ? $val['strlen'] - \strlen($val['value'])
-            : 0;
-        if ($diff) {
-            $str .= '[' . $diff . ' more bytes (not logged)]';
-        }
-        return $str;
+        // we do NOT wrap in <span>...  log('<a href="%s">link</a>', $url);
+        $opts['tagName'] = null;
+        return $this->valDumper->dump($val, $opts);
     }
 
     /**
@@ -131,11 +135,12 @@ class HtmlString
      */
     public function isEncoded($val)
     {
-        $typesEncoded = array(
-            Abstracter::TYPE_STRING_BASE64,
-            Abstracter::TYPE_STRING_JSON,
-            Abstracter::TYPE_STRING_SERIALIZED,
-        );
+        $typesEncoded = [
+            Type::TYPE_STRING_BASE64,
+            Type::TYPE_STRING_FORM,
+            Type::TYPE_STRING_JSON,
+            Type::TYPE_STRING_SERIALIZED,
+        ];
         return $val instanceof Abstraction && \in_array($val['typeMore'], $typesEncoded, true);
     }
 
@@ -150,12 +155,11 @@ class HtmlString
     {
         // display \r, \n, & \t
         $str = \preg_replace_callback('/(\r\n|\r|\n)/', static function ($matches) {
-            $search = array("\r", "\n");
-            $replace = array('<span class="ws_r"></span>', '<span class="ws_n"></span>' . "\n");
+            $search = ["\r", "\n"];
+            $replace = ['<span class="ws_r"></span>', '<span class="ws_n"></span>' . "\n"];
             return \str_replace($search, $replace, $matches[1]);
         }, $str);
-        $str = \str_replace("\t", '<span class="ws_t">' . "\t" . '</span>', $str);
-        return $str;
+        return \str_replace("\t", '<span class="ws_t">' . "\t" . '</span>', $str);
     }
 
     /**
@@ -167,41 +171,75 @@ class HtmlString
      */
     private function dumpAbs(Abstraction $abs)
     {
-        if ($abs['typeMore'] === Abstracter::TYPE_STRING_CLASSNAME) {
-            return $this->dumpClassname($abs);
+        if ($abs['strlen'] === null) {
+            $abs['strlen'] = \strlen($abs['value']);
         }
-        $val = $this->dumpHelper($abs['value']);
+        if ($abs['strlenValue'] === null) {
+            $abs['strlenValue'] = $abs['strlen'];
+        }
+        if ($abs['typeMore'] === Type::TYPE_STRING_BINARY) {
+            return $this->binary->dump($abs);
+        }
         if ($this->isEncoded($abs)) {
-            return $this->dumpEncoded->dump($val, $abs);
+            return $this->encoded->dump($abs);
         }
-        if ($abs['typeMore'] === Abstracter::TYPE_STRING_BINARY) {
-            return $this->dumpBinary($val, $abs);
+        if ($abs['prettified']) {
+            $this->valDumper->optionSet('visualWhiteSpace', false);
+            $this->valDumper->optionSet('postDump', $this->buildPrettifiedPostDump($abs));
         }
-        if ($abs['strlen']) {
-            $strlenDumped = \strlen($abs['value']);
-            $val .= '<span class="maxlen">&hellip; ' . ($abs['strlen'] - $strlenDumped) . ' more bytes (not logged)</span>';
-        }
-        if ($abs['prettifiedTag']) {
-            $this->valDumper->setDumpOpt('postDump', $this->buildPrettifiedPostDump($abs));
+        $val = $this->doDump((string) $abs);
+        $strLenDiff = $abs['strlen'] - $abs['strlenValue'];
+        if ($strLenDiff) {
+            $val .= '<span class="maxlen">&hellip; ' . $strLenDiff . ' more bytes (not logged)</span>';
         }
         return $val;
     }
 
     /**
-     * Dump classname
+     * Build replacement for control character
      *
-     * @param Abstraction $abs String abstraction
+     * @param array<string,string|null> $info Character info
      *
-     * @return string html fragment
+     * @return string
      */
-    private function dumpClassname(Abstraction $abs)
+    private function buildHighlightReplacementControl(array $info)
     {
-        $val = $this->valDumper->markupIdentifier($abs['value']);
-        $parsed = $this->debug->html->parseTag($val);
-        $attribs = $this->valDumper->getDumpOpt('attribs');
-        $attribs = $this->debug->arrayUtil->mergeDeep($attribs, $parsed['attribs']);
-        $this->valDumper->setDumpOpt('attribs', $attribs);
-        return $parsed['innerhtml'];
+        return $this->debug->html->buildTag(
+            'span',
+            array(
+                'class' => $info['class'],
+                'data-abbr' => $info['abbr'],
+                'title' => \implode(': ', \array_filter([
+                    '\\x' . \str_pad(\dechex(\ord($info['char'])), 2, '0', STR_PAD_LEFT),
+                    $info['desc'],
+                ])),
+            ),
+            $info['replaceWith']
+        );
+    }
+
+    /**
+     * Build replacement for unicode character
+     *
+     * @param array<string,string|null> $info Character info
+     *
+     * @return string
+     */
+    private function buildHighlightReplacementOther(array $info)
+    {
+        $codePoint = $info['codePoint'] ?: \dechex(Utf8::ord($info['char']));
+        return $this->debug->html->buildTag(
+            'span',
+            array(
+                'class' => $info['class'],
+                'data-code-point' => $codePoint,
+                'title' => \implode(': ', \array_filter([
+                    'U-' . $codePoint,
+                    $info['desc'],
+                ])),
+            ),
+            $info['replaceWith']
+        );
     }
 
     /**
@@ -214,6 +252,9 @@ class HtmlString
     private function buildPrettifiedPostDump(Abstraction $abs)
     {
         return function ($dumped, $opts) use ($abs) {
+            if ($abs['prettifiedTag'] === false) {
+                return $dumped;
+            }
             $tagName = 'span';
             if ($opts['tagName'] === 'td') {
                 $tagName = 'td';
@@ -233,83 +274,21 @@ class HtmlString
     }
 
     /**
-     * Dump binary string
-     *
-     * @param string      $val dumped value
-     * @param Abstraction $abs String Abstraction
-     *
-     * @return string
-     */
-    private function dumpBinary($val, Abstraction $abs)
-    {
-        $tagName = $this->valDumper->getDumpOpt('tagName');
-        $this->valDumper->setDumpOpt('tagName', null);
-        $strLenDiff = $abs['strlen'] - \strlen($abs['value']);
-        if ($val && $strLenDiff) {
-            $val .= '<span class="maxlen">&hellip; ' . $strLenDiff . ' more bytes (not logged)</span>';
-        }
-        if ($abs['brief']) {
-            return $abs['contentType']
-                ? '<span class="t_keyword">string</span>'
-                    . '<span class="text-muted">(' . $abs['contentType'] . ')</span><span class="t_punct colon">:</span> '
-                    . $this->debug->utility->getBytes($abs['strlen'])
-                : $val;
-        }
-        $this->valDumper->setDumpOpt('postDump', $this->dumpBinaryPost($abs, $tagName));
-        return $val;
-    }
-
-    /**
-     * Dump binary post data
-     *
-     * @param Abstraction $abs     String Abstraction
-     * @param string      $tagName html tag (ie div,td, or span)
-     *
-     * @return closure
-     */
-    private function dumpBinaryPost(Abstraction $abs, $tagName)
-    {
-        return function ($dumped) use ($abs, $tagName) {
-            $lis = array();
-            if ($abs['contentType']) {
-                $lis[] = '<li>mime type = <span class="content-type t_string">' . $abs['contentType'] . '</span></li>';
-            }
-            $lis[] = '<li>size = <span class="t_int">' . $abs['strlen'] . '</span></li>';
-            $lis[] = $dumped
-                ? '<li class="t_string">' . $dumped . '</li>'
-                : '<li>Binary data not collected</li>';
-            $wrapped =  '<span class="t_keyword">string</span><span class="text-muted">(binary)</span>' . "\n"
-                . $this->debug->html->buildTag(
-                    'ul',
-                    \array_filter(array(
-                        'class' => array('list-unstyled', 'value-container'),
-                        'data-type' => $abs['type'],
-                        'data-type-more' => $abs['typeMore'],
-                    )),
-                    "\n" . \implode("\n", $lis) . "\n"
-                );
-            if ($tagName === 'td') {
-                // wrap with td without adding class="binary t_string"
-                $wrapped = '<td>' . $wrapped . '</td>';
-            }
-            return $wrapped;
-        };
-    }
-
-    /**
      * Sanitize and dump string.
      *
      * @param string $val string value to dump
      *
      * @return string
      */
-    private function dumpHelper($val)
+    private function doDump($val)
     {
-        $opts = $this->valDumper->getDumpOpt();
-        $val = $this->debug->utf8->dump($val, array(
-            'sanitizeNonBinary' => $opts['sanitize'],
-            'useHtml' => true,
-        ));
+        $opts = $this->valDumper->optionGet();
+        if ($opts['sanitize']) {
+            $val = \htmlspecialchars($val);
+        }
+        if ($opts['charHighlight']) {
+            $val = $this->highlightChars($val);
+        }
         if ($opts['visualWhiteSpace']) {
             $val = $this->visualWhiteSpace($val);
         }
@@ -319,13 +298,53 @@ class HtmlString
     /**
      * lazy load HtmlStringEncoded instance
      *
+     * @return HtmlStringBinary
+     */
+    protected function getBinary()
+    {
+        if (isset($this->lazy['binary'])) {
+            return $this->lazy['binary'];
+        }
+        return new HtmlStringBinary($this);
+    }
+
+    /**
+     * lazy load HtmlStringEncoded instance
+     *
      * @return HtmlStringEncoded
      */
-    protected function getDumpEncoded()
+    protected function getEncoded()
     {
-        if (isset($this->lazy['dumpEncoded'])) {
-            return $this->lazy['dumpEncoded'];
+        if (isset($this->lazy['encoded'])) {
+            return $this->lazy['encoded'];
         }
         return new HtmlStringEncoded($this);
+    }
+
+    /**
+     * Highlight confusable and other characters
+     *
+     * @param string $str HTML String to update
+     *
+     * @return string
+     */
+    private function highlightChars($str)
+    {
+        $chars = $this->valDumper->findChars($str);
+        $charInfo = \array_intersect_key($this->valDumper->charData, \array_flip($chars));
+        foreach ($charInfo as $char => $info) {
+            $info = \array_merge(array(
+                'char' => $char,
+                'class' => 'unicode',
+                'codePoint' => null,
+                'desc' => '',
+                'replaceWith' => $char,
+            ), $info);
+            $replacement = \ord($char[0]) < 0x80
+                ? $this->buildHighlightReplacementControl($info)
+                : $this->buildHighlightReplacementOther($info);
+            $str = \str_replace($char, $replacement, $str);
+        }
+        return $str;
     }
 }

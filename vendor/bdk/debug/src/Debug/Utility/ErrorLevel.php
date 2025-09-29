@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v2.3
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Utility;
@@ -23,9 +23,9 @@ class ErrorLevel
     /**
      * Get error level constants understood by specified php version
      *
-     * @param string $phpVer (PHP_VERSION) PHP verion
+     * @param string $phpVer (PHP_VERSION) PHP version
      *
-     * @return array
+     * @return array<string,int>
      */
     public static function getConstants($phpVer = null)
     {
@@ -44,7 +44,7 @@ class ErrorLevel
             'E_USER_ERROR' => 256,
             'E_USER_WARNING' => 512,
             'E_USER_NOTICE' => 1024,
-            'E_STRICT' => \version_compare($phpVer, '5.0.0', '>=') ? 2048 : null,
+            'E_STRICT' => \version_compare($phpVer, '5.0.0', '>=') && \version_compare($phpVer, '8.4.0-dev', '<') ? 2048 : null,
             'E_RECOVERABLE_ERROR' => \version_compare($phpVer, '5.2.0', '>=') ? 4096 : null,
             'E_DEPRECATED' => \version_compare($phpVer, '5.3.0', '>=') ? 8192 : null,
             'E_USER_DEPRECATED' => \version_compare($phpVer, '5.3.0', '>=') ? 16384 : null,
@@ -60,18 +60,29 @@ class ErrorLevel
      *
      * @param int    $errorReportingLevel Error Level (bitmask) value
      * @param string $phpVer              (PHP_VERSION) php Version
-     * @param bool   $explicitStrict      (true) if level === E_ALL, always include/exclude E_STRICT for disambiguation / portability
+     * @param bool   $explicitStrict      if level === E_ALL, always include/exclude E_STRICT for disambiguation / portability
+     *                                      defaults to true if $phpVer < 8.0, false otherwise
      *
      * @return string
      */
-    public static function toConstantString($errorReportingLevel = null, $phpVer = null, $explicitStrict = true)
+    public static function toConstantString($errorReportingLevel = null, $phpVer = null, $explicitStrict = null)
     {
         $errorReportingLevel = $errorReportingLevel === null
             ? \error_reporting()
             : $errorReportingLevel;
+        $phpVer = $phpVer ?: PHP_VERSION;
+        if (\is_bool($explicitStrict) === false) {
+            $explicitStrict = \version_compare($phpVer, '8.0.0', '<');
+        }
         $allConstants = self::getConstants($phpVer); // includes E_ALL
+        /**
+         * @var array{
+         *    off: string[],
+         *    on: string[],
+         * }
+         */
         $flags = array(
-            'off' => array(),
+            'off' => [],
             'on' => \array_keys(self::filterConstantsByLevel($allConstants, $errorReportingLevel)), // excludes E_ALL
         );
         $eAll = $allConstants['E_ALL'];
@@ -87,17 +98,18 @@ class ErrorLevel
      * Calculate E_ALL for given php version
      *
      * E_ALL value:
+     *   >= 8.4  30719 (no more E_STRICT)
      *   >= 5.4: 32767
      *      5.3: 30719 (doesn't include E_STRICT)
      *      5.2: 6143 (doesn't include E_STRICT)
      *    < 5.2: 2047 (doesn't include E_STRICT)
      *
-     * @param array  $constants constant values (sans E_ALL)
-     * @param string $phpVer    php version
+     * @param array<string,int> $constants constant values (sans E_ALL)
+     * @param string            $phpVer    php version
      *
      * @return int
      */
-    private static function calculateEall($constants, $phpVer)
+    private static function calculateEall(array $constants, $phpVer)
     {
         $eAll = \array_sum($constants);
         if (isset($constants['E_STRICT']) && \version_compare($phpVer, '5.4.0', '<')) {
@@ -111,12 +123,12 @@ class ErrorLevel
      * Get all constants included in specified error level
      * excludes E_ALL
      *
-     * @param array $constants constName => value array
-     * @param int   $level     error level
+     * @param array<string,int> $constants constName => value array
+     * @param int               $level     error level
      *
      * @return array
      */
-    private static function filterConstantsByLevel($constants, $level)
+    private static function filterConstantsByLevel(array $constants, $level)
     {
         foreach ($constants as $constName => $constValue) {
             if (!self::inBitmask($constValue, $level)) {
@@ -130,18 +142,18 @@ class ErrorLevel
     /**
      * Get on/off flags starting with E_ALL
      *
-     * @param int   $errorReportingLevel Error Level (bitmask) value
-     * @param array $allConstants        constName => $constValue array
-     * @param int   $eAll                E_ALL value for specified php version
-     * @param bool  $explicitStrict      explicitly specify E_STRICT?
+     * @param int               $errorReportingLevel Error Level (bitmask) value
+     * @param array<string,int> $allConstants        constName => $constValue array
+     * @param int               $eAll                E_ALL value for specified php version
+     * @param bool              $explicitStrict      explicitly specify E_STRICT?
      *
      * @return array
      */
     private static function getNegateFlags($errorReportingLevel, $allConstants, $eAll, $explicitStrict)
     {
         $flags = array(
-            'off' => array(),
-            'on' => array('E_ALL'),
+            'off' => [],
+            'on' => ['E_ALL'],
         );
         foreach ($allConstants as $constName => $constValue) {
             $isExplicit = $explicitStrict && $constName === 'E_STRICT';
@@ -149,12 +161,13 @@ class ErrorLevel
             $inclInEall = self::inBitmask($constValue, $eAll);
             $inclInLevel = self::inBitmask($constValue, $errorReportingLevel);
             $incl = $inclInEall !== $inclInLevel || $isExplicit;
-            if ($incl) {
-                $onOrOff = $inclInLevel
-                    ? 'on'
-                    : 'off';
-                $flags[$onOrOff][] = $constName;
+            if ($incl === false) {
+                continue;
             }
+            $onOrOff = $inclInLevel
+                ? 'on'
+                : 'off';
+            $flags[$onOrOff][] = $constName;
         }
         return $flags;
     }
@@ -175,12 +188,12 @@ class ErrorLevel
     /**
      * Build error-level string representation from on & off flags
      *
-     * @param array $flagsOn  constant names
-     * @param array $flagsOff constant names
+     * @param string[] $flagsOn  constant names
+     * @param string[] $flagsOff constant names
      *
      * @return string
      */
-    private static function joinOnOff($flagsOn, $flagsOff)
+    private static function joinOnOff(array $flagsOn, array $flagsOff)
     {
         $flagsOn = \count($flagsOn) > 1 && $flagsOff
             ? '( ' . \implode(' | ', $flagsOn) . ' )'

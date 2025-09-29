@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
 
+define('SETTINGS_FILE_PATH', plugin_dir_path( __FILE__ ));
 use Carbon_Fields\Container;
 use Carbon_Fields\Field;
 
@@ -150,7 +151,7 @@ function lgl_api_settings() {
     
     $lgl = LGL_API_Settings::get_instance();
     $lgl->lgl_init();
-    require_once( 'vendor/autoload.php' );
+    require_once( SETTINGS_FILE_PATH . '../vendor/autoload.php' );
     \Carbon_Fields\Carbon_Fields::boot();
     
 }   

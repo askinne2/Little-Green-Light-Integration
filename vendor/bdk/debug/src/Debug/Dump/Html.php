@@ -6,14 +6,15 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.0
  */
 
 namespace bdk\Debug\Dump;
 
 use bdk\Debug;
-use bdk\Debug\Abstraction\Abstracter;
+use bdk\Debug\Abstraction\Type;
+use bdk\Debug\Dump\Html\Group;
 use bdk\Debug\Dump\Html\Helper;
 use bdk\Debug\Dump\Html\Table;
 use bdk\Debug\Dump\Html\Value;
@@ -22,7 +23,7 @@ use bdk\Debug\LogEntry;
 /**
  * Dump val as HTML
  *
- * @property HtmlTable $table lazy-loaded HtmlTable... only loaded if outputing a table
+ * @property HtmlTable $table lazy-loaded HtmlTable... only loaded if outputting a table
  */
 class Html extends Base
 {
@@ -32,14 +33,17 @@ class Html extends Base
     /** @var Debug[] Logged channels (channelName => Debug) */
     protected $channels = array();
 
-    /** @var array LogEntry meta attribs */
-    protected $logEntryAttribs = array();
+    /** @var Group */
+    protected $group;
 
     /** @var \bdk\Debug\Utility\Html */
     protected $html;
 
     /** @var HtmlTable */
     protected $lazyTable;
+
+    /** @var array LogEntry meta attribs */
+    protected $logEntryAttribs = array();
 
     /**
      * Constructor
@@ -49,6 +53,7 @@ class Html extends Base
     public function __construct(Debug $debug)
     {
         parent::__construct($debug);
+        $this->group = new Group($this);
         $this->helper = new Helper($this);
         $this->html = $debug->html;
     }
@@ -62,7 +67,7 @@ class Html extends Base
      */
     public function processLogEntry(LogEntry $logEntry)
     {
-        $meta = $this->setMetaDefaults($logEntry);
+        $meta = $this->mergeMetaDefaults($logEntry);
         $channelName = $logEntry->getChannelName();
         // phpError channel is handled separately
         if (!isset($this->channels[$channelName]) && $channelName !== $this->channelNameRoot . '.phpError') {
@@ -70,7 +75,7 @@ class Html extends Base
         }
         $this->valDumper->string->detectFiles = $meta['detectFiles'];
         $this->logEntryAttribs = $this->debug->arrayUtil->mergeDeep(array(
-            'class' => array('m_' . $logEntry['method']),
+            'class' => ['m_' . $logEntry['method']],
             'data-channel' => $channelName !== $this->channelNameRoot
                 ? $channelName
                 : null,
@@ -78,41 +83,35 @@ class Html extends Base
             'data-icon' => $meta['icon'],
         ), $meta['attribs']);
         $html = parent::processLogEntry($logEntry);
-        $html = \strtr($html, array(
-            ' data-channel="null"' => '',
-            ' data-detect-files="null"' => '',
-            ' data-icon="null"' => '',
-        ));
+        $html = \preg_replace('/ data-[-\w]+="null"/', '', $html);
         return $html . "\n";
     }
 
     /**
      * Coerce value to string
      *
-     * Extends Base
-     *
      * @param mixed $val  value
      * @param array $opts $options passed to dump
      *
      * @return string
      */
+    #[\Override]
     public function substitutionAsString($val, $opts)
     {
-        // function array dereferencing = php 5.4
-        $type = $this->debug->abstracter->getType($val)[0];
-        if ($type === Abstracter::TYPE_STRING) {
+        $type = $this->debug->abstracter->type->getType($val)[0];
+        if ($type === Type::TYPE_STRING) {
             return $this->valDumper->string->dumpAsSubstitution($val, $opts);
         }
-        if ($type === Abstracter::TYPE_ARRAY) {
+        if ($type === Type::TYPE_ARRAY) {
             $count = \count($val);
             return '<span class="t_keyword">array</span>'
                 . '<span class="t_punct">(</span>' . $count . '<span class="t_punct">)</span>';
         }
-        if ($type === Abstracter::TYPE_OBJECT) {
+        if ($type === Type::TYPE_OBJECT) {
             $opts['tagName'] = null;
             $toStr = (string) $val; // objects __toString or its classname
             return $toStr === $val['className']
-                ? $this->valDumper->markupIdentifier($toStr)
+                ? $this->valDumper->markupIdentifier($toStr, 'className')
                 : $this->valDumper->dump($toStr, $opts);
         }
         return $this->valDumper->dump($val);
@@ -120,6 +119,8 @@ class Html extends Base
 
     /**
      * Get & reset logged channels
+     *
+     * Note:  may return empty array of nothing (or only errors) logged
      *
      * @return \bdk\Debug[]
      */
@@ -179,7 +180,7 @@ class Html extends Base
             ));
             $meta['sanitizeFirst'] = false;
         }
-        return array($args, $meta);
+        return [$args, $meta];
     }
 
     /**
@@ -189,19 +190,22 @@ class Html extends Base
      *
      * @return string
      */
+    #[\Override]
     protected function methodAlert(LogEntry $logEntry)
     {
         list($args, $meta) = $this->handleSubstitutions($logEntry);
         $attribs = \array_merge(array(
-            'class' => array(),
+            'class' => [],
             'role' => 'alert',
         ), $this->logEntryAttribs);
         $attribs['class'][] = 'alert-' . $meta['level'];
-        $html = $this->valDumper->dump($args[0], array(
-            'sanitize' => $meta['sanitizeFirst'],
-            'tagName' => null, // don't wrap value span
-            'visualWhiteSpace' => false,
-        ));
+        $html = \count($args) === 1
+            ? $this->valDumper->dump($args[0], array(
+                'sanitize' => $meta['sanitizeFirst'],
+                'tagName' => null, // don't wrap value span
+                'visualWhiteSpace' => false,
+            ))
+            : $this->helper->buildArgString($args, $meta);
         if ($meta['dismissible']) {
             $attribs['class'][] = 'alert-dismissible';
             $html = '<button type="button" class="close" data-dismiss="alert" aria-label="Close">'
@@ -219,14 +223,37 @@ class Html extends Base
      *
      * @return string
      */
+    #[\Override]
     protected function methodDefault(LogEntry $logEntry)
+    {
+        list($args, $meta) = $this->handleSubstitutions($logEntry);
+        $append = !empty($meta['context'])
+            ? $this->helper->buildContext($meta['context'], $meta['line'])
+            : '';
+        return $this->html->buildTag(
+            'li',
+            $this->methodDefaultAttribs($logEntry),
+            $this->helper->buildArgString($args, $meta) . $append
+        );
+    }
+
+    /**
+     * Get method html attributes
+     *
+     * @param LogEntry $logEntry LogEntry instance
+     *
+     * @return array
+     */
+    private function methodDefaultAttribs(LogEntry $logEntry)
     {
         $meta = $logEntry['meta'];
         $attribs = $this->logEntryAttribs;
         if (isset($meta['file']) && $logEntry->getChannelName() !== $this->channelNameRoot . '.phpError') {
             // PHP errors will have file & line as one of the arguments
             //    so no need to store file & line as data args
+            $meta = \array_merge(array('evalLine' => null), $meta);
             $attribs = \array_merge(array(
+                'data-evalLine' => $meta['evalLine'],
                 'data-file' => $meta['file'],
                 'data-line' => $meta['line'],
             ), $attribs);
@@ -234,18 +261,13 @@ class Html extends Base
         if ($meta['errorCat']) {
             $attribs['class'][] = 'error-' . $meta['errorCat'];
         }
+        if ($meta['level']) {
+            $attribs['class'][] = 'level-' . $meta['level'];
+        }
         if ($meta['uncollapse'] === false) {
             $attribs['data-uncollapse'] = false;
         }
-        list($args, $meta) = $this->handleSubstitutions($logEntry);
-        $append = !empty($meta['context'])
-            ? $this->helper->buildContext($meta['context'], $meta['line'])
-            : '';
-        return $this->html->buildTag(
-            'li',
-            $attribs,
-            $this->helper->buildArgString($args, $meta) . $append
-        );
+        return $attribs;
     }
 
     /**
@@ -255,114 +277,23 @@ class Html extends Base
      *
      * @return string
      */
+    #[\Override]
     protected function methodGroup(LogEntry $logEntry)
     {
-        $method = $logEntry['method'];
-        if ($method === 'groupEnd') {
-            return '</ul>' . "\n" . '</li>';
-        }
-        $meta = $this->methodGroupPrep($logEntry);
-
-        $str = '<li' . $this->html->buildAttribString($this->logEntryAttribs) . '>' . "\n";
-        $str .= $this->html->buildTag(
-            'div',
-            array(
-                'class' => 'group-header',
-            ),
-            $this->methodGroupHeader($logEntry['args'], $meta)
-        ) . "\n";
-        $str .= '<ul' . $this->html->buildAttribString(array(
-            'class' => 'group-body',
-        )) . '>';
-        return $str;
-    }
-
-    /**
-     * Adds 'class' value to `$this->logEntryAttribs`
-     *
-     * @param LogEntry $logEntry LogEntry instance
-     *
-     * @return array meta values
-     */
-    private function methodGroupPrep(LogEntry $logEntry)
-    {
-        $meta = \array_merge(array(
-            'argsAsParams' => true,
-            'boldLabel' => true,
-            'hideIfEmpty' => false,
-            'isFuncName' => false,
-            'level' => null,
-        ), $logEntry['meta']);
-
-        $classes = (array) $this->logEntryAttribs['class'];
-        if ($logEntry['method'] === 'group') {
-            // groupCollapsed doesn't get expanded
-            $classes[] = 'expanded';
-        }
-        if ($meta['hideIfEmpty']) {
-            $classes[] = 'hide-if-empty';
-        }
-        if ($meta['level']) {
-            $classes[] = 'level-' . $meta['level'];
-        }
-        $classes = \implode(' ', $classes);
-        $classes = \str_replace('m_' . $logEntry['method'], 'm_group', $classes);
-        $this->logEntryAttribs['class'] = $classes;
-        return $meta;
-    }
-
-    /**
-     * Build group header
-     *
-     * @param array $args arguments
-     * @param array $meta meta values
-     *
-     * @return string
-     */
-    private function methodGroupHeader($args, $meta)
-    {
-        $label = \array_shift($args);
-        $label = $meta['isFuncName']
-            ? $this->valDumper->markupIdentifier($label, true)
-            : \preg_replace('#^<span class="t_string">(.+)</span>$#s', '$1', $this->valDumper->dump($label));
-        $labelClasses = \implode(' ', \array_keys(\array_filter(array(
-            'font-weight-bold' => $meta['boldLabel'],
-            'group-label' => true,
-        ))));
-
-        $headerAppend = '';
-
-        if ($args) {
-            foreach ($args as $k => $v) {
-                $args[$k] = $this->valDumper->dump($v);
-            }
-            $argStr = \implode(', ', $args);
-            $label .= $meta['argsAsParams']
-                ? '(</span>' . $argStr . '<span class="' . $labelClasses . '">)'
-                : ':';
-            $headerAppend = $meta['argsAsParams']
-                ? ''
-                : ' ' . $argStr;
-        }
-
-        return '<span class="' . $labelClasses . '">'
-            . $label
-            . '</span>'
-            . $headerAppend;
+        return $this->group->build($logEntry, $this->logEntryAttribs);
     }
 
     /**
      * Handle profile(End), table, & trace methods
      *
-     * Extends Base
-     *
      * @param LogEntry $logEntry LogEntry instance
      *
      * @return string
      */
+    #[\Override]
     protected function methodTabular(LogEntry $logEntry)
     {
-        $meta = $this->debug->arrayUtil->mergeDeep(array(
+        $tableOptions = $this->debug->arrayUtil->mergeDeep(array(
             'attribs' => array(
                 'class' => \array_keys(\array_filter(array(
                     'sortable' => $logEntry->getMeta('sortable'),
@@ -370,31 +301,58 @@ class Html extends Base
                     'trace-context' => $logEntry->getMeta('inclContext'),
                 ))),
             ),
-            'caption' => null,
             'onBuildRow' => array(),
-            'tableInfo' => array(),
         ), $logEntry['meta']);
-        if ($logEntry['method'] === 'trace') {
-            $meta['onBuildRow'][] = array($this->helper, 'tableMarkupFunction');
-        }
         if ($logEntry->getMeta('inclContext')) {
-            $meta['onBuildRow'][] = array($this->helper, 'tableAddContextRow');
+            $tableOptions['onBuildRow'][] = [$this->helper, 'tableAddContextRow'];
         }
         return $this->html->buildTag(
             'li',
             $this->logEntryAttribs,
-            "\n" . $this->table->build($logEntry['args'][0], $meta) . "\n"
+            "\n" . $this->table->build($logEntry['args'][0], $tableOptions) . "\n"
         );
     }
 
     /**
-     * Set default meta values
+     * Handle trace methods
+     *
+     * @param LogEntry $logEntry LogEntry instance
+     *
+     * @return string
+     */
+    protected function methodTrace(LogEntry $logEntry)
+    {
+        $meta = $this->debug->arrayUtil->mergeDeep(array(
+            'onBuildRow' => array(
+                [$this->helper, 'tableTraceRow'],
+            ),
+        ), $logEntry['meta']);
+        $meta['tableInfo']['columns'] = $this->debug->arrayUtil->mergeDeep(
+            // we may not have function column, so  use \array_intersect_key
+            \array_intersect_key(array(
+                0 => array('attribs' => array(
+                    'class' => ['no-quotes'],
+                )),
+                2 => array('attribs' => array(
+                    'class' => ['no-quotes', 't_identifier'],
+                )),
+            ), $meta['tableInfo']['columns']),
+            $meta['tableInfo']['columns']
+        );
+        // mergeDeep may leave keys out of order
+        \ksort($meta['tableInfo']['columns']);
+        $logEntry['meta'] = $meta;
+        return $this->methodTabular($logEntry);
+    }
+
+    /**
+     * Set default meta values on log entry
      *
      * @param LogEntry $logEntry LogEntry instance
      *
      * @return array all meta values
      */
-    private function setMetaDefaults(LogEntry $logEntry)
+    private function mergeMetaDefaults(LogEntry $logEntry)
     {
         $meta = \array_merge(array(
             'attribs' => array(),
@@ -402,8 +360,9 @@ class Html extends Base
             'errorCat' => null,         // should only be applicable for error & warn methods
             'glue' => null,
             'icon' => null,
-            'sanitize' => true,         // apply htmlspecialchars (to non-first arg)?
-            'sanitizeFirst' => null,    // if null, use meta.sanitize
+            'level' => null,
+            'sanitize' => true,         // apply htmlspecialchars to args?
+            'sanitizeFirst' => null,    // apply htmlspecialchars to first arg?  (defaults to sanitize value)
             'uncollapse' => null,
         ), $logEntry['meta']);
         if ($meta['sanitizeFirst'] === null) {

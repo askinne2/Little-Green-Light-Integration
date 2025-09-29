@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     1.3.2
  */
 
 namespace bdk\Debug;
@@ -20,12 +20,18 @@ use bdk\Debug\ConfigurableInterface;
  */
 class Config
 {
+    /** @var Debug */
     protected $debug;
-    protected $debugPropChecked = array();
+
+    /** @var array */
     protected $valuesPending = array();
+
+    /** @var array */
     protected $invokedServices = array();
+
+    /** @var array<string,list<string|list<string>>> */
     protected $configKeys = array(
-        'abstracter' => array(
+        'abstracter' => [
             'brief',
             'caseAttributeCollect',
             'caseAttributeOutput',
@@ -36,14 +42,18 @@ class Config
             'constCollect',
             'constOutput',
             'fullyQualifyPhpDocType',
+            'interfacesCollapse',
+            'maxDepth',
             'methodAttributeCollect',
             'methodAttributeOutput',
-            'methodCache',
             'methodCollect',
             'methodDescOutput',
             'methodOutput',
-            'objAttributeObj',
+            'methodStaticVarCollect',
+            'methodStaticVarOutput',
+            'objAttributeCollect',
             'objAttributeOutput',
+            'objectSectionOrder',
             'objectsExclude',
             'objectSort',
             'objectsWhitelist',
@@ -53,14 +63,16 @@ class Config
             'phpDocOutput',
             'propAttributeCollect',
             'propAttributeOutput',
+            'propVirtualValueCollect',
             'stringMaxLen',
+            'stringMaxLenBrief',
             'stringMinLen',
             'toStringOutput',
             'useDebugInfo',
-        ),
-        'debug' => array(
+        ],
+        'debug' => [
             // any key not found falls under 'debug'...
-        ),
+        ],
         'errorHandler' => array(
             'continueToPrevHandler',
             'errorFactory',
@@ -71,7 +83,7 @@ class Config
             'onEUserError',
             'suppressNever',
             'enableEmailer',
-            'emailer' => array(
+            'emailer' => [
                 'dateTimeFmt',
                 'emailBacktraceDumper',
                 // 'emailFrom',
@@ -81,14 +93,14 @@ class Config
                 'emailThrottledSummary',
                 'emailTraceMask',
                 // 'emailTo',
-            ),
+            ],
             'enableStats',
-            'stats' => array(
+            'stats' => [
                 'dataStoreFactory',
                 'errorStatsFile',
-            ),
+            ],
         ),
-        'routeHtml' => array(
+        'routeHtml' => [
             'css',
             'drawer',
             'filepathCss',
@@ -98,11 +110,11 @@ class Config
             'outputScript',
             'sidebar',
             'tooltip',
-        ),
-        'routeStream' => array(
+        ],
+        'routeStream' => [
             'ansi',
             'stream',
-        ),
+        ],
     );
 
     /**
@@ -166,66 +178,89 @@ class Config
     /**
      * Set one or more config values
      *
-     *    set('key', 'value')
-     *    set('level1.level2', 'value')
-     *    set(array('k1'=>'v1', 'k2'=>'v2'))
+     *    set('key', 'value', $publish)
+     *    set('level1.level2', 'value', $publish)
+     *    set(array('k1'=>'v1', 'k2'=>'v2'), $publish)
      *
      * Triggers a `Debug::EVENT_CONFIG` event that contains all changed values
      *
-     * @param array|string $path  (string) path or array of values
-     * @param mixed        $value if setting via path, this is the value
+     * @param array|string $path    (string) path or array of values
+     * @param mixed        $value   If setting via path, this is the value
+     * @param int          $options Bitmask of CONFIG_NO_PUBLISH, CONFIG_NO_RETURN
      *
      * @return mixed previous value(s)
      */
-    public function set($path, $value = null)
+    public function set($path, $value = null, $options = 0)
     {
         if (\is_array($path)) {
             $values = $this->normalizeArray($path);
-            return $this->doSet($values);
+            $options = \is_int($value) ? $value : $options;
+            return $this->doSet($values, $options);
         }
         $path = $this->normalizePath($path);
         $values = array();
         $this->debug->arrayUtil->pathSet($values, $path, $value);
-        $return = $this->doSet($values);
+        $return = $this->doSet($values, $options);
         return $this->debug->arrayUtil->pathGet($return, $path);
     }
 
     /**
      * Set cfg values for Debug and child classes
      *
-     * @param array $configs config values grouped by class
+     * @param array $configs Config values grouped by class
+     * @param int   $options Bitmask of CONFIG_NO_PUBLISH, CONFIG_NO_RETURN
      *
      * @return array previous values
      */
-    private function doSet($configs)
+    private function doSet(array $configs, $options = 0)
     {
+        $return = array();
         if (!$configs) {
-            return array();
+            return $return;
+        }
+        if (($options & Debug::CONFIG_NO_RETURN) !== Debug::CONFIG_NO_RETURN) {
+            $return = $this->doSetReturn($configs);
         }
         /*
-            Set previous (return) values
+            Publish config event first... it may add/update debugProp values
         */
+        if (($options & Debug::CONFIG_NO_PUBLISH) !== Debug::CONFIG_NO_PUBLISH) {
+            $configs = $this->publishConfigEvent($configs);
+        }
+        /*
+            Now set the values
+        */
+        // debug uses a Debug::EVENT_CONFIG subscriber to get updated config values
+        unset($configs['debug']);
+        foreach ($configs as $debugProp => $cfg) {
+            $this->setPropCfg($debugProp, $cfg);
+        }
+        return $return;
+    }
+
+    /**
+     * Find the previous values
+     *
+     * @param array $configs New config values
+     *
+     * @return array
+     */
+    private function doSetReturn(array $configs)
+    {
         $return = array();
         foreach ($configs as $debugProp => $cfg) {
             $cfgWas = $debugProp === 'debug'
                 ? $this->debug->getCfg(null, Debug::CONFIG_DEBUG)
                 : $this->getPropCfg($debugProp, array(), true, false);
-            $return[$debugProp] = \array_intersect_key($cfgWas, $cfg);
-        }
-        /*
-            Publish config event first... it may add/update debugProp values
-        */
-        $configs = $this->debug->eventManager->publish(
-            Debug::EVENT_CONFIG,
-            $this->debug,
-            $configs
-        )->getValues();
-        /*
-            Now set the values
-        */
-        unset($configs['debug']); // debug uses a Debug::EVENT_CONFIG subscriber to set the value
-        foreach ($configs as $debugProp => $cfg) {
-            $this->setPropCfg($debugProp, $cfg);
+            $cfgWas = \array_intersect_key($cfgWas, $cfg);
+            $keys = \array_keys($cfg);
+            $keysWas = \array_keys($cfgWas);
+            if ($debugProp !== 'debug' && \array_intersect($keys, $keysWas) !== $keys) {
+                // we didn't get all the expected previous values...
+                $cfgWas = $this->getPropCfg($debugProp, array());
+                $cfgWas = \array_intersect_key($cfgWas, $cfg);
+            }
+            $return[$debugProp] = $cfgWas;
         }
         return $return;
     }
@@ -235,7 +270,7 @@ class Config
      *
      * @param string $debugProp  debug property name
      * @param array  $path       path/key
-     * @param bool   $forInit    (false) Get values for bootstap (don't initialize obj)
+     * @param bool   $forInit    (false) Get values for bootstrap (don't initialize obj)
      * @param bool   $delPending Delete pending values (if forInit)
      *
      * @return mixed
@@ -249,9 +284,12 @@ class Config
                 unset($this->valuesPending[$debugProp]);
             }
         }
-        return $val !== null
-            ? $val
-            : $this->getPropCfgFromObj($debugProp, $path, $forInit);
+        if ($val !== null) {
+            return $val;
+        }
+        return $debugProp === 'debug'
+            ? $this->debug->getCfg($path, Debug::CONFIG_DEBUG)
+            : $this->getPropCfgFromChildObj($debugProp, $path, $forInit);
     }
 
     /**
@@ -259,17 +297,14 @@ class Config
      *
      * @param string $debugProp debug property name
      * @param array  $path      path/key
-     * @param bool   $forInit   (false) Get values for bootstap (don't initialize obj)
+     * @param bool   $forInit   (false) Get values for bootstrap (don't initialize obj)
      *
      * @return mixed
      */
-    private function getPropCfgFromObj($debugProp, $path = array(), $forInit = false)
+    private function getPropCfgFromChildObj($debugProp, $path = array(), $forInit = false)
     {
         $obj = null;
         $matches = array();
-        if ($debugProp === 'debug') {
-            return $this->debug->getCfg($path, Debug::CONFIG_DEBUG);
-        }
         if (\in_array($debugProp, $this->invokedServices, true)) {
             $obj = $this->debug->{$debugProp};
         } elseif ($forInit) {
@@ -311,14 +346,12 @@ class Config
      *
      * @return array
      */
-    private function normalizeArray($cfg)
+    private function normalizeArray(array $cfg)
     {
         $return = array();
         foreach ($cfg as $path => $v) {
             $ref = &$return;
-            $path = isset($this->configKeys[$path])
-                ? array($path)
-                : $this->normalizePath($path);
+            $path = $this->normalizePath($path);
             foreach ($path as $k) {
                 if (!isset($ref[$k])) {
                     $ref[$k] = array();
@@ -334,10 +367,10 @@ class Config
 
     /**
      * Normalize string path
-     * Returns either
-     *     array('*')             all config values grouped by class
-     *     array('class')         we want all config values for class
-     *     array('class', key...) want specific value from this class'
+     * Returns one of
+     *     ['*']             all config values grouped by class
+     *     ['class']         we want all config values for class
+     *     ['class', key...] want specific value from this class'
      *
      * 'class' may be debug
      *
@@ -350,8 +383,8 @@ class Config
         if (\is_string($path)) {
             $path = \array_filter(\preg_split('#[\./]#', $path), 'strlen');
         }
-        if (\in_array($path, array(null, array()), true) || $path[0] === '*') {
-            return array('*');
+        if (\in_array($path, [null, []], true) || $path[0] === '*') {
+            return ['*'];
         }
         if (\end($path) === '*') {
             \array_pop($path);
@@ -377,12 +410,43 @@ class Config
         $pathNew = $this->debug->arrayUtil->searchRecursive($path[0], $this->configKeys, true);
         $pathNew =  $pathNew
             ? $pathNew
-            : \array_merge(array('debug'), $path);
+            : \array_merge(['debug'], $path);
         if (\end($pathNew) !== \end($path)) {
             \array_pop($pathNew);
             $pathNew[] = \end($path);
         }
         return $pathNew;
+    }
+
+    /**
+     * Publish the Debug::EVENT_CONFIG event
+     *
+     * @param array $configs Config values grouped by class
+     *
+     * @return array
+     */
+    private function publishConfigEvent(array $configs)
+    {
+        $configs = $this->debug->eventManager->publish(
+            Debug::EVENT_CONFIG,
+            $this->debug,
+            \array_merge($configs, array(
+                'currentSubject' => $this->debug,
+                'isTarget' => true,
+            ))
+        )->getValues();
+        if ($this->debug->parentInstance) {
+            $configs = $this->debug->rootInstance->eventManager->publish(
+                Debug::EVENT_CONFIG,
+                $this->debug,
+                \array_merge($configs, array(
+                    'currentSubject' => $this->debug->rootInstance,
+                    'isTarget' => false,
+                ))
+            )->getValues();
+        }
+        unset($configs['currentSubject'], $configs['isTarget']);
+        return $configs;
     }
 
     /**
@@ -393,7 +457,7 @@ class Config
      *
      * @return void
      */
-    private function setPropCfg($debugProp, $cfg)
+    private function setPropCfg($debugProp, array $cfg)
     {
         $obj = null;
         $matches = array();

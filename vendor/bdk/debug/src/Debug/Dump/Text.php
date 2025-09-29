@@ -6,14 +6,14 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.0
  */
 
 namespace bdk\Debug\Dump;
 
-use bdk\Debug\Abstraction\Abstracter;
-use bdk\Debug\Dump\TextValue;
+use bdk\Debug\Abstraction\Type;
+use bdk\Debug\Dump\Text\Value;
 use bdk\Debug\LogEntry;
 
 /**
@@ -21,7 +21,10 @@ use bdk\Debug\LogEntry;
  */
 class Text extends Base
 {
+    /** @var int */
     protected $depth = 0;   // for keeping track of indentation
+
+    /** @var array<string,mixed> */
     protected $cfg = array(
         'glue' => array(
             'equal' => ' = ',
@@ -67,7 +70,7 @@ class Text extends Base
     }
 
     /**
-     * Cooerce value to string
+     * Coerce value to string
      *
      * @param mixed $val  value
      * @param array $opts $options passed to dump
@@ -76,13 +79,12 @@ class Text extends Base
      */
     public function substitutionAsString($val, $opts)
     {
-        // function array dereferencing = php 5.4
-        $type = $this->debug->abstracter->getType($val)[0];
-        if ($type === Abstracter::TYPE_ARRAY) {
+        $type = $this->debug->abstracter->type->getType($val)[0];
+        if ($type === Type::TYPE_ARRAY) {
             $count = \count($val);
             return 'array(' . $count . ')';
         }
-        if ($type === Abstracter::TYPE_OBJECT) {
+        if ($type === Type::TYPE_OBJECT) {
             return (string) $val;   // __toString or className
         }
         return $this->valDumper->dump($val, $opts);
@@ -98,17 +100,13 @@ class Text extends Base
     protected function buildArgString($args)
     {
         foreach ($args as $i => $v) {
-            list($type, $typeMore) = $this->debug->abstracter->getType($v);
-            $typeMore2 = $typeMore === Abstracter::TYPE_ABSTRACTION
-                ? $v['typeMore']
-                : $typeMore;
-            $isNumericString = $type === Abstracter::TYPE_STRING
-                && \in_array($typeMore2, array(Abstracter::TYPE_STRING_NUMERIC, Abstracter::TYPE_TIMESTAMP), true);
+            list($type, $typeMore) = $this->debug->abstracter->type->getType($v);
+            $isNumericString = $type === Type::TYPE_STRING
+                && \in_array($typeMore, [Type::TYPE_STRING_NUMERIC, Type::TYPE_TIMESTAMP], true);
             $args[$i] = $this->valDumper->dump($v, array(
-                'addQuotes' => $i !== 0 || $isNumericString,
+                'addQuotes' => $i !== 0 || $isNumericString || $type !== Type::TYPE_STRING,
                 'type' => $type,
                 'typeMore' => $typeMore,
-                'visualWhiteSpace' => $i !== 0,
             ));
             $this->valDumper->setValDepth(0);
         }
@@ -149,7 +147,7 @@ class Text extends Base
     protected function getValDumper()
     {
         if (!$this->valDumper) {
-            $this->valDumper = new TextValue($this);
+            $this->valDumper = new Value($this);
         }
         return $this->valDumper;
     }
@@ -220,7 +218,7 @@ class Text extends Base
                 return '=======';
             }
             if ($this->depth > 0) {
-                $this->depth --;
+                $this->depth--;
             }
             return '';
         }
@@ -246,9 +244,9 @@ class Text extends Base
             'isFuncName' => false,
         ), $logEntry['meta']);
         $label = \array_shift($args);
-        if ($meta['isFuncName']) {
-            $label = $this->valDumper->markupIdentifier($label, true);
-        }
+        $label = $meta['isFuncName']
+            ? $this->valDumper->markupIdentifier($label, 'method')
+            : $this->valDumper->dump($label, array('addQuotes' => false));
         foreach ($args as $k => $v) {
             $args[$k] = $this->valDumper->dump($v);
         }

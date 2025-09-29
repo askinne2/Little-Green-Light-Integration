@@ -1,0 +1,304 @@
+<?php
+/**
+ * Membership Renewal Manager
+ * 
+ * Handles membership renewal date checking, status validation, and renewal notifications.
+ * Modernized version of the legacy UI_Memberships system with proper architecture.
+ * 
+ * @package UpstateInternational\LGL
+ * @since 2.0.0
+ */
+
+namespace UpstateInternational\LGL\Memberships;
+
+use UpstateInternational\LGL\LGL\Helper;
+use UpstateInternational\LGL\LGL\WpUsers;
+
+/**
+ * MembershipRenewalManager Class
+ * 
+ * Manages membership renewal dates, status checking, and notification scheduling
+ */
+class MembershipRenewalManager {
+    
+    /**
+     * Helper service
+     * 
+     * @var Helper
+     */
+    private Helper $helper;
+    
+    /**
+     * WP Users service
+     * 
+     * @var WpUsers
+     */
+    private WpUsers $wpUsers;
+    
+    /**
+     * Notification mailer
+     * 
+     * @var MembershipNotificationMailer
+     */
+    private MembershipNotificationMailer $mailer;
+    
+    /**
+     * Grace period in days after renewal date
+     */
+    const GRACE_PERIOD_DAYS = 30;
+    
+    /**
+     * Notification intervals in days before renewal
+     */
+    const NOTIFICATION_INTERVALS = [30, 14, 7, 0, -7, -30];
+    
+    /**
+     * Constructor
+     * 
+     * @param Helper $helper Helper service
+     * @param WpUsers $wpUsers WP Users service
+     * @param MembershipNotificationMailer $mailer Notification mailer
+     */
+    public function __construct(
+        Helper $helper,
+        WpUsers $wpUsers,
+        MembershipNotificationMailer $mailer
+    ) {
+        $this->helper = $helper;
+        $this->wpUsers = $wpUsers;
+        $this->mailer = $mailer;
+    }
+    
+    /**
+     * Process all UI members for renewal notifications
+     * 
+     * @return array Processing results
+     */
+    public function processAllMembers(): array {
+        $this->helper->debug('Starting membership renewal processing');
+        
+        $members = $this->getUiMembers();
+        $results = [
+            'processed' => 0,
+            'notified' => 0,
+            'deactivated' => 0,
+            'skipped' => 0,
+            'errors' => []
+        ];
+        
+        foreach ($members as $member) {
+            try {
+                $result = $this->processMemberRenewal($member->ID);
+                $results['processed']++;
+                
+                if ($result['action'] === 'notified') {
+                    $results['notified']++;
+                } elseif ($result['action'] === 'deactivated') {
+                    $results['deactivated']++;
+                } else {
+                    $results['skipped']++;
+                }
+                
+            } catch (\Exception $e) {
+                $results['errors'][] = [
+                    'user_id' => $member->ID,
+                    'error' => $e->getMessage()
+                ];
+                $this->helper->debug('Error processing member ' . $member->ID . ': ' . $e->getMessage());
+            }
+        }
+        
+        $this->helper->debug('Membership renewal processing completed', $results);
+        return $results;
+    }
+    
+    /**
+     * Process renewal for a specific member
+     * 
+     * @param int $user_id User ID
+     * @return array Processing result
+     */
+    public function processMemberRenewal(int $user_id): array {
+        if (!$user_id) {
+            throw new \InvalidArgumentException('Invalid user ID provided');
+        }
+        
+        $user_data = get_userdata($user_id);
+        if (!$user_data) {
+            throw new \InvalidArgumentException('User not found: ' . $user_id);
+        }
+        
+        // Get renewal data
+        $renewal_timestamp = get_user_meta($user_id, 'user-membership-renewal-date', true);
+        $subscription_status = get_user_meta($user_id, 'user-subscription-status', true);
+        
+        if (empty($renewal_timestamp)) {
+            $this->helper->debug('Skipping user ' . $user_id . ' - no renewal date set');
+            return ['action' => 'skipped', 'reason' => 'no_renewal_date'];
+        }
+        
+        // Only process in-person memberships for now
+        if ($subscription_status !== 'in-person') {
+            $this->helper->debug('Skipping user ' . $user_id . ' - not in-person membership');
+            return ['action' => 'skipped', 'reason' => 'not_in_person'];
+        }
+        
+        $renewal_date = new \DateTime('@' . $renewal_timestamp, new \DateTimeZone('America/New_York'));
+        $today = new \DateTime();
+        $interval = $today->diff($renewal_date);
+        $days_until_renewal = (int) $interval->format('%r%a');
+        
+        $this->helper->debug("User {$user_id}: {$days_until_renewal} days until renewal");
+        
+        // Check if action is needed
+        if ($days_until_renewal === -self::GRACE_PERIOD_DAYS) {
+            // Grace period expired - deactivate membership
+            return $this->deactivateMembership($user_id, $user_data);
+            
+        } elseif (in_array($days_until_renewal, self::NOTIFICATION_INTERVALS)) {
+            // Send renewal notification
+            return $this->sendRenewalNotification($user_id, $user_data, $days_until_renewal);
+        }
+        
+        return ['action' => 'no_action', 'days_until_renewal' => $days_until_renewal];
+    }
+    
+    /**
+     * Send renewal notification to member
+     * 
+     * @param int $user_id User ID
+     * @param \WP_User $user_data User data object
+     * @param int $days_until_renewal Days until renewal (negative if overdue)
+     * @return array Action result
+     */
+    private function sendRenewalNotification(int $user_id, \WP_User $user_data, int $days_until_renewal): array {
+        $user_email = $user_data->user_email;
+        $first_name = ucfirst(get_user_meta($user_id, 'first_name', true) ?: $user_data->display_name);
+        
+        $this->helper->debug("Sending renewal notification to {$user_email} ({$days_until_renewal} days)");
+        
+        $notification_sent = $this->mailer->sendRenewalNotification(
+            $user_email,
+            $first_name,
+            $days_until_renewal
+        );
+        
+        if ($notification_sent) {
+            $this->helper->debug('Renewal notification sent successfully');
+            return [
+                'action' => 'notified',
+                'days_until_renewal' => $days_until_renewal,
+                'email' => $user_email
+            ];
+        } else {
+            throw new \RuntimeException('Failed to send renewal notification');
+        }
+    }
+    
+    /**
+     * Deactivate expired membership
+     * 
+     * @param int $user_id User ID
+     * @param \WP_User $user_data User data object
+     * @return array Action result
+     */
+    private function deactivateMembership(int $user_id, \WP_User $user_data): array {
+        $this->helper->debug("Deactivating membership for user {$user_id}");
+        
+        // Send final notification
+        $user_email = $user_data->user_email;
+        $first_name = ucfirst(get_user_meta($user_id, 'first_name', true) ?: $user_data->display_name);
+        
+        $this->mailer->sendRenewalNotification($user_email, $first_name, -self::GRACE_PERIOD_DAYS);
+        
+        // Deactivate user through WP Users service
+        $this->wpUsers->userDeactivation($user_id, 'membership_expired');
+        
+        return [
+            'action' => 'deactivated',
+            'user_id' => $user_id,
+            'email' => $user_email
+        ];
+    }
+    
+    /**
+     * Get all UI members (ui_member and ui_patron_owner roles)
+     * 
+     * @return array Array of WP_User objects
+     */
+    private function getUiMembers(): array {
+        return get_users([
+            'role__in' => ['ui_member', 'ui_patron_owner'],
+            'meta_query' => [
+                [
+                    'key' => 'user-membership-renewal-date',
+                    'value' => '',
+                    'compare' => '!='
+                ]
+            ]
+        ]);
+    }
+    
+    /**
+     * Check if user needs renewal notification
+     * 
+     * @param int $user_id User ID
+     * @return array|null Renewal info or null if no action needed
+     */
+    public function checkRenewalStatus(int $user_id): ?array {
+        $renewal_timestamp = get_user_meta($user_id, 'user-membership-renewal-date', true);
+        if (empty($renewal_timestamp)) {
+            return null;
+        }
+        
+        $renewal_date = new \DateTime('@' . $renewal_timestamp, new \DateTimeZone('America/New_York'));
+        $today = new \DateTime();
+        $interval = $today->diff($renewal_date);
+        $days_until_renewal = (int) $interval->format('%r%a');
+        
+        return [
+            'user_id' => $user_id,
+            'renewal_date' => $renewal_date->format('Y-m-d'),
+            'days_until_renewal' => $days_until_renewal,
+            'needs_notification' => in_array($days_until_renewal, self::NOTIFICATION_INTERVALS),
+            'is_expired' => $days_until_renewal < -self::GRACE_PERIOD_DAYS
+        ];
+    }
+    
+    /**
+     * Get renewal statistics
+     * 
+     * @return array Statistics about member renewals
+     */
+    public function getRenewalStatistics(): array {
+        $members = $this->getUiMembers();
+        $stats = [
+            'total_members' => count($members),
+            'due_soon' => 0,
+            'overdue' => 0,
+            'expired' => 0,
+            'current' => 0
+        ];
+        
+        foreach ($members as $member) {
+            $status = $this->checkRenewalStatus($member->ID);
+            if (!$status) {
+                continue;
+            }
+            
+            $days = $status['days_until_renewal'];
+            
+            if ($days < -self::GRACE_PERIOD_DAYS) {
+                $stats['expired']++;
+            } elseif ($days < 0) {
+                $stats['overdue']++;
+            } elseif ($days <= 30) {
+                $stats['due_soon']++;
+            } else {
+                $stats['current']++;
+            }
+        }
+        
+        return $stats;
+    }
+}

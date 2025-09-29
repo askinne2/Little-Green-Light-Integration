@@ -6,15 +6,15 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Route;
 
 use bdk\Debug;
-use bdk\Debug\Abstraction\Abstracter;
 use bdk\Debug\Abstraction\Abstraction;
+use bdk\Debug\Abstraction\Type;
 use bdk\Debug\LogEntry;
 
 /**
@@ -22,9 +22,20 @@ use bdk\Debug\LogEntry;
  */
 class WampCrate
 {
+    /** @var Debug */
     private $debug;
+
+    /** @var bool */
     private $detectFiles = false;
+
+    /** @var list<string> */
     private $foundFiles = array();
+
+    /** @var list<string> */
+    private $classesCrated = array();
+
+    /** @var list<string> */
+    private $classesNew = array();
 
     /**
      * Constructor
@@ -74,31 +85,18 @@ class WampCrate
      */
     public function crateLogEntry(LogEntry $logEntry)
     {
+        $this->classesNew = array();
         $this->detectFiles = $logEntry->getMeta('detectFiles', false);
         $args = $this->crate($logEntry['args']);
         $meta = $logEntry['meta'];
         if ($logEntry['method'] === 'error' && !empty($meta['trace'])) {
-            $logEntryTmp = new LogEntry(
-                $this->debug,
-                'trace',
-                array($meta['trace']),
-                array(
-                    'columns' => array('file','line','function'),
-                    'inclContext' => $logEntry->getMeta('inclContext', false),
-                )
-            );
-            $this->debug->methodTable->doTable($logEntryTmp);
+            $meta = $this->getErrorTraceMeta($logEntry);
             unset($args[2]); // error's filepath argument
-            $meta = \array_merge($meta, array(
-                'caption' => 'trace',
-                'tableInfo' => $logEntryTmp['meta']['tableInfo'],
-                'trace' => $logEntryTmp['args'][0],
-            ));
         }
         if ($this->detectFiles) {
             $meta['foundFiles'] = $this->foundFiles();
         }
-        return array($args, $meta);
+        return [$args, $meta, $this->classesNew];
     }
 
     /**
@@ -124,21 +122,13 @@ class WampCrate
     {
         $clone = clone $abs;
         switch ($clone['type']) {
-            case Abstracter::TYPE_ARRAY:
+            case Type::TYPE_ARRAY:
                 $clone['value'] = $this->crateArray($clone['value']);
                 return $clone;
-            case Abstracter::TYPE_OBJECT:
+            case Type::TYPE_OBJECT:
                 return $this->crateObject($clone);
-            case Abstracter::TYPE_STRING:
-                $clone['value'] = $this->crateString(
-                    $clone['value'],
-                    $clone['typeMore'] === Abstracter::TYPE_STRING_BINARY
-                );
-                if ($clone['typeMore'] === Abstracter::TYPE_STRING_BINARY) {
-                    // PITA to get strlen in javascript
-                    // pass the length of captured value
-                    $clone['strlenValue'] = \strlen($abs['value']);
-                }
+            case Type::TYPE_STRING:
+                $clone['value'] = $this->crateString($clone['value']);
                 if (isset($clone['valueDecoded'])) {
                     $clone['valueDecoded'] = $this->crate($clone['valueDecoded']);
                 }
@@ -202,11 +192,22 @@ class WampCrate
     private function crateObject(Abstraction $abs)
     {
         $info = $abs->jsonSerialize();
-        foreach ($info['properties'] as $k => $propInfo) {
-            $info['properties'][$k]['value'] = $this->crate($propInfo['value']);
+        $classKey = $info['inheritsFrom'];
+        if (\in_array($classKey, $this->classesCrated, true) === false) {
+            $this->classesNew[] = $classKey;
+            $this->classesCrated[] = $classKey;
         }
-        if (isset($info['methods']['__toString'])) {
-            $info['methods']['__toString'] = $this->crate($info['methods']['__toString']);
+        // methods may be populated with __toString info, or methods with static variables
+        if (isset($info['methods'])) {
+            $info['methods'] = $this->crate($info['methods']);
+        }
+        $properties = isset($info['properties'])
+            ? $info['properties']
+            : array();
+        foreach ($properties as $k => $propInfo) {
+            if (isset($propInfo['value'])) {
+                $info['properties'][$k]['value'] = $this->crate($propInfo['value']);
+            }
         }
         return $info;
     }
@@ -214,22 +215,46 @@ class WampCrate
     /**
      * Base64 encode string if it contains non-utf8 characters
      *
-     * @param string $str       string
-     * @param bool   $isNotUtf8 does string contain non-utf8 chars?
+     * @param string $str string
      *
      * @return string
      */
-    private function crateString($str, $isNotUtf8 = false)
+    private function crateString($str)
     {
         if (!$str) {
             return $str;
-        }
-        if ($isNotUtf8) {
-            return '_b64_:' . \base64_encode($str);
         }
         if ($this->detectFiles && $this->debug->utility->isFile($str)) {
             $this->foundFiles[] = $str;
         }
         return $str;
+    }
+
+    /**
+     * Process trace meta data
+     * (so that we find filepaths)
+     *
+     * @param LogEntry $logEntry LogEntry instance
+     *
+     * @return array meta data
+     */
+    private function getErrorTraceMeta(LogEntry $logEntry)
+    {
+        $inclContextDefault = $logEntry->getMeta('errorCat') === 'fatal';
+        $meta = $logEntry['meta'];
+        $meta['inclContext'] = $logEntry->getMeta('inclContext', $inclContextDefault);
+        $logEntryTmp = new LogEntry(
+            $this->debug,
+            'trace',
+            array(),
+            $meta
+        );
+        $this->debug->rootInstance->getPlugin('methodTrace')->doTrace($logEntryTmp);
+        return \array_replace_recursive(
+            $logEntryTmp['meta'],
+            array(
+                'trace' => $logEntryTmp['args'][0],
+            )
+        );
     }
 }

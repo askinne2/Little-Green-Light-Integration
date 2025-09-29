@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.0
  *
  * @see https://craig.is/writing/chrome-logger/techspecs
  */
@@ -16,6 +16,7 @@ namespace bdk\Debug\Route;
 
 use bdk\Debug;
 use bdk\Debug\Abstraction\Abstracter;
+use bdk\Debug\Abstraction\Type;
 use bdk\Debug\LogEntry;
 use bdk\PubSub\Event;
 
@@ -29,18 +30,21 @@ class ChromeLogger extends AbstractRoute
 {
     const HEADER_NAME = 'X-ChromeLogger-Data';
 
+    /** @var bool */
     protected $appendsHeaders = true;
 
+    /** @var array<string,mixed> */
     protected $cfg = array(
-        'channels' => array('*'),
-        'channelsExclude' => array(
+        'channels' => ['*'],
+        'channelsExclude' => [
             'events',
             'files',
-        ),
+        ],
         'group' => true, // contain/wrap log in a group?
     );
 
-    protected $consoleMethods = array(
+    /** @var list<string> */
+    protected $consoleMethods = [
         'assert',
         // 'count',    // output as log
         'error',
@@ -54,7 +58,13 @@ class ChromeLogger extends AbstractRoute
         'timeEnd',  // PHPDebugConsole never generates a timeEnd entry
         'trace',
         'warn',
-    );
+    ];
+
+    /** @var int Current group depth  */
+    protected $depth = 0;
+
+    /** @var bool Whether we're only collecting groups due to header size limit */
+    protected $groupOnly = false;
 
     /**
      * @var array header data
@@ -62,9 +72,12 @@ class ChromeLogger extends AbstractRoute
     // phpcs:ignore SlevomatCodingStandard.Arrays.AlphabeticallySortedByKeys.IncorrectKeyOrder
     protected $jsonData = array(
         'version' => Debug::VERSION,
-        'columns' => array('log', 'backtrace', 'type'),
-        'rows' => array(),
+        'columns' => ['log', 'backtrace', 'type'],
+        'rows' => [],
     );
+
+    /** @var int Maximum header length */
+    protected $max = 0;
 
     /**
      * Constructor
@@ -80,28 +93,31 @@ class ChromeLogger extends AbstractRoute
     /**
      * Output the log as chromelogger headers
      *
-     * @param Event $event Debug::EVENT_OUTPUT Event object
+     * @param Event|null $event Debug::EVENT_OUTPUT Event object
      *
      * @return void
      */
-    public function processLogEntries(Event $event)
+    public function processLogEntries($event = null)
     {
+        $this->debug->utility->assertType($event, 'bdk\PubSub\Event');
+
         $this->dumper->crateRaw = false;
         $this->data = $this->debug->data->get();
+        $this->data['log']  = \array_values($this->data['log']);
         $this->buildJsonData();
-        $max = $this->getMaxLength();
+        $this->max = $this->getMaxLength();
         $encoded = $this->encode($this->jsonData);
-        if ($max && \strlen($encoded) > $max) {
-            $this->reduceData($max);
+        if ($this->max && \strlen($encoded) > $this->max) {
+            $this->reduceData();
             $this->buildJsonData();
             $encoded = $this->encode($this->jsonData);
             $encoded = $this->assertEncodedLength($encoded);
         }
         if ($this->jsonData['rows']) {
-            $event['headers'][] = array(self::HEADER_NAME, $encoded);
+            $event['headers'][] = [self::HEADER_NAME, $encoded];
         }
         $this->data = array();
-        $this->jsonData['rows'] = array();
+        $this->jsonData['rows'] = [];
         $this->dumper->crateRaw = true;
     }
 
@@ -119,33 +135,32 @@ class ChromeLogger extends AbstractRoute
         } elseif (\in_array($method, $this->consoleMethods, true) === false) {
             $method = 'log';
         }
-        $this->jsonData['rows'][] = array(
+        $this->jsonData['rows'][] = [
             $args,
             isset($meta['file']) ? $meta['file'] . ': ' . $meta['line'] : null,
             $method === 'log' ? '' : $method,
-        );
+        ];
     }
 
     /**
      * Test that our header's length is less than max
      *
-     * @param string $encoded ChromeLogger heaader value
+     * @param string $encoded ChromeLogger header value
      *
      * @return string header
      */
     private function assertEncodedLength($encoded)
     {
-        $max = $this->getMaxLength();
-        if (\strlen($encoded) <= $max) {
+        if (\strlen($encoded) <= $this->max) {
             return $encoded;
         }
-        $this->jsonData['rows'] = array(
-            array(
-                array('chromeLogger: unable to abridge log to ' . $this->debug->utility->getBytes($max)),
+        $this->jsonData['rows'] = [
+            [
+                ['chromeLogger: unable to abridge log to ' . $this->debug->utility->getBytes($this->max)],
                 null,
                 'warn',
-            ),
-        );
+            ],
+        ];
         return $this->encode($this->jsonData);
     }
 
@@ -156,21 +171,17 @@ class ChromeLogger extends AbstractRoute
      */
     protected function buildJsonData()
     {
-        $this->jsonData['rows'] = array();
+        $this->jsonData['rows'] = [];
         $this->processAlerts();
         $this->processSummary();
         $this->processLog();
-        $heading = array('PHP', $this->debug->isCli()
-            ? '$: ' . \implode(' ', $this->debug->getServerParam('argv', array()))
-            : $this->debug->serverRequest->getMethod()
-                . ' ' . $this->debug->redact((string) $this->debug->serverRequest->getUri()),
-        );
+        $heading = ['PHP', $this->getRequestMethodUri()];
         if (!$this->cfg['group']) {
-            \array_unshift($this->jsonData['rows'], array($heading, null, 'info'));
+            \array_unshift($this->jsonData['rows'], [$heading, null, 'info']);
             return;
         }
-        \array_unshift($this->jsonData['rows'], array($heading, null, 'groupCollapsed'));
-        \array_push($this->jsonData['rows'], array(array(), null, 'groupEnd'));
+        \array_unshift($this->jsonData['rows'], [$heading, null, 'groupCollapsed']);
+        \array_push($this->jsonData['rows'], [[], null, 'groupEnd']);
     }
 
     /**
@@ -206,26 +217,24 @@ class ChromeLogger extends AbstractRoute
      */
     protected function getMaxLength()
     {
-        $maxVals = \array_filter(array(
+        $maxVals = \array_filter([
             $this->debug->utility->getBytes($this->debug->getCfg('headerMaxAll', Debug::CONFIG_DEBUG), true),
             $this->debug->utility->getBytes($this->debug->getCfg('headerMaxPer', Debug::CONFIG_DEBUG), true),
-        ));
+        ]);
         return \min($maxVals);
     }
 
     /**
      * Attempt to remove log entries to get header length < max
      *
-     * @param int $max maximum header length
-     *
      * @return void
      */
-    protected function reduceData($max)
+    protected function reduceData()
     {
         \array_unshift($this->data['alerts'], new LogEntry(
             $this->debug,
             'alert',
-            array('Log abridged due to header size constraint'),
+            ['Log abridged due to header size constraint'],
             array(
                 'level' => 'info',
             )
@@ -236,7 +245,7 @@ class ChromeLogger extends AbstractRoute
         */
         $logBack = array();
         foreach ($this->data['log'] as $i => $logEntry) {
-            if (\in_array($logEntry['method'], array('assert', 'error', 'warn'), true) === false) {
+            if (\in_array($logEntry['method'], ['assert', 'error', 'warn'], true) === false) {
                 unset($this->data['log'][$i]);
                 $logBack[$i] = $logEntry;
             }
@@ -245,10 +254,10 @@ class ChromeLogger extends AbstractRoute
             Data is now just alerts, summary, and errors
         */
         $strlen = $this->calcHeaderSize();
-        $avail = $max - $strlen;
+        $avail = $this->max - $strlen;
         if ($avail > 128) {
             // we've got enough room to fill with additional entries
-            $this->reduceDataFill($max, $logBack);
+            $this->reduceDataFill($logBack);
         }
     }
 
@@ -262,7 +271,7 @@ class ChromeLogger extends AbstractRoute
         /*
             Remove non-essential summary entries
         */
-        $summaryRemove = array(
+        $summaryRemove = [
             '$_COOKIE',
             '$_POST',
             'Built In',
@@ -274,7 +283,7 @@ class ChromeLogger extends AbstractRoute
             'php://input',
             'session.cache_limiter',
             'session_save_path',
-        );
+        ];
         $summaryRemoveRegex = '/^(' . \implode('|', \array_map(static function ($val) {
             return \preg_quote($val, '/');
         }, $summaryRemove)) . ')/';
@@ -291,43 +300,59 @@ class ChromeLogger extends AbstractRoute
     /**
      * Add back log entries until we're out of space
      *
-     * @param int   $max     maximum header length
      * @param array $logBack logEntries removed in initial pass
      *
      * @return void
      */
-    protected function reduceDataFill($max, $logBack = array())
+    protected function reduceDataFill($logBack = array())
     {
         $indexes = \array_reverse(\array_keys($logBack));
-        $depth = 0;
-        $groupOnly = false;
+        $this->depth = 0;
+        $this->groupOnly = false;
         /*
             work our way backwards through the log until we fill the avail header length
         */
         foreach ($indexes as $i) {
             $logEntry = $logBack[$i];
-            $method = $logEntry['method'];
-            if ($method === 'groupEnd') {
-                $depth++;
-            // https://bugs.xdebug.org/view.php?id=2095
-            // phpcs:ignore SlevomatCodingStandard.Namespaces.FullyQualifiedGlobalFunctions.NonFullyQualified
-            } elseif (in_array($method, array('group', 'groupCollapsed'), true)) {
-                $depth--;
-            } elseif ($groupOnly) {
-                continue;
-            }
-            $this->data['log'][$i] = $logEntry;
-            $strlen = $this->calcHeaderSize();
-            if ($groupOnly && $depth === 0) {
+            $continue = $this->reduceDataFillWalk($logEntry, $i);
+            if ($continue === false) {
                 break;
-            }
-            if ($strlen + (40 * $depth) > $max) {
-                unset($this->data['log'][$i]);
-                $groupOnly = true;
             }
         }
         \ksort($this->data['log']);
         $this->data['log'] = \array_values($this->data['log']);
+    }
+
+    /**
+     * Add back log entries until we're out of space
+     *
+     * @param LogEntry   $logEntry LogEntry instance
+     * @param int|string $index    LogEntry index
+     *
+     * @return bool whether to continue
+     */
+    private function reduceDataFillWalk(LogEntry $logEntry, $index)
+    {
+        $method = $logEntry['method'];
+        if ($method === 'groupEnd') {
+            $this->depth++;
+            // https://bugs.xdebug.org/view.php?id=2095
+            // phpcs:ignore SlevomatCodingStandard.Namespaces.FullyQualifiedGlobalFunctions.NonFullyQualified
+        } elseif (in_array($method, ['group', 'groupCollapsed'], true)) {
+            $this->depth--;
+        } elseif ($this->groupOnly) {
+            return true;
+        }
+        $this->data['log'][$index] = $logEntry;
+        $strlen = $this->calcHeaderSize();
+        if ($this->groupOnly && $this->depth === 0) {
+            return false;
+        }
+        if ($strlen + (40 * $this->depth) > $this->max) {
+            unset($this->data['log'][$index]);
+            $this->groupOnly = true;
+        }
+        return true;
     }
 
     /**
@@ -340,16 +365,16 @@ class ChromeLogger extends AbstractRoute
     protected function translateJsonValues($json)
     {
         return \str_replace(
-            array(
-                \json_encode(Abstracter::TYPE_FLOAT_INF),
-                \json_encode(Abstracter::TYPE_FLOAT_NAN),
+            [
+                \json_encode(Type::TYPE_FLOAT_INF),
+                \json_encode(Type::TYPE_FLOAT_NAN),
                 \json_encode(Abstracter::UNDEFINED),
-            ),
-            array(
+            ],
+            [
                 '"INF"',
                 '"NaN"',
                 'null',
-            ),
+            ],
             $json
         );
     }

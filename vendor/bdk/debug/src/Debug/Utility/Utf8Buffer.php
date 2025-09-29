@@ -6,32 +6,50 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Utility;
 
 use bdk\Debug\Utility\Utf8;
+use LengthException;
 
 /**
  * String "stream" used for analyzing/testing
+ *
+ * @psalm-type stats = array{
+ *   blocks: list<array{0:Utf8::TYPE_*, 1:string}>,
+ *   bytesOther: int,
+ *   bytesUtf8: int,
+ *   bytesUtf8Control: int,
+ *   calculated: bool,
+ *   mbStrlen: int,
+ *   percentBinary: float,
+ *   strlen: int,
+ * }
  */
 class Utf8Buffer
 {
+    /** @var int */
     private $curI;
-    private $stats = array();
-    private static $special = array(
-        'chars' => array(
-            "\xef\xbf\xbd",  // "Replacement Character"
-            // "\xe2\x80\x8b",  // zero-width Space (included in \p{Cf})
-            // "\xef\xbb\xbf",  // UTF-8 BOM        (included in \p{Cf})
-        ),
-        'regex' => array(
-            '#[^\S \r\n\t]#u',        // with /u modifier, \s is equivalent to \p{Z}
-            '#[^\P{C}\r\n\t]#u',      // invisible control characters and unused code points. (includes zwsp & BOM)
-        ),
+
+    /**
+     * @var       array
+     * @psalm-var stats
+     */
+    private $stats = array(
+        'blocks' => array(),
+        'bytesOther' => 0,          // aka binary
+        'bytesUtf8' => 0,           // any valid utf-8 (sans control)
+        'bytesUtf8Control' => 0,    // control characters (sans \r\n\t)
+        'calculated' => false,      // internal check if stats calculated
+        'mbStrlen' => 0,
+        'percentBinary' => 0,
+        'strlen' => 0,
     );
+
+    /** @var string */
     private $str = '';
 
     /**
@@ -42,61 +60,28 @@ class Utf8Buffer
     public function __construct($string)
     {
         $this->curI = 0;
-        $this->stats = array(
-            'blocks' => array(),
-            'bytesControl' => 0,
-            'bytesOther' => 0,
-            'bytesSpecial' => 0,        // special UTF-8
-            'bytesUtf8' => 0,           // includes ASCII
-            'calculated' => false,      // internal check if stats calculated
-            'mbStrlen' => 0,
-            'percentBinary' => 0,
-            'strlen' => Utf8::strlen($string),
-        );
+        $this->stats['strlen'] = Utf8::strlen($string);
         $this->str = $string;
-    }
-
-    /**
-     * Add additional characters to be treated as special chars
-     *
-     * @param array|string $special character or array of characters ore regular-expressions
-     *
-     * @return void
-     */
-    public static function addSpecial($special)
-    {
-        $special = (array) $special;
-        foreach ($special as $char) {
-            if (\strpos($special, 'regex:') === 0) {
-                self::$special['regex'] = \substr($special, 6);
-                continue;
-            }
-            self::$special['chars'][] = $char;
-        }
     }
 
     /**
      * Get stats about string
      *
-     * Returns array containing
-     *   'bytesControl'
-     *   'bytesOther'       (aka binary)
-     *   'bytesSpecial'     (aka "exotic" whitespace type chars)
-     *   'bytesUtf8'        (includes ASCII, does not incl Control or Special)
-     *   'strlen'
+     * @return stats
      *
-     * @return array
+     * @psalm-suppress InvalidReturnType
      */
     public function analyze()
     {
         if ($this->stats['calculated']) {
-            return \array_diff_key($this->stats, array('calculated' => null));
+            /** @psalm-suppress InvalidReturnStatement */
+            return \array_diff_key($this->stats, array('calculated' => false));
         }
         $this->seek(0);
-        $curBlockType = 'utf8'; // utf8, utf8special, other
+        $curBlockType = Utf8::TYPE_UTF8;
         $curBlockStart = 0;     // string offset
         while ($this->curI < $this->stats['strlen']) {
-            $this->stats['mbStrlen'] ++;
+            $this->stats['mbStrlen']++;
             $curI = $this->curI;
             $charType = $this->getOffsetCharType();
             if ($charType !== $curBlockType) {
@@ -110,7 +95,8 @@ class Utf8Buffer
         $this->addBlock($curBlockType, $curBlockStart, $curBlockLen);
         $this->analyzeFinish();
         $this->stats['calculated'] = true;
-        return \array_diff_key($this->stats, array('calculated' => null));
+        /** @psalm-suppress InvalidReturnStatement */
+        return \array_diff_key($this->stats, array('calculated' => false));
     }
 
     /**
@@ -118,11 +104,12 @@ class Utf8Buffer
      *
      * Increments the current offset
      *
-     * @param string $char populated with the char that was tested
+     * @param string $char      Populated with the char that was tested
+     * @param bool   $isControl Populated with whether the char is a control character (sans \t\n\r)
      *
      * @return bool
      */
-    public function isOffsetUtf8(&$char = '')
+    public function isOffsetUtf8(&$char = '', &$isControl = false)
     {
         $byte1 = \ord($this->str[$this->curI]);
         $inc = 1;
@@ -130,6 +117,7 @@ class Utf8Buffer
         if ($byte1 < 0x80) {
             // single byte 0bbbbbbb
             $isUtf8 = true;
+            $isControl = $this->isOffsetUtf8Control($byte1);
         } elseif (($byte1 & 0xe0) === 0xc0) {
             // 2-byte sequence 110bbbbb 10bbbbbb
             $inc = 2;   // skip the next byte
@@ -152,13 +140,11 @@ class Utf8Buffer
      * Determine if string is UTF-8 encoded
      *
      * In addition, if valid UTF-8, will also report whether string contains
-     * control, or other speical characters that could otherwise go unnoticed
-     *
-     * @param bool $hasSpecial does valid utf-8 string contain control or "exotic" whitespace type character
+     * control, or other special characters that could otherwise go unnoticed
      *
      * @return bool
      */
-    public function isUtf8(&$hasSpecial = false)
+    public function isUtf8()
     {
         while ($this->curI < $this->stats['strlen']) {
             $isUtf8 = $this->isOffsetUtf8();
@@ -166,24 +152,27 @@ class Utf8Buffer
                 return false;
             }
         }
-        $hasSpecial = $this->hasSpecial($this->str);
         return true;
     }
 
     /**
-     * Read data from the stream.
+     * Read data from the stream and update internal pointer.
      *
      * @param int $length Read up to $length bytes
      *
      * @return string Returns the data read from the stream, or an empty string
      *     if no bytes are available.
-     * @throws RuntimeException if an error occurs.
+     *
+     * @throws LengthException
      */
     public function read($length)
     {
-        return $length <= 0
-            ? ''
-            : \substr($this->str, $this->curI, $length);
+        if ($length < 0) {
+            throw new LengthException('Utf8Buffer::read - length must be >= 0');
+        }
+        $start = $this->curI;
+        $this->curI = \min($this->curI + $length, $this->stats['strlen']);
+        return \substr($this->str, $start, $length);
     }
 
     /**
@@ -197,10 +186,9 @@ class Utf8Buffer
      *     SEEK_CUR: Set position to current location plus offset
      *     SEEK_END: Set position to end-of-stream plus offset.
      *
-     * @link   http://www.php.net/manual/en/function.fseek.php
-     * @throws RuntimeException on failure.
-     *
      * @return void
+     *
+     * @link http://www.php.net/manual/en/function.fseek.php
      */
     public function seek($offset, $whence = SEEK_SET)
     {
@@ -231,17 +219,20 @@ class Utf8Buffer
     /**
      * Add block of text and increment stat
      *
-     * @param string $type  block type
-     * @param int    $start start position
-     * @param int    $len   length
+     * @param Utf8::TYPE_* $type  block type
+     * @param int          $start start position
+     * @param int          $len   length
      *
      * @return void
      */
     private function addBlock($type, $start, $len)
     {
+        if ($len === 0) {
+            return;
+        }
         $this->incStat($type, $len);
         $subStr = \substr($this->str, $start, $len);
-        $this->stats['blocks'][] = array($type, $subStr);
+        $this->stats['blocks'][] = [$type, $subStr];
     }
 
     /**
@@ -252,7 +243,7 @@ class Utf8Buffer
     private function analyzeFinish()
     {
         $this->stats['percentBinary'] = $this->stats['strlen']
-            ? ($this->stats['bytesControl'] + $this->stats['bytesOther']) / $this->stats['strlen'] * 100
+            ? ($this->stats['bytesOther'] + $this->stats['bytesUtf8Control']) / $this->stats['strlen'] * 100
             : 0;
         if ($this->stats['strlen'] && Utf8::strlen($this->stats['blocks'][0][1]) === 0) {
             // first block was empty
@@ -265,7 +256,7 @@ class Utf8Buffer
      *
      * @param int $len length to get (1-4)
      *
-     * @return array
+     * @return list<int>
      */
     private function getBytes($len)
     {
@@ -278,68 +269,50 @@ class Utf8Buffer
     }
 
     /**
-     * get charater "category"
+     * get character "category"
      *
-     * @return string "utf8", "utf8control", "utf8special", or "other"
+     * @return Utf8::TYPE_*
      */
     private function getOffsetCharType()
     {
-        $isSpecial = false;
         $char = '';
-        $byte1 = $this->str[$this->curI]; // collect before calling isOffsetUtf8
-        $isUtf8 = $this->isOffsetUtf8($char);
+        $isControl = false;
+        $isUtf8 = $this->isOffsetUtf8($char, $isControl);
         if ($isUtf8 === false) {
-            return 'other';
+            return Utf8::TYPE_OTHER;
         }
-        $isSpecial = $this->hasSpecial($char);
-        if ($isSpecial) {
-            return \ord($byte1) < 0x80
-                ? 'utf8control'
-                : 'utf8special';
-        }
-        return 'utf8';
-    }
-
-    /**
-     * Check UTF-8 string (or single-character) against list of special characters or regular-expressions
-     *
-     * @param string $str String to check
-     *
-     * @return bool
-     */
-    private function hasSpecial($str)
-    {
-        foreach (self::$special['regex'] as $regex) {
-            if (\preg_match($regex, $str) > 0) {
-                return true;
-            }
-        }
-        foreach (self::$special['chars'] as $char) {
-            if (\strpos($str, $char) !== false) {
-                return true;
-            }
-        }
-        return false;
+        return $isControl
+            ? Utf8::TYPE_UTF8_CONTROL
+            : Utf8::TYPE_UTF8;
     }
 
     /**
      * Increment statistic
      *
-     * @param string $stat stat to increment ("utf8", "utf8control", "utf8special", or "other")
-     * @param int    $inc  increment ammount
+     * @param Utf8::TYPE_* $stat stat to increment
+     * @param int          $inc  increment amount
      *
      * @return void
      */
     private function incStat($stat, $inc)
     {
-        if ($stat === 'utf8control') {
-            $stat = 'control';
-        } elseif ($stat === 'utf8special') {
-            // aka whitespace
-            $stat = 'special';
-        }
+        /** @var 'bytesOther'|'bytesUtf8|'bytesUtf8Control' */
         $stat = 'bytes' . \ucfirst($stat);
         $this->stats[$stat] += $inc;
+    }
+
+    /**
+     * Is the given byte a control character?
+     *
+     * We do not include \r, \n, or \t
+     *
+     * @param int $ord Ordinal value
+     *
+     * @return bool
+     */
+    private function isOffsetUtf8Control($ord)
+    {
+        return ($ord < 0x20 || $ord === 0x7f) && \in_array($ord, [0x09, 0x0A, 0x0D], true) === false;
     }
 
     /**
@@ -371,10 +344,10 @@ class Utf8Buffer
         }
         return (($bytes[1] & 0xc0) !== 0x80
             || ($bytes[2] & 0xc0) !== 0x80
-            || $bytes[0] === 0xe0
-                && ($bytes[1] & 0xe0) === 0x80  // overlong
-            || $bytes[0] === 0xed
-                && ($bytes[1] & 0xe0) === 0xa0  // UTF-16 surrogate (U+D800 - U+DFFF)
+            || ($bytes[0] === 0xe0
+                && ($bytes[1] & 0xe0) === 0x80)  // overlong
+            || ($bytes[0] === 0xed
+                && ($bytes[1] & 0xe0) === 0xa0)  // UTF-16 surrogate (U+D800 - U+DFFF)
         ) === false;
     }
 
@@ -392,10 +365,10 @@ class Utf8Buffer
         return (($bytes[1] & 0xc0) !== 0x80
             || ($bytes[2] & 0xc0) !== 0x80
             || ($bytes[3] & 0xc0) !== 0x80
-            || $bytes[0] === 0xf0
-                && ($bytes[1] & 0xf0) === 0x80  // overlong
-            || $bytes[0] === 0xf4
-                && $bytes[1] > 0x8f
+            || ($bytes[0] === 0xf0
+                && ($bytes[1] & 0xf0) === 0x80)  // overlong
+            || ($bytes[0] === 0xf4
+                && $bytes[1] > 0x8f)
             || $bytes[0] > 0xf4    // > U+10FFFF
         ) === false;
     }

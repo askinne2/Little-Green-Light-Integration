@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Route;
@@ -21,14 +21,17 @@ use bdk\PubSub\Event;
  */
 class Stream extends AbstractRoute
 {
+    /** @var resource|null */
     protected $fileHandle;
+
+    /** @var array<string,mixed> */
     protected $cfg = array(
         'ansi' => 'default',        // default | true | false  (STDOUT & STDERR streams will default to true)
-        'channels' => array('*'),
-        'channelsExclude' => array(
+        'channels' => ['*'],
+        'channelsExclude' => [
             'events',
             'files',
-        ),
+        ],
         'output' => false,          // kept in sync with Debug->cfg['output']
         'stream' => 'php://stderr', // filepath/uri/resource
     );
@@ -79,10 +82,9 @@ class Stream extends AbstractRoute
      */
     public function onConfig(Event $event)
     {
-        $cfg = $event->getValues();
-        $isCli = $this->debug->isCli();
-        if ($isCli && isset($cfg['debug']['output'])) {
-            $this->cfg['output'] = $cfg['debug']['output'];
+        $cfg = $event['debug'] ?: array();
+        if (isset($cfg['output']) && $this->debug->isCli()) {
+            $this->cfg['output'] = $cfg['output'];
         }
         if ($this->cfg['output']) {
             $this->openStream($this->cfg['stream']);
@@ -120,7 +122,7 @@ class Stream extends AbstractRoute
     private function ansiCheck()
     {
         $meta = \stream_get_meta_data($this->fileHandle);
-        return $this->cfg['ansi'] === true || $this->cfg['ansi'] === 'default' && $meta['wrapper_type'] === 'PHP';
+        return ($this->cfg['ansi'] === true || $this->cfg['ansi'] === 'default') && $meta['wrapper_type'] === 'PHP';
     }
 
     /**

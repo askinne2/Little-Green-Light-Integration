@@ -6,15 +6,15 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Collector;
 
 use bdk\Debug;
 use bdk\Debug\Collector\DatabaseTrait;
-use bdk\Debug\Collector\Pdo\MethodSignatureCompatTrait;
+use bdk\Debug\Collector\Pdo\CompatTrait;
 use bdk\Debug\Collector\StatementInfo;
 use bdk\PubSub\Event;
 use PDO as PdoBase;
@@ -25,36 +25,29 @@ use PDOException;
  */
 class Pdo extends PdoBase
 {
+    use CompatTrait;
     use DatabaseTrait;
-    use MethodSignatureCompatTrait;
 
-    private $debug;
+    /** @var PdoBase */
     protected $pdo;
-    protected $loggedStatements = array();
-    protected $icon = 'fa fa-database';
 
     /**
      * Constructor
      *
-     * @param PdoBase $pdo   PDO instance
-     * @param Debug   $debug (optional) Specify PHPDebugConsole instance
-     *                         if not passed, will create PDO channel on singleton instance
-     *                         if root channel is specified, will create a PDO channel
+     * @param PdoBase    $pdo   PDO instance
+     * @param Debug|null $debug (optional) Specify PHPDebugConsole instance
+     *                            if not passed, will create PDO channel on singleton instance
+     *                            if root channel is specified, will create a PDO channel
      *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public function __construct(PdoBase $pdo, Debug $debug = null)
+    public function __construct(PdoBase $pdo, $debug = null)
     {
-        if (!$debug) {
-            $debug = Debug::_getChannel('PDO', array('channelIcon' => $this->icon));
-        } elseif ($debug === $debug->rootInstance) {
-            $debug = $debug->getChannel('PDO', array('channelIcon' => $this->icon));
-        }
+        \bdk\Debug\Utility::assertType($debug, 'bdk\Debug');
+        $this->traitInit($debug, 'PDO');
         $this->pdo = $pdo;
-        $this->debug = $debug;
-        $this->setAttribute(PdoBase::ATTR_STATEMENT_CLASS, array('bdk\Debug\Collector\Pdo\Statement', array($this)));
-        $debug->eventManager->subscribe(Debug::EVENT_OUTPUT, array($this, 'onDebugOutput'), 1);
-        $debug->addPlugin($debug->pluginHighlight);
+        $this->setAttribute(PdoBase::ATTR_STATEMENT_CLASS, ['bdk\Debug\Collector\Pdo\Statement', [$this]]);
+        $this->debug->eventManager->subscribe(Debug::EVENT_OUTPUT, [$this, 'onDebugOutput'], 1);
     }
 
     /**
@@ -66,9 +59,7 @@ class Pdo extends PdoBase
     #[\ReturnTypeWillChange]
     public function beginTransaction()
     {
-        $this->debug->group('transaction', $this->debug->meta(array(
-            'icon' => $this->debug->getCfg('channelIcon', Debug::CONFIG_DEBUG),
-        )));
+        $this->debug->info('beginTransaction', $this->meta());
         return $this->pdo->beginTransaction();
     }
 
@@ -81,9 +72,8 @@ class Pdo extends PdoBase
     #[\ReturnTypeWillChange]
     public function commit()
     {
-        $return = $this->pdo->commit();
-        $this->debug->groupEnd($return);
-        return $return;
+        $this->debug->info('commit', $this->meta());
+        return $this->pdo->commit();
     }
 
     /**
@@ -188,7 +178,7 @@ class Pdo extends PdoBase
     }
 
     /*
-        query() is in MethodSignatureCompatTrait
+        query() is in CompatTrait
     */
 
     /**
@@ -217,9 +207,8 @@ class Pdo extends PdoBase
     #[\ReturnTypeWillChange]
     public function rollBack()
     {
-        $return = $this->pdo->rollBack();
-        $this->debug->groupEnd('rolled back');
-        return $return;
+        $this->debug->info('rollBack', $this->meta());
+        return $this->pdo->rollBack();
     }
 
     /**
@@ -253,19 +242,18 @@ class Pdo extends PdoBase
         $name = \end($nameParts);
         $driverName = $this->pdo->getAttribute(PdoBase::ATTR_DRIVER_NAME);
 
-        $groupParams = \array_filter(array(
+        $groupParams = \array_filter([
             ($name !== 'general' ? $name : 'PDO') . ' info',
             $driverName,
             $driverName !== 'sqlite'
                 ? $this->pdo->getAttribute(PdoBase::ATTR_CONNECTION_STATUS)
                 : null,
-            $debug->meta(array(
+            $this->meta(array(
                 'argsAsParams' => false,
-                'icon' => $this->icon,
                 'level' => 'info',
             )),
-        ));
-        \call_user_func_array(array($debug, 'groupCollapsed'), $groupParams);
+        ]);
+        \call_user_func_array([$debug, 'groupCollapsed'], $groupParams);
         $this->logRuntime($debug);
         $debug->groupEnd(); // groupCollapsed
         $debug->groupEnd(); // groupSummary
@@ -287,7 +275,6 @@ class Pdo extends PdoBase
                 return $statement->fetchColumn();
             }
         } catch (PDOException $e) {
-            // no such method
             return null;
         }
     }
@@ -302,7 +289,7 @@ class Pdo extends PdoBase
      * @return mixed The result of the call
      * @throws PDOException
      */
-    protected function profileCall($method, $sql, $args = array())
+    protected function profileCall($method, $sql, $args = [])
     {
         $info = new StatementInfo($sql);
         $isExceptionMode = $this->pdo->getAttribute(PdoBase::ATTR_ERRMODE) === PdoBase::ERRMODE_EXCEPTION;
@@ -310,7 +297,7 @@ class Pdo extends PdoBase
         $result = null;
         $exception = null;
         try {
-            $result = \call_user_func_array(array($this->pdo, $method), $args);
+            $result = \call_user_func_array([$this->pdo, $method], $args);
             if (!$isExceptionMode && $result === false) {
                 $error = $this->pdo->errorInfo();
                 $exception = new PDOException($error[2], $error[0]);
@@ -335,21 +322,8 @@ class Pdo extends PdoBase
      *
      * @SuppressWarnings(PHPMD.UnusedPrivateMethod) -> called via DatabaseTrait
      */
-    private function serverInfo()
+    protected function serverInfo()
     {
-        $driverName = $this->pdo->getAttribute(PdoBase::ATTR_DRIVER_NAME);
-        // parse server info
-        $serverInfo = $driverName !== 'sqlite'
-            ? $this->pdo->getAttribute(PdoBase::ATTR_SERVER_INFO)
-            : '';
-        $matches = array();
-        \preg_match_all('/([^:]+): ([a-zA-Z0-9.]+)\s*/', $serverInfo, $matches);
-        $serverInfo = \array_map(static function ($val) {
-            /** @psalm-suppress InvalidOperand */
-            return $val * 1;
-        }, \array_combine($matches[1], $matches[2]));
-        $serverInfo['Version'] = $this->pdo->getAttribute(PdoBase::ATTR_SERVER_VERSION);
-        \ksort($serverInfo);
-        return $serverInfo;
+        return $this->pdoServerInfo($this->pdo);
     }
 }

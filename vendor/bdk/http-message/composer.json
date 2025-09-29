@@ -1,0 +1,58 @@
+{
+  "name": "bdk/http-message",
+  "description": "PSR-7 (HttpMessage) & PSR-17 (HttpFactory) Implementations",
+  "keywords": ["PSR-7", "HttpMessage", "PSR-17", "HttpFactory"],
+  "homepage": "http://github.com/bkdotcom/HttpMessage",
+  "license": "MIT",
+  "support": {
+    "issues": "https://github.com/bkdotcom/HttpMessage/issues",
+    "source": "https://github.com/bkdotcom/HttpMessage"
+  },
+  "authors": [
+    {
+      "name": "Brad Kent",
+      "email": "bkfake-github@yahoo.com",
+      "homepage": "http://www.bradkent.com/",
+      "role": "Developer"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "bdk\\HttpFactory\\": "src/HttpFactory",
+      "bdk\\HttpMessage\\": "src/HttpMessage"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "bdk\\Test\\": "tests/"
+    }
+  },
+  "provide": {
+    "psr/http-factory-implementation": "1.0",
+    "psr/http-message-implementation": "1.0"
+  },
+  "require": {
+    "php": ">=7.2",
+    "psr/http-factory": "^1.0",
+    "psr/http-message": "^1.1 || ^2.0"
+  },
+  "require-dev": {
+    "bdk/devutil": "dev-master",
+    "phpunit/phpunit": "^4.0 | ^5.0 | ^6.0 | ^7.0 | ^8.0 | ^9.0",
+    "squizlabs/php_codesniffer": "^3.6",
+    "symfony/http-foundation": ">=2.8"
+  },
+  "scripts": {
+    "cs" : [
+      "vendor/bin/phpcs -p -s --colors ./src"
+    ],
+    "test" : [
+      "vendor/bin/phpunit -v"
+    ],
+    "coverage" : [
+      "vendor/bin/phpunit -v --coverage-clover coverage/clover.xml --coverage-html coverage/html",
+      "cp vendor/bdk/devutil/src/htmlCoverageCustom.css coverage/html/_css/custom.css",
+      "php -f vendor/bdk/devutil/src/coverageChecker.php -- coverage/clover.xml"
+    ]
+  }
+}

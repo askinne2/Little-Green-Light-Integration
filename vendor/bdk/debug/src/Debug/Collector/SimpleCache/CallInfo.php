@@ -6,13 +6,14 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Collector\SimpleCache;
 
 use bdk\Debug\AbstractComponent;
+use bdk\Debug\Utility;
 use Exception;
 
 /**
@@ -31,17 +32,27 @@ use Exception;
  */
 class CallInfo extends AbstractComponent
 {
+    /** @var int|null */
     protected $duration;
+    /** @var Exception|null */
     protected $exception;
+    /** @var array|null */
     protected $keyOrKeys;
+    /** @var int|null */
     protected $memoryEnd;
+    /** @var int */
     protected $memoryStart;
+    /** @var int|null */
     protected $memoryUsage;
+    /** @var string */
     protected $method = '';
+    /** @var float|null */
     protected $timeEnd;
+    /** @var float */
     protected $timeStart;
 
-    protected $readOnly = array(
+    /** @var list<string> */
+    protected $readOnly = [
         'duration',
         'exception',
         'keyOrKeys',
@@ -51,11 +62,11 @@ class CallInfo extends AbstractComponent
         'method',
         'timeEnd',
         'timeStart',
-    );
+    ];
 
     /**
      * @param string $method    method called
-     * @param mixed  $keyOrKeys aftected key or keys being
+     * @param mixed  $keyOrKeys affected key or keys
      */
     public function __construct($method, $keyOrKeys = null)
     {
@@ -86,8 +97,10 @@ class CallInfo extends AbstractComponent
      *
      * @return void
      */
-    public function end(Exception $exception = null)
+    public function end($exception = null)
     {
+        Utility::assertType($exception, 'Exception');
+
         $this->exception = $exception;
         $this->timeEnd = \microtime(true);
         $this->memoryEnd = \memory_get_usage(false);

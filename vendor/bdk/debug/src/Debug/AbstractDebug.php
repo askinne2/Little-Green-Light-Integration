@@ -6,51 +6,63 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug;
 
 use bdk\Container;
 use bdk\Container\ServiceProviderInterface;
+use bdk\Container\Utility as ContainerUtility;
 use bdk\Debug;
 use bdk\Debug\LogEntry;
-use bdk\Debug\Route\RouteInterface;
 use bdk\Debug\ServiceProvider;
 use bdk\PubSub\Event;
-use ReflectionMethod;
 
 /**
- * Handle underlying Debug bootstraping and config
+ * Handle underlying Debug bootstrapping and config
+ *
+ * @psalm-consistent-constructor
  */
-class AbstractDebug
+abstract class AbstractDebug
 {
+    /** @var array<string,mixed> */
+    protected $cfg = array();
+
+    /** @var bool */
+    protected $bootstrapped = false;
+
     /** @var \bdk\Debug\Config */
     protected $config;
 
-    /** @var \bdk\Container */
+    /** @var Container */
     protected $container;
+
+    /** @var Container */
     protected $serviceContainer;
 
-    /** @var \bdk\Debug */
+    /** @var Debug|null */
     protected static $instance;
 
-    protected static $methodDefaultArgs = array();
+    /** @var Debug|null */
     protected $parentInstance;
+
+    /** @var Debug */
     protected $rootInstance;
 
-    protected $readOnly = array(
+    /** @var list<string> */
+    protected $readOnly = [
         'parentInstance',
         'rootInstance',
-    );
+    ];
 
     /**
      * Constructor
      *
      * @param array $cfg config
      */
-    public function __construct($cfg)
+    public function __construct($cfg = array())
     {
         if (!isset(self::$instance)) {
             // self::getInstance() will always return initial/first instance
@@ -69,17 +81,13 @@ class AbstractDebug
      *
      * @return mixed
      */
-    public function __call($methodName, $args)
+    public function __call($methodName, array $args)
     {
-        $logEntry = new LogEntry(
-            $this,
-            $methodName,
-            $args
-        );
+        $logEntry = new LogEntry($this, $methodName, $args);
         $this->publishBubbleEvent(Debug::EVENT_CUSTOM_METHOD, $logEntry);
         if ($logEntry['handled'] !== true) {
             $logEntry->setMeta('isCustomMethod', true);
-            $this->appendLog($logEntry);
+            $this->rootInstance->getPlugin('methodBasic')->log($logEntry);
         }
         return $logEntry['return'];
     }
@@ -87,16 +95,15 @@ class AbstractDebug
     /**
      * Magic method to allow us to call instance methods statically
      *
-     * Prefix the instance method with an underscore ie
-     *    \bdk\Debug::_log('logged via static method');
-     *
      * @param string $methodName Inaccessible method name
      * @param array  $args       Arguments passed to method
      *
      * @return mixed
      */
-    public static function __callStatic($methodName, $args)
+    public static function __callStatic($methodName, array $args)
     {
+        // prior to v3.1 it was required to have underscore prefix to disambiguate from instance method
+        //   as of v3.1, all methods provided via plugin
         $methodName = \ltrim($methodName, '_');
         if (!self::$instance && $methodName === 'setCfg') {
             /*
@@ -114,14 +121,7 @@ class AbstractDebug
         if (!self::$instance) {
             new static();
         }
-        /*
-            Add 'statically' meta arg
-            Not all methods expect meta args... so make sure it comes after expected args
-        */
-        $defaultArgs = self::getMethodDefaultArgs($methodName);
-        $args = \array_replace(\array_values($defaultArgs), $args);
-        $args[] = static::meta('statically');
-        return \call_user_func_array(array(self::$instance, $methodName), $args);
+        return \call_user_func_array([self::$instance, $methodName], $args);
     }
 
     /**
@@ -176,35 +176,21 @@ class AbstractDebug
     public function onConfig(Event $event)
     {
         $cfg = $event['debug'];
-        if (!$cfg) {
+        if (!$cfg || !$event['isTarget']) {
             return;
         }
-        $valActions = array(
-            'logServerKeys' => function ($val) {
-                // don't append, replace
-                $this->cfg['logServerKeys'] = array();
-                return $val;
-            },
-            'route' => array($this, 'onCfgRoute'),
-        );
-        $valActions = \array_intersect_key($valActions, $cfg);
+        $valActions = \array_intersect_key(array(
+            'channelIcon' => [$this, 'onCfgChannelIcon'],
+            'channels' => [$this, 'onCfgChannels'],
+            'logServerKeys' => [$this, 'onCfgLogServerKeys'],
+            'serviceProvider' => [$this, 'onCfgServiceProvider'],
+        ), $cfg);
         foreach ($valActions as $key => $callable) {
             /** @psalm-suppress TooManyArguments */
             $cfg[$key] = $callable($cfg[$key]);
         }
         $this->cfg = $this->arrayUtil->mergeDeep($this->cfg, $cfg);
-        /*
-            propagate updated vals to child channels
-        */
-        $channels = $this->getChannels(false, true);
-        if (empty($channels)) {
-            return;
-        }
-        $event['debug'] = $cfg;
-        $cfg = $this->container['pluginChannel']->getPropagateValues($event->getValues());
-        foreach ($channels as $channel) {
-            $channel->config->set($cfg);
-        }
+        $this->onConfigPropagate($event, $cfg);
     }
 
     /**
@@ -216,115 +202,45 @@ class AbstractDebug
      */
     public function onCfgServiceProvider($val)
     {
-        $val = $this->serviceProviderToArray($val);
-        if (\is_array($val) === false) {
-            return $val;
-        }
+        $rawValues = ContainerUtility::toRawValues($val);
         $services = $this->container['services'];
-        foreach ($val as $k => $v) {
+        foreach ($rawValues as $k => $v) {
             if (\in_array($k, $services, true)) {
                 $this->serviceContainer[$k] = $v;
-                unset($val[$k]);
+                unset($rawValues[$k]);
                 continue;
             }
             $this->container[$k] = $v;
         }
-        return $val;
+        return $rawValues;
     }
 
     /**
      * Publish/Trigger/Dispatch event
      * Event will get published on ancestor channels if propagation not stopped
      *
-     * @param string $eventName Event name
-     * @param Event  $event     Event instance
-     * @param Debug  $debug     Specify Debug instance to start on.
-     *                            If not specified will check if getSubject returns Debug instance
-     *                            Fallback: this->debug
+     * @param string     $eventName Event name
+     * @param Event      $event     Event instance
+     * @param Debug|null $debug     Specify Debug instance to start on.
+     *                                If not specified will check if getSubject returns Debug instance
+     *                                Fallback: this
      *
      * @return Event
      */
-    public function publishBubbleEvent($eventName, Event $event, Debug $debug = null)
+    public function publishBubbleEvent($eventName, Event $event, $debug = null)
     {
+        $this->utility->assertType($debug, 'bdk\Debug');
         if ($debug === null) {
-            $subject = $event->getSubject();
-            /** @var Debug */
-            $debug = $subject instanceof Debug
-                ? $subject
-                : $this;
+            $debug = $event->getSubject();
+        }
+        if (!($debug instanceof Debug)) {
+            $debug = $this;
         }
         do {
             $debug->eventManager->publish($eventName, $event);
-            if (!$debug->parentInstance) {
-                break;
-            }
             $debug = $debug->parentInstance;
-        } while (!$event->isPropagationStopped());
+        } while ($debug && !$event->isPropagationStopped());
         return $event;
-    }
-
-    /**
-     * Store the arguments
-     * if collect is false -> does nothing
-     * otherwise:
-     *   + abstracts values
-     *   + publishes Debug::EVENT_LOG event
-     *   + appends log (if event propagation not stopped)
-     *
-     * @param LogEntry $logEntry LogEntry instance
-     *
-     * @return bool whether or not entry got appended
-     */
-    protected function appendLog(LogEntry $logEntry)
-    {
-        if (!$this->cfg['collect'] && !$logEntry['forcePublish']) {
-            return false;
-        }
-        $cfg = $logEntry->getMeta('cfg');
-        $cfgRestore = array();
-        if ($cfg) {
-            $cfgRestore = $this->setCfg($cfg);
-            $logEntry->setMeta('cfg', null);
-        }
-        $logEntry->crate();
-        $this->publishBubbleEvent(Debug::EVENT_LOG, $logEntry);
-        if ($cfgRestore) {
-            $this->setCfg($cfgRestore);
-        }
-        if ($logEntry['appendLog']) {
-            $this->data->appendLog($logEntry);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Get Method's default argument list
-     *
-     * @param string $methodName Name of the method
-     *
-     * @return array
-     */
-    protected static function getMethodDefaultArgs($methodName)
-    {
-        if (isset(self::$methodDefaultArgs[$methodName])) {
-            return self::$methodDefaultArgs[$methodName];
-        }
-        if (\method_exists(self::$instance, $methodName) === false) {
-            return array();
-        }
-        $defaultArgs = array();
-        $refMethod = new ReflectionMethod(self::$instance, $methodName);
-        $params = $refMethod->getParameters();
-        foreach ($params as $refParameter) {
-            $name = $refParameter->getName();
-            $defaultArgs[$name] = $refParameter->isOptional()
-                ? $refParameter->getDefaultValue()
-                : null;
-        }
-        unset($defaultArgs['args']);
-        self::$methodDefaultArgs[$methodName] = $defaultArgs;
-        return $defaultArgs;
     }
 
     /**
@@ -336,78 +252,65 @@ class AbstractDebug
      */
     private function bootstrap($cfg)
     {
-        $bootstrapConfig = $this->bootstrapConfig($cfg);
-        $this->bootstrapSetInstances($bootstrapConfig);
-        $this->bootstrapContainer($bootstrapConfig);
+        $cfgBootstrap = $this->bootstrapConfig($cfg);
+        $this->bootstrapSetInstances($cfgBootstrap);
+        $this->bootstrapContainer($cfgBootstrap);
 
         $this->config = $this->container['config'];
-        $this->container->setCfg('onInvoke', array($this->config, 'onContainerInvoke'));
-        $this->serviceContainer->setCfg('onInvoke', array($this->config, 'onContainerInvoke'));
+        $this->container->setCfg('onInvoke', [$this->config, 'onContainerInvoke']);
+        $this->serviceContainer->setCfg('onInvoke', [$this->config, 'onContainerInvoke']);
         $this->eventManager->addSubscriberInterface($this->container['pluginManager']);
-        $this->addPlugin($this->serviceContainer['customMethodGeneral']);
-        $this->addPlugin($this->serviceContainer['customMethodReqRes']);
-        $this->addPlugin($this->container['pluginChannel']);
-        $this->addPlugin($this->container['configEvents']);
-        $this->addPlugin($this->container['internalEvents']);
-        $this->addPlugin($this->serviceContainer['pluginRedaction']);
-        $this->eventManager->subscribe(Debug::EVENT_CONFIG, array($this, 'onConfig'));
-
-        $this->serviceContainer['errorHandler'];
-        $this->config->set($cfg);
 
         if (!$this->parentInstance) {
             // we're the root instance
+            $this->serviceContainer['errorHandler'];
+            $this->addPlugins($cfgBootstrap['plugins']);
             $this->data->set('requestId', $this->requestId());
             $this->data->set('entryCountInitial', $this->data->get('log/__count__'));
-
-            $this->addPlugin($this->container['pluginLogEnv']);
-            $this->addPlugin($this->container['pluginLogFiles']);
-            $this->addPlugin($this->container['pluginLogPhp']);
-            $this->addPlugin($this->container['pluginLogReqRes']);
         }
+
+        $this->eventManager->subscribe(Debug::EVENT_CONFIG, [$this, 'onConfig']);
+        $this->config->set($cfg, Debug::CONFIG_NO_RETURN);
         $this->eventManager->publish(Debug::EVENT_BOOTSTRAP, $this);
+        $this->bootstrapped = true;
     }
 
     /**
-     * Get config values needed for bootstraping
+     * Get config values needed for bootstrapping
      *
-     * @param array $cfg Config passed to container
+     * @param array $cfg Config passed to constructor
      *
      * @return array
      */
     private function bootstrapConfig(&$cfg)
     {
-        $cfgValues = array(
+        $cfgDefault = array(
             'container' => array(),
             'parent' => null,
+            'plugins' => $this->cfg['plugins'],
             'serviceProvider' => $this->cfg['serviceProvider'],
         );
 
-        if (isset($cfg['debug']['container'])) {
-            $cfgValues['container'] = $cfg['debug']['container'];
-        } elseif (isset($cfg['container'])) {
-            $cfgValues['container'] = $cfg['container'];
+        $cfgValues = array();
+        foreach (\array_keys($cfgDefault) as $k) {
+            if (isset($cfg['debug'][$k])) {
+                $cfgValues[$k] = $cfg['debug'][$k];
+            } elseif (isset($cfg[$k])) {
+                $cfgValues[$k] = $cfg[$k];
+            }
         }
 
-        if (isset($cfg['debug']['serviceProvider'])) {
-            $cfgValues['serviceProvider'] = $cfg['debug']['serviceProvider'];
-            // unset so we don't do this again with setCfg
-            unset($cfg['debug']['serviceProvider']);
-        } elseif (isset($cfg['serviceProvider'])) {
-            $cfgValues['serviceProvider'] = $cfg['serviceProvider'];
-            // unset so we don't do this again with setCfg
-            unset($cfg['serviceProvider']);
-        }
+        unset(
+            $cfg['debug']['parent'],
+            $cfg['debug']['serviceProvider'],
+            $cfg['serviceProvider']
+        );
 
-        if (isset($cfg['debug']['parent'])) {
-            $cfgValues['parent'] = $cfg['debug']['parent'];
-            unset($cfg['debug']['parent']);
-        }
-        return $cfgValues;
+        return \array_replace_recursive($cfgDefault, $cfgValues);
     }
 
     /**
-     * Initialize dependancy containers
+     * Initialize dependency containers
      *
      * @param array $cfg Initial cfg values
      *
@@ -456,68 +359,82 @@ class AbstractDebug
     }
 
     /**
-     * If "core" route, store in container
+     * Handle "channelIcon" config update
      *
-     * @param mixed $val       route value
-     * @param bool  $addPlugin (true) Should we add as plugin?
+     * @param string|null $val config value
      *
-     * @return mixed
-     *
-     * @SuppressWarnings(PHPMD.UnusedPrivateMethod)
+     * @return string|null
      */
-    private function onCfgRoute($val, $addPlugin = true)
+    private function onCfgChannelIcon($val)
     {
-        if (!($val instanceof RouteInterface)) {
-            return $val;
-        }
-        if ($addPlugin) {
-            $this->addPlugin($val);
-        }
-        $classname = \get_class($val);
-        $prefix = __NAMESPACE__ . '\\Route\\';
-        $containerName = 'route' . \substr($classname, \strlen($prefix));
-        if (\strpos($classname, $prefix) === 0 && !$this->container->has($containerName)) {
-            $this->container->offsetSet($containerName, $val);
-        }
-        if ($val->appendsHeaders()) {
-            $this->obStart();
+        if (\preg_match('/^:(.+):$/', (string) $val, $matches)) {
+            $val = $this->getCfg('icons.' . $matches[1], Debug::CONFIG_DEBUG);
         }
         return $val;
     }
 
     /**
-     * Convert serviceProvider to array of name => value
+     * Handle "channels" config update
      *
-     * @param ServiceProviderInterface|callable|array $val dependency definitions
+     * @param array $val config value
      *
      * @return array
      */
-    private function serviceProviderToArray($val)
+    private function onCfgChannels($val)
     {
-        $getContainerRawVals = static function (Container $container) {
-            $keys = $container->keys();
-            $return = array();
-            foreach ($keys as $key) {
-                $return[$key] = $container->raw($key);
+        foreach ($val as $channelName => $channelCfg) {
+            if ($this->hasChannel($channelName)) {
+                $this->getChannel($channelName)->config->set($channelCfg);
+                unset($val[$channelName]);
             }
-            return $return;
-        };
-        if ($val instanceof ServiceProviderInterface) {
-            /*
-                convert to array
-            */
-            $containerTmp = new Container();
-            $containerTmp->registerProvider($val);
-            return $getContainerRawVals($containerTmp);
-        }
-        if (\is_callable($val)) {
-            /*
-                convert to array
-            */
-            $containerTmp = new Container();
-            \call_user_func($val, $containerTmp);
-            return $getContainerRawVals($containerTmp);
         }
         return $val;
+    }
+
+    /**
+     * Handle "channelIcon" config update
+     *
+     * @param string|null $val config value
+     *
+     * @return string|null
+     */
+    private function onCfgLogServerKeys($val)
+    {
+        // don't append, replace
+        $this->cfg['logServerKeys'] = array();
+        return $val;
+    }
+
+    /**
+     * Propagate updated vals to child channels
+     *
+     * @param Event $event Debug::EVENT_CONFIG Event instance
+     * @param array $cfg   Debug config values
+     *
+     * @return void
+     */
+    private function onConfigPropagate(Event $event, array $cfg)
+    {
+        $channels = $this->getChannels(false, true);
+        if (empty($channels)) {
+            return;
+        }
+        $event['debug'] = $cfg;
+        $cfg = $this->rootInstance->getPlugin('channel')->getPropagateValues($event->getValues());
+        unset($cfg['currentSubject'], $cfg['isTarget']);
+        if ($this->bootstrapped === false) {
+            // edge case:
+            //  channel created via plugin constructor or EVENT_PLUGIN_INIT
+            //  with channelShow: false
+            //  bootstrap propagates initial config with channelShow: true
+            //  channels should be created via EVENT_BOOTSTRAP handler
+            unset($cfg['debug']['channelShow']);
+        }
+        if (empty($cfg)) {
+            return;
+        }
+        foreach ($channels as $channel) {
+            $channel->config->set($cfg);
+        }
     }
 }

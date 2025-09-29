@@ -6,15 +6,15 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Psr3;
 
 use bdk\Debug;
 use bdk\Debug\LogEntry;
-use bdk\Debug\Psr3\MethodSignatureCompatTrait;
+use bdk\Debug\Psr3\CompatTrait;
 use Psr\Log\AbstractLogger;
 use Psr\Log\InvalidArgumentException;
 use Psr\Log\LogLevel;
@@ -25,10 +25,12 @@ use Psr\Log\LogLevel;
 class Logger extends AbstractLogger
 {
     // define the log method with the appropriate method signature
-    use MethodSignatureCompatTrait;
+    use CompatTrait;
 
+    /** @var Debug */
     public $debug;
 
+    /** @var array<string,mixed> */
     protected $cfg = array(
         // phpcs:ignore SlevomatCodingStandard.Arrays.AlphabeticallySortedByKeys.IncorrectKeyOrder
         'levelMap' => array(
@@ -46,12 +48,14 @@ class Logger extends AbstractLogger
     /**
      * Constructor
      *
-     * @param Debug $debug Debug instance
+     * @param Debug|null $debug Debug instance
      *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public function __construct(Debug $debug = null)
+    public function __construct($debug = null)
     {
+        \bdk\Debug\Utility::assertType($debug, 'bdk\Debug');
+
         if (!$debug) {
             $debug = Debug::getInstance();
         }
@@ -60,16 +64,16 @@ class Logger extends AbstractLogger
             $this->cfg,
             $debug->getCfg('psr3', Debug::CONFIG_DEBUG) ?: array()
         );
-        $debug->backtrace->addInternalClass(array(
+        $debug->backtrace->addInternalClass([
             'Monolog\\Logger',
             'Psr\\Log\\AbstractLogger',
-        ));
+        ]);
     }
 
     /**
      * Check if level is valid
      *
-     * @param string $level debug level
+     * @param mixed $level debug level
      *
      * @return void
      *
@@ -86,7 +90,7 @@ class Logger extends AbstractLogger
     }
 
     /**
-     * Checkc if table data was passed in context and convert logEntry to table
+     * Checks if table data was passed in context and convert logEntry to table
      *
      * @param LogEntry $logEntry LogEntry instance
      * @param array    $context  Context values
@@ -96,7 +100,7 @@ class Logger extends AbstractLogger
     private function checkTableContext(LogEntry $logEntry, $context)
     {
         if (
-            \in_array($logEntry['method'], array('info', 'log'), true)
+            \in_array($logEntry['method'], ['info', 'log'], true)
             && isset($context['table'])
             && \is_array($context['table'])
         ) {
@@ -105,15 +109,15 @@ class Logger extends AbstractLogger
                 context may contain other meta values
             */
             $caption = $logEntry['args'][0];
-            $logEntry['args'] = array($context['table']);
+            $logEntry['args'] = [$context['table']];
             $logEntry['method'] = 'table';
             $logEntry->setMeta('caption', $caption);
-            $meta = \array_intersect_key($context, \array_flip(array(
+            $meta = \array_intersect_key($context, \array_flip([
                 'caption',
                 'columns',
                 'sortable',
                 'totalCols',
-            )));
+            ]));
             $logEntry->setMeta($meta);
         }
     }
@@ -143,10 +147,10 @@ class Logger extends AbstractLogger
         $logEntry = new LogEntry(
             $this->debug,
             $this->cfg['levelMap'][$level],
-            array(
+            [
                 (string) $message,
                 $context,
-            ),
+            ],
             array(
                 'psr3level' => $level,
             )
@@ -156,13 +160,13 @@ class Logger extends AbstractLogger
         $args = $logEntry['args'];
         $args[] = $this->debug->meta($logEntry['meta']);
         \call_user_func_array(
-            array($logEntry->getSubject(), $logEntry['method']),
+            [$logEntry->getSubject(), $logEntry['method']],
             $args
         );
     }
 
     /**
-     * Handle as exception if Error or Exception attached to contexxt
+     * Handle as exception if Error or Exception attached to context
      *
      * @param string $level   Psr3 log level
      * @param array  $context log entry context
@@ -177,12 +181,12 @@ class Logger extends AbstractLogger
         if (!$this->debug->php->isThrowable($context['exception'])) {
             return false;
         }
-        $fatalLevels = array(
+        $fatalLevels = [
             LogLevel::EMERGENCY,
             LogLevel::ALERT,
             LogLevel::CRITICAL,
             LogLevel::ERROR,
-        );
+        ];
         if (\in_array($level, $fatalLevels, true) === false) {
             return false;
         }
@@ -199,7 +203,7 @@ class Logger extends AbstractLogger
      */
     protected function validLevels()
     {
-        return array(
+        return [
             LogLevel::EMERGENCY,
             LogLevel::ALERT,
             LogLevel::CRITICAL,
@@ -208,7 +212,7 @@ class Logger extends AbstractLogger
             LogLevel::NOTICE,
             LogLevel::INFO,
             LogLevel::DEBUG,
-        );
+        ];
     }
 
     /**
@@ -222,10 +226,10 @@ class Logger extends AbstractLogger
     private function setArgs(LogEntry $logEntry)
     {
         list($message, $context) = $logEntry['args'];
-        $placeholders = array();
-        $args = array(
+        $placeholders = [];
+        $args = [
             $this->debug->stringUtil->interpolate($message, $context, $placeholders),
-        );
+        ];
         if (\is_array($context)) {
             // remove interpolated values from context
             $context = \array_diff_key($context, \array_flip($placeholders));
@@ -237,6 +241,10 @@ class Logger extends AbstractLogger
         if ($context) {
             $args[] = $context;
             $logEntry->setMeta('glue', ', ');
+            $logEntry->setMeta('cfg', array(
+                'maxDepth' => 6,
+                'methodCollect' => false,
+            ));
         }
         $logEntry['args'] = $args;
     }
@@ -251,13 +259,13 @@ class Logger extends AbstractLogger
     private function setMeta(LogEntry $logEntry)
     {
         list($message, $context) = $logEntry['args'];
-        $meta = \array_intersect_key($context, \array_flip(array('channel', 'file', 'line')));
+        $meta = \array_intersect_key($context, \array_flip(['channel', 'file', 'line']));
         // remove meta from context
         $context = \array_diff_key($context, $meta);
         $logEntry->setMeta($meta);
-        $logEntry['args'] = array(
+        $logEntry['args'] = [
             $message,
             $context,
-        );
+        ];
     }
 }

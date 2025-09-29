@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Collector\Pdo;
@@ -23,8 +23,13 @@ use PDOStatement;
  */
 class Statement extends PDOStatement
 {
+    /** @var DebugCollectorPdo */
     protected $pdo;
+
+    /** @var array<string,mixed> */
     protected $boundParameters = array();
+
+    /** @var array<string,int> */
     protected $boundParameterTypes = array();
 
     /**
@@ -43,19 +48,19 @@ class Statement extends PDOStatement
      * @param mixed $column     Number of the column (1-indexed) or name of the column in the result set
      * @param mixed $param      Name of the PHP variable to which the column will be bound.
      * @param int   $type       [optional] Data type of the parameter, specified by the PDO::PARAM_* constants.
-     * @param int   $maxlen     [optional] A hint for pre-allocation.
-     * @param mixed $driverdata [optional] Optional parameter(s) for the driver.
+     * @param int   $maxLen     [optional] A hint for pre-allocation.
+     * @param mixed $driverData [optional] Optional parameter(s) for the driver.
      *
      * @return bool
      * @link   http://php.net/manual/en/pdostatement.bindcolumn.php
      */
     #[\ReturnTypeWillChange]
-    public function bindColumn($column, &$param, $type = null, $maxlen = null, $driverdata = null)
+    public function bindColumn($column, &$param, $type = null, $maxLen = null, $driverData = null)
     {
         $this->boundParameters[$column] = $param;
         $this->boundParameterTypes[$column] = $type;
-        $args = \array_merge(array($column, &$param), \array_slice(\func_get_args(), 2));
-        return \call_user_func_array(array('PDOStatement', 'bindColumn'), $args);
+        $args = \array_merge([$column, &$param], \array_slice(\func_get_args(), 2));
+        return \call_user_func_array(['PDOStatement', 'bindColumn'], $args);
     }
 
     /**
@@ -78,8 +83,8 @@ class Statement extends PDOStatement
     {
         $this->boundParameters[$parameter] = $variable;
         $this->boundParameterTypes[$parameter] = $dataType;
-        $args = \array_merge(array($parameter, &$variable), \array_slice(\func_get_args(), 2));
-        return \call_user_func_array(array('PDOStatement', 'bindParam'), $args);
+        $args = \array_merge([$parameter, &$variable], \array_slice(\func_get_args(), 2));
+        return \call_user_func_array(['PDOStatement', 'bindParam'], $args);
     }
 
     /**
@@ -99,7 +104,7 @@ class Statement extends PDOStatement
     {
         $this->boundParameters[$parameter] = $value;
         $this->boundParameterTypes[$parameter] = $dataType;
-        return \call_user_func_array(array('PDOStatement', 'bindValue'), \func_get_args());
+        return \call_user_func_array(['PDOStatement', 'bindValue'], \func_get_args());
     }
 
     /**
@@ -147,9 +152,9 @@ class Statement extends PDOStatement
     /**
      * Combine execute's inputParameters with already bound parameters for statementInfo
      *
-     * @param array $inputParameters parameters passed to execute
+     * @param array<string,mixed> $inputParameters parameters passed to execute
      *
-     * @return array
+     * @return array<string,mixed>
      */
     private function mergeParams($inputParameters)
     {

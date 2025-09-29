@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug;
@@ -17,7 +17,10 @@ namespace bdk\Debug;
  */
 class Autoloader
 {
+    /** @var array<string,string> */
     protected $classMap = array();
+
+    /** @var array<string,string> */
     protected $psr4Map = array();
 
     /**
@@ -27,24 +30,27 @@ class Autoloader
      */
     public function register()
     {
-        $this->psr4Map = array(
-            'bdk\\Backtrace\\' => __DIR__ . '/../Backtrace',
-            'bdk\\Container\\' => __DIR__ . '/../Container',
-            'bdk\\Debug\\' => __DIR__,
-            'bdk\\ErrorHandler\\' => __DIR__ . '/../ErrorHandler',
-            'bdk\\HttpMessage\\' => __DIR__ . '/../HttpMessage',
-            'bdk\\PubSub\\' => __DIR__ . '/../PubSub',
-            'bdk\\Test\\Debug\\' => __DIR__ . '/../../tests/Debug',
-            'Psr\\Http\\Message\\' => __DIR__ . '/../Psr7',
-        );
         $this->classMap = array(
             'bdk\\Backtrace' => __DIR__ . '/../Backtrace/Backtrace.php',
             'bdk\\Container' => __DIR__ . '/../Container/Container.php',
             'bdk\\Debug' => __DIR__ . '/Debug.php',
             'bdk\\Debug\\Utility' => __DIR__ . '/Utility/Utility.php',
             'bdk\\ErrorHandler' => __DIR__ . '/../ErrorHandler/ErrorHandler.php',
+            'bdk\\Promise' => __DIR__ . '/../Promise/Promise.php',
         );
-        return \spl_autoload_register(array($this, 'autoload'));
+        $this->psr4Map = array(
+            'bdk\\Backtrace\\' => __DIR__ . '/../Backtrace',
+            'bdk\\Container\\' => __DIR__ . '/../Container',
+            'bdk\\CurlHttpMessage\\' => __DIR__ . '/../CurlHttpMessage',
+            'bdk\\Debug\\' => __DIR__,
+            'bdk\\ErrorHandler\\' => __DIR__ . '/../ErrorHandler',
+            'bdk\\Promise\\' => __DIR__ . '/../Promise',
+            'bdk\\PubSub\\' => __DIR__ . '/../PubSub',
+            'bdk\\Slack\\' => __DIR__ . '/../Slack',
+            'bdk\\Teams\\' => __DIR__ . '/../Teams',
+            'bdk\\Test\\Debug\\' => __DIR__ . '/../../tests/Debug',
+        );
+        return \spl_autoload_register([$this, 'autoload']);
     }
 
     /**
@@ -54,7 +60,35 @@ class Autoloader
      */
     public function unregister()
     {
-        return \spl_autoload_unregister(array($this, 'autoload'));
+        return \spl_autoload_unregister([$this, 'autoload']);
+    }
+
+    /**
+     * Add classname to classMap
+     *
+     * @param string $className ClassName
+     * @param string $filepath  Filepath to class' definition
+     *
+     * @return static
+     */
+    public function addClass($className, $filepath)
+    {
+        $this->classMap[$className] = $filepath;
+        return $this;
+    }
+
+    /**
+     * Add Psr4 mapping to autoloader
+     *
+     * @param string $namespace Namespace prefix
+     * @param string $dir       Directory containing namespace
+     *
+     * @return static
+     */
+    public function addPsr4($namespace, $dir)
+    {
+        $this->psr4Map[$namespace] = $dir;
+        return $this;
     }
 
     /**

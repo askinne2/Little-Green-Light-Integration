@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  *
  * @see https://craig.is/writing/chrome-logger/techspecs
  */
@@ -24,9 +24,10 @@ class ServerLog extends ChromeLogger
 {
     const HEADER_NAME = 'X-ServerLog-Location';
 
+    /** @var array<string,mixed> */
     protected $cfg = array(
-        'channels' => array('*'),
-        'channelsExclude' => array(),
+        'channels' => ['*'],
+        'channelsExclude' => [],
         'filenamePrefix' => 'serverLog_',
         'gcProb' => 0.10,               // (0-1) probability of running garbage collection
         'group' => true,                // contain/wrap log in a group?
@@ -37,6 +38,7 @@ class ServerLog extends ChromeLogger
         'urlTemplate' => '/log/{filename}',
     );
 
+    /** @var string|null */
     protected $filename = null;
 
     /**
@@ -55,12 +57,14 @@ class ServerLog extends ChromeLogger
     /**
      * Output the log as chromelogger headers
      *
-     * @param Event $event Debug::EVENT_OUTPUT Event object
+     * @param Event|null $event Debug::EVENT_OUTPUT Event object
      *
      * @return void
      */
-    public function processLogEntries(Event $event)
+    public function processLogEntries($event = null)
     {
+        $this->debug->utility->assertType($event, 'bdk\PubSub\Event');
+
         $this->dumper->crateRaw = false;
         $this->collectGarbage();
         $this->data = $this->debug->data->get();
@@ -74,10 +78,10 @@ class ServerLog extends ChromeLogger
                     )
                 )
                 : 'error writing log';
-            $event['headers'][] = array(self::HEADER_NAME, $url);
+            $event['headers'][] = [self::HEADER_NAME, $url];
         }
         $this->data = array();
-        $this->jsonData['rows'] = array();
+        $this->jsonData['rows'] = [];
         $this->dumper->crateRaw = true;
     }
 

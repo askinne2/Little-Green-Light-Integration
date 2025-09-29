@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Framework\Laravel;
@@ -27,25 +27,28 @@ class EventsSubscriber
     /** @var Dispatcher */
     protected $eventDispatcher;
 
-    protected $icon = 'fa fa-bell-o';
+    /** @var string */
+    protected $icon = ':event:';
 
     /**
      * Constructor
      *
-     * @param Debug $debug (optional) Specify PHPDebugConsole instance
-     *                       if not passed, will create PDO channel on singleton instance
-     *                       if root channel is specified, will create a PDO channel
+     * @param Debug|null $debug (optional) Specify PHPDebugConsole instance
+     *                            if not passed, will create PDO channel on singleton instance
+     *                            if root channel is specified, will create a PDO channel
      *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public function __construct(Debug $debug = null)
+    public function __construct($debug = null)
     {
+        \bdk\Debug\Utility::assertType($debug, 'bdk\Debug');
+
         $channelOptions = array(
             'channelIcon' => $this->icon,
             'channelShow' => false,
         );
         if (!$debug) {
-            $debug = Debug::_getChannel('events', $channelOptions);
+            $debug = Debug::getChannel('events', $channelOptions);
         } elseif ($debug === $debug->rootInstance) {
             $debug = $debug->getChannel('events', $channelOptions);
         }
@@ -62,9 +65,9 @@ class EventsSubscriber
      */
     public function onWildcardEvent($name = null, $payload = array())
     {
-        $groupParams = array($name);
+        $groupParams = [$name];
         if (\preg_match('/^(\S+):\s+(\S+)$/', $name, $matches)) {
-            $groupParams = array($matches[1], $matches[2]);
+            $groupParams = [$matches[1], $matches[2]];
         }
         $groupParams[] = $this->debug->meta(array(
             'argsAsParams' => false,
@@ -78,7 +81,7 @@ class EventsSubscriber
     /**
      * Subscribe to events
      *
-     * @param Dispatcher $dispatcher Dispater interface
+     * @param Dispatcher $dispatcher Dispatcher interface
      *
      * @return void
      */

@@ -412,7 +412,7 @@ class Block_Container extends Container {
 			return $post_id;
 		}
 
-        $admin_url = $_SERVER['HTTP_REFERER'];
+        $admin_url = isset( $_SERVER['HTTP_REFERER'] ) && ! empty( $_SERVER['HTTP_REFERER'] ) ? $_SERVER['HTTP_REFERER'] : null;
         if ( ! empty( $admin_url ) ) {
             $parsed_url = parse_url( $admin_url );
             if ( isset( $parsed_url['query']) && ! empty( $parsed_url['query'] ) ) {
@@ -426,6 +426,10 @@ class Block_Container extends Container {
             }
         }
 
+		if ( empty( $post_id ) ) {
+			$post_id = get_the_ID();
+		}
+
         return $post_id;
 	}
 
@@ -434,20 +438,17 @@ class Block_Container extends Container {
 	 *
 	 * @param  array  $attributes
 	 * @param  string $content
+	 * @param  \WP_Block $block
 	 * @return string
 	 */
-	public function render_block( $attributes, $content ) {
+	public function render_block( $attributes, $content, $block = null ) { // added variable at the end 
 		$fields = $attributes['data'];
 		$post_id = $this->get_post_id();
-
 		// Unset the "data" property because we
 		// pass it as separate argument to the callback.
 		unset($attributes['data']);
-
 		ob_start();
-
-		call_user_func( $this->render_callback , $fields, $attributes, $content, $post_id );
-
+		call_user_func( $this->render_callback , $fields, $attributes, $content, $post_id, $block );
 		return ob_get_clean();
 	}
 

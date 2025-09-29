@@ -6,14 +6,15 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Plugin;
 
 use bdk\Debug;
 use bdk\Debug\AbstractComponent;
+use bdk\PubSub\Event;
 use bdk\PubSub\SubscriberInterface;
 
 /**
@@ -21,41 +22,27 @@ use bdk\PubSub\SubscriberInterface;
  */
 class LogFiles extends AbstractComponent implements SubscriberInterface
 {
-    private $excludedCounts = array();
-    private $debug;
-    private $files;
-
-    /**
-     * Constructor
-     *
-     * @param array      $config configuration
-     * @param Debug|null $debug  Debug instance
-     *
-     * @SuppressWarnings(PHPMD.StaticAccess)
-     */
-    public function __construct($config = array(), Debug $debug = null)
-    {
-        $config = \array_merge(array(
-            'asTree' => true,
-            'condense' => true,
-            'filesExclude' => array(
-                'closure://function',
-                '/vendor/',
-            ),
-        ), $config);
-        $this->setCfg($config);
-        $channelOpts = array(
-            'channelIcon' => 'fa fa-files-o',
+    /** @var array<string,mixed> */
+    protected $cfg = array(
+        'asTree' => true,
+        'channelOpts' => array(
+            'channelIcon' => ':files:',
             'channelSort' => -10,
             'nested' => false,
-        );
-        if (!$debug) {
-            $debug = Debug::_getChannel('Files', $channelOpts);
-        } elseif ($debug === $debug->rootInstance) {
-            $debug = $debug->getChannel('Files', $channelOpts);
-        }
-        $this->debug = $debug;
-    }
+        ),
+        'condense' => true,
+        'filesExclude' => [
+            'closure://function',
+            '/vendor/',
+        ],
+    );
+
+    /** @var array<string,int> */
+    private $excludedCounts = array();
+    /** @var Debug|null */
+    private $debug;
+    /** @var string[] */
+    private $files = array();
 
     /**
      * {@inheritDoc}
@@ -63,20 +50,47 @@ class LogFiles extends AbstractComponent implements SubscriberInterface
     public function getSubscriptions()
     {
         return array(
-            Debug::EVENT_OUTPUT => array('onOutput', PHP_INT_MAX),
+            Debug::EVENT_CONFIG => 'onConfig',
+            Debug::EVENT_OUTPUT => ['onOutput', PHP_INT_MAX],
         );
+    }
+
+    /**
+     * Debug::EVENT_CONFIG subscriber
+     *
+     * @param Event $event Event instance
+     *
+     * @return void
+     */
+    public function onConfig(Event $event)
+    {
+        if (empty($event['debug']['logFiles'])) {
+            return;
+        }
+        $cfg = $event['debug']['logFiles'];
+        $this->cfg = \array_replace_recursive($this->cfg, $cfg);
+        if (isset($cfg['filesExclude'])) {
+            // replace all
+            $this->cfg['filesExclude'] = $cfg['filesExclude'];
+        }
     }
 
     /**
      * Debug::EVENT_OUTPUT subscriber
      *
+     * @param Event $event Event instance
+     *
      * @return void
      */
-    public function onOutput()
+    public function onOutput(Event $event)
     {
-        if (!$this->debug->getCfg('logEnvInfo.files', Debug::CONFIG_DEBUG)) {
+        $debug = $event->getSubject();
+        if (!$debug->getCfg('logEnvInfo.files', Debug::CONFIG_DEBUG)) {
             return;
         }
+
+        $this->debug = $debug->getChannel('Files', $this->cfg['channelOpts']);
+
         $this->output();
     }
 
@@ -87,7 +101,7 @@ class LogFiles extends AbstractComponent implements SubscriberInterface
      */
     public function output()
     {
-        $files = $this->files !== null
+        $files = $this->files !== array()
             ? $this->files
             : $this->debug->php->getIncludedFiles();
 
@@ -105,11 +119,9 @@ class LogFiles extends AbstractComponent implements SubscriberInterface
             $this->debug->info($countLogged . ' files logged');
         }
 
-        if ($this->cfg['asTree']) {
-            $this->logFilesAsTree($files);
-            return;
-        }
-        $this->logFiles($files);
+        return $this->cfg['asTree']
+            ? $this->logFilesAsTree($files)
+            : $this->logFilesAsArray($files);
     }
 
     /**
@@ -136,7 +148,7 @@ class LogFiles extends AbstractComponent implements SubscriberInterface
         if (!isset($this->excludedCounts[$path])) {
             $this->excludedCounts[$path] = 0;
         }
-        $this->excludedCounts[$path] ++;
+        $this->excludedCounts[$path]++;
     }
 
     /**
@@ -168,9 +180,9 @@ class LogFiles extends AbstractComponent implements SubscriberInterface
      * Test if file contains search string
      *
      * @param string $file      filepath
-     * @param string $searchStr searchstring
+     * @param string $searchStr search string
      *
-     * @return string portion of file preceeding and including searchStr
+     * @return string portion of file preceding and including searchStr
      */
     private function filterExcludePath($file, $searchStr)
     {
@@ -199,11 +211,12 @@ class LogFiles extends AbstractComponent implements SubscriberInterface
      *
      * @return void
      */
-    private function logFiles($files)
+    private function logFilesAsArray($files)
     {
         $this->debug->log(
             $files,
             $this->debug->meta(array(
+                'cfg' => array('maxDepth' => 0),
                 'detectFiles' => true,
             ))
         );
@@ -226,6 +239,7 @@ class LogFiles extends AbstractComponent implements SubscriberInterface
     {
         $fileTree = new \bdk\Debug\Utility\FileTree();
         $files = $fileTree->filesToTree($files, $this->excludedCounts, $this->cfg['condense']);
+        $maxDepthBak = $this->debug->setCfg('maxDepth', 0, Debug::CONFIG_NO_PUBLISH);
         $this->debug->log(
             $this->debug->abstracter->crateWithVals(
                 $files,
@@ -240,5 +254,6 @@ class LogFiles extends AbstractComponent implements SubscriberInterface
                 'detectFiles' => true,
             ))
         );
+        $this->debug->setCfg('maxDepth', $maxDepthBak, Debug::CONFIG_NO_PUBLISH | Debug::CONFIG_NO_RETURN);
     }
 }

@@ -6,117 +6,156 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.0
  */
 
 namespace bdk\Debug\Utility;
 
+use bdk\Debug\Utility\ArrayUtil;
+use bdk\Debug\Utility\PhpDoc\Helper;
+use bdk\Debug\Utility\PhpDoc\Parsers;
+use bdk\Debug\Utility\PhpDoc\Type;
+use bdk\Debug\Utility\Reflection;
+use ReflectionMethod;
+use Reflector;
+
 /**
  * Get and parse phpDoc block
+ *
+ * @psalm-type TagInfo = array{
+ *   className: string,
+ *   elementName: string,
+ *   fullyQualifyType: string,
+ *   phpDoc: \bdk\Debug\Utility\PhpDoc,
+ *   reflector: Reflector,
+ *   tagName: string,
+ *   tagStr: string,
+ * }
+ * @psalm-type ParserInfo array{
+ *   callable?: callable|list<callable>,
+ *   parts:list<string>,
+ *   regex:string,
+ *   tags:list<string>,
+ * }
+ * @psalm-type Parsed = array{
+ *   desc: string,
+ *   summary?: string,
+ *   ...<string,array>,
+ * }
  */
-class PhpDoc extends PhpDocBase
+class PhpDoc
 {
-    public $types = array(
-        'array','bool','callable','float','int','iterable','null','object','string',
-        '$this','self','static',
-        'array-key','double','false','mixed','non-empty-array','resource','scalar','true','void',
-        'key-of', 'value-of',
-        'callable-string', 'class-string', 'literal-string', 'numeric-string', 'non-empty-string',
-        'negative-int', 'positive-int',
-        'int-mask', 'int-mask-of',
-    );
+    const FULLY_QUALIFY = 1;
+    const FULLY_QUALIFY_AUTOLOAD = 2;
 
-    /** @var string[] */
+    /** @var Type */
+    public $type;
+
+    /** @var array<string,Parsed> */
     protected static $cache = array();
-    protected $parsers = array();
+
+    /** @var string|null */
+    protected $className;
+
+    /** @var array<string,mixed> */
+    protected $cfg = array();
+
+    /** @var int */
+    protected $fullyQualifyType = 0;
+
+    /** @var Helper */
+    protected $helper;
+
+    /** @var Parsers */
+    protected $parsers;
+
+    /** @var Reflector|null */
+    protected $reflector;
 
     /**
      * Constructor
+     *
+     * @param array<string,mixed> $cfg Configuration
      */
-    public function __construct()
+    public function __construct($cfg = array())
     {
-        $this->setParsers();
+        $this->cfg = \array_merge(array(
+            'sanitizer' => ['bdk\Debug\Utility\HtmlSanitize', 'sanitize'],
+        ), $cfg);
+        $this->helper = new Helper();
+        $this->parsers = new Parsers($this->helper);
+        $this->type = new Type();
+    }
+
+    /**
+     * Get comment contents
+     *
+     * @param Reflector|object|string $what Object, Reflector, className, or doc-block string
+     *
+     * @return string
+     */
+    public function getComment($what)
+    {
+        $this->reflector = Reflection::getReflector($what, true) ?: null;
+        $comment = $this->reflector
+            ? (\is_callable([$this->reflector, 'getDocComment'])
+                ? $this->reflector->getDocComment()
+                : '')
+            : $what;
+        if (\is_string($comment) === false) {
+            return '';
+        }
+        // remove opening "/**" and closing "*/"
+        $comment = \preg_replace('#^\s*/\*\*(.+)\*/$#s', '$1', $comment);
+        // remove leading "*"s
+        $comment = \preg_replace('#^[ \t]*\*[ ]?#m', '', $comment);
+        return \trim($comment);
     }
 
     /**
      * Rudimentary doc-block parsing
      *
-     * @param string|object|Reflector $what doc-block string, object, or Reflector instance
+     * @param string|object|Reflector $what             doc-block string, object, or Reflector instance
+     * @param int                     $fullyQualifyType Whether to fully qualify type(s)
+     *                                                    Bitmask of FULLY_QUALIFY* constants
+     * @param bool                    $sanitize         (true) Whether to sanitize comment
      *
      * @return array
+     *
+     * @psalm-return Parsed
      */
-    public function getParsed($what)
+    public function getParsed($what, $fullyQualifyType = 0, $sanitize = true)
     {
-        $hash = $this->getHash($what);
+        $hash = $this->hash($what);
         if (isset(self::$cache[$hash])) {
             return self::$cache[$hash];
         }
         $comment = $this->getComment($what);
-        $parsed = $this->parseComment($comment);
-        $parsed = $this->replaceInheritDoc($parsed, $comment);
+        $parsed = $this->parse($comment, $this->reflector, $fullyQualifyType, $sanitize);
         self::$cache[$hash] = $parsed;
         return $parsed;
     }
 
     /**
-     * @param string $body tag content
+     * PhpDoc won't be different between object instances
      *
-     * @return string[]
+     * Generate an identifier for what we're parsing
+     *
+     * @param mixed $what classname, object, or Reflector
+     *
+     * @return string
      */
-    protected static function extractTypeFromBody($body)
+    public static function hash($what)
     {
-        $type = '';
-        $nestingLevel = 0;
-        for ($i = 0, $iMax = \strlen($body); $i < $iMax; $i++) {
-            $char = $body[$i];
-            if ($nestingLevel === 0 && \trim($char) === '') {
-                break;
-            }
-            $type .= $char;
-            if (\in_array($char, array('<', '(', '[', '{'), true)) {
-                $nestingLevel++;
-                continue;
-            }
-            if (\in_array($char, array('>', ')', ']', '}'), true)) {
-                $nestingLevel--;
-                continue;
-            }
+        if (\is_string($what)) {
+            return \md5($what);
         }
-        return array(
-            'desc' => \trim(\substr($body, \strlen($type))) ?: null,
-            'type' => $type,
-        );
-    }
-
-    /**
-     * Get parent method/property/etc's parsed docblock
-     *
-     * @return array
-     */
-    private function getParentParsed()
-    {
-        $parentReflector = $this->getParentReflector($this->reflector);
-        return $this->getParsed($parentReflector);
-    }
-
-    /**
-     * Get the parser for the given tag type
-     *
-     * @param string $tag phpDoc tag
-     *
-     * @return array
-     */
-    private function getTagParser($tag)
-    {
-        $parser = array();
-        foreach ($this->parsers as $parser) {
-            if (\in_array($tag, $parser['tags'], true)) {
-                break;
-            }
+        if ($what instanceof Reflector) {
+            return Reflection::hash($what);
         }
-        // if not found, last parser was default
-        return $parser;
+        $str = \is_object($what) ? \get_class($what) : \gettype($what);
+        return \md5($str);
     }
 
     /**
@@ -124,46 +163,105 @@ class PhpDoc extends PhpDocBase
      *
      * Comment has already been stripped of comment "*"s
      *
-     * @param string $comment comment content
+     * @param string         $comment          comment content
+     * @param Reflector|null $reflector        Reflector instance
+     * @param int            $fullyQualifyType Whether to fully qualify type(s)
+     * @param bool           $sanitize         Whether to sanitize comment
      *
      * @return array
+     *
+     * @psalm-return Parsed
      */
-    private function parseComment($comment)
+    private function parse($comment, $reflector = null, $fullyQualifyType = 0, $sanitize = true)
     {
-        $parsed = array(
-            'desc' => null,
-            'summary' => null,
-        );
-        $elementName = $this->reflector ? $this->reflector->getName() : null;
-        $matches = array();
+        \bdk\Debug\Utility::assertType($reflector, 'Reflector');
+
+        $this->reflector = $reflector;
+        $this->fullyQualifyType = $fullyQualifyType;
+        $this->className = $reflector
+            ? Reflection::classname($reflector)
+            : null;
+        /** @var string|null */
+        $elementName = $reflector
+            ? $reflector->getName()
+            : null;
+        $parsed = array();
+        list($comment, $strTags) = $this->separateComment($comment);
+        $parsed = \array_merge($parsed, $this->helper->parseDescSummary($comment));
+        $parsed = \array_merge($parsed, $this->parseTags($strTags, $elementName));
+        $parsed = \array_merge($this->parseGetDefaults($parsed), $parsed);
+        $parsed = \array_merge($parsed, $this->replaceInheritDoc($parsed, $comment));
+        if ($sanitize) {
+            $parsed = ArrayUtil::mapRecursive(function ($value, $key) {
+                return \is_string($value) && \in_array($key, array('defaultValue', 'type', 'uri'), true) === false
+                    ? \call_user_func($this->cfg['sanitizer'], $value)
+                    : $value;
+            }, $parsed);
+        }
+        \ksort($parsed);
+        return $parsed;
+    }
+
+    /**
+     * Split phpDoc comment into description/summary & tags
+     *
+     * @param string $comment phpDoc Comment content
+     *
+     * @return list<string>
+     */
+    private function separateComment($comment)
+    {
+        $matches = [];
+        $strTags = '';
         if (\preg_match('/^@/m', $comment, $matches, PREG_OFFSET_CAPTURE)) {
             // we have tags
             $pos = $matches[0][1];
             $strTags = \substr($comment, $pos);
-            $parsed = \array_merge($parsed, $this->parseTags($strTags, $elementName));
             // remove tags from comment
             $comment = $pos > 0
                 ? \substr($comment, 0, $pos - 1)
                 : '';
         }
-        /*
-            Do some string replacement
-        */
-        $comment = \preg_replace('/^\\\@/m', '@', $comment);
-        $comment = \str_replace('{@*}', '*/', $comment);
-        /*
-            split into summary & description
-            summary ends with empty whiteline or "." followed by \n
-        */
-        $split = \preg_split('/(\.[\r\n]+|[\r\n]{2})/', $comment, 2, PREG_SPLIT_DELIM_CAPTURE);
-        $split = \array_replace(array('', '', ''), $split);
-        // assume that summary and desc won't be "0"..  remove empty value and merge
-        $parsed = \array_merge($parsed, \array_filter(array(
-            'desc' => $this->trimDesc(\trim($split[2])),
-            'summary' => \trim($split[0] . $split[1]),    // split[1] is the ".\n"
-        )));
-        \ksort($parsed);
-        return $parsed;
+        return [$comment, $strTags];
+    }
+
+    /**
+     * Get default values
+     *
+     * @param array $parsed Parsed tags
+     *
+     * @return array<string,string|null>
+     *
+     * @psalm-return Parsed
+     */
+    private function parseGetDefaults(array $parsed)
+    {
+        $default = array(
+            'desc' => '',
+            'summary' => '',
+        );
+        if ($this->reflector instanceof ReflectionMethod || !empty($parsed['param'])) {
+            $default['return'] = array(
+                'desc' => '',
+                'type' => null,
+            );
+        }
+        return $default;
+    }
+
+    /**
+     * Get parent method/property/etc's parsed docblock
+     *
+     * @param Reflector $reflector Reflector instance
+     *
+     * @return array
+     *
+     * @psalm-return Parsed
+     */
+    private function parseParent(Reflector $reflector)
+    {
+        $parentReflector = Reflection::getParentReflector($reflector);
+        return $this->getParsed($parentReflector, $this->fullyQualifyType);
     }
 
     /**
@@ -171,7 +269,7 @@ class PhpDoc extends PhpDocBase
      *
      * Notes:
      *    \@method tag:
-     *         optional "static" keyword may preceed type & name
+     *         optional "static" keyword may precede type & name
      *             'static' returned as a boolean value
      *         parameters:  defaultValue key only returned if defined.
      *                      defaultValue is not parsed
@@ -180,47 +278,75 @@ class PhpDoc extends PhpDocBase
      * @param string $tagStr      tag values (ie "[Type] [name] [<description>]")
      * @param string $elementName class, property, method, or constant name if available
      *
-     * @return array
+     * @return Parsed
      */
     private function parseTag($tagName, $tagStr = '', $elementName = null)
     {
-        $parser = \array_merge(array(
-            'callable' => array(),
-            'parts' => array(),
-            'regex' => null,
-        ), $this->getTagParser($tagName));
-        $parsed = \array_fill_keys($parser['parts'], null);
-        if (isset($parser['regex'])) {
-            $matches = array();
-            \preg_match($parser['regex'], $tagStr, $matches);
-            foreach ($parser['parts'] as $part) {
-                $parsed[$part] = isset($matches[$part]) && $matches[$part] !== ''
-                    ? \trim($matches[$part])
-                    : null;
-            }
-        }
+        $parser = $this->parsers->getTagParser($tagName);
+        $parsed = $parser['regex']
+            ? $this->parseTagRegex($parser, $tagStr)
+            : \array_merge(
+                \array_fill_keys($parser['parts'], null),
+                \array_fill_keys(\array_intersect($parser['parts'], ['desc', 'summary']), '')
+            );
         foreach ((array) $parser['callable'] as $callable) {
-            $parsed = \array_merge($parsed, \call_user_func($callable, $tagStr, $tagName, $parsed, $elementName));
+            $parsed = \call_user_func(
+                $callable,
+                $parsed,
+                array(
+                    'className' => $this->className,
+                    'elementName' => $elementName,
+                    'fullyQualifyType' => $this->fullyQualifyType,
+                    'phpDoc' => $this,
+                    'reflector' => $this->reflector,
+                    'tagName' => $tagName,
+                    'tagStr' => $tagStr,
+                )
+            );
         }
-        $parsed['desc'] = $this->trimDesc($parsed['desc']);
+        $parsed['desc'] = $this->helper->trimDesc($parsed['desc']);
         \ksort($parsed);
+        return $parsed;
+    }
+
+    /**
+     * Parse tag from regex
+     *
+     * @param array  $parser Parser info (regex & parts)
+     * @param string $tagStr Raw tag body
+     *
+     * @return array<string,string>
+     */
+    private function parseTagRegex(array $parser, $tagStr)
+    {
+        $parsed = array();
+        $matches = array();
+        \preg_match($parser['regex'], $tagStr, $matches);
+        foreach ($parser['parts'] as $part) {
+            $default = \in_array($part, array('desc', 'summary'), true)
+                ? ''
+                : null;
+            $parsed[$part] = isset($matches[$part]) && $matches[$part] !== ''
+                ? \trim($matches[$part])
+                : $default;
+        }
         return $parsed;
     }
 
     /**
      * Parse tags
      *
-     * @param string $str         portion of phpdoc content that contains tags
-     * @param string $elementName class, property, method, or constant name if available
+     * @param string      $str         Portion of phpdoc content that contains tags
+     * @param string|null $elementName class, property, method, or constant name if available
      *
-     * @return array
+     * @return array<string,array>
      */
     private function parseTags($str, $elementName = null)
     {
         $regexNotTag = '(?P<value>(?:(?!^@).)*)';
-        $regexTags = '#^@(?P<tag>[\w-]+)[ \t]*' . $regexNotTag . '#sim';
+        $regexTags = '#^@(?P<tag>[\w-]+)[ \t]*' . $regexNotTag . '#imsu';
         \preg_match_all($regexTags, $str, $matches, PREG_SET_ORDER);
-        $singleTags = array('return');
+        $singleTags = ['package', 'return'];
         $return = array();
         foreach ($matches as $match) {
             $value = $match['value'];
@@ -237,206 +363,39 @@ class PhpDoc extends PhpDocBase
     }
 
     /**
-     * Replace "{@inheritDoc}""
+     * Replace "{@inheritDoc}"
      *
      * @param array  $parsed  Parsed PhpDoc comment
      * @param string $comment raw comment (asterisks removed)
      *
      * @return array Parsed PhpDoc comment
+     *
+     * @psalm-return Parsed
      */
-    private function replaceInheritDoc($parsed, $comment)
+    private function replaceInheritDoc(array $parsed, $comment)
     {
         if (!$this->reflector) {
             return $parsed;
         }
-        if (\strtolower($comment) === '{@inheritdoc}') {
+        if ($comment === '' || \strtolower($comment) === '{@inheritdoc}') {
             // phpDoc considers this non-standard
-            return $this->getParentParsed();
+            return $this->parseParent($this->reflector);
         }
         if (\strtolower($parsed['desc'] . $parsed['summary']) === '{@inheritdoc}') {
             // phpDoc considers this non-standard
-            $parentParsed = $this->getParentParsed();
+            $parentParsed = $this->parseParent($this->reflector);
             $parsed['summary'] = $parentParsed['summary'];
             $parsed['desc'] = $parentParsed['desc'];
-            return $parsed;
-        }
-        if (!isset($parsed['desc'])) {
             return $parsed;
         }
         $parsed['desc'] = \preg_replace_callback(
             '/{@inheritdoc}/i',
             function () {
-                $parentParsed = $this->getParentParsed();
+                $parentParsed = $this->parseParent($this->reflector);
                 return $parentParsed['desc'];
             },
             $parsed['desc']
         );
         return $parsed;
-    }
-
-    /**
-     * Get the tag parsers
-     *
-     * @return void
-     *
-     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
-     * @phpcs:disable SlevomatCodingStandard.Functions.FunctionLength.FunctionLength
-     */
-    protected function setParsers()
-    {
-        $this->parsers = array(
-            array(
-                'callable' => array(
-                    array($this, 'extractTypeFromBody'),
-                    array($this, 'tagParam'),
-                ),
-                'parts' => array('type','name','desc'),
-                'tags' => array('param','property','property-read', 'property-write', 'var'),
-            ),
-            array(
-                'callable' => function ($tagStr, $tagName, $parsed) {
-                    $parsed['param'] = $this->parseMethodParams($parsed['param']);
-                    $parsed['static'] = $parsed['static'] !== null;
-                    $parsed['type'] = $this->typeNormalize($parsed['type']);
-                    return $parsed;
-                },
-                'parts' => array('static', 'type', 'name', 'param', 'desc'),
-                'regex' => '/'
-                    . '(?:(?P<static>static)\s+)?'
-                    . '(?:(?P<type>.*?)\s+)?'
-                    . '(?P<name>\S+)'
-                    . '\((?P<param>((?>[^()]+)|(?R))*)\)'  // see http://php.net/manual/en/regexp.reference.recursive.php
-                    . '(?:\s+(?P<desc>.*))?'
-                    . '/s',
-                'tags' => array('method'),
-            ),
-            array(
-                'callable' => array(
-                    array($this, 'extractTypeFromBody'),
-                    function ($tagStr, $tagName, $parsed) {
-                        $parsed['type'] = $this->typeNormalize($parsed['type']);
-                        return $parsed;
-                    },
-                ),
-                'parts' => array('type','desc'),
-                'regex' => '/^(?P<type>.*?)'
-                    . '(?:\s+(?P<desc>.*))?$/s',
-                'tags' => array('return', 'throws'),
-            ),
-            array(
-                'parts' => array('name', 'email','desc'),
-                'regex' => '/^(?P<name>[^<]+)'
-                    . '(?:\s+<(?P<email>\S*)>)?'
-                    . '(?:\s+(?P<desc>.*))?' // desc isn't part of the standard
-                    . '$/s',
-                'tags' => array('author'),
-            ),
-            array(
-                'parts' => array('uri', 'desc'),
-                'regex' => '/^(?P<uri>\S+)'
-                    . '(?:\s+(?P<desc>.*))?$/s',
-                'tags' => array('link'),
-            ),
-            array(
-                'parts' => array('uri', 'fqsen', 'desc'),
-                'regex' => '/^(?:'
-                    . '(?P<uri>https?:\/\/\S+)|(?P<fqsen>\S+)'
-                    . ')'
-                    . '(?:\s+(?P<desc>.*))?$/s',
-                'tags' => array('see'),
-            ),
-            array(
-                // default
-                'parts' => array('desc'),
-                'regex' => '/^(?P<desc>.*?)$/s',
-                'tags' => array(),
-            ),
-        );
-    }
-
-    /**
-     * Test is string appears to start with a variable name
-     *
-     * @param string $str Stringto test
-     *
-     * @return bool
-     */
-    private static function strStartsWithVariable($str)
-    {
-        if ($str === null) {
-            return false;
-        }
-        return \strpos($str, '$') === 0
-           || \strpos($str, '&$') === 0
-           || \strpos($str, '...$') === 0
-           || \strpos($str, '&...$') === 0;
-    }
-
-    /**
-     * clean up parsed tag
-     * 'param','property','property-read', 'property-write', 'var'
-     *
-     * @param string $tagStr      phpDoc tag body
-     * @param string $tagName     phpDoc tag name
-     * @param array  $parsed      type, name, & desc
-     * @param string $elementName name of element tag attached to
-     *
-     * @return array
-     *
-     * @SuppressWarnings(PHPMD.UnusedPrivateMethod)
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
-     * @phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter
-     */
-    private function tagParam($tagStr, $tagName, $parsed, $elementName)
-    {
-        if (self::strStartsWithVariable($parsed['desc'])) {
-            \preg_match('/^(\S*)/', $parsed['desc'], $matches);
-            $parsed['name'] = $matches[1];
-            $parsed['desc'] = \preg_replace('/^\S*\s+/', '', $parsed['desc']);
-        }
-        if ($tagName !== 'param' && $parsed['name'] !== null) {
-            $parsed['name'] = \ltrim($parsed['name'], '&$');
-        }
-        if ($tagName === 'param' && $parsed['name'] === null && \strpos($parsed['desc'], ' ') === false) {
-            $parsed['name'] = $parsed['desc'];
-            $parsed['desc'] = null;
-        }
-        if ($tagName === 'var' && $elementName !== null && $parsed['name'] !== $elementName) {
-            // name mismatch
-            $parsed['desc'] = \trim($parsed['name'] . ' ' . $parsed['desc']);
-            $parsed['name'] = $elementName;
-        }
-        $parsed['type'] = $this->typeNormalize($parsed['type']);
-        return $parsed;
-    }
-
-    /**
-     * Trim leading spaces from each description line
-     *
-     * @param string $desc string to trim
-     *
-     * @return string
-     */
-    private static function trimDesc($desc)
-    {
-        $lines = \explode("\n", (string) $desc);
-        $leadingSpaces = array();
-        foreach (\array_filter($lines) as $line) {
-            $leadingSpaces[] = \strspn($line, ' ');
-        }
-        \array_shift($leadingSpaces);    // first line will always have zero leading spaces
-        $trimLen = $leadingSpaces
-            ? \min($leadingSpaces)
-            : 0;
-        if (!$trimLen) {
-            return $desc;
-        }
-        foreach ($lines as $i => $line) {
-            $lines[$i] = $i > 0 && \strlen($line)
-                ? \substr($line, $trimLen)
-                : $line;
-        }
-        $desc = \implode("\n", $lines);
-        return $desc;
     }
 }

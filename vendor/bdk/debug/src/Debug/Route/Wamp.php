@@ -9,8 +9,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.0
  */
 
 namespace bdk\Debug\Route;
@@ -19,6 +19,7 @@ use bdk\Debug;
 use bdk\Debug\LogEntry;
 use bdk\Debug\Route\RouteInterface;
 use bdk\Debug\Route\WampCrate;
+use bdk\Debug\Route\WampHelper;
 use bdk\ErrorHandler;
 use bdk\ErrorHandler\Error;
 use bdk\PubSub\Event;
@@ -27,20 +28,32 @@ use bdk\WampPublisher;
 
 /**
  * PHPDebugConsole plugin for routing debug messages thru WAMP router
+ *
+ * Additional methods sent:
+ *    endOutput
+ *    errorNotConsoled
+ *    meta
  */
 class Wamp implements RouteInterface
 {
+    /** @var Debug */
     public $debug;
+
+    /** @var string */
     public $requestId;
+
+    /** @var string */
     public $topic = 'bdk.debug';
 
     /** @var WampPublisher */
     public $wamp;
 
+    /** @var array<string,mixed> */
     protected $cfg = array(
         'output' => false,      // kept in sync with debug->cfg['output']
     );
-    protected $channelName = '';
+
+    /** @var list<string> */
     protected $channelNames = array();
 
     /**
@@ -50,8 +63,17 @@ class Wamp implements RouteInterface
      */
     protected $crate;
 
+    /** @var WampHelper */
+    protected $helper;
+
+    /** @var bool */
+    protected $isBootstrapped = false;
+
+    /** @var bool */
     protected $metaPublished = false;
-    protected $notConnectedAlert = false;
+
+    /** @var bool */
+    protected $notConnectedAlerted = false;
 
     /**
      * Constructor
@@ -64,6 +86,7 @@ class Wamp implements RouteInterface
         $this->debug = $debug;
         $this->wamp = $wamp;
         $this->crate = new WampCrate($debug);
+        $this->helper = new WampHelper($debug);
     }
 
     /**
@@ -82,34 +105,19 @@ class Wamp implements RouteInterface
     public function getSubscriptions()
     {
         if (!$this->isConnected()) {
-            if (!$this->notConnectedAlert) {
+            if (!$this->notConnectedAlerted) {
                 $this->debug->alert('WAMP publisher not connected to WAMP router');
-                $this->notConnectedAlert = true;
+                $this->notConnectedAlerted = true;
             }
             return array();
         }
         return array(
-            Debug::EVENT_BOOTSTRAP => 'init',
+            Debug::EVENT_BOOTSTRAP => 'onBootstrap',
             Debug::EVENT_CONFIG => 'onConfig',
-            Debug::EVENT_LOG => array('onLog', PHP_INT_MAX * -1),
-            Debug::EVENT_PLUGIN_INIT => 'init',
-            ErrorHandler::EVENT_ERROR => array('onError', -1),    // assumes errorhandler is using same dispatcher.. as should be
-            EventManager::EVENT_PHP_SHUTDOWN => array('onShutdown', PHP_INT_MAX * -1),
+            Debug::EVENT_LOG => ['onLog', PHP_INT_MAX * -1],
+            ErrorHandler::EVENT_ERROR => ['onError', -1],    // assumes errorhandler is using same dispatcher.. as should be
+            EventManager::EVENT_PHP_SHUTDOWN => ['onShutdown', PHP_INT_MAX * -1],
         );
-    }
-
-    /**
-     * Debug::EVENT_PLUGIN_INIT && Debug::EVENT_BOOTSTRAP subscriber
-     *
-     * @return void
-     */
-    public function init()
-    {
-        $this->requestId = $this->debug->data->get('requestId');
-        $this->cfg['output'] = $this->debug->getCfg('output', Debug::CONFIG_DEBUG);
-        if ($this->cfg['output']) {
-            $this->publishMeta();
-        }
     }
 
     /**
@@ -123,6 +131,19 @@ class Wamp implements RouteInterface
     }
 
     /**
+     * Debug::EVENT_BOOTSTRAP subscriber
+     *
+     * @return void
+     */
+    public function onBootstrap()
+    {
+        $this->cfg['output'] = $this->debug->getCfg('output', Debug::CONFIG_DEBUG);
+        $this->isBootstrapped = true;
+        $this->requestId = $this->debug->data->get('requestId');
+        $this->publishMeta();
+    }
+
+    /**
      * Debug::EVENT_CONFIG subscriber
      *
      * @param Event $event Event instance
@@ -131,13 +152,11 @@ class Wamp implements RouteInterface
      */
     public function onConfig(Event $event)
     {
-        $cfg = $event->getValues();
-        if (isset($cfg['debug']['output'])) {
-            $this->cfg['output'] = $cfg['debug']['output'];
+        $cfg = $event['debug'];
+        if (isset($cfg['output'])) {
+            $this->cfg['output'] = $cfg['output'];
         }
-        if ($this->cfg['output']) {
-            $this->publishMeta();
-        }
+        $this->publishMeta();
     }
 
     /**
@@ -166,11 +185,11 @@ class Wamp implements RouteInterface
         $this->processLogEntry(new LogEntry(
             $this->debug->getChannel('phpError'),
             'errorNotConsoled',
-            array(
+            [
                 $error['typeStr'] . ':',
                 $error['message'],
-                \sprintf('%s (line %s)', $error['file'], $error['line']),
-            ),
+                $error['fileAndLine'],
+            ],
             array(
                 'attribs' => array(
                     'class' => $error['type'] & $this->debug->getCfg('errorMask', Debug::CONFIG_DEBUG)
@@ -190,7 +209,7 @@ class Wamp implements RouteInterface
      */
     public function onLog(LogEntry $logEntry)
     {
-        if (!$this->cfg['output']) {
+        if (!$this->cfg['output'] || !$this->isBootstrapped) {
             return;
         }
         $this->processLogEntryViaEvent($logEntry);
@@ -210,7 +229,7 @@ class Wamp implements RouteInterface
         $this->processLogEntry(new LogEntry(
             $this->debug,
             'endOutput',
-            array(),
+            [],
             array(
                 'responseCode' => \strpos($this->debug->getInterface(), 'http') !== false
                     ? $this->debug->getResponseCode()
@@ -224,38 +243,20 @@ class Wamp implements RouteInterface
      *
      * We use this interface method to process pre-existing log data
      *
-     * @param Event $event debug event
+     * @param Event|null $event debug event
      *
      * @return void
-     *
-     * @phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter
      */
-    public function processLogEntries(Event $event = null)
+    public function processLogEntries($event = null) // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
     {
+        $this->debug->utility->assertType($event, 'bdk\PubSub\Event');
+
         $data = $this->debug->data->get();
         foreach ($data['alerts'] as $logEntry) {
             $this->processLogEntryViaEvent($logEntry);
         }
         foreach ($data['logSummary'] as $priority => $entries) {
-            $this->processLogEntryViaEvent(new LogEntry(
-                $this->debug,
-                'groupSummary',
-                array(),
-                array(
-                    'priority' => $priority,
-                )
-            ));
-            foreach ($entries as $logEntry) {
-                $this->processLogEntryViaEvent($logEntry);
-            }
-            $this->processLogEntryViaEvent(new LogEntry(
-                $this->debug,
-                'groupEnd',
-                array(),
-                array(
-                    'closesSummary' => true,
-                )
-            ));
+            $this->processLogSummaryEntries($priority, $entries);
         }
         foreach ($data['log'] as $logEntry) {
             $this->processLogEntryViaEvent($logEntry);
@@ -276,6 +277,7 @@ class Wamp implements RouteInterface
             'format' => 'raw',
             'requestId' => $this->requestId,
         ), $logEntry['meta']);
+        $classesNew = array();
         if ($logEntry->getSubject() !== $this->debug) {
             $meta['channel'] = $logEntry->getChannelName();
             if (\in_array($meta['channel'], $this->channelNames, true) === false) {
@@ -288,10 +290,11 @@ class Wamp implements RouteInterface
         if ($logEntry['return']) {
             $args = $logEntry['return'];
         } elseif ($meta['format'] === 'raw') {
-            list($args, $metaTmp) = $this->crate->crateLogEntry($logEntry);
-            $meta = \array_merge($meta, $metaTmp);
+            list($args, $metaNew, $classesNew) = $this->crate->crateLogEntry($logEntry);
+            $meta = \array_merge($meta, $metaNew);
         }
-        $this->wamp->publish($this->topic, array($logEntry['method'], $args, $meta));
+        $this->processNewClasses($classesNew, $meta);
+        $this->wamp->publish($this->topic, [$logEntry['method'], $args, $meta]);
     }
 
     /**
@@ -318,68 +321,85 @@ class Wamp implements RouteInterface
     }
 
     /**
+     * Process logSummary priority
+     *
+     * @param int        $priority Priority
+     * @param LogEntry[] $entries  LogEntries
+     *
+     * @return void
+     */
+    private function processLogSummaryEntries($priority, array $entries)
+    {
+        $this->processLogEntryViaEvent(new LogEntry(
+            $this->debug,
+            'groupSummary',
+            [],
+            array(
+                'priority' => $priority,
+            )
+        ));
+        foreach ($entries as $logEntry) {
+            $this->processLogEntryViaEvent($logEntry);
+        }
+        $this->processLogEntryViaEvent(new LogEntry(
+            $this->debug,
+            'groupEnd',
+            [],
+            array(
+                'closesSummary' => true,
+            )
+        ));
+    }
+
+    /**
+     * Process class definitions that have not yet been pushed
+     *
+     * @param array $classesNew New classnames
+     *
+     * @return void
+     */
+    private function processNewClasses(array $classesNew)
+    {
+        if (!$classesNew) {
+            return;
+        }
+        $classDefinitions = array();
+        foreach ($classesNew as $classKey) {
+            $classDefinitions[$classKey] = $this->debug->data->get('classDefinitions/' . $classKey);
+        }
+        $this->processLogEntry(new LogEntry(
+            $this->debug,
+            'meta',
+            [
+                array(
+                    'classDefinitions' => $classDefinitions,
+                ),
+            ]
+        ));
+    }
+
+    /**
      * Publish initial meta data
      *
      * @return void
      */
     private function publishMeta()
     {
-        if ($this->metaPublished) {
+        if ($this->isBootstrapped !== true || $this->cfg['output'] !== true || $this->metaPublished) {
             return;
         }
+
         $this->metaPublished = true;
+
         $this->processLogEntry(new LogEntry(
             $this->debug,
             'meta',
-            array(
-                $this->debug->redact($this->publishMetaGet()),
-            ),
-            array(
-                'channelNameRoot' => $this->debug->rootInstance->getCfg('channelName', Debug::CONFIG_DEBUG),
-                'debugVersion' => Debug::VERSION,
-                'drawer' => $this->debug->getCfg('routeHtml.drawer'),
-                'interface' => $this->debug->getInterface(),
-                'linkFilesTemplateDefault' => \strtr(
-                    \ini_get('xdebug.file_link_format'),
-                    array(
-                        '%f' => '%file',
-                        '%l' => '%line',
-                    )
-                ) ?: null,
-            )
+            [
+                $this->helper->getMeta(),
+            ],
+            $this->helper->getMetaConfig()
         ));
-        $this->processLogEntries();
-    }
 
-    /**
-     * Get meta values to publish
-     *
-     * @return array
-     */
-    private function publishMetaGet()
-    {
-        $default = array(
-            'argv' => array(),
-            'HTTPS' => null,
-            'HTTP_HOST' => null,
-            'processId' => \getmypid(),
-            'REMOTE_ADDR' => null,
-            'REQUEST_METHOD' => $this->debug->serverRequest->getMethod(),
-            'REQUEST_TIME' => null,
-            'REQUEST_URI' => \urldecode($this->debug->serverRequest->getRequestTarget()),
-            'SERVER_ADDR' => null,
-            'SERVER_NAME' => null,
-        );
-        $metaVals = \array_merge(
-            $default,
-            $this->debug->serverRequest->getServerParams()
-        );
-        $metaVals = \array_intersect_key($metaVals, $default);
-        if ($this->debug->isCli()) {
-            $metaVals['REQUEST_METHOD'] = null;
-            $metaVals['REQUEST_URI'] = '$: ' . \implode(' ', $metaVals['argv']);
-        }
-        unset($metaVals['argv']);
-        return $metaVals;
+        $this->processLogEntries();
     }
 }

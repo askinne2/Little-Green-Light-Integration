@@ -8,15 +8,16 @@
 */
 
 if (!defined('ABSPATH')) {
-	exit; // Exit if accessed directly
+    exit; // Exit if accessed directly
 }
 
 
-define('CONSTITUENTS_DEBUG', false);
+define('CONSTITUENTS_DEBUG', true);
 
 define('FILE_PATH', plugin_dir_path( __FILE__ ));
 require_once FILE_PATH . '../lgl-api.php';
 require_once FILE_PATH . 'lgl-api-settings.php';
+require_once FILE_PATH . 'lgl-helper.php';
 
 if (!class_exists("LGL_Constituents")) {
     /**
@@ -39,9 +40,15 @@ if (!class_exists("LGL_Constituents")) {
         var $groups_data;
         var $custom_data;
         var $membership_data;
-        var $payment_data;
-
-        var $membership_types;
+        
+        var $lgl;
+        
+        var $remove_previous_email_addresses;
+        var $remove_previous_phone_numbers;
+        var $remove_previous_street_addresses;
+        var $remove_previous_web_addresses;
+        
+        
         /**
         * Get instance
         *
@@ -58,7 +65,14 @@ if (!class_exists("LGL_Constituents")) {
         /**
         * Add prerequisites if needed
         */
-        public function __construct() {
+        public function __construct() 
+        {
+            $this->lgl = LGL_API::get_instance();
+            
+            $this->remove_previous_email_addresses = FALSE;
+            $this->remove_previous_phone_numbers = FALSE;
+            $this->remove_previous_street_addresses = FALSE;
+            $this->remove_previous_web_addresses = FALSE;
             
             $this->personal_data = (object) array (
                 "external_constituent_id" => 0,
@@ -155,22 +169,11 @@ if (!class_exists("LGL_Constituents")) {
                     
                 );  
             } // end __construct()
-
-            public function debug($string, $data=NULL) {
-                printf('<h6 style="color: red;">%s</h3><pre>', $string);
-                print_r($data);
-                printf('</pre>');
-            }
-
-            public function set_membership_types($types) {
-                $this->membership_types = $types;
-            }
-
+            
+            
             public function set_name($first, $last) {
-                
                 $this->personal_data->first_name = $first;
-                $this->personal_data->last_name = $last;
-                
+                $this->personal_data->last_name = $last;                
             }
             
             public function set_email($emailaddress) {
@@ -184,90 +187,145 @@ if (!class_exists("LGL_Constituents")) {
             public function set_address($user_id) {
                 
                 $this->address_data->street = get_user_meta($user_id, 'user-address-1', true) . ' ' . get_user_meta($user_id, 'user-address-2', true);
-                if (CONSTITUENTS_DEBUG) $this->debug('address', $this->address_data->address);
                 $this->address_data->city = get_user_meta($user_id, 'user-city', true);
                 $this->address_data->state = get_user_meta($user_id, 'user-state', true);
                 $this->address_data->postal_code = get_user_meta($user_id, 'user-postal-code', true);
                 
             }
-          
-            public function set_membership($user_id) {
-
-                $lgl_settings = LGL_API_Settings::get_instance();
-                $level_settings = $lgl_settings->lgl_get_setting('membership_levels');
-
-                $level = get_user_meta($user_id, 'user-membership-type', true);
-                if ($level === 'Individual Membership') {
-                    $key = array_search('Individual', $level_settings);
-                    $this->membership_data->membership_level_name = $level_settings[$key]['membership_type'];
-                    $this->membership_data->membership_level_id = $level_settings[$key]['membership_id'];
-                } else if ($level === 'Family Membership') {
-                    $key = array_search('Family', $level_settings);
-                    $this->membership_data->membership_level_name = $level_settings[$key]['membership_type'];
-                    $this->membership_data->membership_level_id = $level_settings[$key]['membership_id'];
-                } else if ($level === 'Patron Membership') {
-                    $key = array_search('Patron Indiv', $level_settings);
-                    $this->membership_data->membership_level_name = $level_settings[$key]['membership_type'];
-                    $this->membership_data->membership_level_id = $level_settings[$key]['membership_id'];
-                } else if ($level === 'Patron Family Membership') {
-                    $key = array_search('Patron Family', $level_settings);
-                    $this->membership_data->membership_level_name = $level_settings[$key]['membership_type'];
-                    $this->membership_data->membership_level_id = $level_settings[$key]['membership_id'];
-                } else {
-                    if (PLUGIN_DEBUG) {
-                        $this->debug ('bad data in LGL_Constituents::set_membership() ');
-                    }
+            
+            public function find_setting_key($itemNameToFind, $listColumnName, $list) {
+                if (!$list) {
+                    $this->lgl->helper->debug('The list is empty. Nothing to search.'); 
+                    return; 
                 }
                 
-                $user_info = get_userdata($user_id);
-
-                $this->membership_data->date_start = date( 'Y-m-d', strtotime($user_info->data->user_registered));
-                $this->membership_data->finish_date = date('Y-m-d', strtotime('+1 year', strtotime($this->membership_data->date_start)) );
-                $this->membership_data->note = 'Renewal via WP_LGL_API';
+                $foundItem = (object) array();
                 
+                $itemIndex = array_search($itemNameToFind, array_column($list, $listColumnName));
+                $this->lgl->helper->debug('Item Index' , $itemIndex);
+                $this->lgl->helper->debug('Looking for ' . $itemNameToFind); // . ' in this object: ', $list);
                 
-            }
-
-            public function set_payment($p) {
+                if ($itemIndex !== false) {
+                    $foundItem = $list[$itemIndex];
+                } else {
+                    $this->lgl->helper->debug('Couldn\'t find ' . $itemNameToFind);
+                }
                 
-                $this->payment_data["external_id"] = 0;
-                /*
-                $this->payment_data["gift_type_id"] = ,
-                "gift_type_name" => "",
-                "gift_category_id" => 0,
-                "gift_category_name" => "",
-                "campaign_id" => 0,
-                "campaign_name" => "",
-                "fund_id" => 0,
-                "fund_name" => "",
-                "appeal_id" => 0,
-                "appeal_name" => "",
-                "event_id" => 0,
-                "event_name" => "",
-                "received_amount" => 0,
-                "received_date" => "date",
-                "payment_type_id" => 0,
-                "payment_type_name" => "",
-                "check_number" => "",
-                "deductible_amount" => 0,
-                "note" => "",
-                "ack_template_name" => "",
-                "deposit_date" => "date",
-                "deposited_amount" => 0,
-                "parent_gift_id" => 0,
-                "parent_external_id" => 0,
-                "team_member" => ""
-                */
+                if ($foundItem) {
+                    return $foundItem;
+                }
             }
             
-            public function set_data($user_id) {
+            
+            public function set_membership($user_id, $note=NULL, $method=NULL, $parent_uid=NULL) {
+                $lgl_settings = LGL_API_Settings::get_instance();
+                $level_settings = $lgl_settings->lgl_get_setting('membership_levels');
+                /*
+                $this->lgl->helper->debug('level settings:', $level_settings);
+                $response = $this->lgl->connection->get_lgl_data('MEMBERSHIPS');
+                $this->lgl->helper->debug('MEMBERSHIPS returned:', $response);
+                */
+                
+                if (!$method) {
+                    $level = get_user_meta($user_id, 'user-membership-type', true);
+                    if (!$level) {
+                        /*
+                        $user_meta = get_userdata($user_id);
+                        $this->lgl->helper->debug('user meta: ', $user_meta);
+                        $level = $user_meta['user-membership-type'][0];
+                        */
+                        $this->lgl->helper->debug('**** constituents->set_membership(): NO MEMEBERSHIP TYPE ****', $level); //, $user_meta . '    ' . $level);
+                    }
+                } else {
+                    $level = get_user_meta($parent_uid, 'user-membership-type', true);
+                }
+                
+                if (is_numeric($level)) {
+                    $this->lgl->helper->debug('****** UI Memberships Price -> Name SWITCH *****');
+                    $level = $this->lgl->helper->ui_membership_price_to_name($level);
+                }
+                
+                $this->lgl->helper->debug('level: ', $level);
+                $level_setting = $this->find_setting_key($level, 'membership_type', $level_settings);
+                // $this->lgl->helper->debug('set_membership() level_setting_object search:', $level_setting);
+                
+                if (strcmp($level,'Individual Membership')  === 0) {
+                    
+                    $this->membership_data->membership_level_name = $level_setting['membership_type'];
+                    $this->membership_data->membership_level_id = $level_setting['membership_id'];
+                    
+                } else if (strcmp($level, 'Family Membership')  === 0) {
+                    
+                    $this->membership_data->membership_level_name = $level_setting['membership_type'];
+                    $this->membership_data->membership_level_id = $level_setting['membership_id'];
+                    
+                } else if ( strcmp($level, 'Patron Membership') === 0) {
+                    
+                    $this->membership_data->membership_level_name = $level_setting['membership_type'];
+                    $this->membership_data->membership_level_id = $level_setting['membership_id'];
+                    
+                    
+                } else if ( strcmp($level, 'Patron Family Membership') === 0) {
+                    
+                    $this->membership_data->membership_level_name = $level_setting['membership_type'];
+                    $this->membership_data->membership_level_id = $level_setting['membership_id'];
+                    
+                } else if ( strcmp($level, 'Daily Plan') === 0) {
+                    
+                    $this->membership_data->membership_level_name = $level_setting['membership_type'];
+                    $this->membership_data->membership_level_id = $level_setting['membership_id'];
+                    
+                } else {                    
+                    $this->lgl->helper->debug ('bad data in LGL_Constituents::set_membership() ', $level);
+                    
+                }
+                
+                if (!$method) {
+                    
+                    $start_date = get_user_meta($user_id, 'user-membership-start-date', true);                    
+                    $renewal_date = get_user_meta($user_id, 'user-membership-renewal-date', true);
+                    // Convert Unix timestamp to DateTime
+                    $start_date_dt = new DateTime("@$start_date");
+                    $renewal_date_dt = new DateTime("@$renewal_date");                    
+                    // Format the DateTime objects
+                    $this->membership_data->date_start = $start_date_dt->format('Y-m-d');
+                    $this->membership_data->finish_date = $renewal_date_dt->format('Y-m-d');
+
+                } else { 
+                    
+                    $start_date = get_user_meta($parent_uid, 'user-membership-start-date', true);                    
+                    $renewal_date = get_user_meta($parent_uid, 'user-membership-renewal-date', true);
+                    // Convert Unix timestamp to DateTime
+                    $start_date_dt = new DateTime("@$start_date");
+                    $renewal_date_dt = new DateTime("@$renewal_date");
+                    // Format the DateTime objects
+                    $this->membership_data->date_start = $start_date_dt->format('Y-m-d');
+                    $this->membership_data->finish_date = $renewal_date_dt->format('Y-m-d');
+                } 
+                
+                
+                if ($note) {
+                    $this->membership_data->note = $note;
+                } else {
+                    $this->membership_data->note = 'Renewal via WP_LGL_API';
+                }
+                
+                //$this->lgl->helper->debug(' Membership info: ', $this->membership_data);
+                
+            }
+            
+            public function set_data($user_id, $skip_membership=NULL) {
                 
                 $user_info = get_userdata($user_id);
-                if (CONSTITUENTS_DEBUG) $this->debug('USER INFO', $user_info);
+                //$this->lgl->helper->debug('USER INFO', $user_info);
                 
-                $firstname = get_user_meta( $user_id, 'first_name', true );
-                $lastname = get_user_meta( $user_id, 'last_name', true );
-                $emailaddress = $user_info->data->user_email;
+                $firstname = ucfirst(get_user_meta( $user_id, 'first_name', true ));
+                $lastname = ucfirst(get_user_meta( $user_id, 'last_name', true ));
+                $emailaddress = get_user_meta( $user_id, 'user_email', true); 
+                if (!$emailaddress) {
+					$user_info = get_userdata($user_id);
+					$emailaddress = $user_info->data->user_email;
+				}
                 $phone = get_user_meta( $user_id, 'user-phone', true);
                 
                 $this->personal_data->external_constituent_id = $user_id;
@@ -281,18 +339,80 @@ if (!class_exists("LGL_Constituents")) {
                 $this->personal_data->salutation = $firstname;
                 $this->personal_data->annual_report_name = $firstname . ' ' . $lastname;
                 $this->personal_data->org_name  = get_user_meta($user_id, 'user-company', true);
+                $this->personal_data->date_added = date('Y-m-d', time());
                 
                 
                 $this->set_address($user_id);
-                
-                if (CONSTITUENTS_DEBUG) {
-                    $this->debug('email address', $this->email_data);
-                    $this->debug('user-phone', $this->phone_data);
-                    $this->debug('address', $this->address_data);
+                if (!$skip_membership) {
+                    $this->set_membership($user_id, 'Renewal via WP_LGL_API');
+                } else {
+                    $this->lgl->helper->debug('constituent->set_data() inside skip membership');
                 }
-
-                $this->set_membership($user_id);
-
+                
+                /*
+                $this->lgl->helper->debug('email address', $this->email_data);
+                $this->lgl->helper->debug('user-phone', $this->phone_data);
+                $this->lgl->helper->debug('address', $this->address_data);          
+                */
+                
+            }
+            
+            public function set_data_and_update($user_id, $request) {
+                
+                if (!$user_id || empty($request)) {
+                    return;
+                }
+                $flags = array(
+                    'remove_previous_email_addresses' => TRUE,  
+                    'remove_previous_phone_numbers' => TRUE,
+                    'remove_previous_street_addresses' => TRUE,
+                    'remove_previous_web_addresses' => TRUE,
+                );
+                
+                $firstname = ucfirst($request['user_firstname']);
+                $lastname = ucfirst($request['user_lastname']);
+                $emailaddress = $request['user_email'];
+                $phone = $request['user_phone'];
+                
+                $this->personal_data->external_constituent_id = $user_id;
+                $this->set_name($firstname, $lastname);
+                $this->set_email($emailaddress);
+                $this->set_phone($phone);
+                
+                $this->personal_data->constituent_contact_type_id = 1247;
+                $this->personal_data->constituent_contact_type_name = 'Primary';
+                $this->personal_data->addressee = $firstname . ' ' . $lastname;
+                $this->personal_data->salutation = $firstname;
+                $this->personal_data->annual_report_name = $firstname . ' ' . $lastname;
+                $this->personal_data->org_name  = get_user_meta($user_id, 'user-company', true);
+                
+                $this->address_data->street = $request['user-address-1'] . ' ' . $request['user-address-2'];
+                $this->address_data->city = $request['user-city'];
+                $this->address_data->state = $request['user-state'];
+                $this->address_data->postal_code = $request['user-postal-code'];
+                
+                //$this->set_address($user_id);
+                
+                // Convert nested stdClass objects to arrays
+                $personal_data = (array) $this->personal_data;
+                $email_data = (array) $this->email_data;
+                $phone_data = (array) $this->phone_data;
+                $address_data = (array) $this->address_data;
+                $category_data = (array) $this->category_data;
+                $groups_data = (array) $this->groups_data;
+                $custom_data = (array) $this->custom_data;
+                
+                
+                // Combine arrays into the final structure
+                $update_data = array_merge(
+                    $personal_data,
+                    $flags,
+                    array("email_addresses" => array($email_data)),
+                    array("phone_numbers" => array($phone_data)),
+                    array("street_addresses" => array($address_data)),
+                );
+                return $update_data;
+                
             }
         }
     }

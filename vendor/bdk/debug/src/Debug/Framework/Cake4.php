@@ -6,14 +6,14 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3.1
  */
 
 namespace bdk\Debug\Framework;
 
 use bdk\Debug;
-use bdk\Debug\Abstraction\Abstracter;
+use bdk\Debug\Abstraction\Type;
 use bdk\Debug\Collector\Pdo;
 use bdk\Debug\Psr15\Middleware;
 use bdk\ErrorHandler\Error;
@@ -76,9 +76,9 @@ class Cake4 extends BasePlugin
         $config = \array_merge(array(
             'errorHandler' => array(
                 'continueToPrevHandler' => false,
-                'onError' => array($this, 'onError'),
+                'onError' => [$this, 'onError'],
             ),
-            'onMiddleware' => array($this, 'onMiddleware'),
+            'onMiddleware' => [$this, 'onMiddleware'],
         ), Configure::read('PHPDebugConsole', array()));
         $this->debug = new Debug($config);
 
@@ -164,7 +164,7 @@ class Cake4 extends BasePlugin
     protected function logEvents()
     {
         $debug = $this->debug->getChannel('Events', array(
-            'channelIcon' => 'fa fa-bell-o',
+            'channelIcon' => ':event:',
             'nested' => false,
         ));
 
@@ -179,12 +179,13 @@ class Cake4 extends BasePlugin
                     'subject' => $debug->abstracter->crateWithVals(
                         \get_class($event->getSubject()),
                         array(
-                            'typeMore' => Abstracter::TYPE_STRING_CLASSNAME,
+                            'type' => Type::TYPE_IDENTIFIER,
+                            'typeMore' => Type::TYPE_IDENTIFIER_CLASSNAME,
                         )
                     ),
                 );
             }
-            $events[$name]['count'] ++;
+            $events[$name]['count']++;
         }
         \ksort($events);
         $debug->table('dispatched events', \array_values($events));

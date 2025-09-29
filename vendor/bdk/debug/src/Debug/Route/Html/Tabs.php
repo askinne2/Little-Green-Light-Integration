@@ -1,5 +1,15 @@
 <?php
 
+/**
+ * This file is part of PHPDebugConsole
+ *
+ * @package   PHPDebugConsole
+ * @author    Brad Kent <bkfake-github@yahoo.com>
+ * @license   http://opensource.org/licenses/MIT MIT
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
+ */
+
 namespace bdk\Debug\Route\Html;
 
 use bdk\Debug;
@@ -10,7 +20,10 @@ use bdk\Debug\Route\Html as HtmlRoute;
  */
 class Tabs
 {
+    /** @var Debug */
     protected $debug;
+
+    /** @var HtmlRoute */
     protected $route;
 
     /**
@@ -32,8 +45,8 @@ class Tabs
     public function buildTabList()
     {
         $channels = $this->debug->getChannelsTop();
-        \uasort($channels, array($this, 'sortChannelCallback'));
-        $tabs = array();
+        \uasort($channels, [$this, 'sortChannelCallback']);
+        $tabs = [];
         foreach ($channels as $instance) {
             if ($instance->getCfg('output', Debug::CONFIG_DEBUG)) {
                 $tabs[] = $this->buildTab($instance);
@@ -58,7 +71,7 @@ class Tabs
         */
         $this->debug->arrayUtil->sortWithOrder(
             $channels,
-            array('Request / Response', 'Files'),
+            ['Request / Response', 'Files'],
             'key'
         );
         $html = '<div class="tab-panes"' . ($this->route->getCfg('outputScript') ? ' style="display:none;"' : '') . '>' . "\n";
@@ -114,10 +127,7 @@ class Tabs
             $isActive = true;
             $label = 'Log';
         }
-        $channelIcon = $debug->getCfg('channelIcon', Debug::CONFIG_DEBUG);
-        if ($channelIcon && \strpos($channelIcon, '<') === false) {
-            $channelIcon = '<i class="' . $channelIcon . '"></i>';
-        }
+        $channelIcon = $this->route->buildIcon($debug->getCfg('channelIcon', Debug::CONFIG_DEBUG));
         return $this->debug->html->buildTag(
             'a',
             array(
@@ -145,33 +155,46 @@ class Tabs
         $name = $debug->getCfg('channelName', Debug::CONFIG_DEBUG);
         $isActive = $debug === $this->debug;
         $this->route->setChannelRegex('#^' . \preg_quote($name, '#') . '(\.|$)#');
-        $str = '<div' . $this->debug->html->buildAttribString(array(
-            'class' => array(
-                $this->nameToClassname($name) => true,
-                'active' => $isActive,
-                'tab-pane' => true,
-                'tab-primary' => $isActive,
+        return $this->debug->html->buildTag(
+            'div',
+            array(
+                'class' => array(
+                    $this->nameToClassname($name) => true,
+                    'active' => $isActive,
+                    'tab-pane' => true,
+                    'tab-primary' => $isActive,
+                ),
+                'data-options' => array(
+                    'sidebar' => $this->route->getCfg('sidebar'),
+                ),
+                'role' => 'tabpanel',
             ),
-            'data-options' => array(
-                'sidebar' => $this->route->getCfg('sidebar'),
-            ),
-            'role' => 'tabpanel',
-        )) . ">\n";
-        $str .= '<div class="tab-body">' . "\n";
+            $this->buildTabPaneBody()
+        ) . "\n";
+    }
 
-        $str .= $this->route->processAlerts();
-        /*
-            If outputing script, initially hide the output..
-            this will help page load performance (fewer redraws)... by magnitudes
-        */
-        $str .= '<ul class="debug-log-summary group-body">' . "\n"
-            . $this->route->processSummary() . '</ul>' . "\n";
-        $str .= '<ul class="debug-log group-body">' . "\n"
-            . $this->route->processLog() . '</ul>' . "\n";
-
-        $str .= '</div>' . "\n"; // close .tab-body
-        $str .= '</div>' . "\n"; // close .tab-pane
-        return $str;
+    /**
+     * Build primary tab pane body
+     *
+     * @return string html
+     */
+    private function buildTabPaneBody()
+    {
+        return "\n"
+            . '<div class="tab-body">' . "\n"
+            . $this->route->processAlerts()
+            /*
+                If outputting script, initially hide the output..
+                this will help page load performance (fewer redraws)... by magnitudes
+            */
+            . '<ul class="debug-log-summary group-body">' . "\n"
+                . $this->route->processSummary()
+                . '</ul>' . "\n"
+            . '<hr />' . "\n"
+            . '<ul class="debug-log group-body">' . "\n"
+                . $this->route->processLog()
+                . '</ul>' . "\n"
+            . '</div>' . "\n"; // close .tab-body
     }
 
     /**

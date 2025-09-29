@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug;
@@ -20,5 +20,6 @@ use bdk\ErrorHandler\AbstractComponent as BaseAbstractComponent;
  */
 abstract class AbstractComponent extends BaseAbstractComponent implements ConfigurableInterface
 {
+    /** @var callable */
     protected $setCfgMergeCallable = 'array_merge';
 }

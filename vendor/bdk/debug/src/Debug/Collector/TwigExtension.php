@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     3.0b1
  */
 
 namespace bdk\Debug\Collector;
@@ -21,21 +21,27 @@ use Twig\Profiler\Profile;
  */
 class TwigExtension extends ProfilerExtension
 {
+    /** @var string */
+    protected $icon = ':template:';
+
+    /** @var Debug */
     private $debug;
-    protected $icon = 'fa fa-file-text-o';
 
     /**
      * Constructor
      *
-     * @param Debug   $debug   (optional) Debug instance
-     * @param Profile $profile (optional) Profile instance
+     * @param Debug|null   $debug   (optional) Debug instance
+     * @param Profile|null $profile (optional) Profile instance
      *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public function __construct(Debug $debug = null, Profile $profile = null)
+    public function __construct($debug = null, $profile = null)
     {
+        \bdk\Debug\Utility::assertType($debug, 'bdk\Debug');
+        \bdk\Debug\Utility::assertType($profile, 'Twig\Profiler\Profile');
+
         if (!$debug) {
-            $debug = Debug::_getChannel('Twig', array('channelIcon' => $this->icon));
+            $debug = Debug::getChannel('Twig', array('channelIcon' => $this->icon));
         } elseif ($debug === $debug->rootInstance) {
             $debug = $debug->getChannel('Twig', array('channelIcon' => $this->icon));
         }

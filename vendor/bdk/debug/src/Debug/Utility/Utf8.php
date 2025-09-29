@@ -6,14 +6,13 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.0
  */
 
 namespace bdk\Debug\Utility;
 
 use bdk\Debug\Utility\Utf8Buffer;
-use bdk\Debug\Utility\Utf8Dump;
 
 /**
  * Validate Utf8 / "highlight" non-utf8, control, & whitespace characters
@@ -23,68 +22,109 @@ use bdk\Debug\Utility\Utf8Dump;
  */
 class Utf8
 {
+    const TYPE_OTHER = 'other';
+    const TYPE_UTF8 = 'utf8';
+    const TYPE_UTF8_CONTROL = 'utf8Control'; // control character (sans \r\n\t)
+
+    /** @var Utf8Buffer|null */
     private static $buffer;
 
     /**
-     * Highlight non-UTF-8, control, & "special" characters
+     * Convert code point to character
      *
-     * control & non-utf-8 chars are displayed as hex
-     * "special" unicode-characters are displayed with the \uxxxx representation
-     *
-     * @param string $str     string containing binary
-     * @param array  $options prefix, sanitizeNonBinary, useHtml
+     * @param int $codePoint Unicode code-point
      *
      * @return string
      */
-    public static function dump($str, $options = array())
+    public static function chr($codePoint)
     {
-        $buffer = new Utf8Buffer($str);
-        $dump = new Utf8Dump();
-        $info = $buffer->analyze();
-        $dump->setOptions($options);
-        if ($info['percentBinary'] > 33) {
-            $dump->setOptions('prefix', false);
-            return $dump->dumpBlock($str, 'other');
+        if ($codePoint <= 0x7F) {
+            // Plain ASCII
+            return \chr($codePoint);
         }
-        $str = '';
-        foreach ($info['blocks'] as $block) {
-            $str .= $dump->dumpBlock($block[1], $block[0]);
+        if ($codePoint <= 0x07FF) {
+            // 2-byte unicode (range 0x80-0x7FF)
+            return ''
+                . \chr((($codePoint >> 6) & 0x1F) | 0xC0)
+                . \chr((($codePoint >> 0) & 0x3F) | 0x80);
         }
-        return $str;
+        if ($codePoint <= 0xFFFF) {
+            // 3-byte unicode (range 0x800-0xFFFF)
+            return ''
+                . \chr((($codePoint >> 12) & 0x0F) | 0xE0)
+                . \chr((($codePoint >>  6) & 0x3F) | 0x80)
+                . \chr((($codePoint >>  0) & 0x3F) | 0x80);
+        }
+        if ($codePoint <= 0x10FFFF) {
+            // 4-byte unicode (range 0x10000-1114111)
+            return ''
+                . \chr((($codePoint >> 18) & 0x07) | 0xF0)
+                . \chr((($codePoint >> 12) & 0x3F) | 0x80)
+                . \chr((($codePoint >>  6) & 0x3F) | 0x80)
+                . \chr((($codePoint >>  0) & 0x3F) | 0x80);
+        }
     }
 
     /**
      * Determine if string is UTF-8 encoded
      *
      * In addition, if valid UTF-8, will also report whether string contains
-     * control, or other speical characters that could otherwise go unnoticed
+     * control, or other special characters that could otherwise go unnoticed
      *
-     * @param string $str        string to check
-     * @param bool   $hasSpecial does valid utf-8 string contain control or "exotic" whitespace type character
+     * @param string $str string to check
      *
      * @return bool
      */
-    public static function isUtf8($str, &$hasSpecial = false)
+    public static function isUtf8($str)
     {
         $buffer = new Utf8Buffer($str);
-        return $buffer->isUtf8($hasSpecial);
+        return $buffer->isUtf8();
+    }
+
+    /**
+     * Get Unicode code point of character
+     *
+     * @param string $char Character to get code point for
+     *
+     * @return int|false The Unicode code point for the first character of string or false on failure.
+     */
+    public static function ord($char)
+    {
+        $ord = \ord($char[0]);
+        if ($ord < 0x80) {
+            return $ord;
+        } elseif ($ord < 0xe0) {
+            return ($ord - 0xc0 << 6) + \ord($char[1]) - 0x80;
+        } elseif ($ord < 0xf0) {
+            return ($ord - 0xe0 << 12)
+                + (\ord($char[1]) - 0x80 << 6)
+                + \ord($char[2]) - 0x80;
+        } elseif ($ord < 0xf8) {
+            return ($ord - 0xf0 << 18)
+                + (\ord($char[1]) - 0x80 << 12)
+                + (\ord($char[2]) - 0x80 << 6)
+                + \ord($char[3]) - 0x80;
+        }
+        return false;
     }
 
     /**
      * mb_strcut implementation
      *
-     * @param string $str    The string being cut
-     * @param int    $start  start position
-     * @param int    $length length in bytes
+     * @param string   $str    The string being cut
+     * @param int      $start  start position
+     * @param int|null $length length in bytes
      *
      * @return string
      * @see    https://www.php.net/manual/en/function.mb-strcut.php
      */
     public static function strcut($str, $start, $length = null)
     {
-        self::$buffer = new \bdk\Debug\Utility\Utf8Buffer($str);
+        self::$buffer = new Utf8Buffer($str);
         $start = self::strcutGetStart($start);
-        $length = self::strcutGetLength($start, $length);
+        $length = $length !== null
+            ? self::strcutGetLength($start, $length)
+            : self::$buffer->strlen() - $start;
         self::$buffer->seek($start);
         return self::$buffer->read($length);
     }
@@ -117,7 +157,7 @@ class Utf8
         }
         // 'Windows-1252' detection only seems to work in PHP-8 ?
         // we won't include... ISO-8859-1  too many false positive
-        $encodings = array('ASCII', 'UTF-8');
+        $encodings = ['ASCII', 'UTF-8'];
         $encoding = \mb_detect_encoding($str, $encodings, true);
         if ($encoding === false) {
             // Assume Windows-1252
@@ -136,20 +176,23 @@ class Utf8
      */
     private static function strcutGetLength($start, $length)
     {
-        $end = $start + $length;
+        $length = (int) $length;
         $strlen = self::$buffer->strlen();
+        $end = $length >= 0
+            ? $start + $length
+            : $strlen + $length;
         if ($end >= $strlen) {
             return $strlen - $start;
         }
-        $end++; // increment so that we start at original
-        for ($i = 0; $i < 4; $i++) {
+        $end++; // increment to offset the initial decrement below
+        for ($i = 0; $i < 4, $end > 0; $i++) {
             $end--;
             self::$buffer->seek($end);
             if (self::$buffer->isOffsetUtf8()) {
                 break;
             }
         }
-        return $end - $start;
+        return \max($end - $start, 0);
     }
 
     /**

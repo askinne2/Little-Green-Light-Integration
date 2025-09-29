@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Plugin;
@@ -15,22 +15,18 @@ namespace bdk\Debug\Plugin;
 use bdk\Debug\AssetProviderInterface;
 
 /**
- * Register prismjs' javascript & css
+ * Register PrismJs' javascript & css
  */
 class Highlight implements AssetProviderInterface
 {
     /**
      * {@inheritDoc}
-     *
-     * @return array
-     *
-     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
      */
-    public function getAssets()
+    public function getAssets() // phpcs:ignore SlevomatCodingStandard.Functions.FunctionLength
     {
         return array(
-            'css' => array(
-                './js/prism.css',
+            'css' => [
+                './css/PrismJsLightDark.css',
                 '.debug pre[class*="language-"] {
                     padding: 0;
                     margin: 0.25em 0 0.25em 0;
@@ -54,12 +50,12 @@ class Highlight implements AssetProviderInterface
                 .debug pre[class*="language-"].line-numbers {
                     padding-left: 3.8em;
                 }',
-            ),
-            'script' => array(
+            ],
+            'script' => [
                 './js/prism.js',
                 'Prism.manual = true;
                 (function(){
-                    $("body").on("enhanced.debug expanded.debug.group", function (e) {
+                    $("body").on("enhanced.debug expanded.debug.group shown.debug.tab", function (e) {
                         var $target = $(e.target)
                         var selector = ".highlight:visible"
                         if (e.type === "enhanced" && $target.hasClass("m_group")) {
@@ -97,7 +93,7 @@ class Highlight implements AssetProviderInterface
                                     if (["class","colspan"].indexOf(this.name) < 0) {
                                         $pre.attr(this.name, this.value)
                                         if (this.name.indexOf("data") < 0) {
-                                            // dont remove data attr... seems to remove all data attrs & only 1st data attr will get moved
+                                            // don\'t remove data attr... seems to remove all data attrs & only 1st data attr will get moved
                                             $high.removeAttr(this.name)
                                         }
                                     }
@@ -109,17 +105,21 @@ class Highlight implements AssetProviderInterface
                                 // throw a zero-width-space on the end so we get the blank line
                                 $pre.find("> code").append("&#8203;")
                             }
-                            Prism.highlightElement($pre.find("> code")[0])
+                            setTimeout(function () {
+                                Prism.highlightElement($pre.find("> code")[0])
+                            }, 100)
                         })
                     })
                     $("body").on("expanded.debug.next", ".context", function (e) {
                         var $code = $(e.target).find("code")
                         if ($code.length && $code.children().length === 0) {
-                            Prism.highlightElement($code[0])
+                            setTimeout(function () {
+                                Prism.highlightElement($code[0])
+                            }, 100)
                         }
                     })
                 }());',
-            ),
+            ],
         );
     }
 }

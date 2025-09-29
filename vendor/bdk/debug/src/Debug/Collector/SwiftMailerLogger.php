@@ -6,8 +6,8 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     2.3
  */
 
 namespace bdk\Debug\Collector;
@@ -31,32 +31,51 @@ use Swift_TransportException;
 /**
  * A SwiftMailer adapter
  */
-class SwiftMailerLogger implements Swift_Events_CommandListener, Swift_Events_ResponseListener, Swift_Events_SendListener, Swift_Events_TransportChangeListener, Swift_Events_TransportExceptionListener, Swift_Plugins_Logger
+class SwiftMailerLogger implements
+    Swift_Events_CommandListener,
+    Swift_Events_ResponseListener,
+    Swift_Events_SendListener,
+    Swift_Events_TransportChangeListener,
+    Swift_Events_TransportExceptionListener,
+    Swift_Plugins_Logger
 {
-    private $debug;
+    /** @var list<string> */
     protected $messages = array();
-    protected $icon = 'fa fa-envelope-o';
+
+    /** @var string */
+    protected $icon = ':email:';
+
+    /** @var string */
     protected $iconMeta;
+
+    /** @var bool */
     protected $useIcon = true;
-    protected $transports;  // splObjectStorage
+
+    /** @var SplObjectStorage */
+    protected $transports;
+
+    /** @var Debug */
+    private $debug;
 
     /**
      * Constructor
      *
-     * @param Debug $debug (optional) Specify PHPDebugConsole instance
-     *                         if not passed, will create Slim channel on singleton instance
-     *                         if root channel is specified, will create a SwiftMailer channel
+     * @param Debug|null $debug (optional) Specify PHPDebugConsole instance
+     *                           if not passed, will create Slim channel on singleton instance
+     *                           if root channel is specified, will create a SwiftMailer channel
      *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public function __construct(Debug $debug = null)
+    public function __construct($debug = null)
     {
+        \bdk\Debug\Utility::assertType($debug, 'bdk\Debug');
+
         if (!$debug) {
-            $debug = Debug::_getChannel('SwiftMailer', array('channelIcon' => $this->icon));
+            $debug = Debug::getChannel('SwiftMailer', array('channelIcon' => $this->icon));
         } elseif ($debug === $debug->rootInstance) {
             $debug = $debug->getChannel('SwiftMailer', array('channelIcon' => $this->icon));
         }
-        $debug->rootInstance->eventManager->subscribe(EventManager::EVENT_PHP_SHUTDOWN, array($this, 'onShutdown'), PHP_INT_MAX * -1 + 1);
+        $debug->rootInstance->eventManager->subscribe(EventManager::EVENT_PHP_SHUTDOWN, [$this, 'onShutdown'], PHP_INT_MAX * -1 + 1);
         $this->debug = $debug;
         $this->iconMeta = $this->debug->meta('icon', $this->icon);
         $this->transports = new SplObjectStorage();
@@ -76,7 +95,7 @@ class SwiftMailerLogger implements Swift_Events_CommandListener, Swift_Events_Re
         $msg = $event->getMessage();
         $this->debug->groupCollapsed(
             'sending email',
-            $this->formatEmailAddrs($msg->getTo()),
+            $this->formatEmailAddresses($msg->getTo()),
             $msg->getSubject(),
             $this->iconMeta
         );
@@ -92,8 +111,6 @@ class SwiftMailerLogger implements Swift_Events_CommandListener, Swift_Events_Re
      * @param Swift_Events_SendEvent $event Swift SendEvent Instance
      *
      * @return void
-     *
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public function sendPerformed(Swift_Events_SendEvent $event)
     {
@@ -118,12 +135,12 @@ class SwiftMailerLogger implements Swift_Events_CommandListener, Swift_Events_Re
         $debugArgs = array($entry);
         $matches = array();
         if (\preg_match('#^(([-+><])\2) (.+)$#s', $entry, $matches)) {
-            $debugArgs = array($matches[1] . ':', $matches[3]);
+            $debugArgs = [$matches[1] . ':', $matches[3]];
         }
         if ($this->useIcon) {
             $debugArgs[] = $this->iconMeta;
         }
-        \call_user_func_array(array($this->debug, 'log'), $debugArgs);
+        \call_user_func_array([$this->debug, 'log'], $debugArgs);
     }
 
     /**
@@ -284,14 +301,14 @@ class SwiftMailerLogger implements Swift_Events_CommandListener, Swift_Events_Re
     /**
      * Convert array of email addresses/names to string
      *
-     * @param array $addrs emailAddr->name pairs
+     * @param array $addresses emailAddr->name pairs
      *
      * @return string
      */
-    protected function formatEmailAddrs($addrs)
+    protected function formatEmailAddresses($addresses)
     {
         $return = array();
-        foreach ($addrs as $addr => $name) {
+        foreach ($addresses as $addr => $name) {
             $return[] = ($name ? $name . ' ' : '') . '<' . $addr . '>';
         }
         return \implode(', ', $return);

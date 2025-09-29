@@ -6,15 +6,19 @@
  * @package   PHPDebugConsole
  * @author    Brad Kent <bkfake-github@yahoo.com>
  * @license   http://opensource.org/licenses/MIT MIT
- * @copyright 2014-2022 Brad Kent
- * @version   v3.0
+ * @copyright 2014-2025 Brad Kent
+ * @since     1.2
  */
 
 namespace bdk\Debug\Utility;
 
-use bdk\Debug\Utility\ArrayUtil;
+use bdk\Debug\Utility\StringUtilHelperTrait;
+use bdk\HttpMessage\Utility\ContentType;
+use bdk\HttpMessage\Utility\Stream as StreamUtility;
 use DOMDocument;
+use finfo;
 use InvalidArgumentException;
+use Psr\Http\Message\StreamInterface;
 use SqlFormatter;
 
 /**
@@ -22,12 +26,41 @@ use SqlFormatter;
  */
 class StringUtil
 {
+    use StringUtilHelperTrait;
+
     const IS_BASE64_LENGTH = 1;
     const IS_BASE64_CHAR_STAT = 2;
 
+    /** @var DOMDocument|null */
     protected static $domDocument;
+    /** @var array Interpolation context*/
     private static $interpContext = array();
+    /** @var bool */
     private static $interpIsArrayAccess = false;
+
+    /**
+     * Find the longest common prefix for provided strings
+     *
+     * @param string[] $strings Strings to compare
+     *
+     * @return string
+     */
+    public static function commonPrefix(array $strings)
+    {
+        self::assertStrings($strings);
+
+        if (empty($strings)) {
+            return '';
+        }
+
+        \sort($strings);
+        $s1 = $strings[0];    // First string
+        $s2 = \end($strings); // Last string
+        $len = \min(\strlen($s1), \strlen($s2));
+        for ($i = 0; $i < $len && $s1[$i] === $s2[$i]; $i++);
+
+        return \substr($s1, 0, $i);
+    }
 
     /**
      * Compare two values specifying operator
@@ -69,10 +102,36 @@ class StringUtil
         } elseif (\in_array($operator, $operators, true) === false) {
             throw new InvalidArgumentException(__METHOD__ . ' - Invalid operator passed');
         }
-        if (\in_array($operator, array('===', '!=='), true) === false) {
+        if (\in_array($operator, ['===', '!=='], true) === false) {
             list($valA, $valB) = static::compareTypeJuggle($valA, $valB);
         }
         return static::doCompare($valA, $valB, $operator);
+    }
+
+    /**
+     * Detect mime-type
+     *
+     * @param StreamInterface|string $val Value to inspect
+     *
+     * @return string
+     */
+    public static function contentType($val)
+    {
+        if ($val instanceof StreamInterface) {
+            $val = StreamUtility::getContents($val);
+        }
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $contentType = $finfo->buffer($val);
+        if ($contentType !== ContentType::TXT) {
+            return $contentType;
+        }
+        if (self::isJson($val)) {
+            return ContentType::JSON;
+        }
+        if (self::isHtml($val)) {
+            return ContentType::HTML;
+        }
+        return $contentType;
     }
 
     /**
@@ -90,7 +149,7 @@ class StringUtil
         static::interpolateAssertArgs($message, $context);
         self::$interpContext = $context;
         self::$interpIsArrayAccess = \is_array($context) || $context instanceof \ArrayAccess;
-        $matches = array();
+        $matches = [];
         \preg_match_all('/\{([a-zA-Z0-9._\\/-]+)\}/', (string) $message, $matches);
         $placeholders = \array_unique($matches[1]);
         $replaceVals = self::interpolateValues($placeholders);
@@ -127,9 +186,32 @@ class StringUtil
     }
 
     /**
+     * Test if value is html
+     *
+     * @param mixed $val value to test
+     *
+     * @return bool
+     */
+    public static function isHtml($val)
+    {
+        if (\is_string($val) === false) {
+            return false;
+        }
+        if (\preg_match('/^\s*<!DOCTYPE html/ui', $val) === 1) {
+            return true;
+        }
+        if (\preg_match('/^\s*<\?/u', $val) === 1) {
+            return false;
+        }
+        $containsTag = \preg_match('/<([a-z]+|h[1-6])\b[^<]*>/', $val) === 1;
+        $containsEntity = \preg_match('/&([a-z]{2,23}|#\d+|#x[0-9a-f]+);/i', $val) === 1;
+        return $containsTag || $containsEntity;
+    }
+
+    /**
      * Test if value is a json encoded object or array
      *
-     * @param string $val value to test
+     * @param mixed $val value to test
      *
      * @return bool
      */
@@ -138,11 +220,14 @@ class StringUtil
         if (\is_string($val) === false) {
             return false;
         }
-        if (\preg_match('/^(\[.+\]|\{.+\})$/s', $val) !== 1) {
+        if (\preg_match('/^\s*(\[.+\]|\{.+\})\s*$/s', $val) !== 1) {
             return false;
         }
-        \json_decode($val);
-        return \json_last_error() === JSON_ERROR_NONE;
+        if (\function_exists('json_validate')) {
+            return \json_validate($val, JSON_INVALID_UTF8_IGNORE);
+        }
+        \json_decode($val); // @codeCoverageIgnore
+        return \json_last_error() === JSON_ERROR_NONE; // @codeCoverageIgnore
     }
 
     /**
@@ -160,10 +245,10 @@ class StringUtil
         }
         $isSerialized = false;
         $matches = array();
-        if (\preg_match('/^(N|b:[01]|i:\d+|d:\d+\.\d+|s:\d+:".*");$/', $val)) {
+        if (\preg_match('/^(N|b:[01]|i:\d+|d:\d+\.\d+|s:\d+:".*");$/s', $val)) {
             // null, bool, int, float, or string
             $isSerialized = true;
-        } elseif (\preg_match('/^(?:a|O:8:"stdClass"):\d+:\{(.+)\}$/', $val, $matches)) {
+        } elseif (\preg_match('/^(?:a|O:8:"stdClass"):\d+:\{(.+)\}$/s', $val, $matches)) {
             // appears to be a serialized array or stdClass object
             // make sure does not contain a serialized obj other than stdClass
             $isSerialized = \preg_match('/[OC]:\d+:"((?!stdClass)[^"])*":\d+:/', $matches[1]) !== 1;
@@ -181,6 +266,8 @@ class StringUtil
     /**
      * Test if string is valid xml
      *
+     * Note that HTML with a DocType declaration will return false, but without it may return true
+     *
      * @param string $str string to test
      *
      * @return bool
@@ -188,6 +275,13 @@ class StringUtil
     public static function isXml($str)
     {
         if (\is_string($str) === false) {
+            return false;
+        }
+        if (empty($str)) {
+            return false;
+        }
+        if (\preg_match('/^\s*<!DOCTYPE html/u', $str) === 1) {
+            // with/without byte-order mark
             return false;
         }
         \libxml_use_internal_errors(true);
@@ -200,17 +294,17 @@ class StringUtil
      * Prettify JSON string
      * The goal is to format whitespace without effecting the encoding
      *
-     * @param string $json        JSON string to prettify
-     * @param int    $encodeFlags (0) specify json_encode flags
-     *                               we will always add JSON_PRETTY_PRINT
-     *                               we will add JSON_UNESCAPED_SLASHES if source doesn't contain escaped slashes
-     *                               we will add JSON_UNESCAPED_UNICODE IF source doesn't contain escaped unicode
+     * @param string $json           JSON string to prettify
+     * @param int    $encodeFlags    (0) specify json_encode flags
+     *                                 we will add JSON_UNESCAPED_SLASHES if source doesn't contain escaped slashes
+     *                                 we will add JSON_UNESCAPED_UNICODE IF source doesn't contain escaped unicode
+     * @param int    $encodeFlagsAdd (JSON_PRETTY_PRINT) additional flags to add
      *
-     * @return string
+     * @return string|false false if invalid json
      */
-    public static function prettyJson($json, $encodeFlags = 0)
+    public static function prettyJson($json, $encodeFlags = 0, $encodeFlagsAdd = JSON_PRETTY_PRINT)
     {
-        $flags = $encodeFlags | JSON_PRETTY_PRINT;
+        $flags = $encodeFlags | $encodeFlagsAdd;
         if (\strpos($json, '\\/') === false) {
             // json doesn't appear to contain escaped slashes
             $flags |= JSON_UNESCAPED_SLASHES;
@@ -219,23 +313,28 @@ class StringUtil
             // json doesn't appear to contain encoded unicode
             $flags |= JSON_UNESCAPED_UNICODE;
         }
-        return \json_encode(\json_decode($json), $flags);
+        $decoded = \json_decode($json);
+        return \json_last_error() === JSON_ERROR_NONE
+            ? \json_encode($decoded, $flags)
+            : false;
     }
 
     /**
      * Prettify SQL string
      *
-     * @param string $sql SQL string to prettify
+     * @param string $sql     SQL string to prettify
+     * @param bool   $success Was prettification successful?
      *
      * @return string
      *
      * @see https://github.com/jdorn/sql-formatter
      */
-    public static function prettySql($sql)
+    public static function prettySql($sql, &$success = false)
     {
         if (\class_exists('SqlFormatter') === false) {
             return $sql; // @codeCoverageIgnore
         }
+        $success = true;
         // whitespace only, don't highlight
         $sql = SqlFormatter::format($sql, false);
         // SqlFormatter borks bound params
@@ -266,213 +365,5 @@ class StringUtil
         }
         self::$domDocument->loadXML($xml);
         return self::$domDocument->saveXML();
-    }
-
-    /**
-     * Typecast values for comparison like Php 8 does it
-     *
-     * @param mixed $valA Value a
-     * @param mixed $valB Value b
-     *
-     * @return array $valA & $valB
-     *
-     * @link https://www.php.net/releases/8.0/en.php#saner-string-to-number-comparisons
-     */
-    private static function compareTypeJuggle($valA, $valB)
-    {
-        $isNumericA = \is_numeric($valA);
-        $isNumericB = \is_numeric($valB);
-        if ($isNumericA && $isNumericB) {
-            $valA = $valA * 1;
-            $valB = $valB * 1;
-        } elseif ($isNumericA && \is_string($valB)) {
-            $valA = (string) $valA;
-        } elseif ($isNumericB && \is_string($valA)) {
-            $valB = (string) $valB;
-        }
-        return array($valA, $valB);
-    }
-
-    /**
-     * Compare two values specifying operator
-     *
-     * @param mixed  $valA     Value A
-     * @param mixed  $valB     Value B
-     * @param string $operator (strcmp) Comparison operator
-     *
-     * @return bool
-     */
-    private static function doCompare($valA, $valB, $operator)
-    {
-        switch ($operator) {
-            case '==':
-                return $valA == $valB;
-            case '===':
-                return $valA === $valB;
-            case '!=':
-                return $valA != $valB;
-            case '!==':
-                return $valA !== $valB;
-            case '>=':
-                return $valA >= $valB;
-            case '<=':
-                return $valA <= $valB;
-            case '>':
-                return $valA >  $valB;
-            case '<':
-                return $valA <  $valB;
-        }
-        $ret = \call_user_func($operator, $valA, $valB);
-        $ret = \min(\max($ret, -1), 1);
-        return $ret;
-    }
-
-    /**
-     * Test if character distribution is what we would expect for a base 64 string
-     * This is quite unreliable as encoding isn't random
-     *
-     * @param string $val string already striped of whitespace
-     *
-     * @return bool
-     */
-    private static function isBase64EncodedTestStats($val)
-    {
-        $valNoPadding = \rtrim($val, '=');
-        $strlen = \strlen($valNoPadding);
-        if ($strlen < \strlen($val)) {
-            // if val ends with "=" it's pretty safe to assume base64
-            return true;
-        }
-        if ($strlen === 0) {
-            return false;
-        }
-        $stats = array(
-            'lower' => array(\preg_match_all('/[a-z]/', $val), 40.626, 8),
-            'num' => array(\preg_match_all('/[0-9]/', $val), 15.625, 8),
-            'other' => array(\preg_match_all('/[+\/]/', $val), 3.125, 5),
-            'upper' => array(\preg_match_all('/[A-Z]/', $val), 40.625, 8),
-        );
-        foreach ($stats as $stat) {
-            $per = $stat[0] * 100 / $strlen;
-            $diff = \abs($per - $stat[1]);
-            if ($diff > $stat[2]) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Test if value matches basic base64 regex
-     *
-     * @param string $val string to test
-     *
-     * @return bool
-     */
-    private static function isBase64RegexTest($val)
-    {
-        if (\is_string($val) === false) {
-            return false;
-        }
-        $val = \trim($val);
-        $isHex = \preg_match('/^[0-9A-F]+$/i', $val) === 1;
-        if ($isHex) {
-            return false;
-        }
-        // only allow whitspace at beginning and end of lines
-        $regex = '#^'
-            . '([ \t]*[a-zA-Z0-9+/]*[ \t]*[\r\n]+)*'
-            . '([ \t]*[a-zA-Z0-9+/]*={0,2})' // last line may have "=" padding at the end"
-            . '$#';
-        return \preg_match($regex, $val) === 1;
-    }
-
-    /**
-     * Test self::interpolate's $message and $context values
-     *
-     * @param string|Stringable $message message value to test
-     * @param array|object      $context context value to test
-     *
-     * @return void
-     *
-     * @throws \InvalidArgumentException
-     */
-    private static function interpolateAssertArgs($message, $context)
-    {
-        if (
-            \count(\array_filter(array(
-                \is_string($message),
-                \is_object($message) && \method_exists($message, '__toString'),
-            ))) === 0
-        ) {
-            throw new \InvalidArgumentException(\sprintf(
-                __NAMESPACE__ . '::interpolate()\'s $message expects string or Stringable object. %s provided.',
-                \is_object($message) ? \get_class($message) : \gettype($message)
-            ));
-        }
-        if (
-            \count(\array_filter(array(
-                \is_array($context),
-                \is_object($context),
-            ))) === 0
-        ) {
-            throw new \InvalidArgumentException(\sprintf(
-                __NAMESPACE__ . '::interpolate()\'s $context expects array or object for $context. %s provided.',
-                \gettype($context)
-            ));
-        }
-    }
-
-    /**
-     * Get substitution values for `interpolate()`
-     *
-     * @param array $placeholders keys
-     *
-     * @return string[] key->value array
-     */
-    private static function interpolateValues($placeholders)
-    {
-        $replace = array();
-        foreach ($placeholders as $placeholder) {
-            $val = self::interpolateValue($placeholder);
-            if (
-                \array_filter(array(
-                    $val === null,
-                    \is_array($val),
-                    \is_object($val) && \method_exists($val, '__toString') === false,
-                ))
-            ) {
-                continue;
-            }
-            $replace['{' . $placeholder . '}'] = (string) $val;
-        }
-        return $replace;
-    }
-
-    /**
-     * Pull placeholder value from context
-     *
-     * @param string $placeholder Placeholder from message
-     *
-     * @return mixed
-     */
-    private static function interpolateValue($placeholder)
-    {
-        $path = \array_filter(\preg_split('#[\./]#', $placeholder), 'strlen');
-        $key0 = $path[0];
-        $noValue = "\x00noValue\x00";
-        $val = self::$interpIsArrayAccess
-            ? (\array_key_exists($key0, self::$interpContext) ? self::$interpContext[$key0] : $noValue)
-            : (isset(self::$interpContext->{$key0}) ? self::$interpContext->{$key0} : $noValue);
-        if (\count($path) > 1) {
-            $val = ArrayUtil::pathGet($val, \array_slice($path, 1), $noValue);
-        }
-        if ($val === $noValue) {
-            return null;
-        }
-        if ($val === null) {
-            return '';
-        }
-        return $val;
     }
 }
