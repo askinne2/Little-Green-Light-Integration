@@ -31,5 +31,20 @@
     "config": {
         "optimize-autoloader": true,
         "classmap-authoritative": true
+    },
+    "scripts": {
+        "dump-autoload": "composer dump-autoload -o",
+        "refresh": [
+            "composer dump-autoload -o",
+            "echo 'Autoloader refreshed successfully!'"
+        ],
+        "dev-setup": [
+            "composer install",
+            "composer dump-autoload -o",
+            "echo 'Development environment setup complete!'"
+        ],
+        "post-autoload-dump": [
+            "echo 'Autoloader generated with optimizations enabled'"
+        ]
     }
 }

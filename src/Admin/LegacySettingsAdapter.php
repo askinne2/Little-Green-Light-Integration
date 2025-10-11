@@ -50,11 +50,11 @@ class LegacySettingsAdapter {
      */
     public static function get_instance(): LegacySettingsAdapter {
         if (is_null(self::$instance)) {
-            // Get modern settings manager from service container
+            // Get modern settings handler from service container
             if (function_exists('lgl_plugin')) {
                 $plugin = lgl_plugin();
-                $settingsManager = $plugin->getServiceFromContainer('admin.settings_manager');
-                self::$instance = new self($settingsManager);
+                $settingsHandler = $plugin->getServiceFromContainer('admin.settings_handler');
+                self::$instance = new self($settingsHandler);
             } else {
                 // Fallback - this shouldn't happen in modern setup
                 throw new \Exception('LGL Plugin not properly initialized');

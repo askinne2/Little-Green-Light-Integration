@@ -74,7 +74,7 @@ class WpUsers {
         // Register dashboard widgets
         add_action('wp_dashboard_setup', [$this, 'registerSyncDashboardWidget']);
         
-        error_log('LGL WP Users: Initialized successfully');
+        // error_log('LGL WP Users: Initialized successfully');
     }
     
     /**

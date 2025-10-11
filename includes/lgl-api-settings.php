@@ -50,7 +50,8 @@ if (!class_exists("LGL_API_Settings")) {
         }
         
         public function lgl_init() {
-            add_action( 'carbon_fields_register_fields', array($this, 'lgl_settings_page') );
+            // DISABLED: Old Carbon Fields settings - now using unified AdminMenuManager
+            // add_action( 'carbon_fields_register_fields', array($this, 'lgl_settings_page') );
            // add_action( 'carbon_fields_register_fields', array($this, 'set_membership_fields'));
         }
         

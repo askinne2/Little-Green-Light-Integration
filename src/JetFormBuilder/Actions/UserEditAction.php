@@ -144,7 +144,7 @@ class UserEditAction implements JetFormActionInterface {
         
         if (!$lgl_id) {
             // Create new constituent if not found
-            $lgl_id = $this->connection->addConstituent($uid);
+            $lgl_id = $this->createSimpleConstituent($uid, $request);
             
             if ($lgl_id) {
                 $this->helper->debug('Created new Constituent LGL ID: ', $lgl_id);
@@ -238,5 +238,46 @@ class UserEditAction implements JetFormActionInterface {
             'user_lastname',
             'user_email'
         ];
+    }
+    
+    /**
+     * Create a simple constituent for user edit scenarios
+     * 
+     * @param int $uid WordPress user ID
+     * @param array $request Request data
+     * @return int|false LGL constituent ID on success, false on failure
+     */
+    private function createSimpleConstituent(int $uid, array $request) {
+        $user_info = get_userdata($uid);
+        if (!$user_info) {
+            return false;
+        }
+        
+        // Build basic constituent data
+        $first_name = $request['user_firstname'] ?? get_user_meta($uid, 'first_name', true) ?: $user_info->first_name;
+        $last_name = $request['user_lastname'] ?? get_user_meta($uid, 'last_name', true) ?: $user_info->last_name;
+        $email = $request['user_email'] ?? get_user_meta($uid, 'user_email', true) ?: $user_info->user_email;
+        
+        $constituent_data = [
+            'external_constituent_id' => $uid,
+            'first_name' => $first_name,
+            'last_name' => $last_name,
+            'constituent_contact_type_id' => 1247,
+            'constituent_contact_type_name' => 'Primary',
+            'addressee' => $first_name . ' ' . $last_name,
+            'salutation' => $first_name,
+            'annual_report_name' => $first_name . ' ' . $last_name,
+            'date_added' => date('Y-m-d')
+        ];
+        
+        try {
+            $response = $this->connection->createConstituent($constituent_data);
+            return $response['data']['id'] ?? false;
+        } catch (Exception $e) {
+            $this->helper->debug('UserEditAction: Exception creating constituent', [
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
     }
 }

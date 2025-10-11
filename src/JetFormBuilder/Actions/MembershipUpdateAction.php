@@ -241,7 +241,7 @@ class MembershipUpdateAction implements JetFormActionInterface {
     ): void {
         $this->helper->debug('**** WP USER exists, but not in LGL *****');
         
-        $lgl_id = $this->connection->addConstituent($uid);
+        $lgl_id = $this->createMembershipConstituent($uid, $request);
         if (!$lgl_id) {
             $this->helper->debug('MembershipUpdateAction: Failed to create LGL constituent');
             return;
@@ -407,5 +407,53 @@ class MembershipUpdateAction implements JetFormActionInterface {
             'username',
             'ui-membership-type'
         ];
+    }
+    
+    /**
+     * Create a constituent for membership update scenarios
+     * 
+     * @param int $uid WordPress user ID
+     * @param array $request Request data
+     * @return int|false LGL constituent ID on success, false on failure
+     */
+    private function createMembershipConstituent(int $uid, array $request) {
+        $user_info = get_userdata($uid);
+        if (!$user_info) {
+            return false;
+        }
+        
+        // Extract user data
+        $first_name = get_user_meta($uid, 'first_name', true) ?: $user_info->first_name;
+        $last_name = get_user_meta($uid, 'last_name', true) ?: $user_info->last_name;
+        $email = get_user_meta($uid, 'user_email', true) ?: $user_info->user_email;
+        
+        $constituent_data = [
+            'external_constituent_id' => $uid,
+            'first_name' => $first_name,
+            'last_name' => $last_name,
+            'constituent_contact_type_id' => 1247,
+            'constituent_contact_type_name' => 'Primary',
+            'addressee' => $first_name . ' ' . $last_name,
+            'salutation' => $first_name,
+            'annual_report_name' => $first_name . ' ' . $last_name,
+            'date_added' => date('Y-m-d')
+        ];
+        
+        try {
+            $response = $this->connection->createConstituent($constituent_data);
+            $lgl_id = $response['data']['id'] ?? false;
+            
+            if ($lgl_id) {
+                // Store the LGL ID
+                update_user_meta($uid, 'lgl_id', $lgl_id);
+            }
+            
+            return $lgl_id;
+        } catch (Exception $e) {
+            $this->helper->debug('MembershipUpdateAction: Exception creating constituent', [
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
     }
 }

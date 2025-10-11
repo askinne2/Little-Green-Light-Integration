@@ -50,7 +50,7 @@ class DailyEmailManager {
             wp_clear_scheduled_hook('send_daily_order_summary_email_event');
         }
         
-        error_log('LGL Daily Email Manager: Initialized successfully');
+        // error_log('LGL Daily Email Manager: Initialized successfully');
     }
     
     /**

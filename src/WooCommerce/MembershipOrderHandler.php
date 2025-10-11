@@ -65,28 +65,154 @@ class MembershipOrderHandler {
         $product,
         string $membership_level
     ): void {
-        $this->helper->debug('MembershipOrderHandler: Processing membership order', [
+        $this->helper->debug('🎯 MembershipOrderHandler::processOrder() STARTED', [
             'user_id' => $uid,
             'order_id' => $order->get_id(),
-            'membership_level' => $membership_level
+            'membership_level' => $membership_level,
+            'order_total' => $order->get_total(),
+            'customer_email' => $order->get_billing_email(),
+            'timestamp' => current_time('mysql')
         ]);
         
-        // Update user role based on membership type
-        $this->updateUserRole($uid, $membership_level);
+        // Log product details and determine actual membership level
+        $product_id = $product->get_product_id();
+        $variation_id = $product->get_variation_id() ?: $product_id;
+        $product_price = (float) $product->get_total();
+        $product_meta = get_post_meta($variation_id);
         
-        // Prepare registration request
-        $request = $this->buildRegistrationRequest($uid, $order, $order_meta, $membership_level);
+        $this->helper->debug('🛍️ MembershipOrderHandler: Product Details', [
+            'product_id' => $product_id,
+            'variation_id' => $variation_id,
+            'product_name' => $product->get_name(),
+            'product_total' => $product_price,
+            'wc_name_passed' => $membership_level,
+            'product_meta_keys' => array_keys($product_meta)
+        ]);
         
-        // Process user data updates
-        $this->processUserDataUpdates($uid, $order, $order_meta, $request);
+        // CRITICAL: Determine membership level using PRICE (like legacy system)
+        // The $membership_level parameter contains the WooCommerce product name
+        // but we need to convert it to the proper LGL membership name
+        $actual_membership_level = $this->determineMembershipLevel($product, $membership_level, $product_price);
         
-        // Register user in LGL
-        $this->registerUserInLGL($request);
+        $this->helper->debug('🎯 MembershipOrderHandler: Membership Level Determination', [
+            'wc_product_name' => $membership_level,
+            'product_price' => $product_price,
+            'determined_membership_level' => $actual_membership_level,
+            'method' => 'price_based_detection'
+        ]);
         
-        // Complete the order
-        $order->update_status('completed');
+        try {
+            // Update user role based on membership type (use actual membership level)
+            $this->helper->debug('👤 MembershipOrderHandler: Updating user role...');
+            $this->updateUserRole($uid, $actual_membership_level);
+            
+            // Prepare registration request (use actual membership level)
+            $this->helper->debug('📋 MembershipOrderHandler: Building registration request...');
+            $request = $this->buildRegistrationRequest($uid, $order, $order_meta, $actual_membership_level);
+            $this->helper->debug('📋 MembershipOrderHandler: Registration request built', $request);
+            
+            // Process user data updates
+            $this->helper->debug('💾 MembershipOrderHandler: Processing user data updates...');
+            $this->processUserDataUpdates($uid, $order, $order_meta, $request);
+            
+            // Register user in LGL
+            $this->helper->debug('🔗 MembershipOrderHandler: Starting LGL registration...');
+            $this->registerUserInLGL($request);
+            
+            // Complete the order
+            $this->helper->debug('✅ MembershipOrderHandler: Completing order...');
+            $order->update_status('completed');
+            
+            $this->helper->debug('✅ MembershipOrderHandler::processOrder() COMPLETED SUCCESSFULLY', [
+                'order_id' => $order->get_id(),
+                'user_id' => $uid,
+                'final_membership_level' => $actual_membership_level
+            ]);
+            
+        } catch (Exception $e) {
+            $this->helper->debug('❌ MembershipOrderHandler::processOrder() FAILED', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'order_id' => $order->get_id(),
+                'user_id' => $uid,
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e; // Re-throw to maintain error handling
+        }
+    }
+    
+    /**
+     * Determine actual membership level from product and price
+     * 
+     * @param mixed $product WooCommerce product item
+     * @param string $wc_product_name WooCommerce product name
+     * @param float $product_price Product price
+     * @return string Actual membership level for LGL
+     */
+    private function determineMembershipLevel($product, string $wc_product_name, float $product_price): string {
+        $this->helper->debug('🔍 MembershipOrderHandler: Determining membership level', [
+            'wc_product_name' => $wc_product_name,
+            'product_price' => $product_price
+        ]);
         
-        $this->helper->debug('MembershipOrderHandler: Membership order completed', $order->get_id());
+        // Method 1: Try price-based detection first (matches legacy system exactly)
+        $price_based_level = $this->helper->uiMembershipPriceToName($product_price);
+        if (!empty($price_based_level)) {
+            $this->helper->debug('✅ MembershipOrderHandler: Using price-based detection', [
+                'price' => $product_price,
+                'membership_level' => $price_based_level,
+                'method' => 'price_based'
+            ]);
+            return $price_based_level;
+        }
+        
+        // Method 2: Try WooCommerce name conversion
+        $name_based_level = $this->helper->uiMembershipWcNameToLgl($wc_product_name);
+        if ($name_based_level !== $wc_product_name) { // If conversion happened
+            $this->helper->debug('✅ MembershipOrderHandler: Using name-based detection', [
+                'wc_name' => $wc_product_name,
+                'lgl_name' => $name_based_level,
+                'method' => 'name_based'
+            ]);
+            return $name_based_level;
+        }
+        
+        // Method 3: Check product variation attributes
+        $variation_id = $product->get_variation_id();
+        if ($variation_id) {
+            $level_attribute = get_post_meta($variation_id, 'attribute_level', true);
+            if (!empty($level_attribute)) {
+                // Convert attribute to full membership name
+                $attribute_mapping = [
+                    'Individual' => 'Individual Membership',
+                    'Family' => 'Family Membership',
+                    'Patron' => 'Patron Membership',
+                    'Patron Family' => 'Patron Family Membership',
+                    'Daily' => 'Daily Plan'
+                ];
+                
+                if (isset($attribute_mapping[$level_attribute])) {
+                    $attribute_based_level = $attribute_mapping[$level_attribute];
+                    $this->helper->debug('✅ MembershipOrderHandler: Using attribute-based detection', [
+                        'attribute' => $level_attribute,
+                        'membership_level' => $attribute_based_level,
+                        'method' => 'attribute_based'
+                    ]);
+                    return $attribute_based_level;
+                }
+            }
+        }
+        
+        // Fallback: Use original name but log warning
+        $this->helper->debug('⚠️ MembershipOrderHandler: No membership level detection worked, using fallback', [
+            'fallback_level' => $wc_product_name,
+            'price_tried' => $product_price,
+            'name_tried' => $wc_product_name,
+            'method' => 'fallback'
+        ]);
+        
+        return $wc_product_name;
     }
     
     /**
@@ -177,13 +303,54 @@ class MembershipOrderHandler {
      * @return void
      */
     private function registerUserInLGL(array $request): void {
-        // Use legacy LGL_API for now - this will be modernized in future phases
-        if (class_exists('LGL_API')) {
+        $this->helper->debug('🔗 MembershipOrderHandler::registerUserInLGL() STARTED', [
+            'user_id' => $request['user_id'] ?? 'N/A',
+            'user_email' => $request['user_email'] ?? 'N/A',
+            'membership_type' => $request['ui-membership-type'] ?? 'N/A',
+            'order_id' => $request['inserted_post_id'] ?? 'N/A'
+        ]);
+        
+        // Check if LGL_API class is available
+        if (!class_exists('LGL_API')) {
+            $this->helper->debug('❌ MembershipOrderHandler: LGL_API class not found');
+            return;
+        }
+        
+        try {
+            $this->helper->debug('🔄 MembershipOrderHandler: Getting LGL_API instance...');
             $lgl_api = \LGL_API::get_instance();
-            $lgl_api->lgl_register_user($request, []);
-            $this->helper->debug('MembershipOrderHandler: User registered in LGL', $request['user_id']);
-        } else {
-            $this->helper->debug('MembershipOrderHandler: LGL_API not available for user registration');
+            
+            if (!$lgl_api) {
+                $this->helper->debug('❌ MembershipOrderHandler: Failed to get LGL_API instance');
+                return;
+            }
+            
+            $this->helper->debug('📤 MembershipOrderHandler: Sending registration request to LGL_API...');
+            $this->helper->debug('📋 MembershipOrderHandler: Full registration data', $request);
+            
+            // Call the legacy LGL registration method
+            $result = $lgl_api->lgl_register_user($request, []);
+            
+            $this->helper->debug('📥 MembershipOrderHandler: LGL_API registration result', [
+                'result' => $result,
+                'user_id' => $request['user_id'],
+                'success' => 'Registration call completed'
+            ]);
+            
+            $this->helper->debug('✅ MembershipOrderHandler::registerUserInLGL() COMPLETED', [
+                'user_id' => $request['user_id'],
+                'lgl_api_called' => 'YES'
+            ]);
+            
+        } catch (Exception $e) {
+            $this->helper->debug('❌ MembershipOrderHandler::registerUserInLGL() FAILED', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'user_id' => $request['user_id'] ?? 'N/A',
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e; // Re-throw to maintain error handling
         }
     }
     

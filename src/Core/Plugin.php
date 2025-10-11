@@ -17,6 +17,7 @@ use UpstateInternational\LGL\Email\EmailBlocker;
 use UpstateInternational\LGL\WooCommerce\SubscriptionRenewalManager;
 use UpstateInternational\LGL\Core\ServiceContainer;
 use UpstateInternational\LGL\Core\HookManager;
+use UpstateInternational\LGL\Core\LegacyCompatibility;
 use UpstateInternational\LGL\JetFormBuilder\ActionRegistry;
 use Psr\Container\ContainerInterface;
 
@@ -118,8 +119,8 @@ class Plugin {
         add_action('init', [$this, 'initializeHooks'], 20);
         add_action('admin_init', [$this, 'initializeAdminSettings'], 30);
         
-        // Load legacy compatibility
-        $this->loadLegacyCompatibility();
+        // Load legacy compatibility layer
+        $this->initializeLegacyCompatibility();
     }
     
     /**
@@ -134,10 +135,19 @@ class Plugin {
             // Initialize utilities
             $this->container->get('utilities');
             
-            // Initialize admin services
+            // Initialize SettingsHandler (needed both admin and frontend for ApiSettings injection)
+            $settingsHandler = $this->container->get('admin.settings_handler');
+            $settingsHandler->initialize();
+            
+            // Initialize admin-only services
             if (is_admin()) {
                 $this->container->get('admin.dashboard_widgets');
-                $this->container->get('admin.settings_manager');
+                // Removed: admin.settings_manager (over-engineered, replaced by SettingsHandler)
+                $adminMenuManager = $this->container->get('admin.menu_manager');
+                $adminMenuManager->initialize();
+                $testingHandler = $this->container->get('admin.testing_handler');
+                $testingHandler->initialize();
+                // error_log('LGL Plugin: Settings handler initialized successfully');
             }
             
             // Initialize email services
@@ -172,7 +182,7 @@ class Plugin {
             $this->container->get('lgl.wp_users');
             $this->container->get('lgl.relations_manager');
             
-            error_log('LGL Plugin: All services initialized successfully via DI container');
+            // error_log('LGL Plugin: All services initialized successfully via DI container');
             
         } catch (\Exception $e) {
             error_log('LGL Plugin Service Initialization Error: ' . $e->getMessage());
@@ -189,7 +199,7 @@ class Plugin {
         // Legacy shortcode support
         $this->hookManager->addAction('template_redirect', [$this, 'handleLegacyShortcodes'], 10);
         
-        error_log('LGL Plugin: All hooks initialized successfully via HookManager');
+        // error_log('LGL Plugin: All hooks initialized successfully via HookManager');
     }
     
     /**
@@ -199,7 +209,7 @@ class Plugin {
         try {
             $actionRegistry = new ActionRegistry($this->container);
             
-            // Register all JetFormBuilder actions
+            // Register all JetFormBuilder actions (WordPress hooks are registered automatically)
             $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\UserRegistrationAction::class);
             $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\MembershipUpdateAction::class);
             $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\MembershipRenewalAction::class);
@@ -209,10 +219,8 @@ class Plugin {
             $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\UserEditAction::class);
             $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\MembershipDeactivationAction::class);
             
-            // Initialize the registry (this will register all actions with JetFormBuilder)
-            $actionRegistry->initialize();
-            
-            error_log('LGL Plugin: JetFormBuilder actions initialized successfully');
+            // Actions are automatically registered with WordPress when calling register()
+            // error_log('LGL Plugin: JetFormBuilder actions initialized successfully - ' . count($actionRegistry->getRegisteredActions()) . ' actions registered');
             
         } catch (\Exception $e) {
             error_log('LGL Plugin JetFormBuilder Actions Error: ' . $e->getMessage());
@@ -230,7 +238,7 @@ class Plugin {
             $this->container->get('memberships.renewal_manager');
             $this->container->get('memberships.cron_manager');
             
-            error_log('LGL Plugin: Membership services initialized successfully');
+            // error_log('LGL Plugin: Membership services initialized successfully');
             
         } catch (\Exception $e) {
             error_log('LGL Plugin Membership Services Error: ' . $e->getMessage());
@@ -246,10 +254,10 @@ class Plugin {
         }
         
         try {
-            $settingsManager = $this->container->get('admin.settings_manager');
-            $settingsManager->initialize();
+            // Note: admin.settings_manager was removed - SettingsHandler is now used instead
+            // The SettingsHandler is initialized in initializeServices() method
             
-            error_log('LGL Plugin: Admin settings manager initialized successfully');
+            // error_log('LGL Plugin: Admin settings manager was removed - using SettingsHandler instead');
             
         } catch (\Exception $e) {
             error_log('LGL Plugin Admin Settings Error: ' . $e->getMessage());
@@ -285,13 +293,79 @@ class Plugin {
     }
     
     /**
-     * Load legacy compatibility layer
+     * Initialize legacy compatibility layer
+     */
+    private function initializeLegacyCompatibility(): void {
+        // Check if LegacyCompatibility class is available
+        if (!class_exists('\UpstateInternational\LGL\Core\LegacyCompatibility')) {
+            error_log('LGL Plugin: LegacyCompatibility class not found - loading legacy files directly');
+            $this->loadLegacyFilesDirect();
+            return;
+        }
+        
+        try {
+            // Initialize the legacy compatibility layer
+            LegacyCompatibility::initialize();
+            LegacyCompatibility::provideLegacyWrappers();
+            // error_log('LGL Plugin: Legacy compatibility layer initialized successfully');
+        } catch (\Exception $e) {
+            error_log('LGL Plugin: Legacy compatibility error: ' . $e->getMessage());
+            $this->loadLegacyFilesDirect();
+        }
+    }
+    
+    /**
+     * Load legacy files directly (fallback method)
+     */
+    private function loadLegacyFilesDirect(): void {
+        // Fallback method to load essential legacy files directly
+        $legacyIncludes = [
+            // CRITICAL: Load the legacy API bridge first (provides LGL_API class)
+            'includes/lgl-api-legacy-bridge.php',  // Legacy LGL_API bridge
+            
+            'includes/decrease_registration_counter_on_trash.php',
+            'includes/ui_memberships/ui_memberships.php',
+            'includes/lgl-connections.php',
+            'includes/lgl-wp-users.php',
+            'includes/lgl-constituents.php',
+            'includes/lgl-payments.php',
+            'includes/lgl-relations-manager.php',
+            'includes/lgl-helper.php',
+            'includes/lgl-api-settings.php',       // Legacy settings (needed by some legacy classes)
+            'includes/test_requests.php',
+            'includes/admin/dashboard-widgets.php',
+            'includes/email/daily-email.php',
+            'includes/email/email-blocker.php',
+            'includes/woocommerce/subscription-renewal.php',
+            'includes/lgl-cache-manager.php',
+            'includes/lgl-utilities.php',
+        ];
+        
+        foreach ($legacyIncludes as $include) {
+            $file = $this->plugin_dir . $include;
+            if (file_exists($file)) {
+                require_once $file;
+            }
+        }
+        
+        // Initialize cache invalidation
+        add_action('init', function() {
+            if (class_exists('\UpstateInternational\LGL\Core\CacheManager')) {
+                \UpstateInternational\LGL\Core\CacheManager::initCacheInvalidation();
+            } elseif (class_exists('LGL_Cache_Manager')) {
+                LGL_Cache_Manager::init_cache_invalidation();
+            }
+        });
+        
+        // error_log('LGL Plugin: Legacy files loaded directly (fallback mode)');
+    }
+    
+    /**
+     * Load legacy compatibility layer (deprecated method)
      */
     private function loadLegacyCompatibility() {
-        // Load remaining legacy files that haven't been converted yet
-        require_once $this->plugin_dir . '/includes/decrease_registration_counter_on_trash.php';
-        require_once $this->plugin_dir . '/includes/test_requests.php';
-        require_once $this->plugin_dir . '/includes/ui_memberships/ui_memberships.php';
+        // This method is deprecated - functionality moved to LegacyCompatibility class
+        $this->initializeLegacyCompatibility();
     }
     
     /**

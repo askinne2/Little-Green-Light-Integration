@@ -116,7 +116,7 @@ class Payments {
      */
     private function initializePayments(): void {
         $this->resetPaymentData();
-        error_log('LGL Payments: Initialized successfully');
+        // error_log('LGL Payments: Initialized successfully');
     }
     
     /**
@@ -173,45 +173,52 @@ class Payments {
         ?string $payment_gateway = null
     ): array {
         try {
+            $helper = Helper::getInstance();
+            $helper->debug('🔍 LGL Payments: retrievePaymentTypes called', ['method' => $method]);
+            
             // Generate cache key
             $cache_key = 'payment_types_' . md5($method . ($fund ?? '') . ($payment_type ?? '') . ($lgl_class_id ?? '') . ($payment_gateway ?? ''));
             
             // Check cache first
             $cached_data = CacheManager::get($cache_key);
             if ($cached_data !== false) {
+                $helper->debug('🔍 LGL Payments: Using cached data');
                 return $cached_data;
             }
             
+            $helper->debug('🔍 LGL Payments: No cache, making API requests...');
+            
             $connection = Connection::getInstance();
             
-            // Get payment types from API
-            $payment_types_response = $connection->makeRequest('payment-types', 'GET', [
-                'method' => $method,
-                'fund' => $fund,
-                'payment_type' => $payment_type
-            ]);
+            // Get payment types from API (match legacy: payment_types.json)
+            $payment_types_response = $connection->makeRequest('payment_types.json', 'GET');
             
             if (!$payment_types_response['success']) {
-                error_log('LGL Payments: Failed to retrieve payment types: ' . ($payment_types_response['error'] ?? 'Unknown error'));
+                $this->debug('Failed to retrieve payment types', $payment_types_response['error'] ?? 'Unknown error');
                 return [];
             }
             
             $payment_types = $payment_types_response['data'] ?? [];
             
             // Get funds
-            $funds_response = $connection->makeRequest('funds', 'GET');
+            $funds_response = $connection->makeRequest('funds.json', 'GET');
             $funds = $funds_response['success'] ? ($funds_response['data'] ?? []) : [];
             
             // Get campaigns
-            $campaigns_response = $connection->makeRequest('campaigns', 'GET');
+            $campaigns_response = $connection->makeRequest('campaigns.json', 'GET');
             $campaigns = $campaigns_response['success'] ? ($campaigns_response['data'] ?? []) : [];
             
+            // Get gift types (missing from modern method)
+            $gift_types_response = $connection->makeRequest('gift_types.json', 'GET');
+            $gift_types = $gift_types_response['success'] ? ($gift_types_response['data'] ?? []) : [];
+            
             // Get categories
-            $categories_response = $connection->makeRequest('gift-categories', 'GET');
+            $categories_response = $connection->makeRequest('gift_categories.json', 'GET');
             $categories = $categories_response['success'] ? ($categories_response['data'] ?? []) : [];
             
             $result = [
                 'payment_types' => $payment_types,
+                'gift_types' => $gift_types,
                 'funds' => $funds,
                 'campaigns' => $campaigns,
                 'categories' => $categories,
@@ -230,7 +237,7 @@ class Payments {
             return $result;
             
         } catch (\Exception $e) {
-            error_log('LGL Payments: Exception retrieving payment types: ' . $e->getMessage());
+            $this->debug('Exception retrieving payment types', $e->getMessage());
             return [];
         }
     }
@@ -266,6 +273,14 @@ class Payments {
             // Get payment types for memberships
             $payment_data = $this->retrievePaymentTypes('Memberships');
             
+            $this->debug('Payment data retrieved', [
+                'method' => 'Memberships',
+                'data_keys' => array_keys($payment_data),
+                'funds_count' => count($payment_data['funds'] ?? []),
+                'campaigns_count' => count($payment_data['campaigns'] ?? []),
+                'payment_types_count' => count($payment_data['payment_types'] ?? [])
+            ]);
+            
             if (empty($payment_data)) {
                 throw new \Exception('No payment types available for memberships');
             }
@@ -278,27 +293,56 @@ class Payments {
             $fund_name = $this->determineMembershipFund($order);
             $fund_id = $this->findLglObjectKey($fund_name, 'name', $payment_data['funds'] ?? []);
             
+            // Find campaign (match legacy: 'Membership Fees')
+            $campaign_name = 'Membership Fees';
+            $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $payment_data['campaigns'] ?? []);
+            
+            // Find gift category (match legacy: 'Donation')
+            $category_name = 'Donation';
+            $category_id = $this->findLglObjectKey($category_name, 'display_name', $payment_data['categories'] ?? []);
+            
+            // Find gift type (match legacy: 'Other Income')
+            $gift_type_name = 'Other Income';
+            $gift_type_id = $this->findLglObjectKey($gift_type_name, 'name', $payment_data['gift_types'] ?? []);
+            
             // Find payment type
             $type_name = $payment_type ?: $this->determinePaymentType($payment_method);
             $type_id = $this->findLglObjectKey($type_name, 'name', $payment_data['payment_types'] ?? []);
             
-            // Build payment data
+            // Build payment data (match legacy format)
             $payment_data_to_send = [
-                'constituent_id' => $lgl_id,
-                'amount' => $price,
-                'payment_date' => $this->formatDateForApi($date),
-                'payment_method' => $type_name,
-                'payment_type_id' => $type_id,
+                'external_id' => $order_id,
+                'is_anon' => false,
+                'gift_type_id' => $gift_type_id,
+                'gift_type_name' => $gift_type_name,
+                'gift_category_id' => $category_id,
+                'gift_category_name' => $category_name,
+                'campaign_id' => $campaign_id,
+                'campaign_name' => $campaign_name,
                 'fund_id' => $fund_id,
-                'order_id' => $order_id,
-                'gateway' => $gateway_title,
-                'notes' => 'Membership payment - Order #' . $order_id,
-                'source' => 'Website'
+                'fund_name' => $fund_name,
+                'appeal_id' => 0,
+                'appeal_name' => '',
+                'event_id' => 0,
+                'event_name' => '',
+                'received_amount' => $price,
+                'received_date' => $this->formatDateForApi($date),
+                'payment_type_id' => $type_id,
+                'payment_type_name' => $type_name,
+                'check_number' => '',
+                'deductible_amount' => $price,
+                'note' => 'Website Registration, Order #' . $order_id,
+                'ack_template_name' => '',
+                'deposit_date' => $this->formatDateForApi($date),
+                'deposited_amount' => $price,
+                'parent_gift_id' => 0,
+                'parent_external_id' => 0,
+                'team_member' => ''
             ];
             
             // Create payment in LGL
             $connection = Connection::getInstance();
-            $result = $connection->createPayment($payment_data_to_send);
+            $result = $connection->addPayment($lgl_id, $payment_data_to_send);
             
             if ($result['success']) {
                 $this->debug('Membership payment created', [
@@ -312,13 +356,13 @@ class Payments {
                     CacheManager::cachePayment($result['data']['id'], $result['data']);
                 }
             } else {
-                error_log('LGL Payments: Failed to create membership payment: ' . ($result['error'] ?? 'Unknown error'));
+                $this->debug('Failed to create membership payment', $result['error'] ?? 'Unknown error');
             }
             
             return $result;
             
         } catch (\Exception $e) {
-            error_log('LGL Payments: Exception in setupMembershipPayment: ' . $e->getMessage());
+            $this->debug('Exception in setupMembershipPayment', $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -393,7 +437,7 @@ class Payments {
             
             // Create payment in LGL
             $connection = Connection::getInstance();
-            $result = $connection->createPayment($payment_data_to_send);
+            $result = $connection->addPayment($lgl_id, $payment_data_to_send);
             
             if ($result['success']) {
                 $this->debug('Class payment created', [
@@ -408,13 +452,13 @@ class Payments {
                     CacheManager::cachePayment($result['data']['id'], $result['data']);
                 }
             } else {
-                error_log('LGL Payments: Failed to create class payment: ' . ($result['error'] ?? 'Unknown error'));
+                $this->debug('Failed to create class payment', $result['error'] ?? 'Unknown error');
             }
             
             return $result;
             
         } catch (\Exception $e) {
-            error_log('LGL Payments: Exception in setupClassPayment: ' . $e->getMessage());
+            $this->debug('Exception in setupClassPayment', $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -489,7 +533,7 @@ class Payments {
             
             // Create payment in LGL
             $connection = Connection::getInstance();
-            $result = $connection->createPayment($payment_data_to_send);
+            $result = $connection->addPayment($lgl_id, $payment_data_to_send);
             
             if ($result['success']) {
                 $this->debug('Event payment created', [
@@ -504,13 +548,13 @@ class Payments {
                     CacheManager::cachePayment($result['data']['id'], $result['data']);
                 }
             } else {
-                error_log('LGL Payments: Failed to create event payment: ' . ($result['error'] ?? 'Unknown error'));
+                $this->debug('Failed to create event payment', $result['error'] ?? 'Unknown error');
             }
             
             return $result;
             
         } catch (\Exception $e) {
-            error_log('LGL Payments: Exception in setupEventPayment: ' . $e->getMessage());
+            $this->debug('Exception in setupEventPayment', $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -561,14 +605,14 @@ class Payments {
                 if ($result['success']) {
                     $this->debug('Fund created', $fund['name']);
                 } else {
-                    error_log('LGL Payments: Failed to create fund ' . $fund['name'] . ': ' . ($result['error'] ?? 'Unknown error'));
+                    $this->debug('Failed to create fund', ['fund_name' => $fund['name'], 'error' => $result['error'] ?? 'Unknown error']);
                 }
             }
             
             return $results;
             
         } catch (\Exception $e) {
-            error_log('LGL Payments: Exception in addFunds: ' . $e->getMessage());
+            $this->debug('Exception in addFunds', $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -590,7 +634,7 @@ class Payments {
                 $categories = wp_get_post_terms($product->get_id(), 'product_cat', ['fields' => 'names']);
                 
                 if (in_array('Membership', $categories) || in_array('memberships', $categories)) {
-                    return 'Membership Fund';
+                    return 'Membership'; // Match exact LGL fund name
                 }
             }
         }
@@ -690,16 +734,8 @@ class Payments {
      * @param mixed $data Optional data to display
      */
     private function debug(string $message, $data = null): void {
-        if (!$this->lgl->isDebugMode()) {
-            return;
-        }
-        
-        $log_message = 'LGL Payments: ' . $message;
-        if ($data !== null) {
-            $log_message .= ' ' . print_r($data, true);
-        }
-        
-        error_log($log_message);
+        $helper = Helper::getInstance();
+        $helper->debug('LGL Payments: ' . $message, $data);
     }
     
     /**

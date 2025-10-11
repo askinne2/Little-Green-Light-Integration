@@ -307,25 +307,71 @@ class ServiceContainer implements ContainerInterface {
      */
     private function registerCoreServices(): void {
         // Register core LGL services (using singleton getInstance() methods)
+        // Register both by service name AND by full class name for ActionRegistry compatibility
         $this->register('lgl.connection', function() {
             return \UpstateInternational\LGL\LGL\Connection::getInstance();
         });
+        $this->register(\UpstateInternational\LGL\LGL\Connection::class, function() {
+            return \UpstateInternational\LGL\LGL\Connection::getInstance();
+        });
+        
         $this->register('lgl.helper', function() {
             return \UpstateInternational\LGL\LGL\Helper::getInstance();
         });
+        $this->register(\UpstateInternational\LGL\LGL\Helper::class, function() {
+            return \UpstateInternational\LGL\LGL\Helper::getInstance();
+        });
+        
+        // Register SettingsHandler FIRST to ensure proper injection
+        $this->register('admin.settings_handler', function($container) {
+            error_log('🔧 ServiceContainer: Creating SettingsHandler...');
+            $handler = new \UpstateInternational\LGL\Admin\SettingsHandler(
+                $container->get('lgl.helper'),
+                $container->get('lgl.connection')
+            );
+            
+            // Wire the modern handler to the legacy ApiSettings for delegation
+            error_log('🔧 ServiceContainer: Getting ApiSettings instance for injection...');
+            $apiSettings = \UpstateInternational\LGL\LGL\ApiSettings::getInstance();
+            error_log('🔧 ServiceContainer: Calling setSettingsHandler...');
+            $apiSettings->setSettingsHandler($handler);
+            error_log('🔧 ServiceContainer: SettingsHandler injection completed');
+            
+            return $handler;
+        });
+        
         $this->register('lgl.api_settings', function() {
             return \UpstateInternational\LGL\LGL\ApiSettings::getInstance();
         });
+        $this->register(\UpstateInternational\LGL\LGL\ApiSettings::class, function() {
+            return \UpstateInternational\LGL\LGL\ApiSettings::getInstance();
+        });
+        
         $this->register('lgl.constituents', function() {
             return \UpstateInternational\LGL\LGL\Constituents::getInstance();
         });
+        $this->register(\UpstateInternational\LGL\LGL\Constituents::class, function() {
+            return \UpstateInternational\LGL\LGL\Constituents::getInstance();
+        });
+        
         $this->register('lgl.payments', function() {
             return \UpstateInternational\LGL\LGL\Payments::getInstance();
         });
+        $this->register(\UpstateInternational\LGL\LGL\Payments::class, function() {
+            return \UpstateInternational\LGL\LGL\Payments::getInstance();
+        });
+        
         $this->register('lgl.wp_users', function() {
             return \UpstateInternational\LGL\LGL\WpUsers::getInstance();
         });
+        $this->register(\UpstateInternational\LGL\LGL\WpUsers::class, function() {
+            return \UpstateInternational\LGL\LGL\WpUsers::getInstance();
+        });
+        
         $this->register('lgl.relations_manager', function() {
+            return \UpstateInternational\LGL\LGL\RelationsManager::getInstance();
+        });
+        $this->register(\UpstateInternational\LGL\LGL\RelationsManager::class, function() {
             return \UpstateInternational\LGL\LGL\RelationsManager::getInstance();
         });
         
@@ -452,11 +498,20 @@ class ServiceContainer implements ContainerInterface {
         });
         
         // Register Admin services
-        $this->register('admin.settings_manager', function($container) {
-            return new \UpstateInternational\LGL\Admin\SettingsManager(
+        // Removed: admin.settings_manager (over-engineered, replaced by simple SettingsHandler)
+        $this->register('admin.menu_manager', function($container) {
+            return new \UpstateInternational\LGL\Admin\AdminMenuManager(
+                $container->get('lgl.helper'),
+                $container->get('lgl.api_settings'),
+                $container->get('admin.settings_handler')
+            );
+        });
+        $this->register('admin.testing_handler', function($container) {
+            return new \UpstateInternational\LGL\Admin\TestingHandler(
                 $container->get('lgl.helper'),
                 $container->get('lgl.connection'),
-                $container->get('cache.manager')
+                $container->get('lgl.api_settings'),
+                \UpstateInternational\LGL\Core\Plugin::getInstance()
             );
         });
         

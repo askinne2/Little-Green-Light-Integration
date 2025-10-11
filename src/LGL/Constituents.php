@@ -129,7 +129,7 @@ class Constituents {
      */
     private function initializeConstituent(): void {
         $this->resetAllData();
-        error_log('LGL Constituents: Initialized successfully');
+        // error_log('LGL Constituents: Initialized successfully');
     }
     
     /**
@@ -180,7 +180,7 @@ class Constituents {
             
             $this->debug('Email set', $sanitized_email);
         } else {
-            error_log('LGL Constituents: Invalid email address provided: ' . $email);
+            $this->debug('Invalid email address provided', $email);
         }
     }
     
@@ -265,7 +265,10 @@ class Constituents {
      * @param int|null $parent_uid Parent user ID for family memberships
      */
     public function setMembership(int $user_id, ?string $note = null, ?string $method = null, ?int $parent_uid = null): void {
+        $this->debug('🎯 setMembership() CALLED!', ['user_id' => $user_id]);
+        
         if (!$user_id) {
+            $this->debug('❌ setMembership: Invalid user_id');
             return;
         }
         
@@ -275,17 +278,57 @@ class Constituents {
         $membership_renewal = get_user_meta($user_id, 'user-membership-renewal-date', true);
         $membership_status = get_user_meta($user_id, 'user-membership-status', true) ?: 'active';
         
-        // Get membership level configuration
-        $level_config = $this->lgl->getMembershipLevel($membership_level);
+        // If no membership type is set, use the one from the current request/session
+        if (!$membership_type) {
+            $membership_type = 'Individual Membership'; // Default fallback
+        }
+        
+        $this->debug('🔍 Looking up membership level config', ['user_id' => $user_id, 'type' => $membership_type]);
+        
+        $this->debug('🔍 Looking up membership level config', [
+            'membership_type' => $membership_type,
+            'user_id' => $user_id
+        ]);
+        
+        // Get membership level configuration from the membership type name
+        $level_config = $this->lgl->getMembershipLevel($membership_type);
+        
+        // If no config found by name, try to find by price (WooCommerce integration)
+        if (!$level_config || empty($level_config['lgl_membership_level_id'])) {
+            $this->debug('⚠️ No level config found by name, trying price-based lookup');
+            $level_config = $this->findMembershipLevelByPrice($user_id);
+        }
+        
+        $this->debug('📋 Final level config', $level_config);
+        
+        // Ensure we have a valid start date (use today if not set)
+        if (!$membership_start || empty($membership_start)) {
+            $membership_start = time(); // Use current timestamp
+        }
+        
+        // Ensure we have a valid renewal date (1 year from start if not set)
+        if (!$membership_renewal || empty($membership_renewal)) {
+            $start_timestamp = is_numeric($membership_start) ? $membership_start : strtotime($membership_start);
+            $membership_renewal = strtotime('+1 year', $start_timestamp);
+        }
+        
+        // Ensure we have a valid membership level ID
+        $membership_level_id = $level_config['lgl_membership_level_id'] ?? null;
+        $membership_level_name = $level_config['level_name'] ?? $level_config['name'] ?? $membership_type;
+        
+        if (!$membership_level_id) {
+            $this->debug('❌ No membership_level_id found! This will cause LGL API to fail.');
+        }
         
         $membership_data = [
-            'membership_type' => $membership_type ?: 'Individual',
-            'membership_level' => $membership_level ?: 'individual',
+            'membership_type' => $membership_type,
+            'membership_level_id' => $membership_level_id,
+            'membership_level_name' => $membership_level_name,
             'membership_status' => $membership_status,
-            'start_date' => $this->formatDateForApi($membership_start),
-            'renewal_date' => $this->formatDateForApi($membership_renewal),
+            'date_start' => $this->formatDateForApi($membership_start),
+            'finish_date' => $this->formatDateForApi($membership_renewal),
             'payment_method' => $method,
-            'notes' => $note,
+            'note' => $note ?: 'Membership created via Modern LGL API on ' . date('Y-m-d'),
             'parent_user_id' => $parent_uid
         ];
         
@@ -294,9 +337,100 @@ class Constituents {
             $membership_data['lgl_constituent_type'] = $level_config['lgl_constituent_type'];
         }
         
+        // Debug the membership data being created
+        $this->debug('Modern Membership Data Created', [
+            'user_id' => $user_id,
+            'membership_type' => $membership_type,
+            'level_config' => $level_config,
+            'membership_data' => $membership_data
+        ]);
+        
         $this->membershipData = $membership_data;
         
-        $this->debug('Membership set', $membership_data);
+        $this->debug('Final Membership Data Set', $membership_data);
+    }
+    
+    /**
+     * Find membership level configuration by price (for WooCommerce integration)
+     * 
+     * @param int $user_id WordPress user ID
+     * @return array|null Membership level configuration
+     */
+    private function findMembershipLevelByPrice(int $user_id): ?array {
+        // Get the most recent order for this user to find the price
+        $orders = wc_get_orders([
+            'customer_id' => $user_id,
+            'status' => ['completed', 'processing', 'on-hold'],
+            'limit' => 1,
+            'orderby' => 'date',
+            'order' => 'DESC'
+        ]);
+        
+        if (empty($orders)) {
+            $this->debug('⚠️ No recent orders found for user', $user_id);
+            return null;
+        }
+        
+        $order = $orders[0];
+        $order_total = (float) $order->get_total();
+        
+        $this->debug('🛒 Found recent order', [
+            'order_id' => $order->get_id(),
+            'total' => $order_total
+        ]);
+        
+        // Get membership levels from settings
+        $membership_levels = $this->lgl->getMembershipLevels();
+        
+        $this->debug('🔍 Constituents: Retrieved membership levels from ApiSettings', [
+            'count' => count($membership_levels),
+            'levels' => $membership_levels
+        ]);
+        
+        if (empty($membership_levels)) {
+            $this->debug('⚠️ No membership levels configured in settings');
+            return null;
+        }
+        
+        // Find matching level by price
+        foreach ($membership_levels as $level) {
+            $level_price = (float) ($level['price'] ?? 0);
+            $price_difference = abs($level_price - $order_total);
+            
+            // Allow for tax/fee differences up to 10% of the base price
+            $tolerance = max(5.00, $level_price * 0.10); // At least $5 or 10% of price
+            
+            $this->debug('🔍 Checking price match', [
+                'level_name' => $level['level_name'] ?? 'Unknown',
+                'level_price' => $level_price,
+                'order_total' => $order_total,
+                'difference' => $price_difference,
+                'tolerance' => $tolerance,
+                'matches' => $price_difference <= $tolerance
+            ]);
+            
+            if ($price_difference <= $tolerance) {
+                $this->debug('✅ Found matching membership level by price', [
+                    'level' => $level,
+                    'order_total' => $order_total,
+                    'level_price' => $level_price,
+                    'difference' => $price_difference
+                ]);
+                return $level;
+            }
+        }
+        
+        $this->debug('❌ No membership level found matching price', [
+            'order_total' => $order_total,
+            'available_levels' => array_map(function($level) {
+                return [
+                    'name' => $level['level_name'] ?? 'Unknown',
+                    'price' => $level['price'] ?? 0
+                ];
+            }, $membership_levels)
+        ]);
+        
+        return null;
     }
     
     /**
@@ -307,13 +441,13 @@ class Constituents {
      */
     public function setData(int $user_id, bool $skip_membership = false): void {
         if (!$user_id) {
-            error_log('LGL Constituents: Invalid user ID provided');
+            $this->debug('Invalid user ID provided');
             return;
         }
         
         $user = get_user_by('id', $user_id);
         if (!$user) {
-            error_log('LGL Constituents: User not found for ID: ' . $user_id);
+            $this->debug('User not found for ID', $user_id);
             return;
         }
         
@@ -362,7 +496,7 @@ class Constituents {
             $this->debug('All data set for user', $user_id);
             
         } catch (\Exception $e) {
-            error_log('LGL Constituents: Error setting data for user ' . $user_id . ': ' . $e->getMessage());
+            $this->debug('Error setting data for user', ['user_id' => $user_id, 'error' => $e->getMessage()]);
         }
     }
     
@@ -424,7 +558,7 @@ class Constituents {
             return $result;
             
         } catch (\Exception $e) {
-            error_log('LGL Constituents: Error in setDataAndUpdate: ' . $e->getMessage());
+            $this->debug('Error in setDataAndUpdate', $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -475,13 +609,13 @@ class Constituents {
                     CacheManager::cacheConstituent($result['data']['id'], $result['data']);
                 }
             } else {
-                error_log('LGL Constituents: Failed to create constituent: ' . ($result['error'] ?? 'Unknown error'));
+                $this->debug('Failed to create constituent', $result['error'] ?? 'Unknown error');
             }
             
             return $result;
             
         } catch (\Exception $e) {
-            error_log('LGL Constituents: Exception creating constituent: ' . $e->getMessage());
+            $this->debug('Exception creating constituent', $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -512,13 +646,13 @@ class Constituents {
                     CacheManager::cacheConstituent($lgl_id, $result['data']);
                 }
             } else {
-                error_log('LGL Constituents: Failed to update constituent ' . $lgl_id . ': ' . ($result['error'] ?? 'Unknown error'));
+                $this->debug('Failed to update constituent', ['lgl_id' => $lgl_id, 'error' => $result['error'] ?? 'Unknown error']);
             }
             
             return $result;
             
         } catch (\Exception $e) {
-            error_log('LGL Constituents: Exception updating constituent: ' . $e->getMessage());
+            $this->debug('Exception updating constituent', $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -643,16 +777,8 @@ class Constituents {
      * @param mixed $data Optional data to display
      */
     private function debug(string $message, $data = null): void {
-        if (!static::DEBUG_MODE || !$this->lgl->isDebugMode()) {
-            return;
-        }
-        
-        $log_message = 'LGL Constituents: ' . $message;
-        if ($data !== null) {
-            $log_message .= ' ' . print_r($data, true);
-        }
-        
-        error_log($log_message);
+        $helper = Helper::getInstance();
+        $helper->debug('LGL Constituents: ' . $message, $data);
     }
     
     /**

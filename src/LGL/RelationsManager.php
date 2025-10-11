@@ -106,7 +106,7 @@ class RelationsManager {
         // Initialize relationship tracking
         $this->initializeRelationshipTracking();
         
-        error_log('LGL Relations Manager: Initialized successfully');
+        // error_log('LGL Relations Manager: Initialized successfully');
     }
     
     /**

@@ -36,6 +36,13 @@ class ApiSettings {
     private $settingsCache = [];
     
     /**
+     * Modern settings handler (delegates to this for new settings)
+     * 
+     * @var \UpstateInternational\LGL\Admin\SettingsHandler|null
+     */
+    private $settingsHandler = null;
+    
+    /**
      * Get instance
      * 
      * @return ApiSettings
@@ -56,18 +63,30 @@ class ApiSettings {
     }
     
     /**
+     * Set modern settings handler for delegation
+     * 
+     * @param \UpstateInternational\LGL\Admin\SettingsHandler $handler
+     */
+    public function setSettingsHandler($handler): void {
+        $this->settingsHandler = $handler;
+        error_log('🔗 ApiSettings: SettingsHandler injected successfully! Handler class: ' . get_class($handler));
+    }
+    
+    /**
      * Initialize settings
      */
     private function initializeSettings(): void {
+        // RE-ENABLED: Carbon Fields needed to access existing data, but settings pages disabled
         // Initialize Carbon Fields if available
         if (class_exists('Carbon_Fields\\Container')) {
-            add_action('carbon_fields_register_fields', [$this, 'registerSettingsFields']);
+            // DON'T register settings pages (they're disabled)
+            // add_action('carbon_fields_register_fields', [$this, 'registerSettingsFields']);
             add_action('after_setup_theme', [$this, 'initializeCarbonFields']);
         } else {
             add_action('admin_notices', [$this, 'showCarbonFieldsNotice']);
         }
         
-        error_log('LGL API Settings: Initialized successfully');
+        //  error_log('LGL API Settings: Initialized successfully (Carbon Fields enabled for data access, UI disabled)');
     }
     
     /**
@@ -114,7 +133,7 @@ class ApiSettings {
                     Field::make('separator', 'lgl_membership_separator', 'Membership Settings'),
                     
                     Field::make('complex', 'lgl_membership_levels', 'Membership Levels')
-                        ->set_help_text('Configure your membership levels and their corresponding LGL constituent types')
+                        ->set_help_text('Configure your membership levels and their corresponding LGL membership level IDs for payment attribution')
                         ->add_fields([
                             Field::make('text', 'level_name', 'Level Name')
                                 ->set_help_text('Display name for this membership level')
@@ -124,8 +143,9 @@ class ApiSettings {
                                 ->set_help_text('Unique identifier for this level (lowercase, no spaces)')
                                 ->set_required(true),
                             
-                            Field::make('text', 'lgl_constituent_type', 'LGL Constituent Type')
-                                ->set_help_text('Corresponding constituent type in Little Green Light')
+                            Field::make('text', 'lgl_membership_level_id', 'LGL Membership Level ID')
+                                ->set_help_text('The membership level ID from Little Green Light (used for payment attribution)')
+                                ->set_attribute('type', 'number')
                                 ->set_required(true),
                             
                             Field::make('text', 'price', 'Price')
@@ -133,7 +153,7 @@ class ApiSettings {
                                 ->set_attribute('type', 'number')
                                 ->set_attribute('step', '0.01'),
                         ])
-                        ->set_header_template('<%- level_name %> - $<%- price %>'),
+                        ->set_header_template('<%- level_name %> (ID: <%- lgl_membership_level_id %>) - $<%- price %>'),
                     
                     Field::make('separator', 'lgl_debug_separator', 'Debug Settings'),
                     
@@ -164,8 +184,10 @@ class ApiSettings {
                     <li>Navigate to <strong>Settings → API</strong></li>
                     <li>Generate or copy your API key</li>
                     <li>Enter your API URL and key below</li>
+                    <li><strong>For Membership Levels:</strong> Find the membership level IDs in LGL under <strong>Settings → Membership Levels</strong></li>
                 </ol>
-                <p><em>💡 <strong>Tip:</strong> Test your connection using the debug tools after saving settings.</em></p>
+                <p><em>💡 <strong>Tip:</strong> The LGL Membership Level ID is crucial for payment attribution - it tells LGL which membership level to assign when processing payments.</em></p>
+                <p><em>🔧 <strong>Debug:</strong> Enable debug mode below to see detailed logging and test your API connection.</em></p>
             </div>
         ';
     }
@@ -189,8 +211,13 @@ class ApiSettings {
      * Get membership levels
      */
     public function getMembershipLevels(): array {
+        error_log('🔍 ApiSettings::getMembershipLevels() called');
+        error_log('🔍 ApiSettings: settingsHandler is ' . ($this->settingsHandler ? 'SET' : 'NULL'));
         $levels = $this->getSetting('lgl_membership_levels');
-        return is_array($levels) ? $levels : [];
+        error_log('🔍 ApiSettings::getMembershipLevels() called, raw result: ' . print_r($levels, true));
+        $result = is_array($levels) ? $levels : [];
+        error_log('🔍 ApiSettings::getMembershipLevels() returning: ' . print_r($result, true));
+        return $result;
     }
     
     /**
@@ -201,6 +228,34 @@ class ApiSettings {
         
         foreach ($levels as $level) {
             if (isset($level['level_slug']) && $level['level_slug'] === $slug) {
+                return $level;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get LGL membership level ID by slug
+     */
+    public function getLglMembershipLevelId(string $slug): ?int {
+        $level = $this->getMembershipLevel($slug);
+        
+        if ($level && isset($level['lgl_membership_level_id'])) {
+            return (int) $level['lgl_membership_level_id'];
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get membership level by LGL ID
+     */
+    public function getMembershipLevelByLglId(int $lgl_id): ?array {
+        $levels = $this->getMembershipLevels();
+        
+        foreach ($levels as $level) {
+            if (isset($level['lgl_membership_level_id']) && (int) $level['lgl_membership_level_id'] === $lgl_id) {
                 return $level;
             }
         }
@@ -231,10 +286,33 @@ class ApiSettings {
             return $this->settingsCache[$setting_name];
         }
         
-        // Get from Carbon Fields or WordPress options
-        if (function_exists('carbon_get_theme_option')) {
-            $value = carbon_get_theme_option($setting_name);
+        $value = null;
+        
+        // Delegate to modern settings handler first (new native WordPress options)
+        if ($this->settingsHandler) {
+            $modern_key = $this->mapToModernKey($setting_name);
+            $value = $this->settingsHandler->getSetting($modern_key, null);
+            error_log("LGL Settings: Using modern handler for '$setting_name' -> '$modern_key', got: " . print_r($value, true));
         } else {
+            error_log("LGL Settings: No modern settings handler available for '$setting_name' - settingsHandler is NULL");
+        }
+        
+        // Fallback to Carbon Fields if modern handler didn't have the value
+        if ($value === null && function_exists('carbon_get_theme_option')) {
+            $value = carbon_get_theme_option($setting_name);
+            
+            // If not found, try legacy field names
+            if (empty($value)) {
+                $legacy_name = $this->getLegacyFieldName($setting_name);
+                if ($legacy_name) {
+                    $value = carbon_get_theme_option($legacy_name);
+                    error_log("LGL Settings: Using legacy field name '$legacy_name' for '$setting_name'");
+                }
+            }
+        }
+        
+        // Final fallback to WordPress options
+        if ($value === null) {
             $value = get_option("_$setting_name", $default);
         }
         
@@ -242,6 +320,36 @@ class ApiSettings {
         $this->settingsCache[$setting_name] = $value;
         
         return $value !== null ? $value : $default;
+    }
+    
+    /**
+     * Map legacy Carbon Fields keys to modern SettingsHandler keys
+     */
+    private function mapToModernKey(string $legacy_key): string {
+        $mapping = [
+            'lgl_api_key' => 'api_key',
+            'lgl_api_url' => 'api_url', 
+            'lgl_membership_levels' => 'membership_levels',
+            'lgl_debug_mode' => 'debug_mode',
+            'lgl_test_mode' => 'test_mode'
+        ];
+        
+        return $mapping[$legacy_key] ?? $legacy_key;
+    }
+    
+    /**
+     * Get legacy field name mapping
+     */
+    private function getLegacyFieldName(string $setting_name): ?string {
+        $legacy_mapping = [
+            'lgl_api_key' => 'api_key',
+            'lgl_api_url' => 'constituents_uri', // Legacy used this for base URL
+            'lgl_membership_levels' => 'membership_levels',
+            'lgl_debug_mode' => 'debug_mode',
+            'lgl_test_mode' => 'test_mode'
+        ];
+        
+        return $legacy_mapping[$setting_name] ?? null;
     }
     
     /**

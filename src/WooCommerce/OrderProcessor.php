@@ -88,28 +88,59 @@ class OrderProcessor {
      * @return void
      */
     public function processCompletedOrder(int $order_id): void {
+        $this->helper->debug('🚀 OrderProcessor::processCompletedOrder() STARTED', [
+            'order_id' => $order_id,
+            'timestamp' => current_time('mysql'),
+            'memory_usage' => memory_get_usage(true) / 1024 / 1024 . 'MB'
+        ]);
+        
         if (!class_exists('WC_Order')) {
-            $this->helper->debug('WooCommerce not available');
+            $this->helper->debug('❌ OrderProcessor: WooCommerce not available - WC_Order class missing');
             return;
         }
         
         $order = wc_get_order($order_id);
         if (!$order) {
-            $this->helper->debug('OrderProcessor: Order not found', $order_id);
+            $this->helper->debug('❌ OrderProcessor: Order not found', $order_id);
             return;
         }
         
-        $this->helper->debug('OrderProcessor: Processing completed order', $order_id);
+        // Log detailed order information
+        $this->helper->debug('📋 OrderProcessor: Order Details', [
+            'order_id' => $order_id,
+            'order_status' => $order->get_status(),
+            'order_total' => $order->get_total(),
+            'customer_id' => $order->get_customer_id(),
+            'customer_email' => $order->get_billing_email(),
+            'payment_method' => $order->get_payment_method(),
+            'order_date' => $order->get_date_created() ? $order->get_date_created()->format('Y-m-d H:i:s') : 'Unknown',
+            'item_count' => count($order->get_items())
+        ]);
         
         // Get customer and payment information
         $uid = $order->get_customer_id();
+        $this->helper->debug('👤 OrderProcessor: Customer Info', [
+            'user_id' => $uid,
+            'billing_email' => $order->get_billing_email(),
+            'billing_first_name' => $order->get_billing_first_name(),
+            'billing_last_name' => $order->get_billing_last_name(),
+            'billing_phone' => $order->get_billing_phone()
+        ]);
+        
         $this->updatePaymentMethod($uid, $order);
         
         // Extract order metadata
         $order_meta = $this->extractOrderMetadata($order);
+        $this->helper->debug('📝 OrderProcessor: Order Metadata Extracted', $order_meta);
         
         // Process order products
+        $this->helper->debug('🛍️ OrderProcessor: Starting product processing...');
         $this->processOrderProducts($order, $uid, $order_meta);
+        
+        $this->helper->debug('✅ OrderProcessor::processCompletedOrder() COMPLETED', [
+            'order_id' => $order_id,
+            'final_memory_usage' => memory_get_usage(true) / 1024 / 1024 . 'MB'
+        ]);
     }
     
     /**
@@ -165,53 +196,104 @@ class OrderProcessor {
         $attendees = [];
         $create_attendee_cct_flag = false;
         
+        $this->helper->debug('🛍️ OrderProcessor::processOrderProducts() STARTED', [
+            'total_products' => count($products),
+            'user_id' => $uid,
+            'order_id' => $order->get_id()
+        ]);
+        
         $i = 0;
         $attendee_index = 0;
         
-        foreach ($products as $product) {
-            $product_name = $product->get_name();
-            $quantity = $product->get_quantity();
-            $product_id = $product->get_variation_id() ?: $product->get_product_id();
-            $parent_id = $product->get_variation_id() ? $product->get_product_id() : $product_id;
+        foreach ($products as $product_item) {
+            $product_name = $product_item->get_name();
+            $quantity = $product_item->get_quantity();
+            $product_id = $product_item->get_variation_id() ?: $product_item->get_product_id();
+            $parent_id = $product_item->get_variation_id() ? $product_item->get_product_id() : $product_id;
             
-            $this->helper->debug('OrderProcessor: Processing product', [
+            // Get product categories for debugging
+            $product_categories = wp_get_post_terms($parent_id, 'product_cat', ['fields' => 'slugs']);
+            
+            $this->helper->debug('🔍 OrderProcessor: Processing Product #' . ($i + 1), [
                 'name' => $product_name,
                 'quantity' => $quantity,
                 'product_id' => $product_id,
-                'parent_id' => $parent_id
+                'parent_id' => $parent_id,
+                'categories' => $product_categories,
+                'item_total' => $product_item->get_total(),
+                'item_subtotal' => $product_item->get_subtotal()
+            ]);
+            
+            // Check product type detection
+            $is_membership = $this->isMembershipProduct($parent_id, $product_name);
+            $is_class = $this->isLanguageClassProduct($parent_id);
+            $is_event = $this->isEventProduct($parent_id);
+            
+            $this->helper->debug('🏷️ OrderProcessor: Product Type Detection', [
+                'product_name' => $product_name,
+                'is_membership' => $is_membership ? 'YES' : 'NO',
+                'is_language_class' => $is_class ? 'YES' : 'NO', 
+                'is_event' => $is_event ? 'YES' : 'NO',
+                'categories' => $product_categories
             ]);
             
             // Process different product types
-            if ($this->isMembershipProduct($parent_id, $product_name)) {
-                $this->processMembershipProduct($uid, $order, $order_meta, $product, $product_name);
+            if ($is_membership) {
+                $this->helper->debug('🎯 OrderProcessor: ROUTING TO MEMBERSHIP HANDLER', [
+                    'product_name' => $product_name,
+                    'handler' => 'MembershipOrderHandler'
+                ]);
+                $this->processMembershipProduct($uid, $order, $order_meta, $product_item, $product_name);
                 
-            } elseif ($this->isLanguageClassProduct($parent_id)) {
-                $this->processLanguageClassProduct($uid, $order, $order_meta, $product);
+            } elseif ($is_class) {
+                $this->helper->debug('📚 OrderProcessor: ROUTING TO CLASS HANDLER (Legacy)', [
+                    'product_name' => $product_name,
+                    'handler' => 'ClassOrderHandler'
+                ]);
+                $this->processLanguageClassProduct($uid, $order, $order_meta, $product_item);
                 
-            } elseif ($this->isEventProduct($parent_id)) {
+            } elseif ($is_event) {
+                $this->helper->debug('🎪 OrderProcessor: ROUTING TO EVENT HANDLER', [
+                    'product_name' => $product_name,
+                    'handler' => 'EventOrderHandler'
+                ]);
                 $create_attendee_cct_flag = true;
                 
                 // Collect attendee information
                 $attendees = array_merge(
                     $attendees,
-                    $this->collectAttendeeData($order, $product, $quantity, $attendee_index)
+                    $this->collectAttendeeData($order, $product_item, $quantity, $attendee_index)
                 );
                 
                 // Process event registration (only once per parent product)
                 if ($i === 0 && !in_array($parent_id, $processed_events)) {
-                    $this->processEventProduct($uid, $order, $order_meta, $product);
+                    $this->processEventProduct($uid, $order, $order_meta, $product_item);
                     $processed_events[] = $parent_id;
                     $i++;
                 } else {
                     $i++;
                 }
+            } else {
+                $this->helper->debug('⚠️ OrderProcessor: UNRECOGNIZED PRODUCT TYPE', [
+                    'product_name' => $product_name,
+                    'product_id' => $product_id,
+                    'categories' => $product_categories,
+                    'action' => 'Skipping product - no handler available'
+                ]);
             }
         }
         
         // Create attendee CCT records if needed
         if ($create_attendee_cct_flag && !empty($attendees)) {
+            $this->helper->debug('👥 OrderProcessor: Creating attendee CCT records', count($attendees));
             $this->createAttendeeCCTRecords($order, $attendees);
         }
+        
+        $this->helper->debug('✅ OrderProcessor::processOrderProducts() COMPLETED', [
+            'products_processed' => count($products),
+            'events_processed' => count($processed_events),
+            'attendees_created' => count($attendees)
+        ]);
     }
     
     /**
@@ -263,8 +345,28 @@ class OrderProcessor {
         $product,
         string $product_name
     ): void {
-        $this->helper->debug('OrderProcessor: Running doWooCommerceLGLMembership');
-        $this->membershipHandler->processOrder($uid, $order, $order_meta, $product, $product_name);
+        $this->helper->debug('🎯 OrderProcessor::processMembershipProduct() STARTED', [
+            'user_id' => $uid,
+            'order_id' => $order->get_id(),
+            'product_name' => $product_name,
+            'product_id' => $product->get_product_id(),
+            'handler_class' => get_class($this->membershipHandler),
+            'handler_available' => isset($this->membershipHandler) ? 'YES' : 'NO'
+        ]);
+        
+        try {
+            $this->helper->debug('🔄 OrderProcessor: Delegating to MembershipOrderHandler...');
+            $this->membershipHandler->processOrder($uid, $order, $order_meta, $product, $product_name);
+            $this->helper->debug('✅ OrderProcessor: MembershipOrderHandler completed successfully');
+        } catch (Exception $e) {
+            $this->helper->debug('❌ OrderProcessor: MembershipOrderHandler FAILED', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e; // Re-throw to maintain error handling
+        }
     }
     
     /**

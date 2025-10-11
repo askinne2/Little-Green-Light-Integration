@@ -31,9 +31,9 @@ class Helper {
     const LOG_FILE = 'logs/lgl-api.log';
     
     /**
-     * Debug mode flag
+     * Debug mode flag (now dynamically determined)
      */
-    const DEBUG_MODE = false;
+    // Removed hardcoded constant - now uses ApiSettings checkbox
     
     /**
      * Get instance
@@ -68,7 +68,7 @@ class Helper {
         error_log("LGL Helper [{$level}]: {$message}");
         
         // Log to file if debug mode is enabled
-        if (static::DEBUG_MODE) {
+        if ($this->isDebugMode()) {
             $log_file = plugin_dir_path(__DIR__) . static::LOG_FILE;
             $log_dir = dirname($log_file);
             
@@ -88,25 +88,50 @@ class Helper {
      * @param mixed $data Optional data to display
      */
     public function debug(string $message, $data = null): void {
-        if (!static::DEBUG_MODE) {
+        if (!$this->isDebugMode()) {
             return;
         }
         
-        $output = '<h6 style="color: red;">' . esc_html($message) . '</h6>';
-        
-        if ($data !== null) {
-            $output .= '<pre>' . esc_html(print_r($data, true)) . '</pre>';
-        }
-        
-        echo $output;
-        
-        // Also log to error log
+        // Format the complete log message
         $log_message = $message;
         if ($data !== null) {
             $log_message .= ' ' . print_r($data, true);
         }
         
-        $this->log($log_message, 'debug');
+        // Only log once to WordPress error log (no duplicate through $this->log())
+        error_log("LGL Debug: {$log_message}");
+        
+        // Fire WordPress action for shortcodes to capture debug messages
+        do_action('lgl_debug_message', $message, $data);
+        
+        // Also display in browser if WP_DEBUG is enabled
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            $output = '<div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin: 5px 0; border-radius: 3px; font-family: monospace; font-size: 12px;">';
+            $output .= '<strong style="color: #856404;">🔍 LGL Debug:</strong> ' . esc_html($message);
+            
+            if ($data !== null) {
+                $output .= '<pre style="margin-top: 10px; background: #f8f9fa; padding: 10px; overflow-x: auto; max-height: 200px;">';
+                $output .= esc_html(print_r($data, true));
+                $output .= '</pre>';
+            }
+            
+            $output .= '</div>';
+            echo $output;
+        }
+        
+        // Also log to file if enabled (but don't duplicate in error.log)
+        if ($this->isDebugMode()) {
+            $timestamp = current_time('Y-m-d H:i:s');
+            $log_entry = "[{$timestamp}] [debug] {$log_message}" . PHP_EOL;
+            $log_file = plugin_dir_path(__DIR__) . self::LOG_FILE;
+            $log_dir = dirname($log_file);
+            
+            if (!file_exists($log_dir)) {
+                wp_mkdir_p($log_dir);
+            }
+            
+            file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
+        }
     }
     
     /**
@@ -338,7 +363,16 @@ class Helper {
      * @return bool True if in debug mode
      */
     public function isDebugMode(): bool {
-        return static::DEBUG_MODE || (defined('WP_DEBUG') && WP_DEBUG);
+        // Check ApiSettings checkbox first
+        if (class_exists('\UpstateInternational\LGL\LGL\ApiSettings')) {
+            $apiSettings = ApiSettings::getInstance();
+            if ($apiSettings->isDebugMode()) {
+                return true;
+            }
+        }
+        
+        // Fallback to WP_DEBUG
+        return defined('WP_DEBUG') && WP_DEBUG;
     }
     
     /**
@@ -434,6 +468,150 @@ class Helper {
      */
     public function getPluginUrl(): string {
         return plugin_dir_url(__DIR__ . '/../lgl-api.php');
+    }
+    
+    /**
+     * Convert WooCommerce membership product name to LGL membership name
+     * 
+     * @param string $wc_product_name WooCommerce product name
+     * @return string LGL membership name
+     */
+    public function uiMembershipWcNameToLgl(string $wc_product_name): string {
+        $this->debug('🔄 Helper: Converting WC name to LGL name', [
+            'input' => $wc_product_name
+        ]);
+        
+        // Map WooCommerce variation names to LGL membership names
+        $name_mapping = [
+            'Membership - Individual' => 'Individual Membership',
+            'Membership - Family' => 'Family Membership', 
+            'Membership - Patron' => 'Patron Membership',
+            'Membership - Patron Family' => 'Patron Family Membership',
+            'Daily Membership - Daily' => 'Daily Plan'
+        ];
+        
+        if (isset($name_mapping[$wc_product_name])) {
+            $lgl_name = $name_mapping[$wc_product_name];
+            $this->debug('✅ Helper: Name mapping found', [
+                'wc_name' => $wc_product_name,
+                'lgl_name' => $lgl_name
+            ]);
+            return $lgl_name;
+        }
+        
+        $this->debug('⚠️ Helper: No name mapping found, returning original', [
+            'wc_name' => $wc_product_name
+        ]);
+        return $wc_product_name;
+    }
+    
+    /**
+     * Convert membership price to membership name (Legacy compatibility)
+     * 
+     * @param float $price Membership price
+     * @return string Membership name
+     */
+    public function uiMembershipPriceToName(float $price): string {
+        $this->debug('🔄 Helper: Converting price to membership name', [
+            'price' => $price
+        ]);
+        
+        // Price-to-name mapping (matches legacy system)
+        $price_mapping = [
+            75 => 'Individual Membership',
+            100 => 'Family Membership',
+            200 => 'Patron Membership', 
+            250 => 'Patron Family Membership',
+            5 => 'Daily Plan'
+        ];
+        
+        if (isset($price_mapping[$price])) {
+            $membership_name = $price_mapping[$price];
+            $this->debug('✅ Helper: Price mapping found', [
+                'price' => $price,
+                'membership_name' => $membership_name
+            ]);
+            return $membership_name;
+        }
+        
+        $this->debug('⚠️ Helper: No price mapping found', [
+            'price' => $price,
+            'available_prices' => array_keys($price_mapping)
+        ]);
+        return '';
+    }
+    
+    /**
+     * Convert membership name to price (Legacy compatibility)
+     * 
+     * @param string $membership_name Membership name
+     * @return float Membership price
+     */
+    public function uiMembershipNameToPrice(string $membership_name): float {
+        $this->debug('🔄 Helper: Converting membership name to price', [
+            'membership_name' => $membership_name
+        ]);
+        
+        // Name-to-price mapping (matches legacy system)
+        $name_mapping = [
+            'Individual Membership' => 75,
+            'Family Membership' => 100,
+            'Patron Membership' => 200,
+            'Patron Family Membership' => 250,
+            'Daily Plan' => 5
+        ];
+        
+        if (isset($name_mapping[$membership_name])) {
+            $price = $name_mapping[$membership_name];
+            $this->debug('✅ Helper: Name-to-price mapping found', [
+                'membership_name' => $membership_name,
+                'price' => $price
+            ]);
+            return $price;
+        }
+        
+        $this->debug('⚠️ Helper: No name-to-price mapping found', [
+            'membership_name' => $membership_name,
+            'available_names' => array_keys($name_mapping)
+        ]);
+        return 0;
+    }
+    
+    /**
+     * Change user role (Legacy compatibility)
+     * 
+     * @param int $user_id User ID
+     * @param string $old_role Old role to remove
+     * @param string $new_role New role to add
+     * @return bool Success status
+     */
+    public function changeUserRole(int $user_id, string $old_role, string $new_role): bool {
+        $this->debug('👤 Helper: Changing user role', [
+            'user_id' => $user_id,
+            'old_role' => $old_role,
+            'new_role' => $new_role
+        ]);
+        
+        $user = get_user_by('id', $user_id);
+        if (!$user) {
+            $this->debug('❌ Helper: User not found for role change', $user_id);
+            return false;
+        }
+        
+        // Remove old role
+        $user->remove_role($old_role);
+        
+        // Add new role
+        $user->add_role($new_role);
+        
+        $this->debug('✅ Helper: User role changed successfully', [
+            'user_id' => $user_id,
+            'from' => $old_role,
+            'to' => $new_role,
+            'current_roles' => $user->roles
+        ]);
+        
+        return true;
     }
 }
 
