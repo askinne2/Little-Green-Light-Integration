@@ -156,7 +156,10 @@ class Plugin {
             
             // Initialize email services
             $this->container->get('email.daily_manager');
-            $this->container->get('email.blocker');
+            
+            // Initialize email blocker with DI
+            $emailBlocker = $this->container->get('email.blocker');
+            $emailBlocker->init();
             
             // Initialize WooCommerce services
             if (class_exists('WooCommerce')) {
@@ -237,10 +240,17 @@ class Plugin {
     private function initializeMembershipServices(): void {
         try {
             // Initialize membership services
+            $this->container->get('memberships.renewal_strategy_manager');
             $this->container->get('memberships.notification_mailer');
             $this->container->get('memberships.user_manager');
             $this->container->get('memberships.renewal_manager');
             $this->container->get('memberships.cron_manager');
+            
+            // Initialize migration utility (registers shortcode)
+            $this->container->get('admin.membership_migration_utility');
+            
+            // Initialize testing utility (registers shortcode)
+            $this->container->get('admin.membership_testing_utility');
             
             // error_log('LGL Plugin: Membership services initialized successfully');
             
@@ -341,7 +351,7 @@ class Plugin {
             'includes/test_requests.php',
             'includes/admin/dashboard-widgets.php',
             'includes/email/daily-email.php',
-            'includes/email/email-blocker.php',
+            // 'includes/email/email-blocker.php', // REMOVED: Modern version in src/Email/EmailBlocker.php is now used
             'includes/woocommerce/subscription-renewal.php',
             'includes/lgl-cache-manager.php',
             'includes/lgl-utilities.php',

@@ -656,11 +656,24 @@ class WpUsers {
         $total_users = count_users();
         $users_without_lgl = $total_users['total_users'] - count($users_with_lgl);
         
+        // Get last sync from OperationalDataManager if available
+        $last_sync_date = get_option('lgl_last_sync_date'); // Fallback
+        if (function_exists('UpstateInternational\\LGL\\Core\\ServiceContainer::getInstance')) {
+            try {
+                $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
+                $operationalData = $container->get('admin.operational_data');
+                $syncStats = $operationalData->getSyncStats();
+                $last_sync_date = $syncStats['last_sync_date'] ?: $last_sync_date;
+            } catch (\Exception $e) {
+                // Fallback to direct option read if service unavailable
+            }
+        }
+        
         return [
             'users_with_lgl_id' => count($users_with_lgl),
             'users_without_lgl_id' => $users_without_lgl,
             'total_users' => $total_users['total_users'],
-            'last_sync' => get_option('lgl_last_sync_date'),
+            'last_sync' => $last_sync_date,
             'sync_enabled' => !empty($this->lgl->getApiKey())
         ];
     }

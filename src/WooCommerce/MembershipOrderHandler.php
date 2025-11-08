@@ -16,6 +16,7 @@ use UpstateInternational\LGL\LGL\ApiSettings;
 use UpstateInternational\LGL\LGL\Helper;
 use UpstateInternational\LGL\LGL\WpUsers;
 use UpstateInternational\LGL\Memberships\MembershipRegistrationService;
+use UpstateInternational\LGL\Memberships\RenewalStrategyManager;
 
 /**
  * MembershipOrderHandler Class
@@ -53,21 +54,33 @@ class MembershipOrderHandler {
     private ApiSettings $apiSettings;
     
     /**
+     * Renewal strategy manager
+     *
+     * @var RenewalStrategyManager|null
+     */
+    private ?RenewalStrategyManager $strategyManager = null;
+    
+    /**
      * Constructor
      * 
      * @param Helper $helper LGL helper service
      * @param WpUsers $wpUsers LGL WP Users service
+     * @param MembershipRegistrationService $registrationService Membership registration service
+     * @param ApiSettings $apiSettings API settings service
+     * @param RenewalStrategyManager|null $strategyManager Renewal strategy manager (optional)
      */
     public function __construct(
         Helper $helper,
         WpUsers $wpUsers,
         MembershipRegistrationService $registrationService,
-        ApiSettings $apiSettings
+        ApiSettings $apiSettings,
+        ?RenewalStrategyManager $strategyManager = null
     ) {
         $this->helper = $helper;
         $this->wpUsers = $wpUsers;
         $this->registrationService = $registrationService;
         $this->apiSettings = $apiSettings;
+        $this->strategyManager = $strategyManager;
     }
     
     /**
@@ -156,6 +169,9 @@ class MembershipOrderHandler {
             // Complete the order
             $this->helper->debug('✅ MembershipOrderHandler: Completing order...');
             $order->update_status('completed');
+            
+            // Set renewal date for one-time purchases
+            $this->setRenewalDateForOneTimePurchase($uid, $actual_membership_level);
             
             $this->helper->debug('✅ MembershipOrderHandler::processOrder() COMPLETED SUCCESSFULLY', [
                 'order_id' => $order->get_id(),
@@ -538,5 +554,42 @@ class MembershipOrderHandler {
             'supported_membership_types' => $this->getSupportedMembershipTypes(),
             'dependencies_met' => class_exists('WC_Order') && class_exists('LGL_API')
         ];
+    }
+    
+    /**
+     * Set renewal date for one-time membership purchases
+     * 
+     * Only sets renewal date if user doesn't have active WC subscription.
+     * Enables plugin-managed renewal reminders for one-time purchases.
+     * 
+     * @param int $user_id User ID
+     * @param string $membership_level Membership level
+     * @return void
+     */
+    private function setRenewalDateForOneTimePurchase(int $user_id, string $membership_level): void {
+        // Check if strategy manager is available
+        if (!$this->strategyManager) {
+            $this->helper->debug("RenewalStrategyManager not available, skipping renewal date setup for user {$user_id}");
+            return;
+        }
+        
+        // Only set renewal date if user doesn't have active WC subscription
+        if (!$this->strategyManager->userHasActiveSubscription($user_id)) {
+            // Set renewal date to 1 year from now
+            $renewal_date = strtotime('+1 year');
+            update_user_meta($user_id, 'user-membership-renewal-date', $renewal_date);
+            update_user_meta($user_id, 'user-membership-start-date', current_time('timestamp'));
+            update_user_meta($user_id, 'user-subscription-status', 'one-time');
+            
+            $this->helper->debug("Set one-time renewal date for user {$user_id}", [
+                'membership_level' => $membership_level,
+                'renewal_date' => date('Y-m-d', $renewal_date),
+                'start_date' => date('Y-m-d', current_time('timestamp'))
+            ]);
+        } else {
+            // User has active subscription - mark as WC-managed
+            update_user_meta($user_id, 'user-subscription-status', 'wc-subscription');
+            $this->helper->debug("User {$user_id} has active WC subscription, renewal managed by WooCommerce");
+        }
     }
 }

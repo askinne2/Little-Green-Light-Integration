@@ -12,6 +12,7 @@
 namespace UpstateInternational\LGL\Memberships;
 
 use UpstateInternational\LGL\LGL\Helper;
+use UpstateInternational\LGL\Admin\SettingsManager;
 
 /**
  * MembershipNotificationMailer Class
@@ -26,6 +27,13 @@ class MembershipNotificationMailer {
      * @var Helper
      */
     private Helper $helper;
+    
+    /**
+     * Settings manager
+     * 
+     * @var SettingsManager|null
+     */
+    private ?SettingsManager $settingsManager = null;
     
     /**
      * Email template base path
@@ -53,9 +61,11 @@ class MembershipNotificationMailer {
      * 
      * @param Helper $helper Helper service
      * @param string $templatePath Base path for email templates
+     * @param SettingsManager|null $settingsManager Settings manager (optional)
      */
-    public function __construct(Helper $helper, string $templatePath = '') {
+    public function __construct(Helper $helper, string $templatePath = '', ?SettingsManager $settingsManager = null) {
         $this->helper = $helper;
+        $this->settingsManager = $settingsManager;
         $this->templatePath = $templatePath ?: get_template_directory() . '/form-emails/';
         $this->siteUrl = get_site_url();
         
@@ -116,6 +126,18 @@ class MembershipNotificationMailer {
      * @return string Email subject
      */
     private function getSubjectLine(string $first_name, int $days_until_renewal): string {
+        // Use settings-driven templates if available
+        if ($this->settingsManager) {
+            $settings = $this->settingsManager->getAll();
+            $interval_key = $this->mapDaysToInterval($days_until_renewal);
+            $subject = $settings["renewal_email_subject_{$interval_key}"] ?? '';
+            
+            if (!empty($subject)) {
+                return str_replace('{first_name}', $first_name, $subject);
+            }
+        }
+        
+        // Fallback to hardcoded templates
         $base_subject = $first_name . ', ';
         
         if ($days_until_renewal === -30) {
@@ -138,6 +160,25 @@ class MembershipNotificationMailer {
     private function getEmailContent(int $days_until_renewal): string {
         $content = '';
         
+        // Use settings-driven templates if available
+        if ($this->settingsManager) {
+            $settings = $this->settingsManager->getAll();
+            $interval_key = $this->mapDaysToInterval($days_until_renewal);
+            $template_content = $settings["renewal_email_content_{$interval_key}"] ?? '';
+            
+            if (!empty($template_content)) {
+                // Replace template variables
+                $content = str_replace(
+                    ['{first_name}', '{last_name}', '{renewal_date}', '{days_until_renewal}', '{membership_level}'],
+                    ['', '', '', $days_until_renewal, ''], // Basic replacements (enhanced by caller if needed)
+                    $template_content
+                );
+                
+                return $this->wrapContentWithTemplate($content);
+            }
+        }
+        
+        // Fallback to hardcoded templates
         if ($days_until_renewal === -30) {
             $content = $this->getInactiveAccountContent();
         } elseif ($days_until_renewal < 0 && $days_until_renewal >= -29) {
@@ -350,6 +391,15 @@ class MembershipNotificationMailer {
     }
     
     /**
+     * Get settings manager instance (for testing)
+     * 
+     * @return SettingsManager|null
+     */
+    public function getSettingsManager(): ?SettingsManager {
+        return $this->settingsManager;
+    }
+    
+    /**
      * Send test email
      * 
      * @param string $recipient_email Test recipient
@@ -394,5 +444,29 @@ class MembershipNotificationMailer {
             'wp_mail_available' => function_exists('wp_mail'),
             'email_headers' => $this->emailHeaders
         ];
+    }
+    
+    /**
+     * Map days until renewal to closest interval key
+     * 
+     * @param int $days Days until renewal
+     * @return string Interval key (30, 14, 7, 0, -7, -30)
+     */
+    private function mapDaysToInterval(int $days): string {
+        $intervals = [30, 14, 7, 0, -7, -30];
+        
+        // Find closest interval
+        $closest = $intervals[0];
+        $smallest_diff = abs($days - $closest);
+        
+        foreach ($intervals as $interval) {
+            $diff = abs($days - $interval);
+            if ($diff < $smallest_diff) {
+                $closest = $interval;
+                $smallest_diff = $diff;
+            }
+        }
+        
+        return (string) $closest;
     }
 }

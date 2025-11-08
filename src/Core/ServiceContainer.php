@@ -403,8 +403,20 @@ class ServiceContainer implements ContainerInterface {
             );
         });
         
+        // Register operational data manager
+        $this->register('admin.operational_data', function($container) {
+            return new \UpstateInternational\LGL\Admin\OperationalDataManager(
+                $container->get('lgl.helper')
+            );
+        });
+        
         // Register email services
-        $this->register('email.blocker', \UpstateInternational\LGL\Email\EmailBlocker::class);
+        $this->register('email.blocker', function($container) {
+            return new \UpstateInternational\LGL\Email\EmailBlocker(
+                $container->get('admin.settings_manager'),
+                $container->get('admin.operational_data')
+            );
+        });
         $this->register('email.daily_manager', \UpstateInternational\LGL\Email\DailyEmailManager::class);
         
         // Register WooCommerce services (with explicit dependency injection)
@@ -440,7 +452,8 @@ class ServiceContainer implements ContainerInterface {
                 $container->get('lgl.helper'),
                 $container->get('lgl.wp_users'),
                 $container->get('memberships.registration_service'),
-                $container->get('lgl.api_settings')
+                $container->get('lgl.api_settings'),
+                $container->get('memberships.renewal_strategy_manager')
             );
         });
         $this->register('woocommerce.class_handler', function($container) {
@@ -491,9 +504,16 @@ class ServiceContainer implements ContainerInterface {
         });
         
         // Register Membership services
+        $this->register('memberships.renewal_strategy_manager', function($container) {
+            return new \UpstateInternational\LGL\Memberships\RenewalStrategyManager(
+                $container->get('lgl.helper')
+            );
+        });
         $this->register('memberships.notification_mailer', function($container) {
             return new \UpstateInternational\LGL\Memberships\MembershipNotificationMailer(
-                $container->get('lgl.helper')
+                $container->get('lgl.helper'),
+                '', // template path
+                $container->get('admin.settings_manager')
             );
         });
         $this->register('memberships.user_manager', function($container) {
@@ -506,7 +526,8 @@ class ServiceContainer implements ContainerInterface {
             return new \UpstateInternational\LGL\Memberships\MembershipRenewalManager(
                 $container->get('lgl.helper'),
                 $container->get('lgl.wp_users'),
-                $container->get('memberships.notification_mailer')
+                $container->get('memberships.notification_mailer'),
+                $container->get('memberships.renewal_strategy_manager')
             );
         });
         $this->register('memberships.cron_manager', function($container) {
@@ -538,7 +559,10 @@ class ServiceContainer implements ContainerInterface {
                 $container->get('lgl.helper'),
                 $container->get('lgl.api_settings'),
                 $container->get('admin.settings_handler'),
-                $container->get('admin.sync_log_page')
+                $container->get('admin.sync_log_page'),
+                $container->get('admin.renewal_settings_page'),
+                $container->get('admin.testing_tools_page'),
+                $container->get('admin.email_blocking_page')
             );
         });
         $this->register('admin.testing_handler', function($container) {
@@ -548,6 +572,40 @@ class ServiceContainer implements ContainerInterface {
                 $container->get('lgl.api_settings'),
                 $container->get('lgl.payments'),
                 \UpstateInternational\LGL\Core\Plugin::getInstance()
+            );
+        });
+        $this->register('admin.renewal_settings_page', function($container) {
+            return new \UpstateInternational\LGL\Admin\RenewalSettingsPage(
+                $container->get('admin.settings_manager'),
+                $container->get('lgl.helper'),
+                $container->get('memberships.renewal_strategy_manager'),
+                $container->get('memberships.notification_mailer')
+            );
+        });
+        $this->register('admin.membership_migration_utility', function($container) {
+            return new \UpstateInternational\LGL\Admin\MembershipMigrationUtility(
+                $container->get('memberships.renewal_strategy_manager'),
+                $container->get('lgl.helper')
+            );
+        });
+        $this->register('admin.membership_testing_utility', function($container) {
+            return new \UpstateInternational\LGL\Admin\MembershipTestingUtility(
+                $container->get('lgl.helper'),
+                $container->get('lgl.wp_users'),
+                $container->get('memberships.renewal_strategy_manager'),
+                $container->get('memberships.renewal_manager'),
+                $container->get('memberships.notification_mailer')
+            );
+        });
+        $this->register('admin.testing_tools_page', function($container) {
+            return new \UpstateInternational\LGL\Admin\TestingToolsPage();
+        });
+        $this->register('admin.email_blocking_page', function($container) {
+            return new \UpstateInternational\LGL\Admin\EmailBlockingSettingsPage(
+                $container->get('admin.settings_manager'),
+                $container->get('admin.operational_data'),
+                $container->get('lgl.helper'),
+                $container->get('email.blocker')
             );
         });
         

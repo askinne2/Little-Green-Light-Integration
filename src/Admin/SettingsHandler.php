@@ -431,36 +431,14 @@ class SettingsHandler {
      * Sanitize settings
      */
     public function sanitizeSettings($input): array {
-        $sanitized = [];
+        // IMPORTANT: Preserve all keys since SettingsManager handles comprehensive sanitization
+        // This callback is only for WordPress's register_setting compatibility
+        // Just return the input as-is since SettingsManager::sanitizeSettings() already handles it
         
-        if (isset($input['api_url'])) {
-            $sanitized['api_url'] = sanitize_url($input['api_url']);
-        }
+        error_log('SettingsHandler::sanitizeSettings called with ' . count($input) . ' keys');
         
-        if (isset($input['api_key'])) {
-            $sanitized['api_key'] = sanitize_text_field($input['api_key']);
-        }
-        
-        if (isset($input['debug_mode'])) {
-            $sanitized['debug_mode'] = (bool) $input['debug_mode'];
-        }
-        
-        if (isset($input['test_mode'])) {
-            $sanitized['test_mode'] = (bool) $input['test_mode'];
-        }
-        
-        if (isset($input['membership_levels']) && is_array($input['membership_levels'])) {
-            $sanitized['membership_levels'] = array_map(function($level) {
-                return [
-                    'level_name' => sanitize_text_field($level['level_name'] ?? ''),
-                    'level_slug' => sanitize_title($level['level_slug'] ?? ''),
-                    'lgl_membership_level_id' => intval($level['lgl_membership_level_id'] ?? 0),
-                    'price' => floatval($level['price'] ?? 0)
-                ];
-            }, $input['membership_levels']);
-        }
-        
-        return $sanitized;
+        // Let SettingsManager handle all sanitization - just pass through
+        return $input;
     }
     
     /**

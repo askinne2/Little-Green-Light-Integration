@@ -59,7 +59,7 @@ class LegacyCompatibility {
             'includes/test_requests.php',          // Legacy Test_Requests
             'includes/admin/dashboard-widgets.php', // Legacy LGL_Dashboard_Widgets
             'includes/email/daily-email.php',      // Legacy LGL_Daily_Email
-            'includes/email/email-blocker.php',    // Legacy LGL_Email_Blocker
+            // 'includes/email/email-blocker.php',    // REMOVED: Modern version in src/Email/EmailBlocker.php is now used
             'includes/woocommerce/subscription-renewal.php', // Legacy LGL_Subscription_Renewal
             'includes/lgl-cache-manager.php',      // Legacy LGL_Cache_Manager
             'includes/lgl-utilities.php',          // Legacy LGL_Utilities

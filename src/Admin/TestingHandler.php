@@ -106,8 +106,18 @@ class TestingHandler {
      * @return void
      */
     public function cleanupOrphanedTestOrders(): void {
+        // Get last cleanup time from OperationalDataManager
+        $lastCleanup = 0;
+        try {
+            $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
+            $operationalData = $container->get('admin.operational_data');
+            $lastCleanup = $operationalData->getLastTestCleanup();
+        } catch (\Exception $e) {
+            // Fallback to direct option read
+            $lastCleanup = get_option('lgl_test_orders_last_cleanup', 0);
+        }
+        
         // Only run once per day
-        $lastCleanup = get_option('lgl_test_orders_last_cleanup', 0);
         if (time() - $lastCleanup < DAY_IN_SECONDS) {
             return;
         }
@@ -148,8 +158,15 @@ class TestingHandler {
                 }
             }
             
-            // Update last cleanup timestamp
-            update_option('lgl_test_orders_last_cleanup', time());
+            // Update last cleanup timestamp via OperationalDataManager
+            try {
+                $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
+                $operationalData = $container->get('admin.operational_data');
+                $operationalData->updateLastTestCleanup();
+            } catch (\Exception $e) {
+                // Fallback to direct option update
+                update_option('lgl_test_orders_last_cleanup', time());
+            }
             
         } catch (\Exception $e) {
             \lgl_log("❌ Error during test order cleanup", ['error' => $e->getMessage()]);

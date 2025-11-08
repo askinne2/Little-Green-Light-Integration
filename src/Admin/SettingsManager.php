@@ -126,8 +126,11 @@ class SettingsManager implements SettingsManagerInterface {
      * @return bool True on success, false on failure
      */
     public function update(array $settings): bool {
-        // Validate first
-        $validation = $this->validate($settings);
+        // Apply sanitization first
+        $sanitized = $this->sanitizeSettings($settings);
+        
+        // Validate
+        $validation = $this->validate($sanitized);
         if (!$validation['valid']) {
             $this->helper->debug('SettingsManager: Validation failed', $validation['errors']);
             return false;
@@ -136,21 +139,133 @@ class SettingsManager implements SettingsManagerInterface {
         // Get current settings
         $current = $this->getAll();
         
+        // Debug: Log what we're merging
+        $this->helper->debug('SettingsManager: Before merge', [
+            'current_keys' => array_keys($current),
+            'sanitized' => $sanitized
+        ]);
+        
         // Merge with updates
-        $updated = array_merge($current, $settings);
+        $updated = array_merge($current, $sanitized);
         
-        // Save to database
-        $result = update_option(self::OPTION_NAME, $updated);
+        // Debug: Log what we're about to save
+        $serialized = maybe_serialize($updated);
+        $data_size = strlen($serialized);
         
-        if ($result) {
-            // Clear cache
-            $this->cacheManager->delete(self::CACHE_KEY);
-            $this->settings = null; // Clear memory cache
-            
-            $this->helper->debug('SettingsManager: Settings updated successfully');
+        $this->helper->debug('SettingsManager: About to save', [
+            'option_name' => self::OPTION_NAME,
+            'keys_to_update' => array_keys($sanitized),
+            'updated_values' => $sanitized,
+            'total_keys' => count($updated),
+            'serialized_size' => $data_size . ' bytes'
+        ]);
+        
+        // Check if data is too large for autoload
+        if ($data_size > 1048576) { // 1MB
+            $this->helper->debug('SettingsManager: WARNING - Data size exceeds 1MB, this may cause issues');
         }
         
-        return $result;
+        // Save to database
+        // Note: update_option returns false if the value hasn't changed, so we need to check if it actually failed
+        $result = update_option(self::OPTION_NAME, $updated, 'no'); // Force no autoload for large data
+        
+        // Debug: Log update_option result
+        $this->helper->debug('SettingsManager: update_option result', [
+            'result' => $result,
+            'option_name' => self::OPTION_NAME
+        ]);
+        
+        // Always clear cache and consider it successful if the data matches what we wanted to save
+        $this->cacheManager->delete(self::CACHE_KEY);
+        $this->settings = null; // Clear memory cache
+        
+        // Verify the save by reading back (bypass cache)
+        global $wpdb;
+        $verify = $wpdb->get_var($wpdb->prepare(
+            "SELECT option_value FROM $wpdb->options WHERE option_name = %s",
+            self::OPTION_NAME
+        ));
+        $verify = maybe_unserialize($verify);
+        
+        // Debug: Log what we read back
+        $this->helper->debug('SettingsManager: Read back from DB', [
+            'has_data' => !empty($verify),
+            'is_array' => is_array($verify),
+            'keys_count' => is_array($verify) ? count($verify) : 0,
+            'verify_type' => gettype($verify)
+        ]);
+        
+        // Ensure verify is an array
+        if (!is_array($verify)) {
+            $verify = [];
+            $this->helper->debug('SettingsManager: Verify was not an array, reset to empty array');
+        }
+        
+        $success = true;
+        
+        foreach ($sanitized as $key => $value) {
+            if (!isset($verify[$key]) || $verify[$key] !== $value) {
+                $success = false;
+                $this->helper->debug('SettingsManager: Setting verification failed', [
+                    'key' => $key,
+                    'expected' => $value,
+                    'expected_type' => gettype($value),
+                    'actual' => $verify[$key] ?? 'not set',
+                    'actual_type' => isset($verify[$key]) ? gettype($verify[$key]) : 'N/A',
+                    'verify_has_key' => array_key_exists($key, $verify)
+                ]);
+            }
+        }
+        
+        if ($success) {
+            $this->helper->debug('SettingsManager: Settings updated successfully', [
+                'updated_keys' => array_keys($sanitized),
+                'update_option_result' => $result
+            ]);
+        }
+        
+        return $success;
+    }
+    
+    /**
+     * Apply sanitization to settings based on schema
+     * 
+     * @param array $settings Settings to sanitize
+     * @return array Sanitized settings
+     */
+    private function sanitizeSettings(array $settings): array {
+        $schema = $this->getSchema();
+        $sanitized = [];
+        
+        foreach ($settings as $key => $value) {
+            if (!isset($schema[$key])) {
+                // Unknown setting, skip
+                continue;
+            }
+            
+            $field = $schema[$key];
+            
+            // Apply sanitization callback if defined
+            if (isset($field['sanitize'])) {
+                $callback = $field['sanitize'];
+                
+                if (is_callable($callback)) {
+                    // Custom callback
+                    $sanitized[$key] = $callback($value);
+                } elseif (is_string($callback) && function_exists($callback)) {
+                    // Built-in PHP function
+                    $sanitized[$key] = $callback($value);
+                } else {
+                    // No valid sanitization, use raw value
+                    $sanitized[$key] = $value;
+                }
+            } else {
+                // No sanitization defined, use raw value
+                $sanitized[$key] = $value;
+            }
+        }
+        
+        return $sanitized;
     }
     
     /**
@@ -422,12 +537,16 @@ class SettingsManager implements SettingsManagerInterface {
     private function migrateFromCarbonFields(): void {
         // Check if migration already done
         if (get_option(self::MIGRATION_FLAG)) {
+            $this->helper->debug('SettingsManager: Migration already completed, skipping');
             return;
         }
+        
+        $this->helper->debug('SettingsManager: Starting Carbon Fields migration');
         
         // Try to load Carbon Fields data
         if (!function_exists('carbon_get_theme_option')) {
             // Carbon Fields not available, skip migration
+            $this->helper->debug('SettingsManager: Carbon Fields not available, marking migration as complete');
             update_option(self::MIGRATION_FLAG, true);
             return;
         }
@@ -460,6 +579,26 @@ class SettingsManager implements SettingsManagerInterface {
         
         // Mark migration as complete
         update_option(self::MIGRATION_FLAG, true);
+        
+        // Migrate email blocking settings (one-time)
+        if (!get_option('lgl_email_blocking_settings_migrated')) {
+            $force_blocking = get_option('lgl_force_email_blocking', false);
+            $whitelist = get_option('lgl_email_whitelist', []);
+            
+            if ($force_blocking || !empty($whitelist)) {
+                $current = get_option(self::OPTION_NAME, []);
+                $current['force_email_blocking'] = (bool)$force_blocking;
+                $current['email_whitelist'] = $whitelist;
+                update_option(self::OPTION_NAME, $current);
+                
+                $this->helper->debug('SettingsManager: Migrated email blocking settings', [
+                    'force_blocking' => (bool)$force_blocking,
+                    'whitelist_count' => count($whitelist)
+                ]);
+            }
+            
+            update_option('lgl_email_blocking_settings_migrated', true);
+        }
     }
     
     /**
@@ -533,6 +672,24 @@ class SettingsManager implements SettingsManagerInterface {
                 'sanitize' => 'boolval'
             ],
             
+            // Email Blocking Configuration
+            'force_email_blocking' => [
+                'type' => 'boolean',
+                'default' => false,
+                'sanitize' => 'boolval',
+                'label' => 'Force Block All Emails',
+                'description' => 'Override environment detection and block all outgoing emails'
+            ],
+            'email_whitelist' => [
+                'type' => 'array',
+                'default' => [],
+                'sanitize' => function($val) { 
+                    return array_map('sanitize_email', array_filter((array)$val, 'is_email')); 
+                },
+                'label' => 'Email Whitelist',
+                'description' => 'Email addresses that are always allowed (admin email is automatic)'
+            ],
+            
             // Membership Levels (complex field)
             'membership_levels' => [
                 'type' => 'array',
@@ -581,6 +738,113 @@ class SettingsManager implements SettingsManagerInterface {
                 'type' => 'array',
                 'default' => [],
                 'sanitize' => function($val) { return array_map('sanitize_url', (array)$val); }
+            ],
+            
+            // Renewal Reminder Settings
+            'renewal_reminders_enabled' => [
+                'type' => 'boolean',
+                'default' => true,
+                'sanitize' => 'boolval',
+                'label' => 'Enable Renewal Reminders',
+                'description' => 'Send automated renewal reminders to members (only applies when WC Subscriptions is not active)'
+            ],
+            'renewal_grace_period_days' => [
+                'type' => 'integer',
+                'default' => 30,
+                'validation' => ['integer', 'min:0', 'max:90'],
+                'sanitize' => 'intval',
+                'label' => 'Grace Period (Days)',
+                'description' => 'Days after renewal date before membership is deactivated'
+            ],
+            'renewal_notification_intervals' => [
+                'type' => 'array',
+                'default' => [30, 14, 7, 0, -7, -30],
+                'label' => 'Notification Intervals (Days)',
+                'description' => 'Days before/after renewal to send reminders (negative = overdue)'
+            ],
+            
+            // Email templates for 30 days before renewal
+            'renewal_email_subject_30' => [
+                'type' => 'string',
+                'default' => '{first_name}, Your Upstate International Membership Renewal is Coming!',
+                'sanitize' => 'sanitize_text_field',
+                'label' => '30 Days Before - Subject'
+            ],
+            'renewal_email_content_30' => [
+                'type' => 'text',
+                'default' => '<h1>One more month!</h1><h2>Your Upstate International Membership renewal date is in 30 days.</h2><p>Please login to your <a href="' . get_site_url() . '/my-account/">Upstate International online account</a> or register for one today. Add your preferred level of membership to your cart and complete your checkout online.</p><p>If you experience issues or difficulties, please feel free to stop by the office or contact us at:</p><ul><li><a href="tel:+18646312188">864-631-2188</a></li><li><a href="mailto:info@upstateinternational.org">info@upstateinternational.org</a></li></ul>',
+                'sanitize' => 'wp_kses_post',
+                'label' => '30 Days Before - Content'
+            ],
+            
+            // Email templates for 14 days before renewal
+            'renewal_email_subject_14' => [
+                'type' => 'string',
+                'default' => '{first_name}, Your Upstate International Membership Renewal is Coming!',
+                'sanitize' => 'sanitize_text_field',
+                'label' => '14 Days Before - Subject'
+            ],
+            'renewal_email_content_14' => [
+                'type' => 'text',
+                'default' => '<h1>Two more weeks!</h1><h2>Your Upstate International Membership renewal date is in 14 days.</h2><p>Please login to your <a href="' . get_site_url() . '/my-account/">Upstate International online account</a> or register for one today. Add your preferred level of membership to your cart and complete your checkout online.</p><p>If you experience issues or difficulties, please feel free to stop by the office or contact us at:</p><ul><li><a href="tel:+18646312188">864-631-2188</a></li><li><a href="mailto:info@upstateinternational.org">info@upstateinternational.org</a></li></ul>',
+                'sanitize' => 'wp_kses_post',
+                'label' => '14 Days Before - Content'
+            ],
+            
+            // Email templates for 7 days before renewal
+            'renewal_email_subject_7' => [
+                'type' => 'string',
+                'default' => '{first_name}, Your Upstate International Membership Renewal is Coming!',
+                'sanitize' => 'sanitize_text_field',
+                'label' => '7 Days Before - Subject'
+            ],
+            'renewal_email_content_7' => [
+                'type' => 'text',
+                'default' => '<h1>One more week!</h1><h2>Your Upstate International Membership renewal date is in 7 days.</h2><p>Please login to your <a href="' . get_site_url() . '/my-account/">Upstate International online account</a> or register for one today. Add your preferred level of membership to your cart and complete your checkout online. You may choose to pay by credit card or check, <strong>but completing an online order is the most convenient to retain your Upstate International subscription.</strong></p><p>After 30 days of inactivity past your membership renewal date, your account will be marked inactive on our website, and all data will be deleted after 60 days.</p><p>If you experience issues or difficulties, please feel free to stop by the office or contact us at:</p><ul><li><a href="tel:+18646312188">864-631-2188</a></li><li><a href="mailto:info@upstateinternational.org">info@upstateinternational.org</a></li></ul>',
+                'sanitize' => 'wp_kses_post',
+                'label' => '7 Days Before - Content'
+            ],
+            
+            // Email templates for renewal day (0 days)
+            'renewal_email_subject_0' => [
+                'type' => 'string',
+                'default' => '{first_name}, Your Upstate International Membership Renewal Date is Today!',
+                'sanitize' => 'sanitize_text_field',
+                'label' => 'Renewal Day - Subject'
+            ],
+            'renewal_email_content_0' => [
+                'type' => 'text',
+                'default' => '<h1>Today is the day!</h1><h2>Your Upstate International Membership renewal date is today.</h2><p>Please login to your <a href="' . get_site_url() . '/my-account/">Upstate International online account</a> or register for one today. Add your preferred level of membership to your cart and complete your checkout online. You may choose to pay by credit card or check, <strong>but completing an online order is the most convenient to retain your Upstate International subscription.</strong></p><p>After 30 days of inactivity past your membership renewal date, your account will be marked inactive on our website, and all data will be deleted after 60 days.</p><p>If you experience issues or difficulties, please feel free to stop by the office or contact us at:</p><ul><li><a href="tel:+18646312188">864-631-2188</a></li><li><a href="mailto:info@upstateinternational.org">info@upstateinternational.org</a></li></ul>',
+                'sanitize' => 'wp_kses_post',
+                'label' => 'Renewal Day - Content'
+            ],
+            
+            // Email templates for 7 days overdue (-7)
+            'renewal_email_subject_-7' => [
+                'type' => 'string',
+                'default' => '{first_name}, Your Upstate International Membership Renewal Date has passed!',
+                'sanitize' => 'sanitize_text_field',
+                'label' => '7 Days Overdue - Subject'
+            ],
+            'renewal_email_content_-7' => [
+                'type' => 'text',
+                'default' => '<h1>Please renew your membership - it means the World to UI!</h1><h2>Your membership renewal date has passed.</h2><p>Please login to your <a href="' . get_site_url() . '/my-account/">Upstate International online account</a> or register for one today. Add your preferred level of membership to your cart and complete your checkout online. You may choose to pay by credit card or check, <strong>but completing an online order is the most convenient to retain your Upstate International subscription.</strong></p><p>After 30 days of inactivity past your membership renewal date, your account will be marked inactive on our website, and all data will be deleted after 60 days.</p><p>If you experience issues or difficulties, please feel free to stop by the office or contact us at:</p><ul><li><a href="tel:+18646312188">864-631-2188</a></li><li><a href="mailto:info@upstateinternational.org">info@upstateinternational.org</a></li></ul>',
+                'sanitize' => 'wp_kses_post',
+                'label' => '7 Days Overdue - Content'
+            ],
+            
+            // Email templates for 30 days overdue - inactive (-30)
+            'renewal_email_subject_-30' => [
+                'type' => 'string',
+                'default' => '{first_name}, Your Upstate International Membership is now INACTIVE',
+                'sanitize' => 'sanitize_text_field',
+                'label' => '30 Days Overdue (Inactive) - Subject'
+            ],
+            'renewal_email_content_-30' => [
+                'type' => 'text',
+                'default' => '<h1>There\'s an issue with your membership subscription.</h1><h2>Your membership renewal date has passed and your one month grace period to renew your membership has expired.</h2><p><b>Your membership account has been marked as inactive.</b></p><p>If your membership plan includes family members, their accounts have also been marked as inactive.</p><p>After a 60 day period of inactivity, all user data for your account and family members\' accounts will be permanently removed from the Upstate International website.</p><h3>To reactivate your account</h3><p>Please follow the following steps:</p><ol><li>Reset your account password using the <a href="' . get_site_url() . '/my-account/lost-password">Login & Reset Password form</a>.</li><li>Make a new password and login into your account.</li><li>Add a Membership Level to your cart & complete your online checkout</li></ol><p>If you need to make changes to your membership, please feel free to stop by the office or contact us at:</p><ul><li><a href="tel:+18646312188">864-631-2188</a></li><li><a href="mailto:info@upstateinternational.org">info@upstateinternational.org</a></li></ul>',
+                'sanitize' => 'wp_kses_post',
+                'label' => '30 Days Overdue (Inactive) - Content'
             ]
         ];
     }

@@ -61,23 +61,53 @@ class AdminMenuManager {
     private ?SettingsManager $settingsManager = null;
     
     /**
+     * Renewal Settings Page
+     * 
+     * @var RenewalSettingsPage|null
+     */
+    private ?RenewalSettingsPage $renewalSettingsPage = null;
+    
+    /**
+     * Testing Tools Page
+     * 
+     * @var TestingToolsPage|null
+     */
+    private ?TestingToolsPage $testingToolsPage = null;
+    
+    /**
+     * Email Blocking Settings Page
+     * 
+     * @var EmailBlockingSettingsPage|null
+     */
+    private ?EmailBlockingSettingsPage $emailBlockingPage = null;
+    
+    /**
      * Constructor
      * 
      * @param Helper $helper Helper service
      * @param ApiSettings $apiSettings API settings service
      * @param SettingsHandler $settingsHandler Settings handler service
      * @param SyncLogPage $syncLogPage Sync log page renderer
+     * @param RenewalSettingsPage|null $renewalSettingsPage Renewal settings page (optional)
+     * @param TestingToolsPage|null $testingToolsPage Testing tools page (optional)
+     * @param EmailBlockingSettingsPage|null $emailBlockingPage Email blocking page (optional)
      */
     public function __construct(
         Helper $helper,
         ApiSettings $apiSettings,
         SettingsHandler $settingsHandler,
-        SyncLogPage $syncLogPage
+        SyncLogPage $syncLogPage,
+        ?RenewalSettingsPage $renewalSettingsPage = null,
+        ?TestingToolsPage $testingToolsPage = null,
+        ?EmailBlockingSettingsPage $emailBlockingPage = null
     ) {
         $this->helper = $helper;
         $this->apiSettings = $apiSettings;
         $this->settingsHandler = $settingsHandler;
         $this->syncLogPage = $syncLogPage;
+        $this->renewalSettingsPage = $renewalSettingsPage;
+        $this->testingToolsPage = $testingToolsPage;
+        $this->emailBlockingPage = $emailBlockingPage;
     }
     
     /**
@@ -122,6 +152,42 @@ class AdminMenuManager {
             'lgl-settings',
             [$this, 'renderSettings']
         );
+        
+        // Renewal Settings
+        if ($this->renewalSettingsPage) {
+            add_submenu_page(
+                self::MAIN_MENU_SLUG,
+                'Renewal Settings',
+                'Renewal Settings',
+                'manage_options',
+                'lgl-renewal-settings',
+                [$this->renewalSettingsPage, 'render']
+            );
+        }
+        
+        // Testing Tools
+        if ($this->testingToolsPage) {
+            add_submenu_page(
+                self::MAIN_MENU_SLUG,
+                'Rewnewal Testing Tools',
+                'Rewnewal Testing Tools',
+                'manage_options',
+                'lgl-test-renewals',
+                [$this->testingToolsPage, 'render']
+            );
+        }
+        
+        // Email Blocking Settings
+        if ($this->emailBlockingPage) {
+            add_submenu_page(
+                self::MAIN_MENU_SLUG,
+                'Email Blocking',
+                'Email Blocking',
+                'manage_options',
+                'lgl-email-blocking',
+                [$this->emailBlockingPage, 'render']
+            );
+        }
         
         // Testing Suite
         add_submenu_page(

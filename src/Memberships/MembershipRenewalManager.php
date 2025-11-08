@@ -43,6 +43,13 @@ class MembershipRenewalManager {
     private MembershipNotificationMailer $mailer;
     
     /**
+     * Renewal strategy manager
+     * 
+     * @var RenewalStrategyManager|null
+     */
+    private ?RenewalStrategyManager $strategyManager = null;
+    
+    /**
      * Grace period in days after renewal date
      */
     const GRACE_PERIOD_DAYS = 30;
@@ -58,15 +65,18 @@ class MembershipRenewalManager {
      * @param Helper $helper Helper service
      * @param WpUsers $wpUsers WP Users service
      * @param MembershipNotificationMailer $mailer Notification mailer
+     * @param RenewalStrategyManager|null $strategyManager Renewal strategy manager (optional)
      */
     public function __construct(
         Helper $helper,
         WpUsers $wpUsers,
-        MembershipNotificationMailer $mailer
+        MembershipNotificationMailer $mailer,
+        ?RenewalStrategyManager $strategyManager = null
     ) {
         $this->helper = $helper;
         $this->wpUsers = $wpUsers;
         $this->mailer = $mailer;
+        $this->strategyManager = $strategyManager;
     }
     
     /**
@@ -126,6 +136,12 @@ class MembershipRenewalManager {
         $user_data = get_userdata($user_id);
         if (!$user_data) {
             throw new \InvalidArgumentException('User not found: ' . $user_id);
+        }
+        
+        // Check renewal strategy - skip if WooCommerce manages this user
+        if ($this->strategyManager && $this->strategyManager->getRenewalStrategy($user_id) === RenewalStrategyManager::STRATEGY_WOOCOMMERCE) {
+            $this->helper->debug("Skipping user {$user_id} - managed by WooCommerce Subscriptions");
+            return ['action' => 'skipped', 'reason' => 'wc_subscriptions_active'];
         }
         
         // Get renewal data

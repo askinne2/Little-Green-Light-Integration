@@ -5,16 +5,21 @@
  * Prevents emails from being sent in local/development environments while allowing
  * them in production. Provides proper logging and debugging capabilities.
  * 
+ * Now integrated with SettingsManager and OperationalDataManager for centralized data management.
+ * 
  * @package UpstateInternational\LGL
  * @since 2.0.0
  */
 
 namespace UpstateInternational\LGL\Email;
 
+use UpstateInternational\LGL\Admin\SettingsManager;
+use UpstateInternational\LGL\Admin\OperationalDataManager;
+
 /**
  * Email Blocker Class
  * 
- * Manages email blocking based on environment detection
+ * Manages email blocking based on environment detection and user settings
  */
 class EmailBlocker {
     
@@ -32,20 +37,43 @@ class EmailBlocker {
     ];
     
     /**
+     * Settings manager
+     * 
+     * @var SettingsManager
+     */
+    private SettingsManager $settingsManager;
+    
+    /**
+     * Operational data manager
+     * 
+     * @var OperationalDataManager
+     */
+    private OperationalDataManager $operationalData;
+    
+    /**
+     * Constructor
+     * 
+     * @param SettingsManager $settingsManager Settings manager instance
+     * @param OperationalDataManager $operationalData Operational data manager instance
+     */
+    public function __construct(SettingsManager $settingsManager, OperationalDataManager $operationalData) {
+        $this->settingsManager = $settingsManager;
+        $this->operationalData = $operationalData;
+    }
+    
+    /**
      * Initialize email blocker
      */
-    public static function init(): void {
-        if (static::isDevelopmentEnvironment()) {
-            add_filter('wp_mail', [static::class, 'blockEmails'], 999);
-            add_action('admin_notices', [static::class, 'showEmailBlockingNotice']);
+    public function init(): void {
+        if ($this->isBlockingEnabled()) {
+            add_filter('wp_mail', [$this, 'blockEmails'], 999);
+            add_action('admin_notices', [$this, 'showEmailBlockingNotice']);
             
-            error_log('LGL Email Blocker: ACTIVE - Development environment detected');
+            $mode = $this->isForceBlocking() ? 'MANUAL OVERRIDE ENABLED' : 'Development environment detected';
+            error_log('LGL Email Blocker: ACTIVE - ' . $mode);
         } else {
-            error_log('LGL Email Blocker: INACTIVE - Production environment detected');
+            error_log('LGL Email Blocker: INACTIVE - Manual override disabled and environment not flagged');
         }
-        
-        // Always add admin page for blocked emails management
-        add_action('admin_menu', [static::class, 'addAdminPage']);
     }
     
     /**
@@ -53,7 +81,7 @@ class EmailBlocker {
      * 
      * @return bool True if development environment
      */
-    public static function isDevelopmentEnvironment(): bool {
+    public function isDevelopmentEnvironment(): bool {
         $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
         $site_url = get_site_url();
         
@@ -64,11 +92,6 @@ class EmailBlocker {
             }
         }
         
-        // Check for WordPress debug mode
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            return true;
-        }
-        
         // Check for local IP addresses
         if (in_array($_SERVER['SERVER_ADDR'] ?? '', ['127.0.0.1', '::1'])) {
             return true;
@@ -76,54 +99,96 @@ class EmailBlocker {
         
         return false;
     }
+
+    /**
+     * Determine whether email blocking should be active
+     * 
+     * @return bool
+     */
+    public function isBlockingEnabled(): bool {
+        if ($this->isForceBlocking()) {
+            return true;
+        }
+
+        return $this->isDevelopmentEnvironment();
+    }
+
+    /**
+     * Determine whether manual blocking override is active
+     * 
+     * @return bool
+     */
+    public function isForceBlocking(): bool {
+        return (bool) $this->settingsManager->get('force_email_blocking', false);
+    }
     
     /**
      * Block emails and log attempts
      * 
      * @param array $args Email arguments
-     * @return false Always returns false to block email
+     * @return false|array Returns false to block, or modified args to allow
      */
-    public static function blockEmails(array $args) {
+    public function blockEmails(array $args) {
         $subject = $args['subject'] ?? 'No Subject';
         $to = is_array($args['to']) ? implode(', ', $args['to']) : ($args['to'] ?? 'Unknown');
         
+        // Check if temporarily disabled
+        if ($this->operationalData->isEmailBlockingPaused()) {
+            error_log(sprintf(
+                'LGL Email Blocker: ALLOWED (temporarily disabled) - To: %s | Subject: %s',
+                $to,
+                $subject
+            ));
+            return $args; // Allow email to send
+        }
+        
+        // Check whitelist (for admin testing)
+        if ($this->isWhitelisted($to)) {
+            error_log(sprintf(
+                'LGL Email Blocker: ALLOWED (whitelisted) - To: %s | Subject: %s',
+                $to,
+                $subject
+            ));
+            return $args; // Allow email to send
+        }
+        
         // Log the blocked email attempt
         error_log(sprintf(
-            'LGL Email Blocker: BLOCKED email - To: %s | Subject: %s | Environment: %s',
+            'LGL Email Blocker: BLOCKED email - To: %s | Subject: %s | Environment: %s | Mode: %s',
             $to,
             $subject,
-            static::getEnvironmentInfo()
+            $this->getEnvironmentInfo(),
+            $this->isForceBlocking() ? 'manual_override' : 'environment'
         ));
         
-        // Store blocked email for admin review (optional)
-        static::storeBlockedEmail($args);
+        // Store blocked email for admin review
+        $this->operationalData->addBlockedEmail([
+            'to' => $args['to'] ?? 'Unknown',
+            'subject' => $args['subject'] ?? 'No Subject',
+            'message_preview' => substr(strip_tags($args['message'] ?? ''), 0, 200),
+            'headers' => $args['headers'] ?? [],
+        ]);
         
         // Return false to prevent email sending
         return false;
     }
     
     /**
-     * Store blocked email for admin review
+     * Check if email address is whitelisted
      * 
-     * @param array $args Email arguments
+     * @param string $email Email address to check
+     * @return bool True if whitelisted
      */
-    private static function storeBlockedEmail(array $args): void {
-        $blocked_emails = get_option('lgl_blocked_emails', []);
-        
-        // Keep only last 50 blocked emails
-        if (count($blocked_emails) >= 50) {
-            $blocked_emails = array_slice($blocked_emails, -49);
+    private function isWhitelisted(string $email): bool {
+        // Always allow admin email
+        $admin_email = get_option('admin_email');
+        if ($email === $admin_email) {
+            return true;
         }
         
-        $blocked_emails[] = [
-            'timestamp' => current_time('mysql'),
-            'to' => $args['to'] ?? 'Unknown',
-            'subject' => $args['subject'] ?? 'No Subject',
-            'message_preview' => substr(strip_tags($args['message'] ?? ''), 0, 200),
-            'headers' => $args['headers'] ?? [],
-        ];
-        
-        update_option('lgl_blocked_emails', $blocked_emails);
+        // Check custom whitelist from settings
+        $whitelist = $this->settingsManager->get('email_whitelist', []);
+        return in_array($email, $whitelist, true);
     }
     
     /**
@@ -131,7 +196,7 @@ class EmailBlocker {
      * 
      * @return string Environment description
      */
-    private static function getEnvironmentInfo(): string {
+    private function getEnvironmentInfo(): string {
         $host = $_SERVER['HTTP_HOST'] ?? 'Unknown';
         $debug_status = defined('WP_DEBUG') && WP_DEBUG ? 'DEBUG_ON' : 'DEBUG_OFF';
         
@@ -141,94 +206,96 @@ class EmailBlocker {
     /**
      * Show admin notice about email blocking
      */
-    public static function showEmailBlockingNotice(): void {
+    public function showEmailBlockingNotice(): void {
+        error_log('EmailBlocker: showEmailBlockingNotice() called');
+        
+        if (!$this->isBlockingEnabled()) {
+            error_log('EmailBlocker: Notice skipped - blocking not enabled');
+            return;
+        }
+
         if (!current_user_can('manage_options')) {
+            error_log('EmailBlocker: Notice skipped - user lacks manage_options capability');
             return;
         }
         
-        $blocked_count = count(get_option('lgl_blocked_emails', []));
+        error_log('EmailBlocker: Rendering admin notice');
+        $blocked_count = $this->operationalData->getBlockedEmailsCount();
+        error_log('EmailBlocker: Blocked count = ' . $blocked_count);
         
-        echo '<div class="notice notice-warning is-dismissible">';
-        echo '<p><strong>🚫 LGL Email Blocker Active</strong></p>';
-        echo '<p>Emails are being blocked in this development environment. ';
-        echo sprintf('Blocked %d emails since activation. ', $blocked_count);
-        echo '<a href="' . admin_url('admin.php?page=lgl-blocked-emails') . '">View blocked emails</a></p>';
-        echo '</div>';
-    }
-    
-    /**
-     * Add admin page to view blocked emails
-     */
-    public static function addAdminPage(): void {
-        add_submenu_page(
-            'tools.php',
-            'Blocked Emails',
-            'Blocked Emails',
-            'manage_options',
-            'lgl-blocked-emails',
-            [static::class, 'renderBlockedEmailsPage']
-        );
-    }
-    
-    /**
-     * Render blocked emails admin page
-     */
-    public static function renderBlockedEmailsPage(): void {
-        if (!current_user_can('manage_options')) {
-            wp_die('Access denied');
-        }
-        
-        // Handle clear action
-        if (isset($_POST['clear_blocked_emails']) && wp_verify_nonce($_POST['_wpnonce'], 'clear_blocked_emails')) {
-            delete_option('lgl_blocked_emails');
-            echo '<div class="updated"><p>Blocked emails cleared.</p></div>';
-        }
-        
-        $blocked_emails = get_option('lgl_blocked_emails', []);
-        $blocked_emails = array_reverse($blocked_emails); // Show newest first
-        
-        echo '<div class="wrap">';
-        echo '<h1>🚫 Blocked Emails (Development Environment)</h1>';
-        
-        echo '<div class="notice notice-info">';
-        echo '<p><strong>Environment:</strong> ' . static::getEnvironmentInfo() . '</p>';
-        echo '<p><strong>Status:</strong> Email blocking is ' . (static::isDevelopmentEnvironment() ? '<span style="color: red;">ACTIVE</span>' : '<span style="color: green;">INACTIVE</span>') . '</p>';
-        echo '</div>';
-        
-        if (empty($blocked_emails)) {
-            echo '<p>No emails have been blocked yet.</p>';
-        } else {
-            echo '<p><strong>' . count($blocked_emails) . '</strong> emails blocked since activation.</p>';
+        // Make notice persistent (not dismissible) since this is a critical warning
+        // Add unique ID and inline styles to prevent dismissal
+        ?>
+        <div id="lgl-email-blocker-notice" class="notice notice-warning" style="border-left-color: #d63638; border-left-width: 4px; display: block !important; visibility: visible !important; opacity: 1 !important;">
+            <p><strong>🚫 LGL Email Blocker Active</strong></p>
+            <p>
+                All outgoing emails are being blocked. 
+                (<?php echo $blocked_count; ?> blocked since activation) 
+                <?php if ($this->isForceBlocking()): ?>
+                    <span style="color:#d63638;"><strong>Manual override is enabled.</strong></span> 
+                <?php else: ?>
+                    Development environment detected. 
+                <?php endif; ?>
+                <a href="<?php echo admin_url('admin.php?page=lgl-email-blocking'); ?>" class="button button-small">Manage Email Blocking</a>
+            </p>
+        </div>
+        <script type="text/javascript">
+        (function() {
+            // Store the notice HTML for re-injection if needed
+            var noticeHTML = document.getElementById('lgl-email-blocker-notice');
+            if (!noticeHTML) return;
             
-            // Clear button
-            echo '<form method="post" style="margin-bottom: 20px;">';
-            wp_nonce_field('clear_blocked_emails');
-            echo '<input type="submit" name="clear_blocked_emails" value="Clear All Blocked Emails" class="button button-secondary" onclick="return confirm(\'Are you sure you want to clear all blocked emails?\');">';
-            echo '</form>';
+            var originalHTML = noticeHTML.outerHTML;
             
-            // Blocked emails table
-            echo '<table class="widefat fixed striped">';
-            echo '<thead><tr>';
-            echo '<th style="width: 150px;">Date/Time</th>';
-            echo '<th style="width: 200px;">To</th>';
-            echo '<th>Subject</th>';
-            echo '<th>Message Preview</th>';
-            echo '</tr></thead>';
-            echo '<tbody>';
-            
-            foreach ($blocked_emails as $email) {
-                echo '<tr>';
-                echo '<td>' . esc_html($email['timestamp']) . '</td>';
-                echo '<td>' . esc_html(is_array($email['to']) ? implode(', ', $email['to']) : $email['to']) . '</td>';
-                echo '<td><strong>' . esc_html($email['subject']) . '</strong></td>';
-                echo '<td>' . esc_html($email['message_preview']) . '...</td>';
-                echo '</tr>';
+            // Function to ensure notice is visible
+            function ensureNoticeVisible() {
+                var notice = document.getElementById('lgl-email-blocker-notice');
+                if (!notice) {
+                    // Notice was removed - re-inject it
+                    var container = document.querySelector('.wrap') || document.querySelector('#wpbody-content');
+                    if (container && container.parentNode) {
+                        var tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = originalHTML;
+                        var firstChild = container.parentNode.querySelector('.wrap, #wpbody-content');
+                        if (firstChild) {
+                            firstChild.parentNode.insertBefore(tempDiv.firstChild, firstChild);
+                            console.log('LGL Email Blocker notice re-injected');
+                        }
+                    }
+                } else {
+                    // Notice exists - ensure it's visible
+                    var dismissBtn = notice.querySelector('.notice-dismiss');
+                    if (dismissBtn) {
+                        dismissBtn.remove();
+                    }
+                    notice.style.display = 'block';
+                    notice.style.visibility = 'visible';
+                    notice.style.opacity = '1';
+                }
             }
             
-            echo '</tbody></table>';
-        }
-        
-        echo '</div>';
+            // Initial setup
+            ensureNoticeVisible();
+            console.log('LGL Email Blocker notice rendered and protected from dismissal');
+            
+            // Monitor for removal attempts using MutationObserver
+            if (window.MutationObserver) {
+                var observer = new MutationObserver(function(mutations) {
+                    ensureNoticeVisible();
+                });
+                
+                // Watch the entire body for changes
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+            
+            // Also check periodically as backup
+            setInterval(ensureNoticeVisible, 1000);
+        })();
+        </script>
+        <?php
     }
     
     /**
@@ -236,42 +303,14 @@ class EmailBlocker {
      * 
      * @return array Statistics about blocked emails
      */
-    public static function getStats(): array {
-        $blocked_emails = get_option('lgl_blocked_emails', []);
-        
+    public function getStats(): array {
         return [
-            'total_blocked' => count($blocked_emails),
-            'is_blocking' => static::isDevelopmentEnvironment(),
-            'environment' => static::getEnvironmentInfo(),
-            'recent_blocks' => array_slice(array_reverse($blocked_emails), 0, 5)
+            'total_blocked' => $this->operationalData->getBlockedEmailsCount(),
+            'is_blocking' => $this->isBlockingEnabled(),
+            'is_forced' => $this->isForceBlocking(),
+            'environment' => $this->getEnvironmentInfo(),
+            'recent_blocks' => array_slice(array_reverse($this->operationalData->getBlockedEmails()), 0, 5)
         ];
-    }
-    
-    /**
-     * Temporarily disable email blocking (for testing)
-     * 
-     * @param int $duration Duration in seconds
-     */
-    public static function temporarilyDisable(int $duration = 300): void {
-        set_transient('lgl_email_blocking_disabled', true, $duration);
-        error_log('LGL Email Blocker: TEMPORARILY DISABLED for ' . $duration . ' seconds');
-    }
-    
-    /**
-     * Check if email blocking is temporarily disabled
-     * 
-     * @return bool True if temporarily disabled
-     */
-    public static function isTemporarilyDisabled(): bool {
-        return get_transient('lgl_email_blocking_disabled') !== false;
-    }
-    
-    /**
-     * Enable email blocking (for testing)
-     */
-    public static function enable(): void {
-        delete_transient('lgl_email_blocking_disabled');
-        error_log('LGL Email Blocker: RE-ENABLED');
     }
     
     /**
@@ -279,12 +318,13 @@ class EmailBlocker {
      * 
      * @return array Status information
      */
-    public static function getBlockingStatus(): array {
+    public function getBlockingStatus(): array {
         return [
-            'is_development' => static::isDevelopmentEnvironment(),
-            'is_temporarily_disabled' => static::isTemporarilyDisabled(),
-            'is_actively_blocking' => static::isDevelopmentEnvironment() && !static::isTemporarilyDisabled(),
-            'environment_info' => static::getEnvironmentInfo()
+            'is_development' => $this->isDevelopmentEnvironment(),
+            'is_temporarily_disabled' => $this->operationalData->isEmailBlockingPaused(),
+            'is_actively_blocking' => $this->isBlockingEnabled() && !$this->operationalData->isEmailBlockingPaused(),
+            'is_force_blocking' => $this->isForceBlocking(),
+            'environment_info' => $this->getEnvironmentInfo()
         ];
     }
 }
