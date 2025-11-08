@@ -272,17 +272,19 @@ class Plugin {
      * Initialize LGL services
      */
     private function initializeLGLServices() {
-        // These will be converted to namespaced classes in subsequent steps
-        // For now, ensure legacy classes are loaded
+        // Load compatibility shim for legacy code
         if (!class_exists('LGL_API')) {
-            require_once $this->plugin_dir . '/includes/lgl-connections.php';
-            require_once $this->plugin_dir . '/includes/lgl-helper.php';
-            require_once $this->plugin_dir . '/includes/lgl-wp-users.php';
-            require_once $this->plugin_dir . '/includes/lgl-constituents.php';
-            require_once $this->plugin_dir . '/includes/lgl-payments.php';
-            require_once $this->plugin_dir . '/includes/lgl-relations-manager.php';
-            require_once $this->plugin_dir . '/includes/lgl-api-settings.php';
+            require_once $this->plugin_dir . '/includes/lgl-api-compat.php';
         }
+        
+        // Load remaining legacy files that depend on LGL_API
+        require_once $this->plugin_dir . '/includes/lgl-connections.php';
+        require_once $this->plugin_dir . '/includes/lgl-helper.php';
+        require_once $this->plugin_dir . '/includes/lgl-wp-users.php';
+        require_once $this->plugin_dir . '/includes/lgl-constituents.php';
+        require_once $this->plugin_dir . '/includes/lgl-payments.php';
+        require_once $this->plugin_dir . '/includes/lgl-relations-manager.php';
+        require_once $this->plugin_dir . '/includes/lgl-api-settings.php';
     }
     
     /**

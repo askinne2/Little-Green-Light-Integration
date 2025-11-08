@@ -54,6 +54,12 @@ function lgl_init_modern_architecture() {
     
     require_once $autoloader;
     
+    // Load compatibility shim for legacy code (CRITICAL: Must load before legacy files)
+    $compat_shim = LGL_PLUGIN_DIR . 'includes/lgl-api-compat.php';
+    if (file_exists($compat_shim)) {
+        require_once $compat_shim;
+    }
+    
     // Load admin helper functions
     $admin_functions = LGL_PLUGIN_DIR . 'src/Admin/functions.php';
     if (file_exists($admin_functions)) {

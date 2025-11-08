@@ -74,6 +74,26 @@ Integrate-LGL/
 
 ---
 
+## 🔌 Legacy Compatibility
+
+**Compatibility Shim Created**: `includes/lgl-api-compat.php`
+
+The legacy `includes/lgl-wp-users.php` file (716 lines) still references the old `LGL_API` class for:
+- Dashboard widgets
+- User deactivation shortcodes  
+- Family member management
+- Monthly sync operations
+
+Rather than rewrite this entire file immediately, we created a **compatibility shim** that:
+- ✅ Maps `LGL_API::get_instance()` to modern services
+- ✅ Delegates method calls to `Connection` and `Helper` services
+- ✅ Uses magic methods `__call()` and `__get()` for transparent delegation
+- ✅ Maintains all legacy hook constants (e.g., `UI_DELETE_MEMBERS`)
+
+This allows the legacy code to work seamlessly with the modern architecture until it can be fully refactored.
+
+---
+
 ## 🛠️ Modern Features
 
 ### Component System
