@@ -154,21 +154,23 @@ class MembershipDeactivationAction implements JetFormActionInterface {
         
         $this->helper->debug('Retrieving MEMBERSHIP for deactivation', $mid);
         
-        $yesterday = (new \DateTime())->format('Y-m-d');
-        $today = strtotime(date('Y-m-d'));
+        // IMPORTANT: finish_date must be >= date_start per LGL API validation
+        $today = date('Y-m-d');
+        $todayTimestamp = strtotime($today);
         
         // Only deactivate if membership is currently active
-        if (strtotime($lgl_membership->finish_date) >= $today) {
+        if (strtotime($lgl_membership->finish_date) >= $todayTimestamp) {
             $updated_membership = [
                 'id' => $lgl_membership->id,
                 'membership_level_id' => $lgl_membership->membership_level_id,
                 'membership_level_name' => $lgl_membership->membership_level_name,
                 'date_start' => $lgl_membership->date_start,
-                'finish_date' => $yesterday,
+                'finish_date' => $today,  // Must be >= date_start
                 'note' => 'Membership DEACTIVATED via WP_LGL_API on ' . date('Y-m-d')
             ];
             
-            $result = $this->connection->updateLglObject($lgl_id, $updated_membership, null, 'MEMBERSHIPS', $mid);
+            // Use modern Connection::updateMembership() - uses direct membership endpoint
+            $result = $this->connection->updateMembership((string)$mid, $updated_membership);
             
             if ($result) {
                 $this->helper->debug('Successfully deactivated membership', $mid);

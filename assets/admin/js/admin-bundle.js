@@ -83,6 +83,85 @@
     };
     
     /**
+     * Testing Suite Module
+     */
+    LGL.TestingSuite = {
+        
+        /**
+         * Run a test
+         */
+        runTest: function(event) {
+            const button = event.target;
+            const originalText = button.textContent;
+            const testType = button.dataset.testType;
+            const nonce = button.dataset.nonce;
+            const resultId = 'lgl-result-' + testType;
+            const resultDiv = document.getElementById(resultId);
+            
+            // Update button state
+            button.textContent = '🔄 Running...';
+            button.disabled = true;
+            
+            // Clear previous results
+            if (resultDiv) {
+                resultDiv.innerHTML = '<p style="color:#2271b1;">⏳ Test in progress...</p>';
+            }
+            
+            // Build request data
+            const requestData = {
+                action: 'lgl_run_test',
+                nonce: nonce,
+                test_type: testType
+            };
+            
+            // Add any data attributes from the button
+            for (const key in button.dataset) {
+                if (key !== 'testType' && key !== 'nonce') {
+                    requestData[key] = button.dataset[key];
+                }
+            }
+            
+            // Make AJAX request
+            fetch(ajaxurl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams(requestData)
+            })
+            .then(response => response.text())
+            .then(html => {
+                // Display result HTML
+                if (resultDiv) {
+                    resultDiv.innerHTML = html;
+                }
+                
+                // Reset button
+                button.textContent = originalText;
+                button.disabled = false;
+            })
+            .catch(error => {
+                console.error('Test error:', error);
+                
+                if (resultDiv) {
+                    resultDiv.innerHTML = '<div class="notice notice-error"><p>❌ <strong>Test Failed:</strong> ' + error.message + '</p></div>';
+                }
+                
+                // Reset button
+                button.textContent = originalText;
+                button.disabled = false;
+            });
+        },
+        
+        /**
+         * Initialize all test buttons
+         */
+        init: function() {
+            $('.lgl-test-button').on('click', this.runTest);
+        }
+    };
+    
+    /**
      * Settings Page Module
      */
     LGL.SettingsPage = {
@@ -185,6 +264,11 @@
         // Initialize settings page if present
         if ($('.lgl-settings-page').length) {
             LGL.SettingsPage.init();
+        }
+        
+        // Initialize testing suite if present
+        if ($('.lgl-testing-grid').length) {
+            LGL.TestingSuite.init();
         }
         
         // Bind connection test button if present

@@ -289,27 +289,37 @@ class Payments {
             $payment_method = $order->get_payment_method();
             $gateway_title = $order->get_payment_method_title();
             
+            // CRITICAL: Access the 'items' arrays within LGL API response structure
+            $funds_items = $payment_data['funds']['items'] ?? [];
+            $campaigns_items = $payment_data['campaigns']['items'] ?? [];
+            $categories_items = $payment_data['categories']['items'] ?? [];
+            $gift_types_items = $payment_data['gift_types']['items'] ?? [];
+            $payment_types_items = $payment_data['payment_types']['items'] ?? [];
+            
             // Find appropriate fund
             $fund_name = $this->determineMembershipFund($order);
-            $fund_id = $this->findLglObjectKey($fund_name, 'name', $payment_data['funds'] ?? []);
+            $fund_id = $this->findLglObjectKey($fund_name, 'name', $funds_items);
             
             // Find campaign (match legacy: 'Membership Fees')
             $campaign_name = 'Membership Fees';
-            $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $payment_data['campaigns'] ?? []);
+            $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
             
             // Find gift category (match legacy: 'Donation')
             $category_name = 'Donation';
-            $category_id = $this->findLglObjectKey($category_name, 'display_name', $payment_data['categories'] ?? []);
+            $category_id = $this->findLglObjectKey($category_name, 'display_name', $categories_items);
             
             // Find gift type (match legacy: 'Other Income')
             $gift_type_name = 'Other Income';
-            $gift_type_id = $this->findLglObjectKey($gift_type_name, 'name', $payment_data['gift_types'] ?? []);
+            $gift_type_id = $this->findLglObjectKey($gift_type_name, 'name', $gift_types_items);
             
             // Find payment type
             $type_name = $payment_type ?: $this->determinePaymentType($payment_method);
-            $type_id = $this->findLglObjectKey($type_name, 'name', $payment_data['payment_types'] ?? []);
+            $type_id = $this->findLglObjectKey($type_name, 'name', $payment_types_items);
             
             // Build payment data (match legacy format)
+            // LGL API requires all amounts to be formatted with decimals
+            $formatted_amount = number_format((float)$price, 2, '.', '');
+            
             $payment_data_to_send = [
                 'external_id' => $order_id,
                 'is_anon' => false,
@@ -325,16 +335,16 @@ class Payments {
                 'appeal_name' => '',
                 'event_id' => 0,
                 'event_name' => '',
-                'received_amount' => $price,
+                'received_amount' => $formatted_amount,
                 'received_date' => $this->formatDateForApi($date),
                 'payment_type_id' => $type_id,
                 'payment_type_name' => $type_name,
                 'check_number' => '',
-                'deductible_amount' => $price,
+                'deductible_amount' => $formatted_amount,
                 'note' => 'Website Registration, Order #' . $order_id,
                 'ack_template_name' => '',
                 'deposit_date' => $this->formatDateForApi($date),
-                'deposited_amount' => $price,
+                'deposited_amount' => $formatted_amount,
                 'parent_gift_id' => 0,
                 'parent_external_id' => 0,
                 'team_member' => ''
@@ -411,28 +421,76 @@ class Payments {
             $payment_method = $order->get_payment_method();
             $gateway_title = $order->get_payment_method_title();
             
-            // Find appropriate fund for classes
-            $fund_name = $this->determineClassFund($class_type);
-            $fund_id = $this->findLglObjectKey($fund_name, 'name', $payment_data['funds'] ?? []);
-            
             // Find payment type
+            // CRITICAL: Access the 'items' array within payment_types (LGL API response structure)
+            $payment_types_items = $payment_data['payment_types']['items'] ?? [];
             $type_name = $this->determinePaymentType($payment_method);
-            $type_id = $this->findLglObjectKey($type_name, 'name', $payment_data['payment_types'] ?? []);
+            $type_id = $this->findLglObjectKey($type_name, 'name', $payment_types_items);
             
-            // Build payment data
+            // Fallback: If payment type not found, use first available type
+            if (empty($type_id) && !empty($payment_types_items)) {
+                $first_type = reset($payment_types_items);
+                if ($first_type && isset($first_type['id'])) {
+                    $type_id = $first_type['id'];
+                    $type_name = $first_type['name'] ?? $type_name;
+                    $this->debug('⚠️ Payment type not found, using first available', [
+                        'requested' => $this->determinePaymentType($payment_method),
+                        'using_id' => $type_id,
+                        'using_name' => $type_name
+                    ]);
+                }
+            }
+            
+            // CRITICAL: Use the passed fund ID directly (from _lc_lgl_fund_id)
+            // The $lgl_class_id parameter is actually the fund ID from your JetEngine meta
+            $fund_id = (int) $lgl_class_id;
+            
+            // Get gift type and category for classes (match legacy structure)
+            $gift_types_items = $payment_data['gift_types']['items'] ?? [];
+            $categories_items = $payment_data['categories']['items'] ?? [];
+            $campaigns_items = $payment_data['campaigns']['items'] ?? [];
+            
+            $gift_type_name = 'Other Income';
+            $gift_type_id = $this->findLglObjectKey($gift_type_name, 'name', $gift_types_items);
+            
+            $category_name = 'Language Classes';  // Match your LGL setup
+            $category_id = $this->findLglObjectKey($category_name, 'display_name', $categories_items);
+            
+            $campaign_name = 'Language Class';  // Match your LGL setup
+            $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
+            
+            // LGL API requires all amounts to be formatted with decimals
+            $formatted_amount = number_format((float)$price, 2, '.', '');
+            
+            // Build payment data (MUST match membership structure for LGL gifts endpoint)
             $payment_data_to_send = [
-                'constituent_id' => $lgl_id,
-                'amount' => $price,
-                'payment_date' => $this->formatDateForApi($date),
-                'payment_method' => $type_name,
-                'payment_type_id' => $type_id,
+                'external_id' => $order_id,
+                'is_anon' => false,
+                'gift_type_id' => $gift_type_id,
+                'gift_type_name' => $gift_type_name,
+                'gift_category_id' => $category_id,
+                'gift_category_name' => $category_name,
+                'campaign_id' => $campaign_id,
+                'campaign_name' => $campaign_name,
                 'fund_id' => $fund_id,
-                'class_id' => $lgl_class_id,
-                'class_type' => $class_type,
-                'order_id' => $order_id,
-                'gateway' => $gateway_title,
-                'notes' => 'Class registration - ' . $class_type . ' - Order #' . $order_id,
-                'source' => 'Website'
+                'fund_name' => '',
+                'appeal_id' => 0,
+                'appeal_name' => '',
+                'event_id' => 0,
+                'event_name' => '',
+                'received_amount' => $formatted_amount,
+                'received_date' => $this->formatDateForApi($date),
+                'payment_type_id' => $type_id,
+                'payment_type_name' => $type_name,
+                'check_number' => '',
+                'deductible_amount' => $formatted_amount,
+                'note' => 'Class registration - ' . $class_type . ' - Order #' . $order_id,
+                'ack_template_name' => '',
+                'deposit_date' => $this->formatDateForApi($date),
+                'deposited_amount' => $formatted_amount,
+                'parent_gift_id' => 0,
+                'parent_external_id' => 0,
+                'team_member' => ''
             ];
             
             // Create payment in LGL
@@ -507,28 +565,76 @@ class Payments {
             $payment_method = $order->get_payment_method();
             $gateway_title = $order->get_payment_method_title();
             
-            // Find appropriate fund for events
-            $fund_name = $this->determineEventFund($event_name);
-            $fund_id = $this->findLglObjectKey($fund_name, 'name', $payment_data['funds'] ?? []);
-            
             // Find payment type
+            // CRITICAL: Access the 'items' array within payment_types (LGL API response structure)
+            $payment_types_items = $payment_data['payment_types']['items'] ?? [];
             $type_name = $this->determinePaymentType($payment_method);
-            $type_id = $this->findLglObjectKey($type_name, 'name', $payment_data['payment_types'] ?? []);
+            $type_id = $this->findLglObjectKey($type_name, 'name', $payment_types_items);
             
-            // Build payment data
+            // Fallback: If payment type not found, use first available type
+            if (empty($type_id) && !empty($payment_types_items)) {
+                $first_type = reset($payment_types_items);
+                if ($first_type && isset($first_type['id'])) {
+                    $type_id = $first_type['id'];
+                    $type_name = $first_type['name'] ?? $type_name;
+                    $this->debug('⚠️ Payment type not found, using first available', [
+                        'requested' => $this->determinePaymentType($payment_method),
+                        'using_id' => $type_id,
+                        'using_name' => $type_name
+                    ]);
+                }
+            }
+            
+            // CRITICAL: Use the passed fund ID directly (from _ui_event_lgl_fund_id)
+            // The $lgl_class_id parameter is actually the fund ID from your JetEngine meta
+            $fund_id = (int) $lgl_class_id;
+            
+            // Get gift type and category for events (match legacy structure)
+            $gift_types_items = $payment_data['gift_types']['items'] ?? [];
+            $categories_items = $payment_data['categories']['items'] ?? [];
+            $campaigns_items = $payment_data['campaigns']['items'] ?? [];
+            
+            $gift_type_name = 'Other Income';
+            $gift_type_id = $this->findLglObjectKey($gift_type_name, 'name', $gift_types_items);
+            
+            $category_name = 'Event fee';  // Match your LGL setup
+            $category_id = $this->findLglObjectKey($category_name, 'display_name', $categories_items);
+            
+            $campaign_name = 'WACU Programming';  // Match your LGL setup
+            $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
+            
+            // LGL API requires all amounts to be formatted with decimals
+            $formatted_amount = number_format((float)$price, 2, '.', '');
+            
+            // Build payment data (MUST match membership structure for LGL gifts endpoint)
             $payment_data_to_send = [
-                'constituent_id' => $lgl_id,
-                'amount' => $price,
-                'payment_date' => $this->formatDateForApi($date),
-                'payment_method' => $type_name,
-                'payment_type_id' => $type_id,
+                'external_id' => $order_id,
+                'is_anon' => false,
+                'gift_type_id' => $gift_type_id,
+                'gift_type_name' => $gift_type_name,
+                'gift_category_id' => $category_id,
+                'gift_category_name' => $category_name,
+                'campaign_id' => $campaign_id,
+                'campaign_name' => $campaign_name,
                 'fund_id' => $fund_id,
-                'event_id' => $lgl_class_id,
+                'fund_name' => '',
+                'appeal_id' => 0,
+                'appeal_name' => '',
+                'event_id' => 0,
                 'event_name' => $event_name,
-                'order_id' => $order_id,
-                'gateway' => $gateway_title,
-                'notes' => 'Event registration - ' . $event_name . ' - Order #' . $order_id,
-                'source' => 'Website'
+                'received_amount' => $formatted_amount,
+                'received_date' => $this->formatDateForApi($date),
+                'payment_type_id' => $type_id,
+                'payment_type_name' => $type_name,
+                'check_number' => '',
+                'deductible_amount' => $formatted_amount,
+                'note' => 'Event registration - ' . $event_name . ' - Order #' . $order_id,
+                'ack_template_name' => '',
+                'deposit_date' => $this->formatDateForApi($date),
+                'deposited_amount' => $formatted_amount,
+                'parent_gift_id' => 0,
+                'parent_external_id' => 0,
+                'team_member' => ''
             ];
             
             // Create payment in LGL

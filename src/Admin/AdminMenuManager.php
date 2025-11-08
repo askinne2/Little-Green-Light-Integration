@@ -283,21 +283,133 @@ class AdminMenuManager {
     }
     
     /**
-     * Render testing page - MODERNIZED
+     * Render testing page - COMPREHENSIVE SUITE
      */
     public function renderTesting(): void {
-        $content = lgl_partial('components/card', [
-            'title' => 'Connection Test',
-            'icon' => '🔌',
-            'content' => lgl_partial('partials/connection-test', [
-                'settingsManager' => $this->getSettingsManager()
-            ])
-        ]);
+        $nonce = wp_create_nonce('lgl_admin_nonce');
+        $testUserId = 1214; // Default test user
+        
+        $content = '<div class="lgl-testing-grid">';
+        
+        // Connection Test Card
+        $content .= $this->renderTestCard(
+            'connection',
+            '🔌 Connection Test',
+            'Test API connectivity and authentication',
+            $nonce
+        );
+        
+        // Add Constituent Test Card
+        $content .= $this->renderTestCard(
+            'add_constituent',
+            '➕ Add Constituent',
+            'Create new constituent from user ' . $testUserId,
+            $nonce,
+            ['wordpress_user_id' => $testUserId]
+        );
+        
+        // Update Constituent Test Card
+        $content .= $this->renderTestCard(
+            'update_constituent',
+            '✏️ Update Constituent',
+            'Update existing constituent data for user ' . $testUserId,
+            $nonce,
+            ['wordpress_user_id' => $testUserId]
+        );
+        
+        // Add Membership Test Card
+        $content .= $this->renderTestCard(
+            'add_membership',
+            '🎫 Add Membership',
+            'Add membership to constituent (variation 68386)',
+            $nonce,
+            ['wordpress_user_id' => $testUserId, 'variation_product_id' => 68386]
+        );
+        
+        // Update Membership Test Card
+        $content .= $this->renderTestCard(
+            'update_membership',
+            '🔄 Update Membership',
+            'Update membership details for user ' . $testUserId,
+            $nonce,
+            ['wordpress_user_id' => $testUserId]
+        );
+        
+        // Event Registration Test Card
+        $content .= $this->renderTestCard(
+            'event_registration',
+            '📅 Event Registration',
+            'Test event registration flow (variation 83556)',
+            $nonce,
+            ['wordpress_user_id' => $testUserId, 'variation_product_id' => 83556]
+        );
+        
+        // Class Registration Test Card
+        $content .= $this->renderTestCard(
+            'class_registration',
+            '📚 Class Registration',
+            'Test class registration (product 86825)',
+            $nonce,
+            ['wordpress_user_id' => $testUserId, 'class_product_id' => 86825]
+        );
+        
+        // Full Suite Test Card
+        $content .= $this->renderTestCard(
+            'full_suite',
+            '🚀 Full Test Suite',
+            'Run all tests sequentially',
+            $nonce,
+            ['wordpress_user_id' => $testUserId]
+        );
+        
+        $content .= '</div>';
+        
+        // Add note about test user
+        $content .= '<div class="lgl-testing-note">';
+        $content .= '<p><strong>ℹ️ Test Configuration:</strong></p>';
+        $content .= '<ul>';
+        $content .= '<li>Default Test User: <code>' . $testUserId . '</code> (Andrew Skinner)</li>';
+        $content .= '<li>Membership Variation: <code>68386</code> (Individual - $75)</li>';
+        $content .= '<li>Event Variation: <code>83556</code></li>';
+        $content .= '<li>Class Product: <code>86825</code></li>';
+        $content .= '<li>⚠️ Tests run against <strong>LIVE API</strong> - real data will be created/updated in LGL</li>';
+        $content .= '</ul>';
+        $content .= '</div>';
         
         lgl_render_view('layouts/admin-page', [
             'title' => 'LGL Testing Suite',
-            'description' => 'Test your API connection and functionality.',
+            'description' => 'Comprehensive testing for all LGL API operations.',
             'content' => $content
+        ]);
+    }
+    
+    /**
+     * Render individual test card
+     */
+    private function renderTestCard(string $testType, string $title, string $description, string $nonce, array $data = []): string {
+        $dataAttrs = 'data-test-type="' . esc_attr($testType) . '" ';
+        $dataAttrs .= 'data-nonce="' . esc_attr($nonce) . '" ';
+        
+        foreach ($data as $key => $value) {
+            $dataAttrs .= 'data-' . esc_attr($key) . '="' . esc_attr($value) . '" ';
+        }
+        
+        $buttonId = 'lgl-test-' . $testType;
+        $resultId = 'lgl-result-' . $testType;
+        
+        $cardContent = '<div class="lgl-test-card-content">';
+        $cardContent .= '<p class="lgl-test-description">' . esc_html($description) . '</p>';
+        $cardContent .= '<button type="button" class="button button-primary lgl-test-button" ';
+        $cardContent .= 'id="' . esc_attr($buttonId) . '" ' . $dataAttrs . '>';
+        $cardContent .= 'Run Test';
+        $cardContent .= '</button>';
+        $cardContent .= '<div class="lgl-test-result" id="' . esc_attr($resultId) . '" style="margin-top: 15px;"></div>';
+        $cardContent .= '</div>';
+        
+        return lgl_partial('components/card', [
+            'title' => $title,
+            'content' => $cardContent,
+            'class' => 'lgl-test-card'
         ]);
     }
     

@@ -954,6 +954,37 @@ class Connection {
     }
     
     /**
+     * Get all memberships for a constituent
+     * 
+     * Uses: GET /api/v1/constituents/{lgl_id}/memberships
+     * Returns ALL memberships (active and inactive) for comprehensive management
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @return array API response with memberships
+     */
+    public function getMemberships(string $lgl_id): array {
+        $endpoint = "constituents/{$lgl_id}/memberships";
+        
+        if (function_exists('lgl_log')) {
+            lgl_log('🔍 Connection::getMemberships()', [
+                'endpoint' => $endpoint,
+                'lgl_id' => $lgl_id
+            ]);
+        }
+        
+        $response = $this->makeRequest($endpoint, 'GET', [], false);
+        
+        if (function_exists('lgl_log')) {
+            lgl_log('📥 Memberships Response', [
+                'success' => $response['success'] ?? false,
+                'count' => isset($response['data']['items']) ? count($response['data']['items']) : 0
+            ]);
+        }
+        
+        return $response;
+    }
+    
+    /**
      * Update membership in LGL
      * 
      * @param string $lgl_id LGL constituent ID
@@ -961,40 +992,46 @@ class Connection {
      * @param array $membership_data Membership data
      * @return bool Success status
      */
-    public function updateMembership(string $lgl_id, string $membership_id, array $membership_data): bool {
+    public function updateMembership(string $membership_id, array $membership_data): array {
         $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
         
-        $helper->debug('🔄 Connection::updateMembership()', [
-            'lgl_id' => $lgl_id,
-            'membership_id' => $membership_id,
-            'membership_data' => $membership_data
-        ]);
+        // CRITICAL FIX: Use direct membership endpoint, not nested under constituents
+        // Legacy used: PUT https://api.littlegreenlight.com/api/v1/memberships/{id}.json
+        // NOT: PUT constituents/{lgl_id}/memberships/{id} (this returns 404)
+        $endpoint = "memberships/{$membership_id}";
+        
+        if (function_exists('lgl_log')) {
+            lgl_log('🔄 Connection::updateMembership() - Using direct endpoint', [
+                'endpoint' => $endpoint,
+                'membership_id' => $membership_id,
+                'membership_data' => $membership_data
+            ]);
+        }
         
         try {
-            $response = $this->makeRequest(
-                "constituents/{$lgl_id}/memberships/{$membership_id}",
-                'PUT',
-                $membership_data,
-                false
-            );
+            $response = $this->makeRequest($endpoint, 'PUT', $membership_data, false);
             
-            if ($response['success']) {
-                $helper->debug('✅ Membership updated successfully', [
-                    'membership_id' => $membership_id
-                ]);
-                return true;
+            if (function_exists('lgl_log')) {
+                lgl_log('📥 Membership Update Response', $response);
+            }
+            
+            if (!empty($response['success'])) {
+                $helper->debug('✅ Membership updated successfully', ['membership_id' => $membership_id]);
             } else {
                 $helper->debug('❌ Failed to update membership', $response);
-                return false;
             }
+            
+            return $response;
             
         } catch (\Exception $e) {
             $helper->debug('❌ Error updating membership', [
-                'lgl_id' => $lgl_id,
                 'membership_id' => $membership_id,
                 'error' => $e->getMessage()
             ]);
-            return false;
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
     }
     
@@ -1123,7 +1160,20 @@ class Connection {
      */
     public function addMembership(string $lgl_id, array $membership_data): array {
         $endpoint = "constituents/{$lgl_id}/memberships";
-        return $this->makeRequest($endpoint, 'POST', $membership_data, false);
+        if (function_exists('lgl_log')) {
+            lgl_log('LGL Membership Payload', [
+                'endpoint' => $endpoint,
+                'payload' => $membership_data
+            ]);
+        }
+
+        $response = $this->makeRequest($endpoint, 'POST', $membership_data, false);
+
+        if (function_exists('lgl_log')) {
+            lgl_log('LGL Membership Response', $response);
+        }
+
+        return $response;
     }
 }
 

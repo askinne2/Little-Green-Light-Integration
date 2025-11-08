@@ -1,40 +1,68 @@
-[2025-11-07 21:42:09] [debug] Membership cron jobs scheduled successfully
-[2025-11-07 21:42:09] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
+[2025-11-08 08:06:01] [debug] 🎟️ Testing Event Registration Array
 (
-    [order_id] => 88111
-    [timestamp] => 2025-11-07 21:42:09
-    [memory_usage] => 118MB
+    [user_id] => 1214
+    [lgl_id] => 947022
+    [event_product_id] => 83556
+    [parent_id] => 83555
+    [event_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+    [price] => 14
+    [event_fund_id] => 4042
 )
 
-[2025-11-07 21:42:09] [debug] 📋 OrderProcessor: Order Details Array
+[2025-11-08 08:06:01] [debug] 💰 Creating test payment/gift Array
 (
-    [order_id] => 88111
+    [lgl_id] => 947022
+    [amount] => 14
+    [type] => Event
+    [name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+    [fund_id] => 4042
+    [class_type] => 
+)
+
+[2025-11-08 08:06:01] [debug] 🛒 Creating temporary test order Array
+(
+    [user_id] => 1214
+    [product_id] => 83556
+    [amount] => 14
+    [type] => event
+)
+
+[2025-11-08 08:06:01] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
+(
+    [order_id] => 88132
+    [timestamp] => 2025-11-08 08:06:01
+    [memory_usage] => 88MB
+)
+
+[2025-11-08 08:06:01] [debug] 📋 OrderProcessor: Order Details Array
+(
+    [order_id] => 88132
     [order_status] => pending
     [order_total] => 0.00
-    [customer_id] => 1945
-    [customer_email] => debug.test@example.com
+    [customer_id] => 1214
+    [customer_email] => andrew@hispanicalliancesc.com
     [payment_method] => 
-    [order_date] => 2025-11-07 21:42:09
+    [order_date] => 2025-11-08 08:06:01
     [item_count] => 0
 )
 
-[2025-11-07 21:42:09] [debug] 👤 OrderProcessor: Customer Info Array
+[2025-11-08 08:06:01] [debug] 👤 OrderProcessor: Customer Info Array
 (
-    [user_id] => 1945
-    [billing_email] => debug.test@example.com
+    [user_id] => 1214
+    [billing_email] => andrew@hispanicalliancesc.com
     [billing_first_name] => 
     [billing_last_name] => 
     [billing_phone] => 
 )
 
-[2025-11-07 21:42:09] [debug] OrderProcessor: Payment method updated Array
+[2025-11-08 08:06:01] [debug] OrderProcessor: Payment method updated Array
 (
-    [user_id] => 1945
+    [user_id] => 1214
     [payment_method] => 
     [stored_as] => online
 )
 
-[2025-11-07 21:42:09] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
+[2025-11-08 08:06:01] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
 (
     [languages] => 
     [country] => 
@@ -43,690 +71,74 @@
     [about] => 
 )
 
-[2025-11-07 21:42:09] [debug] 🛍️ OrderProcessor: Starting product processing...
-[2025-11-07 21:42:09] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
+[2025-11-08 08:06:01] [debug] 🛍️ OrderProcessor: Starting product processing...
+[2025-11-08 08:06:01] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
 (
     [total_products] => 0
-    [user_id] => 1945
-    [order_id] => 88111
+    [user_id] => 1214
+    [order_id] => 88132
 )
 
-[2025-11-07 21:42:09] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
+[2025-11-08 08:06:01] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
 (
     [products_processed] => 0
     [events_processed] => 0
     [attendees_created] => 0
 )
 
-[2025-11-07 21:42:09] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
+[2025-11-08 08:06:01] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
 (
-    [order_id] => 88111
-    [final_memory_usage] => 118MB
+    [order_id] => 88132
+    [final_memory_usage] => 88MB
 )
 
-[2025-11-07 21:42:09] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-07 21:42:09] [debug] OrderEmailCustomizer: Rendered email template Array
+[2025-11-08 08:06:01] [debug] ✅ Test order created Array
 (
-    [template] => membership-confirmation.html
-    [order_id] => 88111
-    [product_id] => 67487
+    [order_id] => 88132
 )
 
-[2025-11-07 21:42:09] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-07 21:42:09] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
+[2025-11-08 08:06:01] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
 (
-    [order_id] => 88111
-    [timestamp] => 2025-11-07 21:42:09
-    [memory_usage] => 122MB
+    [method] => Events
 )
 
-[2025-11-07 21:42:09] [debug] 📋 OrderProcessor: Order Details Array
+[2025-11-08 08:06:01] [debug] 🔍 LGL Payments: Using cached data
+[2025-11-08 08:06:01] [debug] LGL Payments: ⚠️ Payment type not found, using first available Array
 (
-    [order_id] => 88111
-    [order_status] => completed
-    [order_total] => 77.63
-    [customer_id] => 1945
-    [customer_email] => debug.test@example.com
-    [payment_method] => 
-    [order_date] => 2025-11-07 21:42:09
-    [item_count] => 1
+    [requested] => Bank Transfer
+    [using_id] => 1517
+    [using_name] => Cash
 )
 
-[2025-11-07 21:42:09] [debug] 👤 OrderProcessor: Customer Info Array
+[2025-11-08 08:06:01] [debug] 💳 Connection::addPayment() Array
 (
-    [user_id] => 1945
-    [billing_email] => debug.test@example.com
-    [billing_first_name] => Debug
-    [billing_last_name] => Test
-    [billing_phone] => 555-DEBUG
-)
-
-[2025-11-07 21:42:09] [debug] OrderProcessor: Payment method updated Array
-(
-    [user_id] => 1945
-    [payment_method] => 
-    [stored_as] => online
-)
-
-[2025-11-07 21:42:09] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
-(
-    [languages] => English, Spanish
-    [country] => United States
-    [referral] => 
-    [reason] => Testing debug functionality
-    [about] => 
-)
-
-[2025-11-07 21:42:09] [debug] 🛍️ OrderProcessor: Starting product processing...
-[2025-11-07 21:42:09] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
-(
-    [total_products] => 1
-    [user_id] => 1945
-    [order_id] => 88111
-)
-
-[2025-11-07 21:42:09] [debug] 🔍 OrderProcessor: Processing Product #1 Array
-(
-    [name] => Membership - Individual
-    [quantity] => 1
-    [product_id] => 68386
-    [parent_id] => 67487
-    [categories] => Array
-        (
-            [0] => memberships
-        )
-
-    [item_total] => 75
-    [item_subtotal] => 75
-)
-
-[2025-11-07 21:42:09] [debug] 🏷️ OrderProcessor: Product Type Detection Array
-(
-    [product_name] => Membership - Individual
-    [is_membership] => YES
-    [is_language_class] => NO
-    [is_event] => NO
-    [categories] => Array
-        (
-            [0] => memberships
-        )
-
-)
-
-[2025-11-07 21:42:09] [debug] 🎯 OrderProcessor: ROUTING TO MEMBERSHIP HANDLER Array
-(
-    [product_name] => Membership - Individual
-    [handler] => MembershipOrderHandler
-)
-
-[2025-11-07 21:42:09] [debug] 🎯 OrderProcessor::processMembershipProduct() STARTED Array
-(
-    [user_id] => 1945
-    [order_id] => 88111
-    [product_name] => Membership - Individual
-    [product_id] => 67487
-    [handler_class] => UpstateInternational\LGL\WooCommerce\MembershipOrderHandler
-    [handler_available] => YES
-)
-
-[2025-11-07 21:42:09] [debug] 🔄 OrderProcessor: Delegating to MembershipOrderHandler...
-[2025-11-07 21:42:09] [debug] 🎯 MembershipOrderHandler::processOrder() STARTED Array
-(
-    [user_id] => 1945
-    [order_id] => 88111
-    [membership_level] => Membership - Individual
-    [order_total] => 77.63
-    [customer_email] => debug.test@example.com
-    [timestamp] => 2025-11-07 21:42:09
-)
-
-[2025-11-07 21:42:09] [debug] 🛍️ MembershipOrderHandler: Product Details Array
-(
-    [product_id] => 67487
-    [variation_id] => 68386
-    [product_name] => Membership - Individual
-    [product_total] => 75
-    [wc_name_passed] => Membership - Individual
-    [product_meta_keys] => Array
-        (
-            [0] => _variation_description
-            [1] => total_sales
-            [2] => _tax_status
-            [3] => _tax_class
-            [4] => _manage_stock
-            [5] => _backorders
-            [6] => _sold_individually
-            [7] => _virtual
-            [8] => _downloadable
-            [9] => _download_limit
-            [10] => _download_expiry
-            [11] => _stock
-            [12] => _stock_status
-            [13] => _wc_average_rating
-            [14] => _wc_review_count
-            [15] => attribute_level
-            [16] => _product_version
-            [17] => _regular_price
-            [18] => _price
-            [19] => _subscription_payment_sync_date
-            [20] => _hf_subscription_prorate
-            [21] => _hf_subscription_price
-            [22] => _subscription_sign_up_fee
-            [23] => _subscription_period
-            [24] => _subscription_period_interval
-            [25] => _subscription_length
-            [26] => _subscription_trial_period
-            [27] => _subscription_trial_length
-            [28] => _thumbnail_id
-            [29] => _subscription_price
-            [30] => _ppcp_enable_subscription_product
-            [31] => addf_vf_roles_select_roles
-            [32] => _lgl_membership_fund_id
-        )
-
-)
-
-[2025-11-07 21:42:09] [debug] 🔍 MembershipOrderHandler: Determining membership level Array
-(
-    [wc_product_name] => Membership - Individual
-    [product_price] => 75
-)
-
-[2025-11-07 21:42:09] [debug] ✅ MembershipOrderHandler: Using JetEngine membership mapping Array
-(
-    [membership_level_id] => 412
-    [membership_name] => Indvidual
-)
-
-[2025-11-07 21:42:09] [debug] 🎯 MembershipOrderHandler: Membership Level Determination Array
-(
-    [wc_product_name] => Membership - Individual
-    [product_price] => 75
-    [determined_membership_level] => Indvidual
-    [method] => price_based_detection
-)
-
-[2025-11-07 21:42:09] [debug] 👤 MembershipOrderHandler: Updating user role...
-[2025-11-07 21:42:09] [debug] 👤 Helper: Changing user role Array
-(
-    [user_id] => 1945
-    [old_role] => customer
-    [new_role] => ui_member
-)
-
-[2025-11-07 21:42:09] [debug] ✅ Helper: User role changed successfully Array
-(
-    [user_id] => 1945
-    [from] => customer
-    [to] => ui_member
-    [current_roles] => Array
-        (
-            [0] => ui_member
-        )
-
-)
-
-[2025-11-07 21:42:09] [debug] MembershipOrderHandler: Updated user role to ui_member (individual) 1945
-[2025-11-07 21:42:09] [debug] 📋 MembershipOrderHandler: Building registration request...
-[2025-11-07 21:42:09] [debug] 🔄 Helper: Converting WC name to LGL name Array
-(
-    [input] => Indvidual
-)
-
-[2025-11-07 21:42:09] [debug] ⚠️ Helper: No name mapping found, returning original Array
-(
-    [wc_name] => Indvidual
-)
-
-[2025-11-07 21:42:09] [debug] 📋 MembershipOrderHandler: Registration request built Array
-(
-    [user_firstname] => Debug
-    [user_lastname] => Test
-    [user_company] => 
-    [username] => debug_test_user
-    [user_email] => debug.test@example.com
-    [user_phone] => 555-DEBUG
-    [user-address-1] => 
-    [user-address-2] => 
-    [user-city] => 
-    [user-state] => 
-    [user-postal-code] => 
-    [user-country-of-origin] => United States
-    [current_date] => 1762569729
-    [price] => 77.63
-    [ui-membership-type] => Indvidual
-    [inserted_post_id] => 88111
-    [user_id] => 1945
-    [lgl_membership_level_id] => 412
-)
-
-[2025-11-07 21:42:09] [debug] 💾 MembershipOrderHandler: Processing user data updates...
-[2025-11-07 21:42:09] [debug] MembershipOrderHandler: User data updated (WordPress only, LGL sync happens separately) 1945
-[2025-11-07 21:42:09] [debug] 🔗 MembershipOrderHandler: Starting LGL registration...
-[2025-11-07 21:42:09] [debug] 🔗 MembershipOrderHandler::registerUserInLGL() STARTED Array
-(
-    [user_id] => 1945
-    [user_email] => debug.test@example.com
-    [membership_type] => Indvidual
-    [order_id] => 88111
-    [membership_level_id] => 412
-)
-
-[2025-11-07 21:42:09] [debug] 🧭 MembershipRegistrationService::register() STARTED Array
-(
-    [user_id] => 1945
-    [search_name] => Debug%20Test
-    [email] => debug.test@example.com
-    [order_id] => 88111
-    [membership_level] => Indvidual
-    [membership_level_id] => 412
-)
-
-[2025-11-07 21:42:09] [debug] 🔍 Connection::searchByName() STARTED Array
-(
-    [name] => Debug%20Test
-    [email] => Array
-        (
-            [0] => debug.test@example.com
-        )
-
-)
-
-[2025-11-07 21:42:10] [debug] ✅ Email search found match (trusting LGL search) Array
-(
-    [lgl_id] => 946412
-    [email] => debug.test@example.com
-    [total_results] => 25
-)
-
-[2025-11-07 21:42:10] [debug] LGL Constituents: Name set Array
-(
-    [first_name] => Debug
-    [last_name] => Test
-)
-
-[2025-11-07 21:42:10] [debug] LGL Constituents: Email set debug.test@example.com
-[2025-11-07 21:42:10] [debug] LGL Constituents: 🎯 setMembership() CALLED! Array
-(
-    [user_id] => 1945
-)
-
-[2025-11-07 21:42:10] [debug] LGL Constituents: 🔍 Looking up membership level config Array
-(
-    [membership_type] => Individual Membership
-    [user_id] => 1945
-)
-
-[2025-11-07 21:42:10] [debug] LGL Constituents: 🔍 Membership level config from user meta Array
-(
-    [membership_level_id] => 412
-    [found] => YES
-)
-
-[2025-11-07 21:42:10] [debug] LGL Constituents: 📋 Final level config Array
-(
-    [level_name] => Indvidual
-    [level_slug] => individual
-    [lgl_membership_level_id] => 412
-    [price] => 75
-)
-
-[2025-11-07 21:42:10] [debug] LGL Constituents: Modern Membership Data Created Array
-(
-    [user_id] => 1945
-    [membership_type] => Individual Membership
-    [level_config] => Array
-        (
-            [level_name] => Indvidual
-            [level_slug] => individual
-            [lgl_membership_level_id] => 412
-            [price] => 75
-        )
-
-    [membership_data] => Array
-        (
-            [membership_level_id] => 412
-            [membership_level_name] => Indvidual
-            [date_start] => 2025-11-08
-            [finish_date] => 2026-11-08
-            [note] => Membership created via Modern LGL API on 2025-11-08
-        )
-
-)
-
-[2025-11-07 21:42:10] [debug] LGL Constituents: Final Membership Data Set Array
-(
-    [membership_level_id] => 412
-    [membership_level_name] => Indvidual
-    [date_start] => 2025-11-08
-    [finish_date] => 2026-11-08
-    [note] => Membership created via Modern LGL API on 2025-11-08
-)
-
-[2025-11-07 21:42:10] [debug] LGL Constituents: All data set for user 1945
-[2025-11-07 21:42:10] [debug] LGL Constituents: Name set Array
-(
-    [first_name] => Debug
-    [last_name] => Test
-    [is_org] => 
-    [constituent_contact_type_id] => 1247
-    [constituent_contact_type_name] => Primary
-    [addressee] => Debug Test
-    [salutation] => Debug
-    [sort_name] => Test, Debug
-    [is_deceased] => 
-    [annual_report_name] => Debug Test
-    [date_added] => 2025-11-08
-    [is_anon] => 
-)
-
-[2025-11-07 21:42:10] [debug] LGL Constituents: Email already set, skipping duplicate debug.test@example.com
-[2025-11-07 21:42:10] [debug] LGL Constituents: Constituent updated successfully Array
-(
-    [success] => 1
-    [http_code] => 200
-    [data] => Array
-        (
-            [api_version] => 1.0
-            [id] => 946412
-            [external_constituent_id] => 306
-            [is_org] => 
-            [constituent_contact_type_id] => 1247
-            [constituent_contact_type_name] => Primary
-            [prefix] => 
-            [first_name] => Debug
-            [middle_name] => 
-            [last_name] => Test
-            [suffix] => 
-            [spouse_name] => 
-            [org_name] => 
-            [job_title] => 
-            [addressee] => Debug Test
-            [salutation] => Debug
-            [sort_name] => Test, Debug
-            [constituent_interest_level_id] => 
-            [constituent_interest_level_name] => 
-            [constituent_rating_id] => 
-            [constituent_rating_name] => 
-            [is_deceased] => 
-            [deceased_date] => 
-            [annual_report_name] => Debug Test
-            [birthday] => 
-            [gender] => 
-            [maiden_name] => 
-            [nick_name] => 
-            [spouse_nick_name] => 
-            [date_added] => 2025-11-08
-            [alt_salutation] => Debug
-            [alt_addressee] => Debug Test
-            [honorary_name] => Debug Test
-            [assistant_name] => 
-            [marital_status_id] => 0
-            [marital_status_name] => 
-            [is_anon] => 
-            [created_at] => 2023-11-30T17:11:47Z
-            [updated_at] => 2025-11-08T02:42:10Z
-            [class_affiliations] => Array
-                (
-                )
-
-            [relationships] => Array
-                (
-                )
-
-            [street_addresses] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 840072
-                            [street] => 108 Elkhorn Drive
-                            [city] => Greenville
-                            [state] => South Carolina
-                            [country] => 
-                            [postal_code] => 29617
-                            [county] => 
-                            [street_address_type_id] => 1
-                            [street_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [seasonal_from] => 01-01
-                            [seasonal_to] => 12-31
-                            [seasonal] => 
-                            [lat] => 
-                            [lng] => 
-                            [zip5] => 29617
-                            [verified] => 
-                            [verified_on] => 
-                            [created_at] => 2023-11-30T17:12:47Z
-                            [updated_at] => 2023-11-30T17:12:47Z
-                        )
-
-                )
-
-            [phone_numbers] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 481667
-                            [number] => 864 - 483 - 0403
-                            [phone_number_type_id] => 1
-                            [phone_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [normalized_number] => 8644830403
-                            [created_at] => 2023-11-30T17:12:47Z
-                            [updated_at] => 2023-11-30T17:12:47Z
-                        )
-
-                )
-
-            [email_addresses] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 278577
-                            [address] => kbeemer@g.clemson.edu
-                            [email_address_type_id] => 1
-                            [email_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [created_at] => 2023-11-30T17:12:47Z
-                            [updated_at] => 2023-11-30T17:12:47Z
-                        )
-
-                )
-
-            [web_addresses] => Array
-                (
-                )
-
-            [categories] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 1287
-                            [item_type] => Constituent
-                            [name] => Giving Status
-                            [key] => giving_status
-                            [facet_type] => list
-                            [ordinal] => 100
-                            [removable] => 
-                            [editable] => 
-                            [display_format] => compact
-                            [keywords] => Array
-                                (
-                                    [0] => Array
-                                        (
-                                            [id] => 12797
-                                            [category_id] => 1287
-                                            [name] => Non Donor
-                                            [description] => 
-                                            [short_code] => non_donor
-                                            [ordinal] => 4
-                                            [removable] => 
-                                            [can_change] => 1
-                                            [can_select] => 1
-                                            [created_at] => 2023-02-25T00:56:33Z
-                                            [updated_at] => 2023-02-25T00:56:33Z
-                                        )
-
-                                )
-
-                        )
-
-                )
-
-            [groups] => Array
-                (
-                )
-
-            [memberships] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 3207
-                            [constituent_id] => 946412
-                            [membership_level_id] => 402
-                            [membership_level_name] => Patron Family
-                            [date_start] => 2023-11-30
-                            [finish_date] => 2024-11-30
-                            [note] => Renewal via WP_LGL_API
-                            [created_at] => 2023-11-30T17:11:48Z
-                            [updated_at] => 2023-11-30T21:01:48Z
-                        )
-
-                )
-
-            [custom_attrs] => Array
-                (
-                )
-
-        )
-
-    [raw_response] => {"api_version":"1.0","id":946412,"external_constituent_id":"306","is_org":false,"constituent_contact_type_id":1247,"constituent_contact_type_name":"Primary","prefix":"","first_name":"Debug","middle_name":"","last_name":"Test","suffix":"","spouse_name":"","org_name":"","job_title":"","addressee":"Debug Test","salutation":"Debug","sort_name":"Test, Debug","constituent_interest_level_id":null,"constituent_interest_level_name":null,"constituent_rating_id":null,"constituent_rating_name":null,"is_deceased":false,"deceased_date":null,"annual_report_name":"Debug Test","birthday":null,"gender":"","maiden_name":"","nick_name":"","spouse_nick_name":"","date_added":"2025-11-08","alt_salutation":"Debug","alt_addressee":"Debug Test","honorary_name":"Debug Test","assistant_name":"","marital_status_id":0,"marital_status_name":null,"is_anon":false,"created_at":"2023-11-30T17:11:47Z","updated_at":"2025-11-08T02:42:10Z","class_affiliations":[],"relationships":[],"street_addresses":[{"id":840072,"street":"108 Elkhorn Drive","city":"Greenville","state":"South Carolina","country":"","postal_code":"29617","county":"","street_address_type_id":1,"street_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":false,"lat":null,"lng":null,"zip5":"29617","verified":false,"verified_on":null,"created_at":"2023-11-30T17:12:47Z","updated_at":"2023-11-30T17:12:47Z"}],"phone_numbers":[{"id":481667,"number":"864 - 483 - 0403","phone_number_type_id":1,"phone_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"normalized_number":"8644830403","created_at":"2023-11-30T17:12:47Z","updated_at":"2023-11-30T17:12:47Z"}],"email_addresses":[{"id":278577,"address":"kbeemer@g.clemson.edu","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2023-11-30T17:12:47Z","updated_at":"2023-11-30T17:12:47Z"}],"web_addresses":[],"categories":[{"id":1287,"item_type":"Constituent","name":"Giving Status","key":"giving_status","facet_type":"list","ordinal":100,"removable":false,"editable":false,"display_format":"compact","keywords":[{"id":12797,"category_id":1287,"name":"Non Donor","description":null,"short_code":"non_donor","ordinal":4,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"}]}],"groups":[],"memberships":[{"id":3207,"constituent_id":946412,"membership_level_id":402,"membership_level_name":"Patron Family","date_start":"2023-11-30","finish_date":"2024-11-30","note":"Renewal via WP_LGL_API","created_at":"2023-11-30T17:11:48Z","updated_at":"2023-11-30T21:01:48Z"}],"custom_attrs":[]}
-)
-
-[2025-11-07 21:42:11] [debug] ✅ MembershipRegistrationService: Constituent updated (Step 1/5) Array
-(
-    [lgl_id] => 946412
-    [http_code] => 200
-)
-
-[2025-11-07 21:42:11] [debug] ✅ MembershipRegistrationService: Email added (Step 2/4) Array
-(
-    [lgl_id] => 946412
-    [success] => 1
-    [response] => Array
-        (
-            [success] => 1
-            [http_code] => 200
-            [data] => Array
-                (
-                    [api_version] => 1.0
-                    [id] => 278772
-                    [item_id] => 946412
-                    [item_type] => Constituent
-                    [address] => debug.test@example.com
-                    [email_address_type_id] => 1
-                    [email_type_name] => Home
-                    [is_preferred] => 1
-                    [not_current] => 
-                    [parent_id] => 
-                    [created_at] => 2025-11-08T02:42:11Z
-                    [updated_at] => 2025-11-08T02:42:11Z
-                )
-
-            [raw_response] => {"api_version":"1.0","id":278772,"item_id":946412,"item_type":"Constituent","address":"debug.test@example.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2025-11-08T02:42:11Z","updated_at":"2025-11-08T02:42:11Z"}
-        )
-
-)
-
-[2025-11-07 21:42:11] [debug] ⚠️ MembershipRegistrationService: No phone data to add (Step 3/4)
-[2025-11-07 21:42:11] [debug] ⚠️ MembershipRegistrationService: No address data to add (Step 4/4)
-[2025-11-07 21:42:11] [debug] ✅ MembershipRegistrationService: Membership added (Step 5/5) Array
-(
-    [lgl_id] => 946412
-    [success] => 1
-    [response] => Array
-        (
-            [success] => 1
-            [http_code] => 200
-            [data] => Array
-                (
-                    [api_version] => 1.0
-                    [id] => 3767
-                    [constituent_id] => 946412
-                    [membership_level_id] => 412
-                    [membership_level_name] => Indvidual
-                    [date_start] => 2025-11-08
-                    [finish_date] => 2026-11-08
-                    [note] => Membership created via Modern LGL API on 2025-11-08
-                    [created_at] => 2025-11-08T02:42:11Z
-                    [updated_at] => 2025-11-08T02:42:11Z
-                )
-
-            [raw_response] => {"api_version":"1.0","id":3767,"constituent_id":946412,"membership_level_id":412,"membership_level_name":"Indvidual","date_start":"2025-11-08","finish_date":"2026-11-08","note":"Membership created via Modern LGL API on 2025-11-08","created_at":"2025-11-08T02:42:11Z","updated_at":"2025-11-08T02:42:11Z"}
-        )
-
-)
-
-[2025-11-07 21:42:12] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
-(
-    [method] => Memberships
-)
-
-[2025-11-07 21:42:12] [debug] 🔍 LGL Payments: Using cached data
-[2025-11-07 21:42:12] [debug] LGL Payments: Payment data retrieved Array
-(
-    [method] => Memberships
-    [data_keys] => Array
-        (
-            [0] => payment_types
-            [1] => gift_types
-            [2] => funds
-            [3] => campaigns
-            [4] => categories
-            [5] => method
-            [6] => retrieved_at
-        )
-
-    [funds_count] => 9
-    [campaigns_count] => 7
-    [payment_types_count] => 7
-)
-
-[2025-11-07 21:42:12] [debug] 💳 Connection::addPayment() Array
-(
-    [lgl_id] => 946412
+    [lgl_id] => 947022
     [payment_data] => Array
         (
-            [external_id] => 88111
+            [external_id] => 88132
             [is_anon] => 
-            [gift_type_id] => 
+            [gift_type_id] => 5
             [gift_type_name] => Other Income
-            [gift_category_id] => 
-            [gift_category_name] => Donation
-            [campaign_id] => 
-            [campaign_name] => Membership Fees
-            [fund_id] => 
-            [fund_name] => General Fund
+            [gift_category_id] => 6052
+            [gift_category_name] => Event fee
+            [campaign_id] => 867
+            [campaign_name] => WACU Programming
+            [fund_id] => 4042
+            [fund_name] => 
             [appeal_id] => 0
             [appeal_name] => 
             [event_id] => 0
-            [event_name] => 
-            [received_amount] => 77.63
+            [event_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+            [received_amount] => 14.00
             [received_date] => 2025-11-08
-            [payment_type_id] => 
-            [payment_type_name] => Credit Card
+            [payment_type_id] => 1517
+            [payment_type_name] => Cash
             [check_number] => 
-            [deductible_amount] => 77.63
-            [note] => Website Registration, Order #88111
+            [deductible_amount] => 14.00
+            [note] => Event registration - Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham - Order #88132
             [ack_template_name] => 
             [deposit_date] => 2025-11-08
-            [deposited_amount] => 77.63
+            [deposited_amount] => 14.00
             [parent_gift_id] => 0
             [parent_external_id] => 0
             [team_member] => 
@@ -734,95 +146,95 @@
 
 )
 
-[2025-11-07 21:42:12] [debug] ✅ Payment added successfully Array
+[2025-11-08 08:06:02] [debug] ✅ Payment added successfully Array
 (
-    [payment_id] => 905312
+    [payment_id] => 905352
 )
 
-[2025-11-07 21:42:12] [debug] LGL Payments: Membership payment created Array
+[2025-11-08 08:06:02] [debug] LGL Payments: Event payment created Array
 (
-    [lgl_id] => 946412
-    [order_id] => 88111
-    [amount] => 77.63
+    [lgl_id] => 947022
+    [order_id] => 88132
+    [event_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+    [amount] => 14
 )
 
-[2025-11-07 21:42:12] [debug] ✅ MembershipRegistrationService: Payment created Array
+[2025-11-08 08:06:02] [debug] ⚠️ Attempted to delete non-test order Array
 (
-    [payment_id] => 905312
-    [lgl_id] => 946412
-    [order_id] => 88111
-    [amount] => 77.63
+    [order_id] => 88132
 )
 
-[2025-11-07 21:42:12] [debug] ✅ MembershipOrderHandler::registerUserInLGL() COMPLETED Array
+[2025-11-08 08:06:02] [debug] ✅ Test payment created successfully Array
 (
-    [user_id] => 1945
-    [lgl_id] => 946412
-    [status] => partial
+    [payment_id] => 905352
+    [test_order_deleted] => 1
 )
 
-[2025-11-07 21:42:12] [debug] ✅ MembershipOrderHandler: Completing order...
-[2025-11-07 21:42:12] [debug] ✅ MembershipOrderHandler::processOrder() COMPLETED SUCCESSFULLY Array
+[2025-11-08 08:06:27] [debug] 📚 Testing Class Registration Array
 (
-    [order_id] => 88111
-    [user_id] => 1945
-    [final_membership_level] => Indvidual
-    [lgl_id] => 946412
-    [match_method] => email
-    [payment_id] => 905312
+    [user_id] => 1214
+    [lgl_id] => 947022
+    [class_product_id] => 86825
+    [class_name] => Spanish A0 Regular: Mondays
+    [price] => 144
+    [class_fund_id] => 4062
+    [class_type] => Language Class
 )
 
-[2025-11-07 21:42:12] [debug] ✅ OrderProcessor: MembershipOrderHandler completed successfully
-[2025-11-07 21:42:12] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
+[2025-11-08 08:06:27] [debug] 💰 Creating test payment/gift Array
 (
-    [products_processed] => 1
-    [events_processed] => 0
-    [attendees_created] => 0
+    [lgl_id] => 947022
+    [amount] => 144
+    [type] => Class
+    [name] => Spanish A0 Regular: Mondays
+    [fund_id] => 4062
+    [class_type] => Language Class
 )
 
-[2025-11-07 21:42:12] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
+[2025-11-08 08:06:27] [debug] 🛒 Creating temporary test order Array
 (
-    [order_id] => 88111
-    [final_memory_usage] => 122MB
+    [user_id] => 1214
+    [product_id] => 86825
+    [amount] => 144
+    [type] => class
 )
 
-[2025-11-07 21:43:41] [debug] Membership cron jobs scheduled successfully
-[2025-11-07 21:43:41] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
+[2025-11-08 08:06:27] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
 (
-    [order_id] => 88112
-    [timestamp] => 2025-11-07 21:43:41
-    [memory_usage] => 118MB
+    [order_id] => 88133
+    [timestamp] => 2025-11-08 08:06:27
+    [memory_usage] => 94MB
 )
 
-[2025-11-07 21:43:41] [debug] 📋 OrderProcessor: Order Details Array
+[2025-11-08 08:06:27] [debug] 📋 OrderProcessor: Order Details Array
 (
-    [order_id] => 88112
+    [order_id] => 88133
     [order_status] => pending
     [order_total] => 0.00
-    [customer_id] => 1946
-    [customer_email] => debug.test@example.com
+    [customer_id] => 1214
+    [customer_email] => andrew@hispanicalliancesc.com
     [payment_method] => 
-    [order_date] => 2025-11-07 21:43:41
+    [order_date] => 2025-11-08 08:06:27
     [item_count] => 0
 )
 
-[2025-11-07 21:43:41] [debug] 👤 OrderProcessor: Customer Info Array
+[2025-11-08 08:06:27] [debug] 👤 OrderProcessor: Customer Info Array
 (
-    [user_id] => 1946
-    [billing_email] => debug.test@example.com
+    [user_id] => 1214
+    [billing_email] => andrew@hispanicalliancesc.com
     [billing_first_name] => 
     [billing_last_name] => 
     [billing_phone] => 
 )
 
-[2025-11-07 21:43:41] [debug] OrderProcessor: Payment method updated Array
+[2025-11-08 08:06:27] [debug] OrderProcessor: Payment method updated Array
 (
-    [user_id] => 1946
+    [user_id] => 1214
     [payment_method] => 
     [stored_as] => online
 )
 
-[2025-11-07 21:43:41] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
+[2025-11-08 08:06:27] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
 (
     [languages] => 
     [country] => 
@@ -831,2387 +243,80 @@
     [about] => 
 )
 
-[2025-11-07 21:43:41] [debug] 🛍️ OrderProcessor: Starting product processing...
-[2025-11-07 21:43:41] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
+[2025-11-08 08:06:27] [debug] 🛍️ OrderProcessor: Starting product processing...
+[2025-11-08 08:06:27] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
 (
     [total_products] => 0
-    [user_id] => 1946
-    [order_id] => 88112
+    [user_id] => 1214
+    [order_id] => 88133
 )
 
-[2025-11-07 21:43:41] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
+[2025-11-08 08:06:27] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
 (
     [products_processed] => 0
     [events_processed] => 0
     [attendees_created] => 0
 )
 
-[2025-11-07 21:43:41] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
+[2025-11-08 08:06:27] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
 (
-    [order_id] => 88112
-    [final_memory_usage] => 118MB
+    [order_id] => 88133
+    [final_memory_usage] => 94MB
 )
 
-[2025-11-07 21:43:41] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-07 21:43:41] [debug] OrderEmailCustomizer: Rendered email template Array
+[2025-11-08 08:06:27] [debug] ✅ Test order created Array
 (
-    [template] => membership-confirmation.html
-    [order_id] => 88112
-    [product_id] => 67487
+    [order_id] => 88133
 )
 
-[2025-11-07 21:43:41] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-07 21:43:41] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
+[2025-11-08 08:06:27] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
 (
-    [order_id] => 88112
-    [timestamp] => 2025-11-07 21:43:41
-    [memory_usage] => 122MB
+    [method] => Classes
 )
 
-[2025-11-07 21:43:41] [debug] 📋 OrderProcessor: Order Details Array
+[2025-11-08 08:06:27] [debug] 🔍 LGL Payments: No cache, making API requests...
+[2025-11-08 08:06:29] [debug] LGL Payments: Payment types retrieved Array
 (
-    [order_id] => 88112
-    [order_status] => completed
-    [order_total] => 77.63
-    [customer_id] => 1946
-    [customer_email] => debug.test@example.com
-    [payment_method] => 
-    [order_date] => 2025-11-07 21:43:41
-    [item_count] => 1
-)
-
-[2025-11-07 21:43:41] [debug] 👤 OrderProcessor: Customer Info Array
-(
-    [user_id] => 1946
-    [billing_email] => debug.test@example.com
-    [billing_first_name] => Debug
-    [billing_last_name] => Test
-    [billing_phone] => 555-DEBUG
-)
-
-[2025-11-07 21:43:41] [debug] OrderProcessor: Payment method updated Array
-(
-    [user_id] => 1946
-    [payment_method] => 
-    [stored_as] => online
-)
-
-[2025-11-07 21:43:41] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
-(
-    [languages] => English, Spanish
-    [country] => United States
-    [referral] => 
-    [reason] => Testing debug functionality
-    [about] => 
-)
-
-[2025-11-07 21:43:41] [debug] 🛍️ OrderProcessor: Starting product processing...
-[2025-11-07 21:43:41] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
-(
-    [total_products] => 1
-    [user_id] => 1946
-    [order_id] => 88112
-)
-
-[2025-11-07 21:43:41] [debug] 🔍 OrderProcessor: Processing Product #1 Array
-(
-    [name] => Membership - Individual
-    [quantity] => 1
-    [product_id] => 68386
-    [parent_id] => 67487
-    [categories] => Array
-        (
-            [0] => memberships
-        )
-
-    [item_total] => 75
-    [item_subtotal] => 75
-)
-
-[2025-11-07 21:43:41] [debug] 🏷️ OrderProcessor: Product Type Detection Array
-(
-    [product_name] => Membership - Individual
-    [is_membership] => YES
-    [is_language_class] => NO
-    [is_event] => NO
-    [categories] => Array
-        (
-            [0] => memberships
-        )
-
-)
-
-[2025-11-07 21:43:41] [debug] 🎯 OrderProcessor: ROUTING TO MEMBERSHIP HANDLER Array
-(
-    [product_name] => Membership - Individual
-    [handler] => MembershipOrderHandler
-)
-
-[2025-11-07 21:43:41] [debug] 🎯 OrderProcessor::processMembershipProduct() STARTED Array
-(
-    [user_id] => 1946
-    [order_id] => 88112
-    [product_name] => Membership - Individual
-    [product_id] => 67487
-    [handler_class] => UpstateInternational\LGL\WooCommerce\MembershipOrderHandler
-    [handler_available] => YES
-)
-
-[2025-11-07 21:43:41] [debug] 🔄 OrderProcessor: Delegating to MembershipOrderHandler...
-[2025-11-07 21:43:41] [debug] 🎯 MembershipOrderHandler::processOrder() STARTED Array
-(
-    [user_id] => 1946
-    [order_id] => 88112
-    [membership_level] => Membership - Individual
-    [order_total] => 77.63
-    [customer_email] => debug.test@example.com
-    [timestamp] => 2025-11-07 21:43:41
-)
-
-[2025-11-07 21:43:41] [debug] 🛍️ MembershipOrderHandler: Product Details Array
-(
-    [product_id] => 67487
-    [variation_id] => 68386
-    [product_name] => Membership - Individual
-    [product_total] => 75
-    [wc_name_passed] => Membership - Individual
-    [product_meta_keys] => Array
-        (
-            [0] => _variation_description
-            [1] => total_sales
-            [2] => _tax_status
-            [3] => _tax_class
-            [4] => _manage_stock
-            [5] => _backorders
-            [6] => _sold_individually
-            [7] => _virtual
-            [8] => _downloadable
-            [9] => _download_limit
-            [10] => _download_expiry
-            [11] => _stock
-            [12] => _stock_status
-            [13] => _wc_average_rating
-            [14] => _wc_review_count
-            [15] => attribute_level
-            [16] => _product_version
-            [17] => _regular_price
-            [18] => _price
-            [19] => _subscription_payment_sync_date
-            [20] => _hf_subscription_prorate
-            [21] => _hf_subscription_price
-            [22] => _subscription_sign_up_fee
-            [23] => _subscription_period
-            [24] => _subscription_period_interval
-            [25] => _subscription_length
-            [26] => _subscription_trial_period
-            [27] => _subscription_trial_length
-            [28] => _thumbnail_id
-            [29] => _subscription_price
-            [30] => _ppcp_enable_subscription_product
-            [31] => addf_vf_roles_select_roles
-            [32] => _lgl_membership_fund_id
-        )
-
-)
-
-[2025-11-07 21:43:41] [debug] 🔍 MembershipOrderHandler: Determining membership level Array
-(
-    [wc_product_name] => Membership - Individual
-    [product_price] => 75
-)
-
-[2025-11-07 21:43:41] [debug] ✅ MembershipOrderHandler: Using JetEngine membership mapping Array
-(
-    [membership_level_id] => 412
-    [membership_name] => Indvidual
-)
-
-[2025-11-07 21:43:41] [debug] 🎯 MembershipOrderHandler: Membership Level Determination Array
-(
-    [wc_product_name] => Membership - Individual
-    [product_price] => 75
-    [determined_membership_level] => Indvidual
-    [method] => price_based_detection
-)
-
-[2025-11-07 21:43:41] [debug] 👤 MembershipOrderHandler: Updating user role...
-[2025-11-07 21:43:41] [debug] 👤 Helper: Changing user role Array
-(
-    [user_id] => 1946
-    [old_role] => customer
-    [new_role] => ui_member
-)
-
-[2025-11-07 21:43:41] [debug] ✅ Helper: User role changed successfully Array
-(
-    [user_id] => 1946
-    [from] => customer
-    [to] => ui_member
-    [current_roles] => Array
-        (
-            [0] => ui_member
-        )
-
-)
-
-[2025-11-07 21:43:41] [debug] MembershipOrderHandler: Updated user role to ui_member (individual) 1946
-[2025-11-07 21:43:41] [debug] 📋 MembershipOrderHandler: Building registration request...
-[2025-11-07 21:43:41] [debug] 🔄 Helper: Converting WC name to LGL name Array
-(
-    [input] => Indvidual
-)
-
-[2025-11-07 21:43:41] [debug] ⚠️ Helper: No name mapping found, returning original Array
-(
-    [wc_name] => Indvidual
-)
-
-[2025-11-07 21:43:41] [debug] 📋 MembershipOrderHandler: Registration request built Array
-(
-    [user_firstname] => Debug
-    [user_lastname] => Test
-    [user_company] => 
-    [username] => debug_test_user
-    [user_email] => debug.test@example.com
-    [user_phone] => 555-DEBUG
-    [user-address-1] => 
-    [user-address-2] => 
-    [user-city] => 
-    [user-state] => 
-    [user-postal-code] => 
-    [user-country-of-origin] => United States
-    [current_date] => 1762569821
-    [price] => 77.63
-    [ui-membership-type] => Indvidual
-    [inserted_post_id] => 88112
-    [user_id] => 1946
-    [lgl_membership_level_id] => 412
-)
-
-[2025-11-07 21:43:41] [debug] 💾 MembershipOrderHandler: Processing user data updates...
-[2025-11-07 21:43:41] [debug] MembershipOrderHandler: User data updated (WordPress only, LGL sync happens separately) 1946
-[2025-11-07 21:43:41] [debug] 🔗 MembershipOrderHandler: Starting LGL registration...
-[2025-11-07 21:43:41] [debug] 🔗 MembershipOrderHandler::registerUserInLGL() STARTED Array
-(
-    [user_id] => 1946
-    [user_email] => debug.test@example.com
-    [membership_type] => Indvidual
-    [order_id] => 88112
-    [membership_level_id] => 412
-)
-
-[2025-11-07 21:43:41] [debug] 🧭 MembershipRegistrationService::register() STARTED Array
-(
-    [user_id] => 1946
-    [search_name] => Debug%20Test
-    [email] => debug.test@example.com
-    [order_id] => 88112
-    [membership_level] => Indvidual
-    [membership_level_id] => 412
-)
-
-[2025-11-07 21:43:41] [debug] 🔍 Connection::searchByName() STARTED Array
-(
-    [name] => Debug%20Test
-    [email] => Array
-        (
-            [0] => debug.test@example.com
-        )
-
-)
-
-[2025-11-07 21:43:42] [debug] ✅ Email search found match (trusting LGL search) Array
-(
-    [lgl_id] => 944987
-    [email] => debug.test@example.com
-    [total_results] => 25
-)
-
-[2025-11-07 21:43:42] [debug] LGL Constituents: Name set Array
-(
-    [first_name] => Debug
-    [last_name] => Test
-)
-
-[2025-11-07 21:43:42] [debug] LGL Constituents: Email set debug.test@example.com
-[2025-11-07 21:43:42] [debug] LGL Constituents: 🎯 setMembership() CALLED! Array
-(
-    [user_id] => 1946
-)
-
-[2025-11-07 21:43:42] [debug] LGL Constituents: 🔍 Looking up membership level config Array
-(
-    [membership_type] => Individual Membership
-    [user_id] => 1946
-)
-
-[2025-11-07 21:43:42] [debug] LGL Constituents: 🔍 Membership level config from user meta Array
-(
-    [membership_level_id] => 412
-    [found] => YES
-)
-
-[2025-11-07 21:43:42] [debug] LGL Constituents: 📋 Final level config Array
-(
-    [level_name] => Indvidual
-    [level_slug] => individual
-    [lgl_membership_level_id] => 412
-    [price] => 75
-)
-
-[2025-11-07 21:43:42] [debug] LGL Constituents: Modern Membership Data Created Array
-(
-    [user_id] => 1946
-    [membership_type] => Individual Membership
-    [level_config] => Array
-        (
-            [level_name] => Indvidual
-            [level_slug] => individual
-            [lgl_membership_level_id] => 412
-            [price] => 75
-        )
-
-    [membership_data] => Array
-        (
-            [membership_level_id] => 412
-            [membership_level_name] => Indvidual
-            [date_start] => 2025-11-08
-            [finish_date] => 2026-11-08
-            [note] => Membership created via Modern LGL API on 2025-11-08
-        )
-
-)
-
-[2025-11-07 21:43:42] [debug] LGL Constituents: Final Membership Data Set Array
-(
-    [membership_level_id] => 412
-    [membership_level_name] => Indvidual
-    [date_start] => 2025-11-08
-    [finish_date] => 2026-11-08
-    [note] => Membership created via Modern LGL API on 2025-11-08
-)
-
-[2025-11-07 21:43:42] [debug] LGL Constituents: All data set for user 1946
-[2025-11-07 21:43:42] [debug] LGL Constituents: Name set Array
-(
-    [first_name] => Debug
-    [last_name] => Test
-    [is_org] => 
-    [constituent_contact_type_id] => 1247
-    [constituent_contact_type_name] => Primary
-    [addressee] => Debug Test
-    [salutation] => Debug
-    [sort_name] => Test, Debug
-    [is_deceased] => 
-    [annual_report_name] => Debug Test
-    [date_added] => 2025-11-08
-    [is_anon] => 
-)
-
-[2025-11-07 21:43:42] [debug] LGL Constituents: Email already set, skipping duplicate debug.test@example.com
-[2025-11-07 21:43:42] [debug] LGL Constituents: Constituent updated successfully Array
-(
-    [success] => 1
-    [http_code] => 200
-    [data] => Array
-        (
-            [api_version] => 1.0
-            [id] => 944987
-            [external_constituent_id] => t00038
-            [is_org] => 
-            [constituent_contact_type_id] => 1247
-            [constituent_contact_type_name] => Primary
-            [prefix] => 
-            [first_name] => Debug
-            [middle_name] => 
-            [last_name] => Test
-            [suffix] => 
-            [spouse_name] => 
-            [org_name] => Millennium
-            [job_title] => 
-            [addressee] => Debug Test
-            [salutation] => Debug
-            [sort_name] => Test, Debug
-            [constituent_interest_level_id] => 
-            [constituent_interest_level_name] => 
-            [constituent_rating_id] => 
-            [constituent_rating_name] => 
-            [is_deceased] => 
-            [deceased_date] => 
-            [annual_report_name] => Debug Test
-            [birthday] => 
-            [gender] => 
-            [maiden_name] => 
-            [nick_name] => 
-            [spouse_nick_name] => 
-            [date_added] => 2025-11-08
-            [alt_salutation] => Debug
-            [alt_addressee] => Debug Test
-            [honorary_name] => Debug Test
-            [assistant_name] => 
-            [marital_status_id] => 
-            [marital_status_name] => 
-            [is_anon] => 
-            [created_at] => 2023-02-27T13:28:19Z
-            [updated_at] => 2025-11-08T02:43:42Z
-            [class_affiliations] => Array
-                (
-                )
-
-            [relationships] => Array
-                (
-                )
-
-            [street_addresses] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 838577
-                            [street] => 1910 Ezekiel Drive
-                            [city] => Seattle
-                            [state] => WA
-                            [country] => US
-                            [postal_code] => 98101
-                            [county] => 
-                            [street_address_type_id] => 1
-                            [street_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [seasonal_from] => 01-01
-                            [seasonal_to] => 12-31
-                            [seasonal] => 
-                            [lat] => 
-                            [lng] => 
-                            [zip5] => 98101
-                            [verified] => 
-                            [verified_on] => 
-                            [created_at] => 2023-02-27T13:28:19Z
-                            [updated_at] => 2023-02-27T13:28:19Z
-                        )
-
-                )
-
-            [phone_numbers] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 480147
-                            [number] => (888) 555-0038
-                            [phone_number_type_id] => 3
-                            [phone_type_name] => Mobile
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [normalized_number] => 8885550038
-                            [created_at] => 2023-02-27T13:28:19Z
-                            [updated_at] => 2023-02-27T13:28:19Z
-                        )
-
-                )
-
-            [email_addresses] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 277037
-                            [address] => black@millennium.com
-                            [email_address_type_id] => 1
-                            [email_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [created_at] => 2023-02-27T13:28:19Z
-                            [updated_at] => 2023-02-27T13:28:19Z
-                        )
-
-                )
-
-            [web_addresses] => Array
-                (
-                )
-
-            [categories] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 1282
-                            [item_type] => Constituent
-                            [name] => Communication Tags
-                            [key] => tags
-                            [facet_type] => list
-                            [ordinal] => 100
-                            [removable] => 1
-                            [editable] => 1
-                            [display_format] => compact
-                            [keywords] => Array
-                                (
-                                    [0] => Array
-                                        (
-                                            [id] => 12747
-                                            [category_id] => 1282
-                                            [name] => Do not mail
-                                            [description] => 
-                                            [short_code] => do_not_mail
-                                            [ordinal] => 100
-                                            [removable] => 
-                                            [can_change] => 1
-                                            [can_select] => 1
-                                            [created_at] => 2023-02-25T00:56:32Z
-                                            [updated_at] => 2023-02-25T00:56:32Z
-                                        )
-
-                                )
-
-                        )
-
-                    [1] => Array
-                        (
-                            [id] => 1287
-                            [item_type] => Constituent
-                            [name] => Giving Status
-                            [key] => giving_status
-                            [facet_type] => list
-                            [ordinal] => 100
-                            [removable] => 
-                            [editable] => 
-                            [display_format] => compact
-                            [keywords] => Array
-                                (
-                                    [0] => Array
-                                        (
-                                            [id] => 12777
-                                            [category_id] => 1287
-                                            [name] => Top 100 Donor
-                                            [description] => 
-                                            [short_code] => top_100_donor
-                                            [ordinal] => 0
-                                            [removable] => 
-                                            [can_change] => 1
-                                            [can_select] => 1
-                                            [created_at] => 2023-02-25T00:56:33Z
-                                            [updated_at] => 2023-02-25T00:56:33Z
-                                        )
-
-                                    [1] => Array
-                                        (
-                                            [id] => 12792
-                                            [category_id] => 1287
-                                            [name] => Lapsed Donor
-                                            [description] => 
-                                            [short_code] => lapsed_donor
-                                            [ordinal] => 3
-                                            [removable] => 
-                                            [can_change] => 1
-                                            [can_select] => 1
-                                            [created_at] => 2023-02-25T00:56:33Z
-                                            [updated_at] => 2023-02-25T00:56:33Z
-                                        )
-
-                                )
-
-                        )
-
-                )
-
-            [groups] => Array
-                (
-                )
-
-            [memberships] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 1592
-                            [constituent_id] => 944987
-                            [membership_level_id] => 402
-                            [membership_level_name] => Patron Family
-                            [date_start] => 2023-02-26
-                            [finish_date] => 2024-02-26
-                            [note] => 
-                            [created_at] => 2023-02-27T13:28:20Z
-                            [updated_at] => 2023-02-27T13:28:21Z
-                        )
-
-                )
-
-            [custom_attrs] => Array
-                (
-                )
-
-        )
-
-    [raw_response] => {"api_version":"1.0","id":944987,"external_constituent_id":"t00038","is_org":false,"constituent_contact_type_id":1247,"constituent_contact_type_name":"Primary","prefix":null,"first_name":"Debug","middle_name":null,"last_name":"Test","suffix":null,"spouse_name":null,"org_name":"Millennium","job_title":null,"addressee":"Debug Test","salutation":"Debug","sort_name":"Test, Debug","constituent_interest_level_id":null,"constituent_interest_level_name":null,"constituent_rating_id":null,"constituent_rating_name":null,"is_deceased":false,"deceased_date":null,"annual_report_name":"Debug Test","birthday":null,"gender":null,"maiden_name":null,"nick_name":null,"spouse_nick_name":null,"date_added":"2025-11-08","alt_salutation":"Debug","alt_addressee":"Debug Test","honorary_name":"Debug Test","assistant_name":null,"marital_status_id":null,"marital_status_name":null,"is_anon":false,"created_at":"2023-02-27T13:28:19Z","updated_at":"2025-11-08T02:43:42Z","class_affiliations":[],"relationships":[],"street_addresses":[{"id":838577,"street":"1910 Ezekiel Drive","city":"Seattle","state":"WA","country":"US","postal_code":"98101","county":null,"street_address_type_id":1,"street_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":null,"lat":null,"lng":null,"zip5":"98101","verified":false,"verified_on":null,"created_at":"2023-02-27T13:28:19Z","updated_at":"2023-02-27T13:28:19Z"}],"phone_numbers":[{"id":480147,"number":"(888) 555-0038","phone_number_type_id":3,"phone_type_name":"Mobile","is_preferred":true,"not_current":false,"parent_id":null,"normalized_number":"8885550038","created_at":"2023-02-27T13:28:19Z","updated_at":"2023-02-27T13:28:19Z"}],"email_addresses":[{"id":277037,"address":"black@millennium.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2023-02-27T13:28:19Z","updated_at":"2023-02-27T13:28:19Z"}],"web_addresses":[],"categories":[{"id":1282,"item_type":"Constituent","name":"Communication Tags","key":"tags","facet_type":"list","ordinal":100,"removable":true,"editable":true,"display_format":"compact","keywords":[{"id":12747,"category_id":1282,"name":"Do not mail","description":null,"short_code":"do_not_mail","ordinal":100,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:32Z","updated_at":"2023-02-25T00:56:32Z"}]},{"id":1287,"item_type":"Constituent","name":"Giving Status","key":"giving_status","facet_type":"list","ordinal":100,"removable":false,"editable":false,"display_format":"compact","keywords":[{"id":12777,"category_id":1287,"name":"Top 100 Donor","description":null,"short_code":"top_100_donor","ordinal":0,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"},{"id":12792,"category_id":1287,"name":"Lapsed Donor","description":null,"short_code":"lapsed_donor","ordinal":3,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"}]}],"groups":[],"memberships":[{"id":1592,"constituent_id":944987,"membership_level_id":402,"membership_level_name":"Patron Family","date_start":"2023-02-26","finish_date":"2024-02-26","note":null,"created_at":"2023-02-27T13:28:20Z","updated_at":"2023-02-27T13:28:21Z"}],"custom_attrs":[]}
-)
-
-[2025-11-07 21:43:42] [debug] ✅ MembershipRegistrationService: Constituent updated (Step 1/5) Array
-(
-    [lgl_id] => 944987
-    [http_code] => 200
-)
-
-[2025-11-07 21:43:43] [debug] ✅ MembershipRegistrationService: Email added (Step 2/4) Array
-(
-    [lgl_id] => 944987
-    [success] => 1
-    [response] => Array
-        (
-            [success] => 1
-            [http_code] => 200
-            [data] => Array
-                (
-                    [api_version] => 1.0
-                    [id] => 278777
-                    [item_id] => 944987
-                    [item_type] => Constituent
-                    [address] => debug.test@example.com
-                    [email_address_type_id] => 1
-                    [email_type_name] => Home
-                    [is_preferred] => 1
-                    [not_current] => 
-                    [parent_id] => 
-                    [created_at] => 2025-11-08T02:43:43Z
-                    [updated_at] => 2025-11-08T02:43:43Z
-                )
-
-            [raw_response] => {"api_version":"1.0","id":278777,"item_id":944987,"item_type":"Constituent","address":"debug.test@example.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2025-11-08T02:43:43Z","updated_at":"2025-11-08T02:43:43Z"}
-        )
-
-)
-
-[2025-11-07 21:43:43] [debug] ⚠️ MembershipRegistrationService: No phone data to add (Step 3/4)
-[2025-11-07 21:43:43] [debug] ⚠️ MembershipRegistrationService: No address data to add (Step 4/4)
-[2025-11-07 21:43:43] [debug] ✅ MembershipRegistrationService: Membership added (Step 5/5) Array
-(
-    [lgl_id] => 944987
-    [success] => 1
-    [response] => Array
-        (
-            [success] => 1
-            [http_code] => 200
-            [data] => Array
-                (
-                    [api_version] => 1.0
-                    [id] => 3772
-                    [constituent_id] => 944987
-                    [membership_level_id] => 412
-                    [membership_level_name] => Indvidual
-                    [date_start] => 2025-11-08
-                    [finish_date] => 2026-11-08
-                    [note] => Membership created via Modern LGL API on 2025-11-08
-                    [created_at] => 2025-11-08T02:43:43Z
-                    [updated_at] => 2025-11-08T02:43:43Z
-                )
-
-            [raw_response] => {"api_version":"1.0","id":3772,"constituent_id":944987,"membership_level_id":412,"membership_level_name":"Indvidual","date_start":"2025-11-08","finish_date":"2026-11-08","note":"Membership created via Modern LGL API on 2025-11-08","created_at":"2025-11-08T02:43:43Z","updated_at":"2025-11-08T02:43:43Z"}
-        )
-
-)
-
-[2025-11-07 21:43:43] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
-(
-    [method] => Memberships
-)
-
-[2025-11-07 21:43:43] [debug] 🔍 LGL Payments: Using cached data
-[2025-11-07 21:43:43] [debug] LGL Payments: Payment data retrieved Array
-(
-    [method] => Memberships
-    [data_keys] => Array
-        (
-            [0] => payment_types
-            [1] => gift_types
-            [2] => funds
-            [3] => campaigns
-            [4] => categories
-            [5] => method
-            [6] => retrieved_at
-        )
-
-    [funds_count] => 9
-    [campaigns_count] => 7
-    [payment_types_count] => 7
-)
-
-[2025-11-07 21:43:43] [debug] 💳 Connection::addPayment() Array
-(
-    [lgl_id] => 944987
-    [payment_data] => Array
-        (
-            [external_id] => 88112
-            [is_anon] => 
-            [gift_type_id] => 
-            [gift_type_name] => Other Income
-            [gift_category_id] => 
-            [gift_category_name] => Donation
-            [campaign_id] => 
-            [campaign_name] => Membership Fees
-            [fund_id] => 
-            [fund_name] => General Fund
-            [appeal_id] => 0
-            [appeal_name] => 
-            [event_id] => 0
-            [event_name] => 
-            [received_amount] => 77.63
-            [received_date] => 2025-11-08
-            [payment_type_id] => 
-            [payment_type_name] => Credit Card
-            [check_number] => 
-            [deductible_amount] => 77.63
-            [note] => Website Registration, Order #88112
-            [ack_template_name] => 
-            [deposit_date] => 2025-11-08
-            [deposited_amount] => 77.63
-            [parent_gift_id] => 0
-            [parent_external_id] => 0
-            [team_member] => 
-        )
-
-)
-
-[2025-11-07 21:43:44] [debug] ✅ Payment added successfully Array
-(
-    [payment_id] => 905317
-)
-
-[2025-11-07 21:43:44] [debug] LGL Payments: Membership payment created Array
-(
-    [lgl_id] => 944987
-    [order_id] => 88112
-    [amount] => 77.63
-)
-
-[2025-11-07 21:43:44] [debug] ✅ MembershipRegistrationService: Payment created Array
-(
-    [payment_id] => 905317
-    [lgl_id] => 944987
-    [order_id] => 88112
-    [amount] => 77.63
-)
-
-[2025-11-07 21:43:44] [debug] ✅ MembershipOrderHandler::registerUserInLGL() COMPLETED Array
-(
-    [user_id] => 1946
-    [lgl_id] => 944987
-    [status] => partial
-)
-
-[2025-11-07 21:43:44] [debug] ✅ MembershipOrderHandler: Completing order...
-[2025-11-07 21:43:44] [debug] ✅ MembershipOrderHandler::processOrder() COMPLETED SUCCESSFULLY Array
-(
-    [order_id] => 88112
-    [user_id] => 1946
-    [final_membership_level] => Indvidual
-    [lgl_id] => 944987
-    [match_method] => email
-    [payment_id] => 905317
-)
-
-[2025-11-07 21:43:44] [debug] ✅ OrderProcessor: MembershipOrderHandler completed successfully
-[2025-11-07 21:43:44] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
-(
-    [products_processed] => 1
-    [events_processed] => 0
-    [attendees_created] => 0
-)
-
-[2025-11-07 21:43:44] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
-(
-    [order_id] => 88112
-    [final_memory_usage] => 122MB
-)
-
-[2025-11-07 21:44:14] [debug] Membership cron jobs scheduled successfully
-[2025-11-07 21:44:14] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
-(
-    [order_id] => 88113
-    [timestamp] => 2025-11-07 21:44:14
-    [memory_usage] => 118MB
-)
-
-[2025-11-07 21:44:14] [debug] 📋 OrderProcessor: Order Details Array
-(
-    [order_id] => 88113
-    [order_status] => pending
-    [order_total] => 0.00
-    [customer_id] => 1947
-    [customer_email] => debug.test@example.com
-    [payment_method] => 
-    [order_date] => 2025-11-07 21:44:14
-    [item_count] => 0
-)
-
-[2025-11-07 21:44:14] [debug] 👤 OrderProcessor: Customer Info Array
-(
-    [user_id] => 1947
-    [billing_email] => debug.test@example.com
-    [billing_first_name] => 
-    [billing_last_name] => 
-    [billing_phone] => 
-)
-
-[2025-11-07 21:44:14] [debug] OrderProcessor: Payment method updated Array
-(
-    [user_id] => 1947
-    [payment_method] => 
-    [stored_as] => online
-)
-
-[2025-11-07 21:44:14] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
-(
-    [languages] => 
-    [country] => 
-    [referral] => 
-    [reason] => 
-    [about] => 
-)
-
-[2025-11-07 21:44:14] [debug] 🛍️ OrderProcessor: Starting product processing...
-[2025-11-07 21:44:14] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
-(
-    [total_products] => 0
-    [user_id] => 1947
-    [order_id] => 88113
-)
-
-[2025-11-07 21:44:14] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
-(
-    [products_processed] => 0
-    [events_processed] => 0
-    [attendees_created] => 0
-)
-
-[2025-11-07 21:44:14] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
-(
-    [order_id] => 88113
-    [final_memory_usage] => 118MB
-)
-
-[2025-11-07 21:44:14] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-07 21:44:14] [debug] OrderEmailCustomizer: Rendered email template Array
-(
-    [template] => membership-confirmation.html
-    [order_id] => 88113
-    [product_id] => 67487
-)
-
-[2025-11-07 21:44:14] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-07 21:44:14] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
-(
-    [order_id] => 88113
-    [timestamp] => 2025-11-07 21:44:14
-    [memory_usage] => 122MB
-)
-
-[2025-11-07 21:44:14] [debug] 📋 OrderProcessor: Order Details Array
-(
-    [order_id] => 88113
-    [order_status] => completed
-    [order_total] => 77.63
-    [customer_id] => 1947
-    [customer_email] => debug.test@example.com
-    [payment_method] => 
-    [order_date] => 2025-11-07 21:44:14
-    [item_count] => 1
-)
-
-[2025-11-07 21:44:14] [debug] 👤 OrderProcessor: Customer Info Array
-(
-    [user_id] => 1947
-    [billing_email] => debug.test@example.com
-    [billing_first_name] => Debug
-    [billing_last_name] => Test
-    [billing_phone] => 555-DEBUG
-)
-
-[2025-11-07 21:44:14] [debug] OrderProcessor: Payment method updated Array
-(
-    [user_id] => 1947
-    [payment_method] => 
-    [stored_as] => online
-)
-
-[2025-11-07 21:44:14] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
-(
-    [languages] => English, Spanish
-    [country] => United States
-    [referral] => 
-    [reason] => Testing debug functionality
-    [about] => 
-)
-
-[2025-11-07 21:44:14] [debug] 🛍️ OrderProcessor: Starting product processing...
-[2025-11-07 21:44:14] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
-(
-    [total_products] => 1
-    [user_id] => 1947
-    [order_id] => 88113
-)
-
-[2025-11-07 21:44:14] [debug] 🔍 OrderProcessor: Processing Product #1 Array
-(
-    [name] => Membership - Individual
-    [quantity] => 1
-    [product_id] => 68386
-    [parent_id] => 67487
-    [categories] => Array
-        (
-            [0] => memberships
-        )
-
-    [item_total] => 75
-    [item_subtotal] => 75
-)
-
-[2025-11-07 21:44:14] [debug] 🏷️ OrderProcessor: Product Type Detection Array
-(
-    [product_name] => Membership - Individual
-    [is_membership] => YES
-    [is_language_class] => NO
-    [is_event] => NO
-    [categories] => Array
-        (
-            [0] => memberships
-        )
-
-)
-
-[2025-11-07 21:44:14] [debug] 🎯 OrderProcessor: ROUTING TO MEMBERSHIP HANDLER Array
-(
-    [product_name] => Membership - Individual
-    [handler] => MembershipOrderHandler
-)
-
-[2025-11-07 21:44:14] [debug] 🎯 OrderProcessor::processMembershipProduct() STARTED Array
-(
-    [user_id] => 1947
-    [order_id] => 88113
-    [product_name] => Membership - Individual
-    [product_id] => 67487
-    [handler_class] => UpstateInternational\LGL\WooCommerce\MembershipOrderHandler
-    [handler_available] => YES
-)
-
-[2025-11-07 21:44:14] [debug] 🔄 OrderProcessor: Delegating to MembershipOrderHandler...
-[2025-11-07 21:44:14] [debug] 🎯 MembershipOrderHandler::processOrder() STARTED Array
-(
-    [user_id] => 1947
-    [order_id] => 88113
-    [membership_level] => Membership - Individual
-    [order_total] => 77.63
-    [customer_email] => debug.test@example.com
-    [timestamp] => 2025-11-07 21:44:14
-)
-
-[2025-11-07 21:44:14] [debug] 🛍️ MembershipOrderHandler: Product Details Array
-(
-    [product_id] => 67487
-    [variation_id] => 68386
-    [product_name] => Membership - Individual
-    [product_total] => 75
-    [wc_name_passed] => Membership - Individual
-    [product_meta_keys] => Array
-        (
-            [0] => _variation_description
-            [1] => total_sales
-            [2] => _tax_status
-            [3] => _tax_class
-            [4] => _manage_stock
-            [5] => _backorders
-            [6] => _sold_individually
-            [7] => _virtual
-            [8] => _downloadable
-            [9] => _download_limit
-            [10] => _download_expiry
-            [11] => _stock
-            [12] => _stock_status
-            [13] => _wc_average_rating
-            [14] => _wc_review_count
-            [15] => attribute_level
-            [16] => _product_version
-            [17] => _regular_price
-            [18] => _price
-            [19] => _subscription_payment_sync_date
-            [20] => _hf_subscription_prorate
-            [21] => _hf_subscription_price
-            [22] => _subscription_sign_up_fee
-            [23] => _subscription_period
-            [24] => _subscription_period_interval
-            [25] => _subscription_length
-            [26] => _subscription_trial_period
-            [27] => _subscription_trial_length
-            [28] => _thumbnail_id
-            [29] => _subscription_price
-            [30] => _ppcp_enable_subscription_product
-            [31] => addf_vf_roles_select_roles
-            [32] => _lgl_membership_fund_id
-        )
-
-)
-
-[2025-11-07 21:44:14] [debug] 🔍 MembershipOrderHandler: Determining membership level Array
-(
-    [wc_product_name] => Membership - Individual
-    [product_price] => 75
-)
-
-[2025-11-07 21:44:14] [debug] ✅ MembershipOrderHandler: Using JetEngine membership mapping Array
-(
-    [membership_level_id] => 412
-    [membership_name] => Indvidual
-)
-
-[2025-11-07 21:44:14] [debug] 🎯 MembershipOrderHandler: Membership Level Determination Array
-(
-    [wc_product_name] => Membership - Individual
-    [product_price] => 75
-    [determined_membership_level] => Indvidual
-    [method] => price_based_detection
-)
-
-[2025-11-07 21:44:14] [debug] 👤 MembershipOrderHandler: Updating user role...
-[2025-11-07 21:44:14] [debug] 👤 Helper: Changing user role Array
-(
-    [user_id] => 1947
-    [old_role] => customer
-    [new_role] => ui_member
-)
-
-[2025-11-07 21:44:14] [debug] ✅ Helper: User role changed successfully Array
-(
-    [user_id] => 1947
-    [from] => customer
-    [to] => ui_member
-    [current_roles] => Array
-        (
-            [0] => ui_member
-        )
-
-)
-
-[2025-11-07 21:44:14] [debug] MembershipOrderHandler: Updated user role to ui_member (individual) 1947
-[2025-11-07 21:44:14] [debug] 📋 MembershipOrderHandler: Building registration request...
-[2025-11-07 21:44:14] [debug] 🔄 Helper: Converting WC name to LGL name Array
-(
-    [input] => Indvidual
-)
-
-[2025-11-07 21:44:14] [debug] ⚠️ Helper: No name mapping found, returning original Array
-(
-    [wc_name] => Indvidual
-)
-
-[2025-11-07 21:44:14] [debug] 📋 MembershipOrderHandler: Registration request built Array
-(
-    [user_firstname] => Debug
-    [user_lastname] => Test
-    [user_company] => 
-    [username] => debug_test_user
-    [user_email] => debug.test@example.com
-    [user_phone] => 555-DEBUG
-    [user-address-1] => 
-    [user-address-2] => 
-    [user-city] => 
-    [user-state] => 
-    [user-postal-code] => 
-    [user-country-of-origin] => United States
-    [current_date] => 1762569854
-    [price] => 77.63
-    [ui-membership-type] => Indvidual
-    [inserted_post_id] => 88113
-    [user_id] => 1947
-    [lgl_membership_level_id] => 412
-)
-
-[2025-11-07 21:44:14] [debug] 💾 MembershipOrderHandler: Processing user data updates...
-[2025-11-07 21:44:14] [debug] MembershipOrderHandler: User data updated (WordPress only, LGL sync happens separately) 1947
-[2025-11-07 21:44:14] [debug] 🔗 MembershipOrderHandler: Starting LGL registration...
-[2025-11-07 21:44:14] [debug] 🔗 MembershipOrderHandler::registerUserInLGL() STARTED Array
-(
-    [user_id] => 1947
-    [user_email] => debug.test@example.com
-    [membership_type] => Indvidual
-    [order_id] => 88113
-    [membership_level_id] => 412
-)
-
-[2025-11-07 21:44:14] [debug] 🧭 MembershipRegistrationService::register() STARTED Array
-(
-    [user_id] => 1947
-    [search_name] => Debug%20Test
-    [email] => debug.test@example.com
-    [order_id] => 88113
-    [membership_level] => Indvidual
-    [membership_level_id] => 412
-)
-
-[2025-11-07 21:44:14] [debug] 🔍 Connection::searchByName() STARTED Array
-(
-    [name] => Debug%20Test
-    [email] => Array
-        (
-            [0] => debug.test@example.com
-        )
-
-)
-
-[2025-11-07 21:44:15] [debug] ✅ Email search found match (trusting LGL search) Array
-(
-    [lgl_id] => 945057
-    [email] => debug.test@example.com
-    [total_results] => 25
-)
-
-[2025-11-07 21:44:15] [debug] LGL Constituents: Name set Array
-(
-    [first_name] => Debug
-    [last_name] => Test
-)
-
-[2025-11-07 21:44:15] [debug] LGL Constituents: Email set debug.test@example.com
-[2025-11-07 21:44:15] [debug] LGL Constituents: 🎯 setMembership() CALLED! Array
-(
-    [user_id] => 1947
-)
-
-[2025-11-07 21:44:15] [debug] LGL Constituents: 🔍 Looking up membership level config Array
-(
-    [membership_type] => Individual Membership
-    [user_id] => 1947
-)
-
-[2025-11-07 21:44:15] [debug] LGL Constituents: 🔍 Membership level config from user meta Array
-(
-    [membership_level_id] => 412
-    [found] => YES
-)
-
-[2025-11-07 21:44:15] [debug] LGL Constituents: 📋 Final level config Array
-(
-    [level_name] => Indvidual
-    [level_slug] => individual
-    [lgl_membership_level_id] => 412
-    [price] => 75
-)
-
-[2025-11-07 21:44:15] [debug] LGL Constituents: Modern Membership Data Created Array
-(
-    [user_id] => 1947
-    [membership_type] => Individual Membership
-    [level_config] => Array
-        (
-            [level_name] => Indvidual
-            [level_slug] => individual
-            [lgl_membership_level_id] => 412
-            [price] => 75
-        )
-
-    [membership_data] => Array
-        (
-            [membership_level_id] => 412
-            [membership_level_name] => Indvidual
-            [date_start] => 2025-11-08
-            [finish_date] => 2026-11-08
-            [note] => Membership created via Modern LGL API on 2025-11-08
-        )
-
-)
-
-[2025-11-07 21:44:15] [debug] LGL Constituents: Final Membership Data Set Array
-(
-    [membership_level_id] => 412
-    [membership_level_name] => Indvidual
-    [date_start] => 2025-11-08
-    [finish_date] => 2026-11-08
-    [note] => Membership created via Modern LGL API on 2025-11-08
-)
-
-[2025-11-07 21:44:15] [debug] LGL Constituents: All data set for user 1947
-[2025-11-07 21:44:15] [debug] LGL Constituents: Name set Array
-(
-    [first_name] => Debug
-    [last_name] => Test
-    [is_org] => 
-    [constituent_contact_type_id] => 1247
-    [constituent_contact_type_name] => Primary
-    [addressee] => Debug Test
-    [salutation] => Debug
-    [sort_name] => Test, Debug
-    [is_deceased] => 
-    [annual_report_name] => Debug Test
-    [date_added] => 2025-11-08
-    [is_anon] => 
-)
-
-[2025-11-07 21:44:15] [debug] LGL Constituents: Email already set, skipping duplicate debug.test@example.com
-[2025-11-07 21:44:15] [debug] LGL Constituents: Constituent updated successfully Array
-(
-    [success] => 1
-    [http_code] => 200
-    [data] => Array
-        (
-            [api_version] => 1.0
-            [id] => 945057
-            [external_constituent_id] => t00052
-            [is_org] => 
-            [constituent_contact_type_id] => 1247
-            [constituent_contact_type_name] => Primary
-            [prefix] => 
-            [first_name] => Debug
-            [middle_name] => 
-            [last_name] => Test
-            [suffix] => 
-            [spouse_name] => 
-            [org_name] => The Blues Brothers
-            [job_title] => 
-            [addressee] => Debug Test
-            [salutation] => Debug
-            [sort_name] => Test, Debug
-            [constituent_interest_level_id] => 
-            [constituent_interest_level_name] => 
-            [constituent_rating_id] => 
-            [constituent_rating_name] => 
-            [is_deceased] => 
-            [deceased_date] => 
-            [annual_report_name] => Debug Test
-            [birthday] => 
-            [gender] => 
-            [maiden_name] => 
-            [nick_name] => 
-            [spouse_nick_name] => 
-            [date_added] => 2025-11-08
-            [alt_salutation] => Debug
-            [alt_addressee] => Debug Test
-            [honorary_name] => Debug Test
-            [assistant_name] => 
-            [marital_status_id] => 
-            [marital_status_name] => 
-            [is_anon] => 
-            [created_at] => 2023-02-27T13:29:23Z
-            [updated_at] => 2025-11-08T02:44:15Z
-            [class_affiliations] => Array
-                (
-                )
-
-            [relationships] => Array
-                (
-                )
-
-            [street_addresses] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 838647
-                            [street] => 1060 West Addison Street
-                            [city] => Chicago
-                            [state] => IL
-                            [country] => US
-                            [postal_code] => 60601
-                            [county] => 
-                            [street_address_type_id] => 1
-                            [street_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [seasonal_from] => 01-01
-                            [seasonal_to] => 12-31
-                            [seasonal] => 
-                            [lat] => 
-                            [lng] => 
-                            [zip5] => 60601
-                            [verified] => 
-                            [verified_on] => 
-                            [created_at] => 2023-02-27T13:29:23Z
-                            [updated_at] => 2023-02-27T13:29:23Z
-                        )
-
-                )
-
-            [phone_numbers] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 480217
-                            [number] => (888) 555-0052
-                            [phone_number_type_id] => 2
-                            [phone_type_name] => Work
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [normalized_number] => 8885550052
-                            [created_at] => 2023-02-27T13:29:23Z
-                            [updated_at] => 2023-02-27T13:29:23Z
-                        )
-
-                )
-
-            [email_addresses] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 277107
-                            [address] => blues@thebluesbrothers.com
-                            [email_address_type_id] => 1
-                            [email_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [created_at] => 2023-02-27T13:29:23Z
-                            [updated_at] => 2023-02-27T13:29:23Z
-                        )
-
-                )
-
-            [web_addresses] => Array
-                (
-                )
-
-            [categories] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 1282
-                            [item_type] => Constituent
-                            [name] => Communication Tags
-                            [key] => tags
-                            [facet_type] => list
-                            [ordinal] => 100
-                            [removable] => 1
-                            [editable] => 1
-                            [display_format] => compact
-                            [keywords] => Array
-                                (
-                                    [0] => Array
-                                        (
-                                            [id] => 12752
-                                            [category_id] => 1282
-                                            [name] => Do not email
-                                            [description] => 
-                                            [short_code] => do_not_email
-                                            [ordinal] => 100
-                                            [removable] => 
-                                            [can_change] => 1
-                                            [can_select] => 1
-                                            [created_at] => 2023-02-25T00:56:33Z
-                                            [updated_at] => 2023-02-25T00:56:33Z
-                                        )
-
-                                )
-
-                        )
-
-                    [1] => Array
-                        (
-                            [id] => 1287
-                            [item_type] => Constituent
-                            [name] => Giving Status
-                            [key] => giving_status
-                            [facet_type] => list
-                            [ordinal] => 100
-                            [removable] => 
-                            [editable] => 
-                            [display_format] => compact
-                            [keywords] => Array
-                                (
-                                    [0] => Array
-                                        (
-                                            [id] => 12777
-                                            [category_id] => 1287
-                                            [name] => Top 100 Donor
-                                            [description] => 
-                                            [short_code] => top_100_donor
-                                            [ordinal] => 0
-                                            [removable] => 
-                                            [can_change] => 1
-                                            [can_select] => 1
-                                            [created_at] => 2023-02-25T00:56:33Z
-                                            [updated_at] => 2023-02-25T00:56:33Z
-                                        )
-
-                                    [1] => Array
-                                        (
-                                            [id] => 12792
-                                            [category_id] => 1287
-                                            [name] => Lapsed Donor
-                                            [description] => 
-                                            [short_code] => lapsed_donor
-                                            [ordinal] => 3
-                                            [removable] => 
-                                            [can_change] => 1
-                                            [can_select] => 1
-                                            [created_at] => 2023-02-25T00:56:33Z
-                                            [updated_at] => 2023-02-25T00:56:33Z
-                                        )
-
-                                )
-
-                        )
-
-                )
-
-            [groups] => Array
-                (
-                )
-
-            [memberships] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 1607
-                            [constituent_id] => 945057
-                            [membership_level_id] => 412
-                            [membership_level_name] => Individual
-                            [date_start] => 2023-02-13
-                            [finish_date] => 2024-02-13
-                            [note] => 
-                            [created_at] => 2023-02-27T13:29:23Z
-                            [updated_at] => 2023-02-27T13:29:24Z
-                        )
-
-                )
-
-            [custom_attrs] => Array
-                (
-                )
-
-        )
-
-    [raw_response] => {"api_version":"1.0","id":945057,"external_constituent_id":"t00052","is_org":false,"constituent_contact_type_id":1247,"constituent_contact_type_name":"Primary","prefix":null,"first_name":"Debug","middle_name":null,"last_name":"Test","suffix":null,"spouse_name":null,"org_name":"The Blues Brothers","job_title":null,"addressee":"Debug Test","salutation":"Debug","sort_name":"Test, Debug","constituent_interest_level_id":null,"constituent_interest_level_name":null,"constituent_rating_id":null,"constituent_rating_name":null,"is_deceased":false,"deceased_date":null,"annual_report_name":"Debug Test","birthday":null,"gender":null,"maiden_name":null,"nick_name":null,"spouse_nick_name":null,"date_added":"2025-11-08","alt_salutation":"Debug","alt_addressee":"Debug Test","honorary_name":"Debug Test","assistant_name":null,"marital_status_id":null,"marital_status_name":null,"is_anon":false,"created_at":"2023-02-27T13:29:23Z","updated_at":"2025-11-08T02:44:15Z","class_affiliations":[],"relationships":[],"street_addresses":[{"id":838647,"street":"1060 West Addison Street","city":"Chicago","state":"IL","country":"US","postal_code":"60601","county":null,"street_address_type_id":1,"street_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":null,"lat":null,"lng":null,"zip5":"60601","verified":false,"verified_on":null,"created_at":"2023-02-27T13:29:23Z","updated_at":"2023-02-27T13:29:23Z"}],"phone_numbers":[{"id":480217,"number":"(888) 555-0052","phone_number_type_id":2,"phone_type_name":"Work","is_preferred":true,"not_current":false,"parent_id":null,"normalized_number":"8885550052","created_at":"2023-02-27T13:29:23Z","updated_at":"2023-02-27T13:29:23Z"}],"email_addresses":[{"id":277107,"address":"blues@thebluesbrothers.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2023-02-27T13:29:23Z","updated_at":"2023-02-27T13:29:23Z"}],"web_addresses":[],"categories":[{"id":1282,"item_type":"Constituent","name":"Communication Tags","key":"tags","facet_type":"list","ordinal":100,"removable":true,"editable":true,"display_format":"compact","keywords":[{"id":12752,"category_id":1282,"name":"Do not email","description":null,"short_code":"do_not_email","ordinal":100,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"}]},{"id":1287,"item_type":"Constituent","name":"Giving Status","key":"giving_status","facet_type":"list","ordinal":100,"removable":false,"editable":false,"display_format":"compact","keywords":[{"id":12777,"category_id":1287,"name":"Top 100 Donor","description":null,"short_code":"top_100_donor","ordinal":0,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"},{"id":12792,"category_id":1287,"name":"Lapsed Donor","description":null,"short_code":"lapsed_donor","ordinal":3,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"}]}],"groups":[],"memberships":[{"id":1607,"constituent_id":945057,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2023-02-13","finish_date":"2024-02-13","note":null,"created_at":"2023-02-27T13:29:23Z","updated_at":"2023-02-27T13:29:24Z"}],"custom_attrs":[]}
-)
-
-[2025-11-07 21:44:16] [debug] ✅ MembershipRegistrationService: Constituent updated (Step 1/5) Array
-(
-    [lgl_id] => 945057
-    [http_code] => 200
-)
-
-[2025-11-07 21:44:16] [debug] ✅ MembershipRegistrationService: Email added (Step 2/4) Array
-(
-    [lgl_id] => 945057
-    [success] => 1
-    [response] => Array
-        (
-            [success] => 1
-            [http_code] => 200
-            [data] => Array
-                (
-                    [api_version] => 1.0
-                    [id] => 278782
-                    [item_id] => 945057
-                    [item_type] => Constituent
-                    [address] => debug.test@example.com
-                    [email_address_type_id] => 1
-                    [email_type_name] => Home
-                    [is_preferred] => 1
-                    [not_current] => 
-                    [parent_id] => 
-                    [created_at] => 2025-11-08T02:44:16Z
-                    [updated_at] => 2025-11-08T02:44:16Z
-                )
-
-            [raw_response] => {"api_version":"1.0","id":278782,"item_id":945057,"item_type":"Constituent","address":"debug.test@example.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2025-11-08T02:44:16Z","updated_at":"2025-11-08T02:44:16Z"}
-        )
-
-)
-
-[2025-11-07 21:44:16] [debug] ⚠️ MembershipRegistrationService: No phone data to add (Step 3/4)
-[2025-11-07 21:44:16] [debug] ⚠️ MembershipRegistrationService: No address data to add (Step 4/4)
-[2025-11-07 21:44:16] [debug] ✅ MembershipRegistrationService: Membership added (Step 5/5) Array
-(
-    [lgl_id] => 945057
-    [success] => 1
-    [response] => Array
-        (
-            [success] => 1
-            [http_code] => 200
-            [data] => Array
-                (
-                    [api_version] => 1.0
-                    [id] => 3777
-                    [constituent_id] => 945057
-                    [membership_level_id] => 412
-                    [membership_level_name] => Indvidual
-                    [date_start] => 2025-11-08
-                    [finish_date] => 2026-11-08
-                    [note] => Membership created via Modern LGL API on 2025-11-08
-                    [created_at] => 2025-11-08T02:44:16Z
-                    [updated_at] => 2025-11-08T02:44:16Z
-                )
-
-            [raw_response] => {"api_version":"1.0","id":3777,"constituent_id":945057,"membership_level_id":412,"membership_level_name":"Indvidual","date_start":"2025-11-08","finish_date":"2026-11-08","note":"Membership created via Modern LGL API on 2025-11-08","created_at":"2025-11-08T02:44:16Z","updated_at":"2025-11-08T02:44:16Z"}
-        )
-
-)
-
-[2025-11-07 21:44:17] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
-(
-    [method] => Memberships
-)
-
-[2025-11-07 21:44:17] [debug] 🔍 LGL Payments: Using cached data
-[2025-11-07 21:44:17] [debug] LGL Payments: Payment data retrieved Array
-(
-    [method] => Memberships
-    [data_keys] => Array
-        (
-            [0] => payment_types
-            [1] => gift_types
-            [2] => funds
-            [3] => campaigns
-            [4] => categories
-            [5] => method
-            [6] => retrieved_at
-        )
-
-    [funds_count] => 9
-    [campaigns_count] => 7
-    [payment_types_count] => 7
-)
-
-[2025-11-07 21:44:17] [debug] 💳 Connection::addPayment() Array
-(
-    [lgl_id] => 945057
-    [payment_data] => Array
-        (
-            [external_id] => 88113
-            [is_anon] => 
-            [gift_type_id] => 
-            [gift_type_name] => Other Income
-            [gift_category_id] => 
-            [gift_category_name] => Donation
-            [campaign_id] => 
-            [campaign_name] => Membership Fees
-            [fund_id] => 
-            [fund_name] => General Fund
-            [appeal_id] => 0
-            [appeal_name] => 
-            [event_id] => 0
-            [event_name] => 
-            [received_amount] => 77.63
-            [received_date] => 2025-11-08
-            [payment_type_id] => 
-            [payment_type_name] => Credit Card
-            [check_number] => 
-            [deductible_amount] => 77.63
-            [note] => Website Registration, Order #88113
-            [ack_template_name] => 
-            [deposit_date] => 2025-11-08
-            [deposited_amount] => 77.63
-            [parent_gift_id] => 0
-            [parent_external_id] => 0
-            [team_member] => 
-        )
-
-)
-
-[2025-11-07 21:44:17] [debug] ✅ Payment added successfully Array
-(
-    [payment_id] => 905322
-)
-
-[2025-11-07 21:44:17] [debug] LGL Payments: Membership payment created Array
-(
-    [lgl_id] => 945057
-    [order_id] => 88113
-    [amount] => 77.63
-)
-
-[2025-11-07 21:44:17] [debug] ✅ MembershipRegistrationService: Payment created Array
-(
-    [payment_id] => 905322
-    [lgl_id] => 945057
-    [order_id] => 88113
-    [amount] => 77.63
-)
-
-[2025-11-07 21:44:17] [debug] ✅ MembershipOrderHandler::registerUserInLGL() COMPLETED Array
-(
-    [user_id] => 1947
-    [lgl_id] => 945057
-    [status] => partial
-)
-
-[2025-11-07 21:44:17] [debug] ✅ MembershipOrderHandler: Completing order...
-[2025-11-07 21:44:17] [debug] ✅ MembershipOrderHandler::processOrder() COMPLETED SUCCESSFULLY Array
-(
-    [order_id] => 88113
-    [user_id] => 1947
-    [final_membership_level] => Indvidual
-    [lgl_id] => 945057
-    [match_method] => email
-    [payment_id] => 905322
-)
-
-[2025-11-07 21:44:17] [debug] ✅ OrderProcessor: MembershipOrderHandler completed successfully
-[2025-11-07 21:44:17] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
-(
-    [products_processed] => 1
-    [events_processed] => 0
-    [attendees_created] => 0
-)
-
-[2025-11-07 21:44:17] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
-(
-    [order_id] => 88113
-    [final_memory_usage] => 122MB
-)
-
-[2025-11-07 22:47:07] [debug] Membership cron jobs scheduled successfully
-[2025-11-07 22:47:08] [debug] Membership cron jobs scheduled successfully
-[2025-11-07 22:48:26] [debug] Membership cron jobs scheduled successfully
-[2025-11-07 22:48:37] [debug] Membership cron jobs scheduled successfully
-[2025-11-07 22:48:44] [debug] Membership cron jobs scheduled successfully
-[2025-11-07 22:49:13] [debug] Membership cron jobs scheduled successfully
-[2025-11-07 22:49:50] [debug] Membership cron jobs scheduled successfully
-[2025-11-07 22:49:51] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
-(
-    [order_id] => 88114
-    [timestamp] => 2025-11-07 22:49:51
-    [memory_usage] => 118MB
-)
-
-[2025-11-07 22:49:51] [debug] 📋 OrderProcessor: Order Details Array
-(
-    [order_id] => 88114
-    [order_status] => pending
-    [order_total] => 0.00
-    [customer_id] => 1948
-    [customer_email] => debug.test@example.com
-    [payment_method] => 
-    [order_date] => 2025-11-07 22:49:51
-    [item_count] => 0
-)
-
-[2025-11-07 22:49:51] [debug] 👤 OrderProcessor: Customer Info Array
-(
-    [user_id] => 1948
-    [billing_email] => debug.test@example.com
-    [billing_first_name] => 
-    [billing_last_name] => 
-    [billing_phone] => 
-)
-
-[2025-11-07 22:49:51] [debug] OrderProcessor: Payment method updated Array
-(
-    [user_id] => 1948
-    [payment_method] => 
-    [stored_as] => online
-)
-
-[2025-11-07 22:49:51] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
-(
-    [languages] => 
-    [country] => 
-    [referral] => 
-    [reason] => 
-    [about] => 
-)
-
-[2025-11-07 22:49:51] [debug] 🛍️ OrderProcessor: Starting product processing...
-[2025-11-07 22:49:51] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
-(
-    [total_products] => 0
-    [user_id] => 1948
-    [order_id] => 88114
-)
-
-[2025-11-07 22:49:51] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
-(
-    [products_processed] => 0
-    [events_processed] => 0
-    [attendees_created] => 0
-)
-
-[2025-11-07 22:49:51] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
-(
-    [order_id] => 88114
-    [final_memory_usage] => 118MB
-)
-
-[2025-11-07 22:49:51] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-07 22:49:51] [debug] OrderEmailCustomizer: Rendered email template Array
-(
-    [template] => membership-confirmation.html
-    [order_id] => 88114
-    [product_id] => 67487
-)
-
-[2025-11-07 22:49:51] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-07 22:49:51] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
-(
-    [order_id] => 88114
-    [timestamp] => 2025-11-07 22:49:51
-    [memory_usage] => 122MB
-)
-
-[2025-11-07 22:49:51] [debug] 📋 OrderProcessor: Order Details Array
-(
-    [order_id] => 88114
-    [order_status] => completed
-    [order_total] => 77.63
-    [customer_id] => 1948
-    [customer_email] => debug.test@example.com
-    [payment_method] => 
-    [order_date] => 2025-11-07 22:49:51
-    [item_count] => 1
-)
-
-[2025-11-07 22:49:51] [debug] 👤 OrderProcessor: Customer Info Array
-(
-    [user_id] => 1948
-    [billing_email] => debug.test@example.com
-    [billing_first_name] => Debug
-    [billing_last_name] => Test
-    [billing_phone] => 555-DEBUG
-)
-
-[2025-11-07 22:49:51] [debug] OrderProcessor: Payment method updated Array
-(
-    [user_id] => 1948
-    [payment_method] => 
-    [stored_as] => online
-)
-
-[2025-11-07 22:49:51] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
-(
-    [languages] => English, Spanish
-    [country] => United States
-    [referral] => 
-    [reason] => Testing debug functionality
-    [about] => 
-)
-
-[2025-11-07 22:49:51] [debug] 🛍️ OrderProcessor: Starting product processing...
-[2025-11-07 22:49:51] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
-(
-    [total_products] => 1
-    [user_id] => 1948
-    [order_id] => 88114
-)
-
-[2025-11-07 22:49:51] [debug] 🔍 OrderProcessor: Processing Product #1 Array
-(
-    [name] => Membership - Individual
-    [quantity] => 1
-    [product_id] => 68386
-    [parent_id] => 67487
-    [categories] => Array
-        (
-            [0] => memberships
-        )
-
-    [item_total] => 75
-    [item_subtotal] => 75
-)
-
-[2025-11-07 22:49:51] [debug] 🏷️ OrderProcessor: Product Type Detection Array
-(
-    [product_name] => Membership - Individual
-    [is_membership] => YES
-    [is_language_class] => NO
-    [is_event] => NO
-    [categories] => Array
-        (
-            [0] => memberships
-        )
-
-)
-
-[2025-11-07 22:49:51] [debug] 🎯 OrderProcessor: ROUTING TO MEMBERSHIP HANDLER Array
-(
-    [product_name] => Membership - Individual
-    [handler] => MembershipOrderHandler
-)
-
-[2025-11-07 22:49:51] [debug] 🎯 OrderProcessor::processMembershipProduct() STARTED Array
-(
-    [user_id] => 1948
-    [order_id] => 88114
-    [product_name] => Membership - Individual
-    [product_id] => 67487
-    [handler_class] => UpstateInternational\LGL\WooCommerce\MembershipOrderHandler
-    [handler_available] => YES
-)
-
-[2025-11-07 22:49:51] [debug] 🔄 OrderProcessor: Delegating to MembershipOrderHandler...
-[2025-11-07 22:49:51] [debug] 🎯 MembershipOrderHandler::processOrder() STARTED Array
-(
-    [user_id] => 1948
-    [order_id] => 88114
-    [membership_level] => Membership - Individual
-    [order_total] => 77.63
-    [customer_email] => debug.test@example.com
-    [timestamp] => 2025-11-07 22:49:51
-)
-
-[2025-11-07 22:49:51] [debug] 🛍️ MembershipOrderHandler: Product Details Array
-(
-    [product_id] => 67487
-    [variation_id] => 68386
-    [product_name] => Membership - Individual
-    [product_total] => 75
-    [wc_name_passed] => Membership - Individual
-    [product_meta_keys] => Array
-        (
-            [0] => _variation_description
-            [1] => total_sales
-            [2] => _tax_status
-            [3] => _tax_class
-            [4] => _manage_stock
-            [5] => _backorders
-            [6] => _sold_individually
-            [7] => _virtual
-            [8] => _downloadable
-            [9] => _download_limit
-            [10] => _download_expiry
-            [11] => _stock
-            [12] => _stock_status
-            [13] => _wc_average_rating
-            [14] => _wc_review_count
-            [15] => attribute_level
-            [16] => _product_version
-            [17] => _regular_price
-            [18] => _price
-            [19] => _subscription_payment_sync_date
-            [20] => _hf_subscription_prorate
-            [21] => _hf_subscription_price
-            [22] => _subscription_sign_up_fee
-            [23] => _subscription_period
-            [24] => _subscription_period_interval
-            [25] => _subscription_length
-            [26] => _subscription_trial_period
-            [27] => _subscription_trial_length
-            [28] => _thumbnail_id
-            [29] => _subscription_price
-            [30] => _ppcp_enable_subscription_product
-            [31] => addf_vf_roles_select_roles
-            [32] => _lgl_membership_fund_id
-        )
-
-)
-
-[2025-11-07 22:49:51] [debug] 🔍 MembershipOrderHandler: Determining membership level Array
-(
-    [wc_product_name] => Membership - Individual
-    [product_price] => 75
-)
-
-[2025-11-07 22:49:51] [debug] ✅ MembershipOrderHandler: Using JetEngine membership mapping Array
-(
-    [membership_level_id] => 412
-    [membership_name] => Indvidual
-)
-
-[2025-11-07 22:49:51] [debug] 🎯 MembershipOrderHandler: Membership Level Determination Array
-(
-    [wc_product_name] => Membership - Individual
-    [product_price] => 75
-    [determined_membership_level] => Indvidual
-    [method] => price_based_detection
-)
-
-[2025-11-07 22:49:51] [debug] 👤 MembershipOrderHandler: Updating user role...
-[2025-11-07 22:49:51] [debug] 👤 Helper: Changing user role Array
-(
-    [user_id] => 1948
-    [old_role] => customer
-    [new_role] => ui_member
-)
-
-[2025-11-07 22:49:51] [debug] ✅ Helper: User role changed successfully Array
-(
-    [user_id] => 1948
-    [from] => customer
-    [to] => ui_member
-    [current_roles] => Array
-        (
-            [0] => ui_member
-        )
-
-)
-
-[2025-11-07 22:49:51] [debug] MembershipOrderHandler: Updated user role to ui_member (individual) 1948
-[2025-11-07 22:49:51] [debug] 📋 MembershipOrderHandler: Building registration request...
-[2025-11-07 22:49:51] [debug] 🔄 Helper: Converting WC name to LGL name Array
-(
-    [input] => Indvidual
-)
-
-[2025-11-07 22:49:51] [debug] ⚠️ Helper: No name mapping found, returning original Array
-(
-    [wc_name] => Indvidual
-)
-
-[2025-11-07 22:49:51] [debug] 📋 MembershipOrderHandler: Registration request built Array
-(
-    [user_firstname] => Debug
-    [user_lastname] => Test
-    [user_company] => 
-    [username] => debug_test_user
-    [user_email] => debug.test@example.com
-    [user_phone] => 555-DEBUG
-    [user-address-1] => 
-    [user-address-2] => 
-    [user-city] => 
-    [user-state] => 
-    [user-postal-code] => 
-    [user-country-of-origin] => United States
-    [current_date] => 1762573791
-    [price] => 77.63
-    [ui-membership-type] => Indvidual
-    [inserted_post_id] => 88114
-    [user_id] => 1948
-    [lgl_membership_level_id] => 412
-)
-
-[2025-11-07 22:49:51] [debug] 💾 MembershipOrderHandler: Processing user data updates...
-[2025-11-07 22:49:51] [debug] MembershipOrderHandler: User data updated (WordPress only, LGL sync happens separately) 1948
-[2025-11-07 22:49:51] [debug] 🔗 MembershipOrderHandler: Starting LGL registration...
-[2025-11-07 22:49:51] [debug] 🔗 MembershipOrderHandler::registerUserInLGL() STARTED Array
-(
-    [user_id] => 1948
-    [user_email] => debug.test@example.com
-    [membership_type] => Indvidual
-    [order_id] => 88114
-    [membership_level_id] => 412
-)
-
-[2025-11-07 22:49:51] [debug] 🧭 MembershipRegistrationService::register() STARTED Array
-(
-    [user_id] => 1948
-    [search_name] => Debug%20Test
-    [email] => debug.test@example.com
-    [order_id] => 88114
-    [membership_level] => Indvidual
-    [membership_level_id] => 412
-)
-
-[2025-11-07 22:49:51] [debug] 🔍 Connection::searchByName() STARTED Array
-(
-    [name] => Debug%20Test
-    [email] => Array
-        (
-            [0] => debug.test@example.com
-        )
-
-)
-
-[2025-11-07 22:49:51] [debug] ✅ Email search found match (trusting LGL search) Array
-(
-    [lgl_id] => 945142
-    [email] => debug.test@example.com
-    [total_results] => 25
-)
-
-[2025-11-07 22:49:51] [debug] LGL Constituents: Name set Array
-(
-    [first_name] => Debug
-    [last_name] => Test
-)
-
-[2025-11-07 22:49:52] [debug] LGL Constituents: Email set debug.test@example.com
-[2025-11-07 22:49:52] [debug] LGL Constituents: 🎯 setMembership() CALLED! Array
-(
-    [user_id] => 1948
-)
-
-[2025-11-07 22:49:52] [debug] LGL Constituents: 🔍 Looking up membership level config Array
-(
-    [membership_type] => Individual Membership
-    [user_id] => 1948
-)
-
-[2025-11-07 22:49:52] [debug] LGL Constituents: 🔍 Membership level config from user meta Array
-(
-    [membership_level_id] => 412
-    [found] => YES
-)
-
-[2025-11-07 22:49:52] [debug] LGL Constituents: 📋 Final level config Array
-(
-    [level_name] => Indvidual
-    [level_slug] => individual
-    [lgl_membership_level_id] => 412
-    [price] => 75
-)
-
-[2025-11-07 22:49:52] [debug] LGL Constituents: Modern Membership Data Created Array
-(
-    [user_id] => 1948
-    [membership_type] => Individual Membership
-    [level_config] => Array
-        (
-            [level_name] => Indvidual
-            [level_slug] => individual
-            [lgl_membership_level_id] => 412
-            [price] => 75
-        )
-
-    [membership_data] => Array
-        (
-            [membership_level_id] => 412
-            [membership_level_name] => Indvidual
-            [date_start] => 2025-11-08
-            [finish_date] => 2026-11-08
-            [note] => Membership created via Modern LGL API on 2025-11-08
-        )
-
-)
-
-[2025-11-07 22:49:52] [debug] LGL Constituents: Final Membership Data Set Array
-(
-    [membership_level_id] => 412
-    [membership_level_name] => Indvidual
-    [date_start] => 2025-11-08
-    [finish_date] => 2026-11-08
-    [note] => Membership created via Modern LGL API on 2025-11-08
-)
-
-[2025-11-07 22:49:52] [debug] LGL Constituents: All data set for user 1948
-[2025-11-07 22:49:52] [debug] LGL Constituents: Name set Array
-(
-    [first_name] => Debug
-    [last_name] => Test
-    [is_org] => 
-    [constituent_contact_type_id] => 1247
-    [constituent_contact_type_name] => Primary
-    [addressee] => Debug Test
-    [salutation] => Debug
-    [sort_name] => Test, Debug
-    [is_deceased] => 
-    [annual_report_name] => Debug Test
-    [date_added] => 2025-11-08
-    [is_anon] => 
-)
-
-[2025-11-07 22:49:52] [debug] LGL Constituents: Email already set, skipping duplicate debug.test@example.com
-[2025-11-07 22:49:52] [debug] LGL Constituents: Constituent updated successfully Array
-(
-    [success] => 1
-    [http_code] => 200
-    [data] => Array
-        (
-            [api_version] => 1.0
-            [id] => 945142
-            [external_constituent_id] => t00069
-            [is_org] => 
-            [constituent_contact_type_id] => 1247
-            [constituent_contact_type_name] => Primary
-            [prefix] => 
-            [first_name] => Debug
-            [middle_name] => 
-            [last_name] => Test
-            [suffix] => 
-            [spouse_name] => 
-            [org_name] => Who's the Boss?
-            [job_title] => 
-            [addressee] => Debug Test
-            [salutation] => Debug
-            [sort_name] => Test, Debug
-            [constituent_interest_level_id] => 
-            [constituent_interest_level_name] => 
-            [constituent_rating_id] => 
-            [constituent_rating_name] => 
-            [is_deceased] => 
-            [deceased_date] => 
-            [annual_report_name] => Debug Test
-            [birthday] => 
-            [gender] => 
-            [maiden_name] => 
-            [nick_name] => 
-            [spouse_nick_name] => 
-            [date_added] => 2025-11-08
-            [alt_salutation] => Debug
-            [alt_addressee] => Debug Test
-            [honorary_name] => Debug Test
-            [assistant_name] => 
-            [marital_status_id] => 
-            [marital_status_name] => 
-            [is_anon] => 
-            [created_at] => 2023-02-27T13:29:49Z
-            [updated_at] => 2025-11-08T03:49:52Z
-            [class_affiliations] => Array
-                (
-                )
-
-            [relationships] => Array
-                (
-                )
-
-            [street_addresses] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 838732
-                            [street] => 3344 Oak Hills Drive
-                            [city] => Fairfield
-                            [state] => CT
-                            [country] => US
-                            [postal_code] => 06825
-                            [county] => 
-                            [street_address_type_id] => 1
-                            [street_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [seasonal_from] => 01-01
-                            [seasonal_to] => 12-31
-                            [seasonal] => 
-                            [lat] => 
-                            [lng] => 
-                            [zip5] => 06825
-                            [verified] => 
-                            [verified_on] => 
-                            [created_at] => 2023-02-27T13:29:49Z
-                            [updated_at] => 2023-02-27T13:29:49Z
-                        )
-
-                )
-
-            [phone_numbers] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 480302
-                            [number] => (888) 555-0069
-                            [phone_number_type_id] => 1
-                            [phone_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [normalized_number] => 8885550069
-                            [created_at] => 2023-02-27T13:29:49Z
-                            [updated_at] => 2023-02-27T13:29:49Z
-                        )
-
-                )
-
-            [email_addresses] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 277192
-                            [address] => bower@who'stheboss?.com
-                            [email_address_type_id] => 1
-                            [email_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [created_at] => 2023-02-27T13:29:49Z
-                            [updated_at] => 2023-02-27T13:29:49Z
-                        )
-
-                )
-
-            [web_addresses] => Array
-                (
-                )
-
-            [categories] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 1287
-                            [item_type] => Constituent
-                            [name] => Giving Status
-                            [key] => giving_status
-                            [facet_type] => list
-                            [ordinal] => 100
-                            [removable] => 
-                            [editable] => 
-                            [display_format] => compact
-                            [keywords] => Array
-                                (
-                                    [0] => Array
-                                        (
-                                            [id] => 12777
-                                            [category_id] => 1287
-                                            [name] => Top 100 Donor
-                                            [description] => 
-                                            [short_code] => top_100_donor
-                                            [ordinal] => 0
-                                            [removable] => 
-                                            [can_change] => 1
-                                            [can_select] => 1
-                                            [created_at] => 2023-02-25T00:56:33Z
-                                            [updated_at] => 2023-02-25T00:56:33Z
-                                        )
-
-                                    [1] => Array
-                                        (
-                                            [id] => 12792
-                                            [category_id] => 1287
-                                            [name] => Lapsed Donor
-                                            [description] => 
-                                            [short_code] => lapsed_donor
-                                            [ordinal] => 3
-                                            [removable] => 
-                                            [can_change] => 1
-                                            [can_select] => 1
-                                            [created_at] => 2023-02-25T00:56:33Z
-                                            [updated_at] => 2023-02-25T00:56:33Z
-                                        )
-
-                                )
-
-                        )
-
-                )
-
-            [groups] => Array
-                (
-                )
-
-            [memberships] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 1612
-                            [constituent_id] => 945142
-                            [membership_level_id] => 397
-                            [membership_level_name] => Patron Indiv
-                            [date_start] => 2023-01-27
-                            [finish_date] => 2024-01-27
-                            [note] => 
-                            [created_at] => 2023-02-27T13:29:49Z
-                            [updated_at] => 2023-02-27T13:29:50Z
-                        )
-
-                )
-
-            [custom_attrs] => Array
-                (
-                )
-
-        )
-
-    [raw_response] => {"api_version":"1.0","id":945142,"external_constituent_id":"t00069","is_org":false,"constituent_contact_type_id":1247,"constituent_contact_type_name":"Primary","prefix":null,"first_name":"Debug","middle_name":null,"last_name":"Test","suffix":null,"spouse_name":null,"org_name":"Who's the Boss?","job_title":null,"addressee":"Debug Test","salutation":"Debug","sort_name":"Test, Debug","constituent_interest_level_id":null,"constituent_interest_level_name":null,"constituent_rating_id":null,"constituent_rating_name":null,"is_deceased":false,"deceased_date":null,"annual_report_name":"Debug Test","birthday":null,"gender":null,"maiden_name":null,"nick_name":null,"spouse_nick_name":null,"date_added":"2025-11-08","alt_salutation":"Debug","alt_addressee":"Debug Test","honorary_name":"Debug Test","assistant_name":null,"marital_status_id":null,"marital_status_name":null,"is_anon":false,"created_at":"2023-02-27T13:29:49Z","updated_at":"2025-11-08T03:49:52Z","class_affiliations":[],"relationships":[],"street_addresses":[{"id":838732,"street":"3344 Oak Hills Drive","city":"Fairfield","state":"CT","country":"US","postal_code":"06825","county":null,"street_address_type_id":1,"street_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":null,"lat":null,"lng":null,"zip5":"06825","verified":false,"verified_on":null,"created_at":"2023-02-27T13:29:49Z","updated_at":"2023-02-27T13:29:49Z"}],"phone_numbers":[{"id":480302,"number":"(888) 555-0069","phone_number_type_id":1,"phone_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"normalized_number":"8885550069","created_at":"2023-02-27T13:29:49Z","updated_at":"2023-02-27T13:29:49Z"}],"email_addresses":[{"id":277192,"address":"bower@who'stheboss?.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2023-02-27T13:29:49Z","updated_at":"2023-02-27T13:29:49Z"}],"web_addresses":[],"categories":[{"id":1287,"item_type":"Constituent","name":"Giving Status","key":"giving_status","facet_type":"list","ordinal":100,"removable":false,"editable":false,"display_format":"compact","keywords":[{"id":12777,"category_id":1287,"name":"Top 100 Donor","description":null,"short_code":"top_100_donor","ordinal":0,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"},{"id":12792,"category_id":1287,"name":"Lapsed Donor","description":null,"short_code":"lapsed_donor","ordinal":3,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"}]}],"groups":[],"memberships":[{"id":1612,"constituent_id":945142,"membership_level_id":397,"membership_level_name":"Patron Indiv","date_start":"2023-01-27","finish_date":"2024-01-27","note":null,"created_at":"2023-02-27T13:29:49Z","updated_at":"2023-02-27T13:29:50Z"}],"custom_attrs":[]}
-)
-
-[2025-11-07 22:49:52] [debug] ✅ MembershipRegistrationService: Constituent updated (Step 1/5) Array
-(
-    [lgl_id] => 945142
-    [http_code] => 200
-)
-
-[2025-11-07 22:49:53] [debug] ✅ MembershipRegistrationService: Email added (Step 2/4) Array
-(
-    [lgl_id] => 945142
-    [success] => 1
-    [response] => Array
-        (
-            [success] => 1
-            [http_code] => 200
-            [data] => Array
-                (
-                    [api_version] => 1.0
-                    [id] => 278787
-                    [item_id] => 945142
-                    [item_type] => Constituent
-                    [address] => debug.test@example.com
-                    [email_address_type_id] => 1
-                    [email_type_name] => Home
-                    [is_preferred] => 1
-                    [not_current] => 
-                    [parent_id] => 
-                    [created_at] => 2025-11-08T03:49:53Z
-                    [updated_at] => 2025-11-08T03:49:53Z
-                )
-
-            [raw_response] => {"api_version":"1.0","id":278787,"item_id":945142,"item_type":"Constituent","address":"debug.test@example.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2025-11-08T03:49:53Z","updated_at":"2025-11-08T03:49:53Z"}
-        )
-
-)
-
-[2025-11-07 22:49:53] [debug] ⚠️ MembershipRegistrationService: No phone data to add (Step 3/4)
-[2025-11-07 22:49:53] [debug] ⚠️ MembershipRegistrationService: No address data to add (Step 4/4)
-[2025-11-07 22:49:53] [debug] ✅ MembershipRegistrationService: Membership added (Step 5/5) Array
-(
-    [lgl_id] => 945142
-    [success] => 1
-    [response] => Array
-        (
-            [success] => 1
-            [http_code] => 200
-            [data] => Array
-                (
-                    [api_version] => 1.0
-                    [id] => 3782
-                    [constituent_id] => 945142
-                    [membership_level_id] => 412
-                    [membership_level_name] => Indvidual
-                    [date_start] => 2025-11-08
-                    [finish_date] => 2026-11-08
-                    [note] => Membership created via Modern LGL API on 2025-11-08
-                    [created_at] => 2025-11-08T03:49:53Z
-                    [updated_at] => 2025-11-08T03:49:53Z
-                )
-
-            [raw_response] => {"api_version":"1.0","id":3782,"constituent_id":945142,"membership_level_id":412,"membership_level_name":"Indvidual","date_start":"2025-11-08","finish_date":"2026-11-08","note":"Membership created via Modern LGL API on 2025-11-08","created_at":"2025-11-08T03:49:53Z","updated_at":"2025-11-08T03:49:53Z"}
-        )
-
-)
-
-[2025-11-07 22:49:53] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
-(
-    [method] => Memberships
-)
-
-[2025-11-07 22:49:53] [debug] 🔍 LGL Payments: No cache, making API requests...
-[2025-11-07 22:49:55] [debug] LGL Payments: Payment types retrieved Array
-(
-    [method] => Memberships
+    [method] => Classes
     [count] => 7
 )
 
-[2025-11-07 22:49:55] [debug] LGL Payments: Payment data retrieved Array
+[2025-11-08 08:06:29] [debug] LGL Payments: ⚠️ Payment type not found, using first available Array
 (
-    [method] => Memberships
-    [data_keys] => Array
-        (
-            [0] => payment_types
-            [1] => gift_types
-            [2] => funds
-            [3] => campaigns
-            [4] => categories
-            [5] => method
-            [6] => retrieved_at
-        )
-
-    [funds_count] => 9
-    [campaigns_count] => 7
-    [payment_types_count] => 7
+    [requested] => Bank Transfer
+    [using_id] => 1517
+    [using_name] => Cash
 )
 
-[2025-11-07 22:49:55] [debug] 💳 Connection::addPayment() Array
+[2025-11-08 08:06:29] [debug] 💳 Connection::addPayment() Array
 (
-    [lgl_id] => 945142
+    [lgl_id] => 947022
     [payment_data] => Array
         (
-            [external_id] => 88114
+            [external_id] => 88133
             [is_anon] => 
-            [gift_type_id] => 
+            [gift_type_id] => 5
             [gift_type_name] => Other Income
-            [gift_category_id] => 
-            [gift_category_name] => Donation
-            [campaign_id] => 
-            [campaign_name] => Membership Fees
-            [fund_id] => 
-            [fund_name] => General Fund
+            [gift_category_id] => 6082
+            [gift_category_name] => Language Classes
+            [campaign_id] => 862
+            [campaign_name] => Language Class
+            [fund_id] => 4062
+            [fund_name] => 
             [appeal_id] => 0
             [appeal_name] => 
             [event_id] => 0
             [event_name] => 
-            [received_amount] => 77.63
+            [received_amount] => 144.00
             [received_date] => 2025-11-08
-            [payment_type_id] => 
-            [payment_type_name] => Credit Card
+            [payment_type_id] => 1517
+            [payment_type_name] => Cash
             [check_number] => 
-            [deductible_amount] => 77.63
-            [note] => Website Registration, Order #88114
+            [deductible_amount] => 144.00
+            [note] => Class registration - Language Class - Order #88133
             [ack_template_name] => 
             [deposit_date] => 2025-11-08
-            [deposited_amount] => 77.63
+            [deposited_amount] => 144.00
             [parent_gift_id] => 0
             [parent_external_id] => 0
             [team_member] => 
@@ -3219,55 +324,27 @@
 
 )
 
-[2025-11-07 22:49:55] [debug] ✅ Payment added successfully Array
+[2025-11-08 08:06:29] [debug] ✅ Payment added successfully Array
 (
-    [payment_id] => 905327
+    [payment_id] => 905357
 )
 
-[2025-11-07 22:49:55] [debug] LGL Payments: Membership payment created Array
+[2025-11-08 08:06:30] [debug] LGL Payments: Class payment created Array
 (
-    [lgl_id] => 945142
-    [order_id] => 88114
-    [amount] => 77.63
+    [lgl_id] => 947022
+    [order_id] => 88133
+    [class_type] => Language Class
+    [amount] => 144
 )
 
-[2025-11-07 22:49:55] [debug] ✅ MembershipRegistrationService: Payment created Array
+[2025-11-08 08:06:30] [debug] ⚠️ Attempted to delete non-test order Array
 (
-    [payment_id] => 905327
-    [lgl_id] => 945142
-    [order_id] => 88114
-    [amount] => 77.63
+    [order_id] => 88133
 )
 
-[2025-11-07 22:49:56] [debug] ✅ MembershipOrderHandler::registerUserInLGL() COMPLETED Array
+[2025-11-08 08:06:30] [debug] ✅ Test payment created successfully Array
 (
-    [user_id] => 1948
-    [lgl_id] => 945142
-    [status] => partial
-)
-
-[2025-11-07 22:49:56] [debug] ✅ MembershipOrderHandler: Completing order...
-[2025-11-07 22:49:56] [debug] ✅ MembershipOrderHandler::processOrder() COMPLETED SUCCESSFULLY Array
-(
-    [order_id] => 88114
-    [user_id] => 1948
-    [final_membership_level] => Indvidual
-    [lgl_id] => 945142
-    [match_method] => email
-    [payment_id] => 905327
-)
-
-[2025-11-07 22:49:56] [debug] ✅ OrderProcessor: MembershipOrderHandler completed successfully
-[2025-11-07 22:49:56] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
-(
-    [products_processed] => 1
-    [events_processed] => 0
-    [attendees_created] => 0
-)
-
-[2025-11-07 22:49:56] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
-(
-    [order_id] => 88114
-    [final_memory_usage] => 122MB
+    [payment_id] => 905357
+    [test_order_deleted] => 1
 )
 

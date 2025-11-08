@@ -264,17 +264,108 @@ class MembershipRegistrationService {
             $this->helper->debug('⚠️ MembershipRegistrationService: No address data to add (Step 4/4)');
         }
         
-        // STEP 5: Add membership
+        // STEP 5A: CRITICAL - Deactivate old active memberships BEFORE adding new one
+        $this->deactivateOldMemberships($lglId);
+        
+        // STEP 5B: Add new membership
         $membershipData = $this->constituents->getMembershipData();
         if (!empty($membershipData)) {
             $response = $this->connection->addMembership($lglId, $membershipData);
-            $this->helper->debug('✅ MembershipRegistrationService: Membership added (Step 5/5)', [
+            $this->helper->debug('✅ MembershipRegistrationService: New membership added (Step 5/5)', [
                 'lgl_id' => $lglId,
                 'success' => $response['success'] ?? false,
                 'response' => $response
             ]);
         } else {
             $this->helper->debug('⚠️ MembershipRegistrationService: No membership data to add (Step 5/5)');
+        }
+    }
+    
+    /**
+     * Deactivate old active memberships before adding a new one
+     * 
+     * This prevents duplicate active memberships and maintains clean data.
+     * Called during both new registrations and renewals.
+     * 
+     * @param string $lglId LGL constituent ID
+     * @return void
+     */
+    private function deactivateOldMemberships(string $lglId): void {
+        try {
+            // Get ALL memberships for this constituent
+            $membershipsResponse = $this->connection->getMemberships($lglId);
+            
+            if (empty($membershipsResponse['success'])) {
+                $this->helper->debug('⚠️ Could not fetch memberships to deactivate', ['lgl_id' => $lglId]);
+                return;
+            }
+            
+            // Extract memberships from response
+            $memberships = [];
+            if (isset($membershipsResponse['data']['items'])) {
+                $memberships = $membershipsResponse['data']['items'];
+            } elseif (isset($membershipsResponse['data']) && is_array($membershipsResponse['data'])) {
+                $memberships = $membershipsResponse['data'];
+            }
+            
+            if (empty($memberships)) {
+                $this->helper->debug('ℹ️ No existing memberships to deactivate', ['lgl_id' => $lglId]);
+                return;
+            }
+            
+            // Find active memberships (no finish_date or finish_date is in the future)
+            $today = date('Y-m-d');
+            $todayTimestamp = strtotime($today);
+            $activeMemberships = [];
+            
+            foreach ($memberships as $membership) {
+                $finishDate = $membership['finish_date'] ?? null;
+                if (!$finishDate || strtotime($finishDate) >= $todayTimestamp) {
+                    $activeMemberships[] = $membership;
+                }
+            }
+            
+            if (empty($activeMemberships)) {
+                $this->helper->debug('ℹ️ No active memberships to deactivate', ['lgl_id' => $lglId, 'total_memberships' => count($memberships)]);
+                return;
+            }
+            
+            $this->helper->debug('🔄 Deactivating old active memberships', [
+                'lgl_id' => $lglId,
+                'active_count' => count($activeMemberships),
+                'total_count' => count($memberships)
+            ]);
+            
+            // Deactivate each active membership
+            foreach ($activeMemberships as $membership) {
+                $membershipId = $membership['id'];
+                $updatePayload = [
+                    'id' => $membershipId,
+                    'membership_level_id' => $membership['membership_level_id'],
+                    'membership_level_name' => $membership['membership_level_name'],
+                    'date_start' => $membership['date_start'],
+                    'finish_date' => $today,  // CRITICAL: Must be >= date_start per LGL API validation
+                    'note' => 'Membership ended via WooCommerce renewal on ' . date('Y-m-d')
+                ];
+                
+                $result = $this->connection->updateMembership((string)$membershipId, $updatePayload);
+                
+                if (!empty($result['success'])) {
+                    $this->helper->debug('✅ Deactivated membership', ['membership_id' => $membershipId]);
+                } else {
+                    $this->helper->debug('❌ Failed to deactivate membership', [
+                        'membership_id' => $membershipId,
+                        'error' => $result['error'] ?? 'Unknown error'
+                    ]);
+                }
+            }
+            
+        } catch (\Exception $e) {
+            $this->helper->debug('❌ Error deactivating old memberships', [
+                'lgl_id' => $lglId,
+                'error' => $e->getMessage()
+            ]);
+            // Don't throw - continue with adding new membership even if deactivation fails
         }
     }
 

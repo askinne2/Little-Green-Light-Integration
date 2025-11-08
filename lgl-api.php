@@ -153,6 +153,7 @@ if ($lgl_debug_enabled) {
     require_once LGL_PLUGIN_DIR . 'test/test-order-processing-flow.php';
     require_once LGL_PLUGIN_DIR . 'test/test-phase5-memberships.php';
     
+    /*
     add_action('admin_notices', function() {
         if (!function_exists('current_user_can') || !current_user_can('manage_options')) {
             return;
@@ -169,4 +170,5 @@ if ($lgl_debug_enabled) {
         echo '<p><strong>Professional Testing:</strong> Available in <strong>LGL Integration > Testing Suite</strong> in WordPress Admin</p>';
         echo '</div>';
     });
+    */
 }

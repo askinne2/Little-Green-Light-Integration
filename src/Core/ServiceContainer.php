@@ -546,6 +546,7 @@ class ServiceContainer implements ContainerInterface {
                 $container->get('lgl.helper'),
                 $container->get('lgl.connection'),
                 $container->get('lgl.api_settings'),
+                $container->get('lgl.payments'),
                 \UpstateInternational\LGL\Core\Plugin::getInstance()
             );
         });
@@ -587,3 +588,4 @@ class ServiceNotFoundException extends \Exception implements NotFoundExceptionIn
  */
 class ServiceResolutionException extends \Exception implements ContainerExceptionInterface {
 }
+

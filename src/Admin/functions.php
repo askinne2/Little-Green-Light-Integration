@@ -91,3 +91,25 @@ if (!function_exists('lgl_get_container')) {
     }
 }
 
+if (!function_exists('lgl_log')) {
+    /**
+     * Log a message to the LGL debug log
+     * 
+     * Convenience function that delegates to Helper::debug().
+     * Only logs when debug mode is enabled in LGL settings.
+     * 
+     * @param string $message Log message
+     * @param mixed $data Optional data to log (arrays, objects, etc.)
+     * @return void
+     */
+    function lgl_log(string $message, $data = null): void {
+        try {
+            $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
+            $helper->debug($message, $data);
+        } catch (\Exception $e) {
+            // Fallback to error_log if Helper not available
+            error_log("LGL Log: {$message} " . ($data ? print_r($data, true) : ''));
+        }
+    }
+}
+
