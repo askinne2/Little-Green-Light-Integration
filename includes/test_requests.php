@@ -59,7 +59,7 @@ class Test_Requests {
             'ui-membership-level-paypal' => 'P-69A66110YV400061FMVG7T2Y',
             'gateway_subscription_id' => '50',
             
-            'user_id' => 268,
+            'user_id' => 1214,
             'inserted_post_id' => 65671,
             'inserted_ui_membership_orders' => 65671,
             'inserted_cct_membership_orders' => 166

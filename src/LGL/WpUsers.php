@@ -309,30 +309,55 @@ class WpUsers {
             $created_registrations = [];
             
             foreach ($attendees as $attendee) {
+                // Extract attendee data (handle both old and new formats)
+                $attendee_name = $attendee['attendee_name'] ?? $attendee['name'] ?? '';
+                $attendee_email = $attendee['attendee_email'] ?? $attendee['email'] ?? '';
+                $attendee_phone = $attendee['attendee_phone'] ?? $attendee['phone'] ?? '';
+                $product_id = $attendee['product_id'] ?? 0;
+                $parent_id = $attendee['parent_id'] ?? 0;
+                $variation_name = $attendee['variation_name'] ?? '';
+                
+                // JetEngine CCT data (without _ID means create new)
                 $registration_data = [
-                    'post_title' => 'Event Registration - Order #' . $order->get_id(),
-                    'post_type' => 'event-registration',
-                    'post_status' => 'publish',
-                    'meta_input' => [
-                        'order_id' => $order->get_id(),
-                        'attendee_name' => $attendee['name'] ?? '',
-                        'attendee_email' => $attendee['email'] ?? '',
-                        'attendee_phone' => $attendee['phone'] ?? '',
-                        'event_name' => $attendee['event_name'] ?? '',
-                        'registration_date' => current_time('mysql'),
-                        'registration_status' => 'confirmed'
-                    ]
+                    'order_id' => $order->get_id(),
+                    'attendee_name' => $attendee_name,
+                    'attendee_email' => $attendee_email,
+                    'attendee_phone' => $attendee_phone,
+                    'event_product_id' => $product_id,
+                    'event_parent_id' => $parent_id,
+                    'event_name' => $variation_name,
+                    'registration_date' => current_time('mysql'),
+                    'registration_status' => 'confirmed'
                 ];
                 
-                $post_id = wp_insert_post($registration_data);
+                \lgl_log('WpUsers: Creating event registration CCT via JetEngine API', [
+                    'cct_slug' => '_ui_event_registrations',
+                    'attendee_name' => $attendee_name,
+                    'attendee_email' => $attendee_email,
+                    'product_id' => $product_id,
+                    'order_id' => $order->get_id()
+                ]);
                 
-                if (!is_wp_error($post_id)) {
+                // Use JetEngine CCT API to create the registration
+                $item_id = jet_cct_api_update_item('_ui_event_registrations', $registration_data);
+                
+                if ($item_id && !is_wp_error($item_id)) {
+                    \lgl_log('WpUsers: Event registration CCT created successfully', [
+                        'item_id' => $item_id,
+                        'attendee_name' => $attendee_name
+                    ]);
+                    
                     $created_registrations[] = [
-                        'post_id' => $post_id,
+                        'item_id' => $item_id,
                         'attendee' => $attendee
                     ];
                 } else {
-                    error_log('LGL WP Users: Failed to create event registration CCT: ' . $post_id->get_error_message());
+                    $error_msg = $item_id && is_wp_error($item_id) ? $item_id->get_error_message() : 'Unknown error';
+                    error_log('LGL WP Users: Failed to create event registration CCT: ' . $error_msg);
+                    \lgl_log('WpUsers: CCT creation failed', [
+                        'error' => $error_msg,
+                        'item_id' => $item_id
+                    ]);
                 }
             }
             
@@ -344,6 +369,97 @@ class WpUsers {
             
         } catch (\Exception $e) {
             error_log('LGL WP Users: Error creating event registration CCT: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Create class registration CCT records
+     * 
+     * @param \WC_Order $order WooCommerce order
+     * @param int $product_id Product ID
+     * @param array $order_meta Order metadata
+     * @return array Result with success status and created registrations
+     */
+    public function createClassRegistrationCct(\WC_Order $order, int $product_id, array $order_meta = []): array {
+        try {
+            // Check if JetEngine is available
+            if (!function_exists('jet_cct_api_update_item')) {
+                error_log('LGL WP Users: JetEngine CCT API not available');
+                return ['success' => false, 'error' => 'JetEngine not available'];
+            }
+            
+            $order_id = $order->get_id();
+            $order_date = $order->get_date_created();
+            
+            // Get product details
+            $product = wc_get_product($product_id);
+            if (!$product) {
+                return ['success' => false, 'error' => 'Product not found'];
+            }
+            
+            $class_name = $product->get_name();
+            $product_meta = get_post_meta($product_id);
+            
+            // Build CCT data
+            $registration_data = [
+                'user_id' => $order->get_customer_id(),
+                'user_firstname' => $order->get_billing_first_name(),
+                'user_lastname' => $order->get_billing_last_name(),
+                'user_email' => $order->get_billing_email(),
+                'user_phone' => $order->get_billing_phone(),
+                'user_preferred_language' => $order_meta['languages'] ?? '',
+                'user_home_country' => $order_meta['country'] ?? '',
+                'class_name' => $class_name,
+                'class_price' => $order->get_total(),
+                'class_semester' => $product_meta['_lc_class_semester'][0] ?? '',
+                'class_meeting_days' => $product_meta['_lc_class_meeting_days'][0] ?? '',
+                'class_post_id' => $product_id,
+                'class_order_id' => $order_id,
+                'created_at' => $order_date ? $order_date->format('Y-m-d H:i:s') : current_time('mysql'),
+            ];
+            
+            \lgl_log('WpUsers: Creating class registration CCT via JetEngine API', [
+                'cct_slug' => 'class_registrations',
+                'class_name' => $class_name,
+                'order_id' => $order_id,
+                'product_id' => $product_id,
+                'user_id' => $order->get_customer_id()
+            ]);
+            
+            // Use JetEngine CCT API to create the registration
+            $item_id = jet_cct_api_update_item('class_registrations', $registration_data);
+            
+            if ($item_id && !is_wp_error($item_id)) {
+                \lgl_log('WpUsers: Class registration CCT created successfully', [
+                    'item_id' => $item_id,
+                    'class_name' => $class_name
+                ]);
+                
+                return [
+                    'success' => true,
+                    'item_id' => $item_id,
+                    'class_name' => $class_name
+                ];
+            } else {
+                $error_msg = $item_id && is_wp_error($item_id) ? $item_id->get_error_message() : 'Unknown error';
+                error_log('LGL WP Users: Failed to create class registration CCT: ' . $error_msg);
+                \lgl_log('WpUsers: Class CCT creation failed', [
+                    'error' => $error_msg,
+                    'item_id' => $item_id
+                ]);
+                
+                return [
+                    'success' => false,
+                    'error' => $error_msg
+                ];
+            }
+            
+        } catch (\Exception $e) {
+            error_log('LGL WP Users: Error creating class registration CCT: ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()

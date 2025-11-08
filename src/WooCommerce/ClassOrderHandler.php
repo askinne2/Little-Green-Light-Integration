@@ -82,13 +82,19 @@ class ClassOrderHandler {
         // Update user data
         $this->wpUsers->updateUserData($class_registration, $order, $order_meta);
         
-        // Create JetEngine post for class registration
-        $this->wpUsers->createJetenginePostOnOrderCompletion(
-            $order->get_id(),
-            $order_meta,
-            $product,
-            null
-        );
+        // Create JetEngine CCT for class registration
+        $cct_result = $this->wpUsers->createClassRegistrationCct($order, $product_id, $order_meta);
+        
+        if ($cct_result['success']) {
+            $this->helper->debug('ClassOrderHandler: Class CCT created', [
+                'item_id' => $cct_result['item_id'],
+                'class_name' => $cct_result['class_name']
+            ]);
+        } else {
+            $this->helper->debug('ClassOrderHandler: Failed to create class CCT', [
+                'error' => $cct_result['error']
+            ]);
+        }
         
         // Register class in LGL
         $this->registerClassInLGL($class_registration);

@@ -16,7 +16,9 @@ The LGL Integration plugin has been **completely modernized** with a clean, main
 ### Code Reduction
 - **AdminMenuManager**: 1,300+ lines → **487 lines** (63% reduction)
 - **Main Plugin File (lgl-api.php)**: 1,000+ lines → **137 lines** (86% reduction)
-- **Total Legacy Files Deleted**: 7 files
+- **Total Legacy Files Deleted**: 10+ files
+- **Folders Removed**: `backup/`, `includes/ui_memberships/` (15+ legacy files)
+- **Carbon Fields UI**: Removed (settings now pure WordPress options)
 
 ### Architecture Transformation
 ✅ **Service Container** - PSR-11 compliant dependency injection  
@@ -91,6 +93,35 @@ Rather than rewrite this entire file immediately, we created a **compatibility s
 - ✅ Maintains all legacy hook constants (e.g., `UI_DELETE_MEMBERS`)
 
 This allows the legacy code to work seamlessly with the modern architecture until it can be fully refactored.
+
+### Phase 1 Cleanup Completed
+
+**Removed Legacy Code:**
+- ✅ `backup/lgl-api-modern.php` - Obsolete backup file
+- ✅ `includes/ui_memberships/` - 15+ files, replaced by `src/Memberships/*`
+- ✅ `includes/lgl_constants.php` - Not loaded, constants defined elsewhere
+- ✅ `includes/jet-engine-cct-api.php` - Not loaded, replaced by `src/JetFormBuilder/`
+- ✅ `includes/decrease_registration_counter_on_trash.php` - Obsolete
+- ✅ `includes/test_requests.php` - Replaced by `src/Admin/TestingHandler.php`
+- ✅ `includes/lgl-utilities.php` - Replaced by `src/Core/Utilities.php`
+- ✅ `includes/lgl-cache-manager.php` - Replaced by `src/Core/CacheManager.php`
+- ✅ `Paypalcards.txt` - Old reference file
+- ✅ `scripts/backup-before-settings-modernization.sh` - Obsolete backup script
+
+**Carbon Fields Dependency Removed:**
+- ✅ Removed `Carbon_Fields\Container` and `Carbon_Fields\Field` imports from `ApiSettings.php`
+- ✅ Removed `registerSettingsFields()`, `initializeCarbonFields()`, `showCarbonFieldsNotice()` methods
+- ✅ Removed Carbon Fields fallback from `getSetting()` method
+- ✅ Settings now managed entirely via `SettingsManager` with WordPress options
+
+**Kept for Phase 2 Modernization:**
+- `includes/lgl-connections.php` - Still loaded, to be modernized
+- `includes/lgl-helper.php` - Still loaded, to be modernized
+- `includes/lgl-wp-users.php` - 716 lines, active legacy code
+- `includes/lgl-constituents.php` - Still loaded, to be modernized
+- `includes/lgl-payments.php` - Still loaded, to be modernized
+- `includes/lgl-relations-manager.php` - Still loaded, to be modernized
+- `includes/lgl-api-settings.php` - Still loaded, to be modernized
 
 ---
 
@@ -234,14 +265,18 @@ All planning and architecture docs are in `docs/`:
 - Inline HTML/CSS/JS everywhere
 - Circular dependencies causing fatal errors
 - Multiple duplicate legacy files
+- Carbon Fields UI dependency
 
 **After:**
 - 487-line clean AdminMenuManager
 - 137-line bootstrap file
 - Component-based UI system
 - Zero circular dependencies
-- 7 legacy files deleted
+- 10+ legacy files deleted
+- `ui_memberships/` folder removed (15+ files)
+- Carbon Fields UI removed
 - Modern PSR-11 architecture
+- Pure WordPress options for settings
 
 **The plugin is now production-ready, maintainable, and performant!** 🚀
 

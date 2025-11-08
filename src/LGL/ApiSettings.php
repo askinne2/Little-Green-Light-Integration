@@ -11,9 +11,6 @@
 
 namespace UpstateInternational\LGL\LGL;
 
-use Carbon_Fields\Container;
-use Carbon_Fields\Field;
-
 /**
  * API Settings Class
  * 
@@ -113,122 +110,13 @@ class ApiSettings {
     
     /**
      * Initialize settings
+     * 
+     * Settings now managed entirely by SettingsManager via WordPress options.
+     * Carbon Fields dependency removed.
      */
     private function initializeSettings(): void {
-        // RE-ENABLED: Carbon Fields needed to access existing data, but settings pages disabled
-        // Initialize Carbon Fields if available
-        if (class_exists('Carbon_Fields\\Container')) {
-            // DON'T register settings pages (they're disabled)
-            // add_action('carbon_fields_register_fields', [$this, 'registerSettingsFields']);
-            add_action('after_setup_theme', [$this, 'initializeCarbonFields']);
-        } else {
-            add_action('admin_notices', [$this, 'showCarbonFieldsNotice']);
-        }
-        
-        //  error_log('LGL API Settings: Initialized successfully (Carbon Fields enabled for data access, UI disabled)');
-    }
-    
-    /**
-     * Initialize Carbon Fields
-     */
-    public function initializeCarbonFields(): void {
-        if (function_exists('carbon_fields_boot')) {
-            \Carbon_Fields\Carbon_Fields::boot();
-        }
-    }
-    
-    /**
-     * Show notice if Carbon Fields is not available
-     */
-    public function showCarbonFieldsNotice(): void {
-        if (current_user_can('manage_options')) {
-            echo '<div class="notice notice-warning"><p><strong>LGL Plugin:</strong> Carbon Fields is required for the settings page. Please install the Carbon Fields plugin.</p></div>';
-        }
-    }
-    
-    /**
-     * Register settings fields
-     */
-    public function registerSettingsFields(): void {
-        try {
-            Container::make('theme_options', 'LGL API Settings')
-                ->set_page_parent('options-general.php')
-                ->set_page_menu_title('LGL API')
-                ->set_page_menu_position(30)
-                ->add_fields([
-                    Field::make('html', 'lgl_api_instructions')
-                        ->set_html($this->getInstructionsHtml()),
-                    
-                    Field::make('text', 'lgl_api_url', 'API Base URL')
-                        ->set_help_text('Your Little Green Light API base URL (e.g., https://api.littlegreenlight.com)')
-                        ->set_attribute('placeholder', 'https://api.littlegreenlight.com')
-                        ->set_required(true),
-                    
-                    Field::make('text', 'lgl_api_key', 'API Key')
-                        ->set_help_text('Your Little Green Light API key')
-                        ->set_attribute('type', 'password')
-                        ->set_required(true),
-                    
-                    Field::make('separator', 'lgl_membership_separator', 'Membership Settings'),
-                    
-                    Field::make('complex', 'lgl_membership_levels', 'Membership Levels')
-                        ->set_help_text('Configure your membership levels and their corresponding LGL membership level IDs for payment attribution')
-                        ->add_fields([
-                            Field::make('text', 'level_name', 'Level Name')
-                                ->set_help_text('Display name for this membership level')
-                                ->set_required(true),
-                            
-                            Field::make('text', 'level_slug', 'Level Slug')
-                                ->set_help_text('Unique identifier for this level (lowercase, no spaces)')
-                                ->set_required(true),
-                            
-                            Field::make('text', 'lgl_membership_level_id', 'LGL Membership Level ID')
-                                ->set_help_text('The membership level ID from Little Green Light (used for payment attribution)')
-                                ->set_attribute('type', 'number')
-                                ->set_required(true),
-                            
-                            Field::make('text', 'price', 'Price')
-                                ->set_help_text('Membership price (numbers only)')
-                                ->set_attribute('type', 'number')
-                                ->set_attribute('step', '0.01'),
-                        ])
-                        ->set_header_template('<%- level_name %> (ID: <%- lgl_membership_level_id %>) - $<%- price %>'),
-                    
-                    Field::make('separator', 'lgl_debug_separator', 'Debug Settings'),
-                    
-                    Field::make('checkbox', 'lgl_debug_mode', 'Enable Debug Mode')
-                        ->set_help_text('Enable detailed logging for troubleshooting'),
-                    
-                    Field::make('checkbox', 'lgl_test_mode', 'Enable Test Mode')
-                        ->set_help_text('Use test API endpoints (if available)'),
-                ]);
-                
-            error_log('LGL API Settings: Carbon Fields registered successfully');
-            
-        } catch (\Exception $e) {
-            error_log('LGL API Settings Error: ' . $e->getMessage());
-        }
-    }
-    
-    /**
-     * Get instructions HTML
-     */
-    private function getInstructionsHtml(): string {
-        return '
-            <div style="background: #f1f1f1; padding: 20px; border-left: 4px solid #0073aa; margin: 10px 0;">
-                <h3 style="margin-top: 0;">🔗 LGL API Configuration</h3>
-                <p><strong>To configure your Little Green Light API connection:</strong></p>
-                <ol>
-                    <li>Log in to your Little Green Light account</li>
-                    <li>Navigate to <strong>Settings → API</strong></li>
-                    <li>Generate or copy your API key</li>
-                    <li>Enter your API URL and key below</li>
-                    <li><strong>For Membership Levels:</strong> Find the membership level IDs in LGL under <strong>Settings → Membership Levels</strong></li>
-                </ol>
-                <p><em>💡 <strong>Tip:</strong> The LGL Membership Level ID is crucial for payment attribution - it tells LGL which membership level to assign when processing payments.</em></p>
-                <p><em>🔧 <strong>Debug:</strong> Enable debug mode below to see detailed logging and test your API connection.</em></p>
-            </div>
-        ';
+        // Settings now managed by SettingsManager
+        // No initialization needed here
     }
     
     /**
@@ -351,24 +239,7 @@ class ApiSettings {
             }
         }
         
-        // 3. Fallback to Carbon Fields
-        if (function_exists('carbon_get_theme_option')) {
-            $value = carbon_get_theme_option($setting_name);
-            
-            if (empty($value)) {
-                $legacy_name = $this->getLegacyFieldName($setting_name);
-                if ($legacy_name) {
-                    $value = carbon_get_theme_option($legacy_name);
-                }
-            }
-            
-            if ($value !== null) {
-                $this->settingsCache[$setting_name] = $value;
-                return $value;
-            }
-        }
-        
-        // 4. Final fallback to WordPress options
+        // 3. Final fallback to WordPress options
         $value = get_option("_$setting_name", $default);
         
         // Cache the value

@@ -1284,31 +1284,73 @@ class TestingHandler {
                 'type' => $type
             ]);
             
-            // Create order
-            $order = wc_create_order(['customer_id' => $userId]);
-            
-            // Add product to order
-            $product = wc_get_product($productId);
-            if ($product) {
-                $order->add_product($product, 1);
+            // Get user data for billing
+            $user = get_userdata($userId);
+            if (!$user) {
+                \lgl_log("❌ User not found", ['user_id' => $userId]);
+                return false;
             }
             
-            // Set order total and payment details
-            $order->set_total($amount);
-            $order->set_payment_method('bacs');  // Default test payment method
-            $order->set_payment_method_title('Test Payment');
+            // Create order with customer data
+            $order = wc_create_order(['customer_id' => $userId]);
             
-            // CRITICAL: Use custom status 'lgl-test' so we can easily identify and delete
-            $order->set_status('lgl-test', 'Temporary order for LGL testing', true);
+            // Set billing information from user meta
+            $order->set_billing_email($user->user_email);
+            $order->set_billing_first_name(get_user_meta($userId, 'first_name', true) ?: $user->display_name);
+            $order->set_billing_last_name(get_user_meta($userId, 'last_name', true) ?: '');
+            $order->set_billing_phone(get_user_meta($userId, 'billing_phone', true) ?: '');
+            
+            // Add product to order as a line item
+            $product = wc_get_product($productId);
+            if (!$product) {
+                \lgl_log("❌ Product not found", ['product_id' => $productId]);
+                $order->delete(true);
+                return false;
+            }
+            
+            // Add the product with proper price
+            $item = new \WC_Order_Item_Product();
+            $item->set_props([
+                'product' => $product,
+                'quantity' => 1,
+                'subtotal' => $amount,
+                'total' => $amount,
+            ]);
+            $order->add_item($item);
+            
+            // For event products, add attendee meta data to ORDER (required for CCT creation)
+            // The OrderProcessor::collectAttendeeData() looks for order-level meta, not item meta
+            if ($type === 'event') {
+                $attendee_name = trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name());
+                $order->update_meta_data('attendee_name', $attendee_name);
+                $order->update_meta_data('attendee_email', $order->get_billing_email());
+                
+                \lgl_log("📝 Added attendee metadata to order", [
+                    'attendee_name' => $attendee_name,
+                    'attendee_email' => $order->get_billing_email()
+                ]);
+            }
+            
+            // Set order totals
+            $order->set_total($amount);
+            $order->set_payment_method('bacs');
+            $order->set_payment_method_title('Test Payment');
             
             // Add meta to identify this as a test order
             $order->update_meta_data('_lgl_test_order', true);
             $order->update_meta_data('_lgl_test_type', $type);
             $order->update_meta_data('_lgl_test_created', time());
             
+            // Save the order first with pending status
             $order->save();
             
-            \lgl_log("✅ Test order created", ['order_id' => $order->get_id()]);
+            \lgl_log("✅ Test order created with line items", [
+                'order_id' => $order->get_id(),
+                'item_count' => count($order->get_items()),
+                'product_name' => $product->get_name(),
+                'has_billing_info' => !empty($order->get_billing_email())
+            ]);
+            
             return $order->get_id();
             
         } catch (\Exception $e) {
@@ -1392,11 +1434,25 @@ class TestingHandler {
                 'class_type' => $classType
             ]);
             
-            // Create temporary test order
+            // Create temporary test order with line items
             $testOrderId = $this->createTestOrder($userId, $productId, $amount, strtolower($type));
             
             if (!$testOrderId) {
                 throw new \Exception('Failed to create test order');
+            }
+            
+            // CRITICAL: Trigger OrderProcessor to create CCT records (for events/classes)
+            // This mimics the production flow where orders are processed after checkout
+            if ($type === 'Event' || $type === 'Class') {
+                \lgl_log("🎯 Triggering OrderProcessor for CCT creation", [
+                    'order_id' => $testOrderId,
+                    'type' => $type
+                ]);
+                
+                $orderProcessor = lgl_get_container()->get('woocommerce.order_processor');
+                $orderProcessor->processCompletedOrder($testOrderId);
+                
+                \lgl_log("✅ OrderProcessor completed - CCT records should be created");
             }
             
             // Use the Payments service to setup payment (matches production flow)

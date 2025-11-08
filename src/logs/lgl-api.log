@@ -1,4 +1,4 @@
-[2025-11-08 08:06:01] [debug] 🎟️ Testing Event Registration Array
+[2025-11-08 08:48:48] [debug] 🎟️ Testing Event Registration Array
 (
     [user_id] => 1214
     [lgl_id] => 947022
@@ -9,7 +9,7 @@
     [event_fund_id] => 4042
 )
 
-[2025-11-08 08:06:01] [debug] 💰 Creating test payment/gift Array
+[2025-11-08 08:48:48] [debug] 💰 Creating test payment/gift Array
 (
     [lgl_id] => 947022
     [amount] => 14
@@ -19,7 +19,7 @@
     [class_type] => 
 )
 
-[2025-11-08 08:06:01] [debug] 🛒 Creating temporary test order Array
+[2025-11-08 08:48:48] [debug] 🛒 Creating temporary test order Array
 (
     [user_id] => 1214
     [product_id] => 83556
@@ -27,26 +27,26 @@
     [type] => event
 )
 
-[2025-11-08 08:06:01] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
+[2025-11-08 08:48:48] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
 (
-    [order_id] => 88132
-    [timestamp] => 2025-11-08 08:06:01
+    [order_id] => 88146
+    [timestamp] => 2025-11-08 08:48:48
     [memory_usage] => 88MB
 )
 
-[2025-11-08 08:06:01] [debug] 📋 OrderProcessor: Order Details Array
+[2025-11-08 08:48:48] [debug] 📋 OrderProcessor: Order Details Array
 (
-    [order_id] => 88132
+    [order_id] => 88146
     [order_status] => pending
     [order_total] => 0.00
     [customer_id] => 1214
     [customer_email] => andrew@hispanicalliancesc.com
     [payment_method] => 
-    [order_date] => 2025-11-08 08:06:01
+    [order_date] => 2025-11-08 08:48:48
     [item_count] => 0
 )
 
-[2025-11-08 08:06:01] [debug] 👤 OrderProcessor: Customer Info Array
+[2025-11-08 08:48:48] [debug] 👤 OrderProcessor: Customer Info Array
 (
     [user_id] => 1214
     [billing_email] => andrew@hispanicalliancesc.com
@@ -55,14 +55,14 @@
     [billing_phone] => 
 )
 
-[2025-11-08 08:06:01] [debug] OrderProcessor: Payment method updated Array
+[2025-11-08 08:48:48] [debug] OrderProcessor: Payment method updated Array
 (
     [user_id] => 1214
     [payment_method] => 
     [stored_as] => online
 )
 
-[2025-11-08 08:06:01] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
+[2025-11-08 08:48:48] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
 (
     [languages] => 
     [country] => 
@@ -71,51 +71,751 @@
     [about] => 
 )
 
-[2025-11-08 08:06:01] [debug] 🛍️ OrderProcessor: Starting product processing...
-[2025-11-08 08:06:01] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
+[2025-11-08 08:48:48] [debug] 🛍️ OrderProcessor: Starting product processing...
+[2025-11-08 08:48:48] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
 (
     [total_products] => 0
     [user_id] => 1214
-    [order_id] => 88132
+    [order_id] => 88146
 )
 
-[2025-11-08 08:06:01] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
+[2025-11-08 08:48:48] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
 (
     [products_processed] => 0
     [events_processed] => 0
     [attendees_created] => 0
 )
 
-[2025-11-08 08:06:01] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
+[2025-11-08 08:48:48] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
 (
-    [order_id] => 88132
+    [order_id] => 88146
     [final_memory_usage] => 88MB
 )
 
-[2025-11-08 08:06:01] [debug] ✅ Test order created Array
+[2025-11-08 08:48:48] [debug] 📝 Added attendee metadata to order Array
 (
-    [order_id] => 88132
+    [attendee_name] => Andrew Skinner
+    [attendee_email] => andrew@hispanicalliancesc.com
 )
 
-[2025-11-08 08:06:01] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
+[2025-11-08 08:48:48] [debug] ✅ Test order created with line items Array
+(
+    [order_id] => 88146
+    [item_count] => 1
+    [product_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+    [has_billing_info] => 1
+)
+
+[2025-11-08 08:48:48] [debug] 🎯 Triggering OrderProcessor for CCT creation Array
+(
+    [order_id] => 88146
+    [type] => Event
+)
+
+[2025-11-08 08:48:48] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
+(
+    [order_id] => 88146
+    [timestamp] => 2025-11-08 08:48:48
+    [memory_usage] => 88MB
+)
+
+[2025-11-08 08:48:48] [debug] 📋 OrderProcessor: Order Details Array
+(
+    [order_id] => 88146
+    [order_status] => pending
+    [order_total] => 14.00
+    [customer_id] => 1214
+    [customer_email] => andrew@hispanicalliancesc.com
+    [payment_method] => bacs
+    [order_date] => 2025-11-08 08:48:48
+    [item_count] => 1
+)
+
+[2025-11-08 08:48:48] [debug] 👤 OrderProcessor: Customer Info Array
+(
+    [user_id] => 1214
+    [billing_email] => andrew@hispanicalliancesc.com
+    [billing_first_name] => Andrew
+    [billing_last_name] => Skinner
+    [billing_phone] => 8653120285
+)
+
+[2025-11-08 08:48:48] [debug] OrderProcessor: Payment method updated Array
+(
+    [user_id] => 1214
+    [payment_method] => bacs
+    [stored_as] => online
+)
+
+[2025-11-08 08:48:48] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
+(
+    [languages] => 
+    [country] => 
+    [referral] => 
+    [reason] => 
+    [about] => 
+)
+
+[2025-11-08 08:48:48] [debug] 🛍️ OrderProcessor: Starting product processing...
+[2025-11-08 08:48:48] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
+(
+    [total_products] => 1
+    [user_id] => 1214
+    [order_id] => 88146
+)
+
+[2025-11-08 08:48:48] [debug] 🔍 OrderProcessor: Processing Product #1 Array
+(
+    [name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+    [quantity] => 1
+    [product_id] => 83556
+    [parent_id] => 83555
+    [categories] => Array
+        (
+            [0] => events
+        )
+
+    [item_total] => 14
+    [item_subtotal] => 14
+)
+
+[2025-11-08 08:48:48] [debug] 🏷️ OrderProcessor: Product Type Detection Array
+(
+    [product_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+    [is_membership] => NO
+    [is_language_class] => NO
+    [is_event] => YES
+    [categories] => Array
+        (
+            [0] => events
+        )
+
+)
+
+[2025-11-08 08:48:48] [debug] 🎪 OrderProcessor: ROUTING TO EVENT HANDLER Array
+(
+    [product_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+    [handler] => EventOrderHandler
+)
+
+[2025-11-08 08:48:48] [debug] OrderProcessor: Adding new attendee andrew@hispanicalliancesc.com
+[2025-11-08 08:48:48] [debug] OrderProcessor: Running doWooCommerceLGLEventRegistration
+[2025-11-08 08:48:48] [debug] EventOrderHandler: Processing event order Array
+(
+    [user_id] => 1214
+    [order_id] => 88146
+    [product_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+    [product_id] => 83556
+    [parent_id] => 83555
+    [quantity] => 1
+)
+
+[2025-11-08 08:48:48] [debug] EventOrderHandler: VARIATION get_meta 4042
+[2025-11-08 08:48:48] [debug] EventOrderHandler: Event Registration LGL FUND ID 4042
+[2025-11-08 08:48:48] [debug] LGL Constituents: Name set Array
+(
+    [first_name] => Andrew
+    [last_name] => Skinner
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: Email set andrew@hispanicalliancesc.com
+[2025-11-08 08:48:48] [debug] LGL Constituents: Phone set 8653120285
+[2025-11-08 08:48:48] [debug] LGL Constituents: Address set Array
+(
+    [street] => 57 Blake Street
+    [city] => Greenville
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: 🎯 setMembership() CALLED! Array
+(
+    [user_id] => 1214
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: 🔍 Looking up membership level config Array
+(
+    [membership_type] => 5
+    [user_id] => 1214
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: ⚠️ No level config found by name, trying price-based lookup
+[2025-11-08 08:48:48] [debug] LGL Constituents: 🛒 Found recent order Array
+(
+    [order_id] => 88145
+    [total] => 14
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: 🔍 Constituents: Retrieved membership levels from ApiSettings Array
+(
+    [count] => 4
+    [levels] => Array
+        (
+            [0] => Array
+                (
+                    [level_name] => Indvidual
+                    [level_slug] => individual
+                    [lgl_membership_level_id] => 412
+                    [price] => 75
+                )
+
+            [1] => Array
+                (
+                    [level_name] => Family
+                    [level_slug] => family
+                    [lgl_membership_level_id] => 407
+                    [price] => 125
+                )
+
+            [2] => Array
+                (
+                    [level_name] => Patron
+                    [level_slug] => patron
+                    [lgl_membership_level_id] => 402
+                    [price] => 200
+                )
+
+            [3] => Array
+                (
+                    [level_name] => Patron Family
+                    [level_slug] => patron-family
+                    [lgl_membership_level_id] => 417
+                    [price] => 250
+                )
+
+        )
+
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: 🔍 Checking price match Array
+(
+    [level_name] => Indvidual
+    [level_price] => 75
+    [order_total] => 14
+    [difference] => 61
+    [tolerance] => 7.5
+    [matches] => 
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: 🔍 Checking price match Array
+(
+    [level_name] => Family
+    [level_price] => 125
+    [order_total] => 14
+    [difference] => 111
+    [tolerance] => 12.5
+    [matches] => 
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: 🔍 Checking price match Array
+(
+    [level_name] => Patron
+    [level_price] => 200
+    [order_total] => 14
+    [difference] => 186
+    [tolerance] => 20
+    [matches] => 
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: 🔍 Checking price match Array
+(
+    [level_name] => Patron Family
+    [level_price] => 250
+    [order_total] => 14
+    [difference] => 236
+    [tolerance] => 25
+    [matches] => 
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: ❌ No membership level found matching price Array
+(
+    [order_total] => 14
+    [available_levels] => Array
+        (
+            [0] => Array
+                (
+                    [name] => Indvidual
+                    [price] => 75
+                )
+
+            [1] => Array
+                (
+                    [name] => Family
+                    [price] => 125
+                )
+
+            [2] => Array
+                (
+                    [name] => Patron
+                    [price] => 200
+                )
+
+            [3] => Array
+                (
+                    [name] => Patron Family
+                    [price] => 250
+                )
+
+        )
+
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: 📋 Final level config
+[2025-11-08 08:48:48] [debug] LGL Constituents: ❌ No membership_level_id found! This will cause LGL API to fail.
+[2025-11-08 08:48:48] [debug] LGL Constituents: Modern Membership Data Created Array
+(
+    [user_id] => 1214
+    [membership_type] => 5
+    [level_config] => 
+    [membership_data] => Array
+        (
+            [membership_level_id] => 
+            [membership_level_name] => 5
+            [date_start] => 2025-11-08
+            [finish_date] => 2026-11-08
+            [note] => Membership created via Modern LGL API on 2025-11-08
+        )
+
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: Final Membership Data Set Array
+(
+    [membership_level_id] => 
+    [membership_level_name] => 5
+    [date_start] => 2025-11-08
+    [finish_date] => 2026-11-08
+    [note] => Membership created via Modern LGL API on 2025-11-08
+)
+
+[2025-11-08 08:48:48] [debug] LGL Constituents: All data set for user 1214
+[2025-11-08 08:48:49] [debug] LGL Constituents: Constituent updated successfully Array
+(
+    [success] => 1
+    [http_code] => 200
+    [data] => Array
+        (
+            [api_version] => 1.0
+            [id] => 947022
+            [external_constituent_id] => 
+            [is_org] => 
+            [constituent_contact_type_id] => 1247
+            [constituent_contact_type_name] => Primary
+            [prefix] => 
+            [first_name] => Andrew
+            [middle_name] => 
+            [last_name] => Skinner
+            [suffix] => 
+            [spouse_name] => 
+            [org_name] => 
+            [job_title] => 
+            [addressee] => Andrew Skinner
+            [salutation] => Andrew
+            [sort_name] => Skinner, Andrew
+            [constituent_interest_level_id] => 
+            [constituent_interest_level_name] => 
+            [constituent_rating_id] => 
+            [constituent_rating_name] => 
+            [is_deceased] => 
+            [deceased_date] => 
+            [annual_report_name] => Andrew Skinner
+            [birthday] => 
+            [gender] => 
+            [maiden_name] => 
+            [nick_name] => 
+            [spouse_nick_name] => 
+            [date_added] => 2025-11-08
+            [alt_salutation] => Andrew
+            [alt_addressee] => Andrew Skinner
+            [honorary_name] => Andrew Skinner
+            [assistant_name] => 
+            [marital_status_id] => 
+            [marital_status_name] => 
+            [is_anon] => 
+            [created_at] => 2025-11-08T11:15:38Z
+            [updated_at] => 2025-11-08T13:48:48Z
+            [class_affiliations] => Array
+                (
+                )
+
+            [relationships] => Array
+                (
+                )
+
+            [street_addresses] => Array
+                (
+                    [0] => Array
+                        (
+                            [id] => 840217
+                            [street] => 57 Blake Street
+                            [city] => Greenville
+                            [state] => SC
+                            [country] => United States
+                            [postal_code] => 29605
+                            [county] => 
+                            [street_address_type_id] => 1
+                            [street_type_name] => Home
+                            [is_preferred] => 1
+                            [not_current] => 
+                            [parent_id] => 
+                            [seasonal_from] => 01-01
+                            [seasonal_to] => 12-31
+                            [seasonal] => 
+                            [lat] => 
+                            [lng] => 
+                            [zip5] => 29605
+                            [verified] => 
+                            [verified_on] => 
+                            [created_at] => 2025-11-08T11:16:07Z
+                            [updated_at] => 2025-11-08T11:16:07Z
+                        )
+
+                    [1] => Array
+                        (
+                            [id] => 840212
+                            [street] => 57 Blake Street
+                            [city] => Greenville
+                            [state] => SC
+                            [country] => United States
+                            [postal_code] => 29605
+                            [county] => 
+                            [street_address_type_id] => 1
+                            [street_type_name] => Home
+                            [is_preferred] => 
+                            [not_current] => 
+                            [parent_id] => 
+                            [seasonal_from] => 01-01
+                            [seasonal_to] => 12-31
+                            [seasonal] => 
+                            [lat] => 
+                            [lng] => 
+                            [zip5] => 29605
+                            [verified] => 
+                            [verified_on] => 
+                            [created_at] => 2025-11-08T11:15:39Z
+                            [updated_at] => 2025-11-08T11:15:39Z
+                        )
+
+                )
+
+            [phone_numbers] => Array
+                (
+                )
+
+            [email_addresses] => Array
+                (
+                    [0] => Array
+                        (
+                            [id] => 278797
+                            [address] => andrew@hispanicalliancesc.com
+                            [email_address_type_id] => 1
+                            [email_type_name] => Home
+                            [is_preferred] => 1
+                            [not_current] => 
+                            [parent_id] => 
+                            [created_at] => 2025-11-08T11:16:07Z
+                            [updated_at] => 2025-11-08T11:16:07Z
+                        )
+
+                    [1] => Array
+                        (
+                            [id] => 278792
+                            [address] => andrew@hispanicalliancesc.com
+                            [email_address_type_id] => 1
+                            [email_type_name] => Home
+                            [is_preferred] => 
+                            [not_current] => 
+                            [parent_id] => 
+                            [created_at] => 2025-11-08T11:15:38Z
+                            [updated_at] => 2025-11-08T11:15:38Z
+                        )
+
+                )
+
+            [web_addresses] => Array
+                (
+                )
+
+            [categories] => Array
+                (
+                    [0] => Array
+                        (
+                            [id] => 1287
+                            [item_type] => Constituent
+                            [name] => Giving Status
+                            [key] => giving_status
+                            [facet_type] => list
+                            [ordinal] => 100
+                            [removable] => 
+                            [editable] => 
+                            [display_format] => compact
+                            [keywords] => Array
+                                (
+                                    [0] => Array
+                                        (
+                                            [id] => 12797
+                                            [category_id] => 1287
+                                            [name] => Non Donor
+                                            [description] => 
+                                            [short_code] => non_donor
+                                            [ordinal] => 4
+                                            [removable] => 
+                                            [can_change] => 1
+                                            [can_select] => 1
+                                            [created_at] => 2023-02-25T00:56:33Z
+                                            [updated_at] => 2023-02-25T00:56:33Z
+                                        )
+
+                                )
+
+                        )
+
+                )
+
+            [groups] => Array
+                (
+                )
+
+            [memberships] => Array
+                (
+                    [0] => Array
+                        (
+                            [id] => 3887
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2026-11-08
+                            [note] => New membership created via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T13:31:45Z
+                            [updated_at] => 2025-11-08T13:44:13Z
+                        )
+
+                    [1] => Array
+                        (
+                            [id] => 3817
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:45:17Z
+                            [updated_at] => 2025-11-08T13:44:13Z
+                        )
+
+                    [2] => Array
+                        (
+                            [id] => 3822
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:45:22Z
+                            [updated_at] => 2025-11-08T11:57:57Z
+                        )
+
+                    [3] => Array
+                        (
+                            [id] => 3827
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:45:38Z
+                            [updated_at] => 2025-11-08T11:57:57Z
+                        )
+
+                    [4] => Array
+                        (
+                            [id] => 3832
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:50:52Z
+                            [updated_at] => 2025-11-08T11:57:58Z
+                        )
+
+                    [5] => Array
+                        (
+                            [id] => 3837
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:51:16Z
+                            [updated_at] => 2025-11-08T11:57:58Z
+                        )
+
+                    [6] => Array
+                        (
+                            [id] => 3842
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:55:16Z
+                            [updated_at] => 2025-11-08T11:57:59Z
+                        )
+
+                    [7] => Array
+                        (
+                            [id] => 3847
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:57:59Z
+                            [updated_at] => 2025-11-08T12:03:03Z
+                        )
+
+                    [8] => Array
+                        (
+                            [id] => 3862
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T12:03:04Z
+                            [updated_at] => 2025-11-08T12:15:47Z
+                        )
+
+                    [9] => Array
+                        (
+                            [id] => 3867
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T12:15:48Z
+                            [updated_at] => 2025-11-08T12:32:08Z
+                        )
+
+                    [10] => Array
+                        (
+                            [id] => 3872
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T12:32:08Z
+                            [updated_at] => 2025-11-08T12:46:47Z
+                        )
+
+                    [11] => Array
+                        (
+                            [id] => 3877
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T12:46:48Z
+                            [updated_at] => 2025-11-08T13:08:35Z
+                        )
+
+                    [12] => Array
+                        (
+                            [id] => 3882
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T13:08:35Z
+                            [updated_at] => 2025-11-08T13:31:45Z
+                        )
+
+                )
+
+            [custom_attrs] => Array
+                (
+                )
+
+        )
+
+    [raw_response] => {"api_version":"1.0","id":947022,"external_constituent_id":null,"is_org":false,"constituent_contact_type_id":1247,"constituent_contact_type_name":"Primary","prefix":null,"first_name":"Andrew","middle_name":null,"last_name":"Skinner","suffix":null,"spouse_name":null,"org_name":null,"job_title":null,"addressee":"Andrew Skinner","salutation":"Andrew","sort_name":"Skinner, Andrew","constituent_interest_level_id":null,"constituent_interest_level_name":null,"constituent_rating_id":null,"constituent_rating_name":null,"is_deceased":false,"deceased_date":null,"annual_report_name":"Andrew Skinner","birthday":null,"gender":null,"maiden_name":null,"nick_name":null,"spouse_nick_name":null,"date_added":"2025-11-08","alt_salutation":"Andrew","alt_addressee":"Andrew Skinner","honorary_name":"Andrew Skinner","assistant_name":null,"marital_status_id":null,"marital_status_name":null,"is_anon":false,"created_at":"2025-11-08T11:15:38Z","updated_at":"2025-11-08T13:48:48Z","class_affiliations":[],"relationships":[],"street_addresses":[{"id":840217,"street":"57 Blake Street","city":"Greenville","state":"SC","country":"United States","postal_code":"29605","county":null,"street_address_type_id":1,"street_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":null,"lat":null,"lng":null,"zip5":"29605","verified":false,"verified_on":null,"created_at":"2025-11-08T11:16:07Z","updated_at":"2025-11-08T11:16:07Z"},{"id":840212,"street":"57 Blake Street","city":"Greenville","state":"SC","country":"United States","postal_code":"29605","county":null,"street_address_type_id":1,"street_type_name":"Home","is_preferred":false,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":null,"lat":null,"lng":null,"zip5":"29605","verified":false,"verified_on":null,"created_at":"2025-11-08T11:15:39Z","updated_at":"2025-11-08T11:15:39Z"}],"phone_numbers":[],"email_addresses":[{"id":278797,"address":"andrew@hispanicalliancesc.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2025-11-08T11:16:07Z","updated_at":"2025-11-08T11:16:07Z"},{"id":278792,"address":"andrew@hispanicalliancesc.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":false,"not_current":false,"parent_id":null,"created_at":"2025-11-08T11:15:38Z","updated_at":"2025-11-08T11:15:38Z"}],"web_addresses":[],"categories":[{"id":1287,"item_type":"Constituent","name":"Giving Status","key":"giving_status","facet_type":"list","ordinal":100,"removable":false,"editable":false,"display_format":"compact","keywords":[{"id":12797,"category_id":1287,"name":"Non Donor","description":null,"short_code":"non_donor","ordinal":4,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"}]}],"groups":[],"memberships":[{"id":3887,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2026-11-08","note":"New membership created via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T13:31:45Z","updated_at":"2025-11-08T13:44:13Z"},{"id":3817,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:45:17Z","updated_at":"2025-11-08T13:44:13Z"},{"id":3822,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:45:22Z","updated_at":"2025-11-08T11:57:57Z"},{"id":3827,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:45:38Z","updated_at":"2025-11-08T11:57:57Z"},{"id":3832,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:50:52Z","updated_at":"2025-11-08T11:57:58Z"},{"id":3837,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:51:16Z","updated_at":"2025-11-08T11:57:58Z"},{"id":3842,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:55:16Z","updated_at":"2025-11-08T11:57:59Z"},{"id":3847,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:57:59Z","updated_at":"2025-11-08T12:03:03Z"},{"id":3862,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T12:03:04Z","updated_at":"2025-11-08T12:15:47Z"},{"id":3867,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T12:15:48Z","updated_at":"2025-11-08T12:32:08Z"},{"id":3872,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T12:32:08Z","updated_at":"2025-11-08T12:46:47Z"},{"id":3877,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T12:46:48Z","updated_at":"2025-11-08T13:08:35Z"},{"id":3882,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T13:08:35Z","updated_at":"2025-11-08T13:31:45Z"}],"custom_attrs":[]}
+)
+
+[2025-11-08 08:48:49] [debug] EventOrderHandler: Event registered in LGL 1214
+[2025-11-08 08:48:49] [debug] OrderEmailCustomizer: Running email customizer
+[2025-11-08 08:48:49] [debug] OrderEmailCustomizer: Rendered email template Array
+(
+    [template] => event-no-lunch.html
+    [order_id] => 88146
+    [product_id] => 83555
+)
+
+[2025-11-08 08:48:49] [debug] OrderEmailCustomizer: Running email customizer
+[2025-11-08 08:48:49] [debug] EventOrderHandler: Event order completed 88146
+[2025-11-08 08:48:49] [debug] 👥 OrderProcessor: Creating attendee CCT records 1
+[2025-11-08 08:48:49] [debug] WpUsers: Creating event registration CCT via JetEngine API Array
+(
+    [cct_slug] => _ui_event_registrations
+    [attendee_name] => Andrew Skinner
+    [attendee_email] => andrew@hispanicalliancesc.com
+    [product_id] => 83556
+    [order_id] => 88146
+)
+
+[2025-11-08 08:48:49] [debug] WpUsers: Event registration CCT created successfully Array
+(
+    [item_id] => 575
+    [attendee_name] => Andrew Skinner
+)
+
+[2025-11-08 08:48:49] [debug] OrderProcessor: Created attendee CCT records 1
+[2025-11-08 08:48:49] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
+(
+    [products_processed] => 1
+    [events_processed] => 1
+    [attendees_created] => 1
+)
+
+[2025-11-08 08:48:49] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
+(
+    [order_id] => 88146
+    [final_memory_usage] => 96MB
+)
+
+[2025-11-08 08:48:49] [debug] ✅ OrderProcessor completed - CCT records should be created
+[2025-11-08 08:48:49] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
 (
     [method] => Events
 )
 
-[2025-11-08 08:06:01] [debug] 🔍 LGL Payments: Using cached data
-[2025-11-08 08:06:01] [debug] LGL Payments: ⚠️ Payment type not found, using first available Array
+[2025-11-08 08:48:49] [debug] 🔍 LGL Payments: Using cached data
+[2025-11-08 08:48:49] [debug] LGL Payments: ⚠️ Payment type not found, using first available Array
 (
     [requested] => Bank Transfer
     [using_id] => 1517
     [using_name] => Cash
 )
 
-[2025-11-08 08:06:01] [debug] 💳 Connection::addPayment() Array
+[2025-11-08 08:48:49] [debug] 💳 Connection::addPayment() Array
 (
     [lgl_id] => 947022
     [payment_data] => Array
         (
-            [external_id] => 88132
+            [external_id] => 88146
             [is_anon] => 
             [gift_type_id] => 5
             [gift_type_name] => Other Income
@@ -135,7 +835,7 @@
             [payment_type_name] => Cash
             [check_number] => 
             [deductible_amount] => 14.00
-            [note] => Event registration - Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham - Order #88132
+            [note] => Event registration - Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham - Order #88146
             [ack_template_name] => 
             [deposit_date] => 2025-11-08
             [deposited_amount] => 14.00
@@ -146,31 +846,31 @@
 
 )
 
-[2025-11-08 08:06:02] [debug] ✅ Payment added successfully Array
+[2025-11-08 08:48:49] [debug] ✅ Payment added successfully Array
 (
-    [payment_id] => 905352
+    [payment_id] => 905407
 )
 
-[2025-11-08 08:06:02] [debug] LGL Payments: Event payment created Array
+[2025-11-08 08:48:49] [debug] LGL Payments: Event payment created Array
 (
     [lgl_id] => 947022
-    [order_id] => 88132
+    [order_id] => 88146
     [event_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
     [amount] => 14
 )
 
-[2025-11-08 08:06:02] [debug] ⚠️ Attempted to delete non-test order Array
+[2025-11-08 08:48:49] [debug] ⚠️ Attempted to delete non-test order Array
 (
-    [order_id] => 88132
+    [order_id] => 88146
 )
 
-[2025-11-08 08:06:02] [debug] ✅ Test payment created successfully Array
+[2025-11-08 08:48:49] [debug] ✅ Test payment created successfully Array
 (
-    [payment_id] => 905352
+    [payment_id] => 905407
     [test_order_deleted] => 1
 )
 
-[2025-11-08 08:06:27] [debug] 📚 Testing Class Registration Array
+[2025-11-08 08:51:43] [debug] 📚 Testing Class Registration Array
 (
     [user_id] => 1214
     [lgl_id] => 947022
@@ -181,7 +881,7 @@
     [class_type] => Language Class
 )
 
-[2025-11-08 08:06:27] [debug] 💰 Creating test payment/gift Array
+[2025-11-08 08:51:43] [debug] 💰 Creating test payment/gift Array
 (
     [lgl_id] => 947022
     [amount] => 144
@@ -191,7 +891,7 @@
     [class_type] => Language Class
 )
 
-[2025-11-08 08:06:27] [debug] 🛒 Creating temporary test order Array
+[2025-11-08 08:51:43] [debug] 🛒 Creating temporary test order Array
 (
     [user_id] => 1214
     [product_id] => 86825
@@ -199,26 +899,26 @@
     [type] => class
 )
 
-[2025-11-08 08:06:27] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
+[2025-11-08 08:51:43] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
 (
-    [order_id] => 88133
-    [timestamp] => 2025-11-08 08:06:27
-    [memory_usage] => 94MB
+    [order_id] => 88147
+    [timestamp] => 2025-11-08 08:51:43
+    [memory_usage] => 88MB
 )
 
-[2025-11-08 08:06:27] [debug] 📋 OrderProcessor: Order Details Array
+[2025-11-08 08:51:43] [debug] 📋 OrderProcessor: Order Details Array
 (
-    [order_id] => 88133
+    [order_id] => 88147
     [order_status] => pending
     [order_total] => 0.00
     [customer_id] => 1214
     [customer_email] => andrew@hispanicalliancesc.com
     [payment_method] => 
-    [order_date] => 2025-11-08 08:06:27
+    [order_date] => 2025-11-08 08:51:43
     [item_count] => 0
 )
 
-[2025-11-08 08:06:27] [debug] 👤 OrderProcessor: Customer Info Array
+[2025-11-08 08:51:43] [debug] 👤 OrderProcessor: Customer Info Array
 (
     [user_id] => 1214
     [billing_email] => andrew@hispanicalliancesc.com
@@ -227,14 +927,14 @@
     [billing_phone] => 
 )
 
-[2025-11-08 08:06:27] [debug] OrderProcessor: Payment method updated Array
+[2025-11-08 08:51:43] [debug] OrderProcessor: Payment method updated Array
 (
     [user_id] => 1214
     [payment_method] => 
     [stored_as] => online
 )
 
-[2025-11-08 08:06:27] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
+[2025-11-08 08:51:43] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
 (
     [languages] => 
     [country] => 
@@ -243,57 +943,751 @@
     [about] => 
 )
 
-[2025-11-08 08:06:27] [debug] 🛍️ OrderProcessor: Starting product processing...
-[2025-11-08 08:06:27] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
+[2025-11-08 08:51:43] [debug] 🛍️ OrderProcessor: Starting product processing...
+[2025-11-08 08:51:43] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
 (
     [total_products] => 0
     [user_id] => 1214
-    [order_id] => 88133
+    [order_id] => 88147
 )
 
-[2025-11-08 08:06:27] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
+[2025-11-08 08:51:43] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
 (
     [products_processed] => 0
     [events_processed] => 0
     [attendees_created] => 0
 )
 
-[2025-11-08 08:06:27] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
+[2025-11-08 08:51:43] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
 (
-    [order_id] => 88133
-    [final_memory_usage] => 94MB
+    [order_id] => 88147
+    [final_memory_usage] => 88MB
 )
 
-[2025-11-08 08:06:27] [debug] ✅ Test order created Array
+[2025-11-08 08:51:43] [debug] ✅ Test order created with line items Array
 (
-    [order_id] => 88133
+    [order_id] => 88147
+    [item_count] => 1
+    [product_name] => Spanish A0 Regular: Mondays
+    [has_billing_info] => 1
 )
 
-[2025-11-08 08:06:27] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
+[2025-11-08 08:51:43] [debug] 🎯 Triggering OrderProcessor for CCT creation Array
+(
+    [order_id] => 88147
+    [type] => Class
+)
+
+[2025-11-08 08:51:43] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
+(
+    [order_id] => 88147
+    [timestamp] => 2025-11-08 08:51:43
+    [memory_usage] => 88MB
+)
+
+[2025-11-08 08:51:43] [debug] 📋 OrderProcessor: Order Details Array
+(
+    [order_id] => 88147
+    [order_status] => pending
+    [order_total] => 144.00
+    [customer_id] => 1214
+    [customer_email] => andrew@hispanicalliancesc.com
+    [payment_method] => bacs
+    [order_date] => 2025-11-08 08:51:43
+    [item_count] => 1
+)
+
+[2025-11-08 08:51:43] [debug] 👤 OrderProcessor: Customer Info Array
+(
+    [user_id] => 1214
+    [billing_email] => andrew@hispanicalliancesc.com
+    [billing_first_name] => Andrew
+    [billing_last_name] => Skinner
+    [billing_phone] => 8653120285
+)
+
+[2025-11-08 08:51:43] [debug] OrderProcessor: Payment method updated Array
+(
+    [user_id] => 1214
+    [payment_method] => bacs
+    [stored_as] => online
+)
+
+[2025-11-08 08:51:43] [debug] 📝 OrderProcessor: Order Metadata Extracted Array
+(
+    [languages] => 
+    [country] => 
+    [referral] => 
+    [reason] => 
+    [about] => 
+)
+
+[2025-11-08 08:51:43] [debug] 🛍️ OrderProcessor: Starting product processing...
+[2025-11-08 08:51:43] [debug] 🛍️ OrderProcessor::processOrderProducts() STARTED Array
+(
+    [total_products] => 1
+    [user_id] => 1214
+    [order_id] => 88147
+)
+
+[2025-11-08 08:51:43] [debug] 🔍 OrderProcessor: Processing Product #1 Array
+(
+    [name] => Spanish A0 Regular: Mondays
+    [quantity] => 1
+    [product_id] => 86825
+    [parent_id] => 86825
+    [categories] => Array
+        (
+            [0] => language-class
+        )
+
+    [item_total] => 144
+    [item_subtotal] => 144
+)
+
+[2025-11-08 08:51:43] [debug] 🏷️ OrderProcessor: Product Type Detection Array
+(
+    [product_name] => Spanish A0 Regular: Mondays
+    [is_membership] => NO
+    [is_language_class] => YES
+    [is_event] => NO
+    [categories] => Array
+        (
+            [0] => language-class
+        )
+
+)
+
+[2025-11-08 08:51:43] [debug] 📚 OrderProcessor: ROUTING TO CLASS HANDLER (Legacy) Array
+(
+    [product_name] => Spanish A0 Regular: Mondays
+    [handler] => ClassOrderHandler
+)
+
+[2025-11-08 08:51:43] [debug] OrderProcessor: Running doWooCommerceLGLClassRegistration
+[2025-11-08 08:51:43] [debug] ClassOrderHandler: Processing class order Array
+(
+    [user_id] => 1214
+    [order_id] => 88147
+    [product_name] => Spanish A0 Regular: Mondays
+    [product_id] => 86825
+)
+
+[2025-11-08 08:51:43] [debug] ClassOrderHandler: Class Registration LGL FUND ID 4062
+[2025-11-08 08:51:43] [debug] LGL Constituents: Name set Array
+(
+    [first_name] => Andrew
+    [last_name] => Skinner
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: Email set andrew@hispanicalliancesc.com
+[2025-11-08 08:51:43] [debug] LGL Constituents: Phone set 8653120285
+[2025-11-08 08:51:43] [debug] LGL Constituents: Address set Array
+(
+    [street] => 57 Blake Street
+    [city] => Greenville
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: 🎯 setMembership() CALLED! Array
+(
+    [user_id] => 1214
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: 🔍 Looking up membership level config Array
+(
+    [membership_type] => 5
+    [user_id] => 1214
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: ⚠️ No level config found by name, trying price-based lookup
+[2025-11-08 08:51:43] [debug] LGL Constituents: 🛒 Found recent order Array
+(
+    [order_id] => 88146
+    [total] => 14
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: 🔍 Constituents: Retrieved membership levels from ApiSettings Array
+(
+    [count] => 4
+    [levels] => Array
+        (
+            [0] => Array
+                (
+                    [level_name] => Indvidual
+                    [level_slug] => individual
+                    [lgl_membership_level_id] => 412
+                    [price] => 75
+                )
+
+            [1] => Array
+                (
+                    [level_name] => Family
+                    [level_slug] => family
+                    [lgl_membership_level_id] => 407
+                    [price] => 125
+                )
+
+            [2] => Array
+                (
+                    [level_name] => Patron
+                    [level_slug] => patron
+                    [lgl_membership_level_id] => 402
+                    [price] => 200
+                )
+
+            [3] => Array
+                (
+                    [level_name] => Patron Family
+                    [level_slug] => patron-family
+                    [lgl_membership_level_id] => 417
+                    [price] => 250
+                )
+
+        )
+
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: 🔍 Checking price match Array
+(
+    [level_name] => Indvidual
+    [level_price] => 75
+    [order_total] => 14
+    [difference] => 61
+    [tolerance] => 7.5
+    [matches] => 
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: 🔍 Checking price match Array
+(
+    [level_name] => Family
+    [level_price] => 125
+    [order_total] => 14
+    [difference] => 111
+    [tolerance] => 12.5
+    [matches] => 
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: 🔍 Checking price match Array
+(
+    [level_name] => Patron
+    [level_price] => 200
+    [order_total] => 14
+    [difference] => 186
+    [tolerance] => 20
+    [matches] => 
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: 🔍 Checking price match Array
+(
+    [level_name] => Patron Family
+    [level_price] => 250
+    [order_total] => 14
+    [difference] => 236
+    [tolerance] => 25
+    [matches] => 
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: ❌ No membership level found matching price Array
+(
+    [order_total] => 14
+    [available_levels] => Array
+        (
+            [0] => Array
+                (
+                    [name] => Indvidual
+                    [price] => 75
+                )
+
+            [1] => Array
+                (
+                    [name] => Family
+                    [price] => 125
+                )
+
+            [2] => Array
+                (
+                    [name] => Patron
+                    [price] => 200
+                )
+
+            [3] => Array
+                (
+                    [name] => Patron Family
+                    [price] => 250
+                )
+
+        )
+
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: 📋 Final level config
+[2025-11-08 08:51:43] [debug] LGL Constituents: ❌ No membership_level_id found! This will cause LGL API to fail.
+[2025-11-08 08:51:43] [debug] LGL Constituents: Modern Membership Data Created Array
+(
+    [user_id] => 1214
+    [membership_type] => 5
+    [level_config] => 
+    [membership_data] => Array
+        (
+            [membership_level_id] => 
+            [membership_level_name] => 5
+            [date_start] => 2025-11-08
+            [finish_date] => 2026-11-08
+            [note] => Membership created via Modern LGL API on 2025-11-08
+        )
+
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: Final Membership Data Set Array
+(
+    [membership_level_id] => 
+    [membership_level_name] => 5
+    [date_start] => 2025-11-08
+    [finish_date] => 2026-11-08
+    [note] => Membership created via Modern LGL API on 2025-11-08
+)
+
+[2025-11-08 08:51:43] [debug] LGL Constituents: All data set for user 1214
+[2025-11-08 08:51:44] [debug] LGL Constituents: Constituent updated successfully Array
+(
+    [success] => 1
+    [http_code] => 200
+    [data] => Array
+        (
+            [api_version] => 1.0
+            [id] => 947022
+            [external_constituent_id] => 
+            [is_org] => 
+            [constituent_contact_type_id] => 1247
+            [constituent_contact_type_name] => Primary
+            [prefix] => 
+            [first_name] => Andrew
+            [middle_name] => 
+            [last_name] => Skinner
+            [suffix] => 
+            [spouse_name] => 
+            [org_name] => 
+            [job_title] => 
+            [addressee] => Andrew Skinner
+            [salutation] => Andrew
+            [sort_name] => Skinner, Andrew
+            [constituent_interest_level_id] => 
+            [constituent_interest_level_name] => 
+            [constituent_rating_id] => 
+            [constituent_rating_name] => 
+            [is_deceased] => 
+            [deceased_date] => 
+            [annual_report_name] => Andrew Skinner
+            [birthday] => 
+            [gender] => 
+            [maiden_name] => 
+            [nick_name] => 
+            [spouse_nick_name] => 
+            [date_added] => 2025-11-08
+            [alt_salutation] => Andrew
+            [alt_addressee] => Andrew Skinner
+            [honorary_name] => Andrew Skinner
+            [assistant_name] => 
+            [marital_status_id] => 
+            [marital_status_name] => 
+            [is_anon] => 
+            [created_at] => 2025-11-08T11:15:38Z
+            [updated_at] => 2025-11-08T13:51:44Z
+            [class_affiliations] => Array
+                (
+                )
+
+            [relationships] => Array
+                (
+                )
+
+            [street_addresses] => Array
+                (
+                    [0] => Array
+                        (
+                            [id] => 840217
+                            [street] => 57 Blake Street
+                            [city] => Greenville
+                            [state] => SC
+                            [country] => United States
+                            [postal_code] => 29605
+                            [county] => 
+                            [street_address_type_id] => 1
+                            [street_type_name] => Home
+                            [is_preferred] => 1
+                            [not_current] => 
+                            [parent_id] => 
+                            [seasonal_from] => 01-01
+                            [seasonal_to] => 12-31
+                            [seasonal] => 
+                            [lat] => 
+                            [lng] => 
+                            [zip5] => 29605
+                            [verified] => 
+                            [verified_on] => 
+                            [created_at] => 2025-11-08T11:16:07Z
+                            [updated_at] => 2025-11-08T11:16:07Z
+                        )
+
+                    [1] => Array
+                        (
+                            [id] => 840212
+                            [street] => 57 Blake Street
+                            [city] => Greenville
+                            [state] => SC
+                            [country] => United States
+                            [postal_code] => 29605
+                            [county] => 
+                            [street_address_type_id] => 1
+                            [street_type_name] => Home
+                            [is_preferred] => 
+                            [not_current] => 
+                            [parent_id] => 
+                            [seasonal_from] => 01-01
+                            [seasonal_to] => 12-31
+                            [seasonal] => 
+                            [lat] => 
+                            [lng] => 
+                            [zip5] => 29605
+                            [verified] => 
+                            [verified_on] => 
+                            [created_at] => 2025-11-08T11:15:39Z
+                            [updated_at] => 2025-11-08T11:15:39Z
+                        )
+
+                )
+
+            [phone_numbers] => Array
+                (
+                )
+
+            [email_addresses] => Array
+                (
+                    [0] => Array
+                        (
+                            [id] => 278797
+                            [address] => andrew@hispanicalliancesc.com
+                            [email_address_type_id] => 1
+                            [email_type_name] => Home
+                            [is_preferred] => 1
+                            [not_current] => 
+                            [parent_id] => 
+                            [created_at] => 2025-11-08T11:16:07Z
+                            [updated_at] => 2025-11-08T11:16:07Z
+                        )
+
+                    [1] => Array
+                        (
+                            [id] => 278792
+                            [address] => andrew@hispanicalliancesc.com
+                            [email_address_type_id] => 1
+                            [email_type_name] => Home
+                            [is_preferred] => 
+                            [not_current] => 
+                            [parent_id] => 
+                            [created_at] => 2025-11-08T11:15:38Z
+                            [updated_at] => 2025-11-08T11:15:38Z
+                        )
+
+                )
+
+            [web_addresses] => Array
+                (
+                )
+
+            [categories] => Array
+                (
+                    [0] => Array
+                        (
+                            [id] => 1287
+                            [item_type] => Constituent
+                            [name] => Giving Status
+                            [key] => giving_status
+                            [facet_type] => list
+                            [ordinal] => 100
+                            [removable] => 
+                            [editable] => 
+                            [display_format] => compact
+                            [keywords] => Array
+                                (
+                                    [0] => Array
+                                        (
+                                            [id] => 12797
+                                            [category_id] => 1287
+                                            [name] => Non Donor
+                                            [description] => 
+                                            [short_code] => non_donor
+                                            [ordinal] => 4
+                                            [removable] => 
+                                            [can_change] => 1
+                                            [can_select] => 1
+                                            [created_at] => 2023-02-25T00:56:33Z
+                                            [updated_at] => 2023-02-25T00:56:33Z
+                                        )
+
+                                )
+
+                        )
+
+                )
+
+            [groups] => Array
+                (
+                )
+
+            [memberships] => Array
+                (
+                    [0] => Array
+                        (
+                            [id] => 3887
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2026-11-08
+                            [note] => New membership created via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T13:31:45Z
+                            [updated_at] => 2025-11-08T13:50:34Z
+                        )
+
+                    [1] => Array
+                        (
+                            [id] => 3817
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:45:17Z
+                            [updated_at] => 2025-11-08T13:50:34Z
+                        )
+
+                    [2] => Array
+                        (
+                            [id] => 3822
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:45:22Z
+                            [updated_at] => 2025-11-08T11:57:57Z
+                        )
+
+                    [3] => Array
+                        (
+                            [id] => 3827
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:45:38Z
+                            [updated_at] => 2025-11-08T11:57:57Z
+                        )
+
+                    [4] => Array
+                        (
+                            [id] => 3832
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:50:52Z
+                            [updated_at] => 2025-11-08T11:57:58Z
+                        )
+
+                    [5] => Array
+                        (
+                            [id] => 3837
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:51:16Z
+                            [updated_at] => 2025-11-08T11:57:58Z
+                        )
+
+                    [6] => Array
+                        (
+                            [id] => 3842
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:55:16Z
+                            [updated_at] => 2025-11-08T11:57:59Z
+                        )
+
+                    [7] => Array
+                        (
+                            [id] => 3847
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T11:57:59Z
+                            [updated_at] => 2025-11-08T12:03:03Z
+                        )
+
+                    [8] => Array
+                        (
+                            [id] => 3862
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T12:03:04Z
+                            [updated_at] => 2025-11-08T12:15:47Z
+                        )
+
+                    [9] => Array
+                        (
+                            [id] => 3867
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T12:15:48Z
+                            [updated_at] => 2025-11-08T12:32:08Z
+                        )
+
+                    [10] => Array
+                        (
+                            [id] => 3872
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T12:32:08Z
+                            [updated_at] => 2025-11-08T12:46:47Z
+                        )
+
+                    [11] => Array
+                        (
+                            [id] => 3877
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T12:46:48Z
+                            [updated_at] => 2025-11-08T13:08:35Z
+                        )
+
+                    [12] => Array
+                        (
+                            [id] => 3882
+                            [constituent_id] => 947022
+                            [membership_level_id] => 412
+                            [membership_level_name] => Individual
+                            [date_start] => 2025-11-08
+                            [finish_date] => 2025-11-08
+                            [note] => Membership ended via LGL Testing Suite on 2025-11-08
+                            [created_at] => 2025-11-08T13:08:35Z
+                            [updated_at] => 2025-11-08T13:31:45Z
+                        )
+
+                )
+
+            [custom_attrs] => Array
+                (
+                )
+
+        )
+
+    [raw_response] => {"api_version":"1.0","id":947022,"external_constituent_id":null,"is_org":false,"constituent_contact_type_id":1247,"constituent_contact_type_name":"Primary","prefix":null,"first_name":"Andrew","middle_name":null,"last_name":"Skinner","suffix":null,"spouse_name":null,"org_name":null,"job_title":null,"addressee":"Andrew Skinner","salutation":"Andrew","sort_name":"Skinner, Andrew","constituent_interest_level_id":null,"constituent_interest_level_name":null,"constituent_rating_id":null,"constituent_rating_name":null,"is_deceased":false,"deceased_date":null,"annual_report_name":"Andrew Skinner","birthday":null,"gender":null,"maiden_name":null,"nick_name":null,"spouse_nick_name":null,"date_added":"2025-11-08","alt_salutation":"Andrew","alt_addressee":"Andrew Skinner","honorary_name":"Andrew Skinner","assistant_name":null,"marital_status_id":null,"marital_status_name":null,"is_anon":false,"created_at":"2025-11-08T11:15:38Z","updated_at":"2025-11-08T13:51:44Z","class_affiliations":[],"relationships":[],"street_addresses":[{"id":840217,"street":"57 Blake Street","city":"Greenville","state":"SC","country":"United States","postal_code":"29605","county":null,"street_address_type_id":1,"street_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":null,"lat":null,"lng":null,"zip5":"29605","verified":false,"verified_on":null,"created_at":"2025-11-08T11:16:07Z","updated_at":"2025-11-08T11:16:07Z"},{"id":840212,"street":"57 Blake Street","city":"Greenville","state":"SC","country":"United States","postal_code":"29605","county":null,"street_address_type_id":1,"street_type_name":"Home","is_preferred":false,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":null,"lat":null,"lng":null,"zip5":"29605","verified":false,"verified_on":null,"created_at":"2025-11-08T11:15:39Z","updated_at":"2025-11-08T11:15:39Z"}],"phone_numbers":[],"email_addresses":[{"id":278797,"address":"andrew@hispanicalliancesc.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2025-11-08T11:16:07Z","updated_at":"2025-11-08T11:16:07Z"},{"id":278792,"address":"andrew@hispanicalliancesc.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":false,"not_current":false,"parent_id":null,"created_at":"2025-11-08T11:15:38Z","updated_at":"2025-11-08T11:15:38Z"}],"web_addresses":[],"categories":[{"id":1287,"item_type":"Constituent","name":"Giving Status","key":"giving_status","facet_type":"list","ordinal":100,"removable":false,"editable":false,"display_format":"compact","keywords":[{"id":12797,"category_id":1287,"name":"Non Donor","description":null,"short_code":"non_donor","ordinal":4,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"}]}],"groups":[],"memberships":[{"id":3887,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2026-11-08","note":"New membership created via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T13:31:45Z","updated_at":"2025-11-08T13:50:34Z"},{"id":3817,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:45:17Z","updated_at":"2025-11-08T13:50:34Z"},{"id":3822,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:45:22Z","updated_at":"2025-11-08T11:57:57Z"},{"id":3827,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:45:38Z","updated_at":"2025-11-08T11:57:57Z"},{"id":3832,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:50:52Z","updated_at":"2025-11-08T11:57:58Z"},{"id":3837,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:51:16Z","updated_at":"2025-11-08T11:57:58Z"},{"id":3842,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:55:16Z","updated_at":"2025-11-08T11:57:59Z"},{"id":3847,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T11:57:59Z","updated_at":"2025-11-08T12:03:03Z"},{"id":3862,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T12:03:04Z","updated_at":"2025-11-08T12:15:47Z"},{"id":3867,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T12:15:48Z","updated_at":"2025-11-08T12:32:08Z"},{"id":3872,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T12:32:08Z","updated_at":"2025-11-08T12:46:47Z"},{"id":3877,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T12:46:48Z","updated_at":"2025-11-08T13:08:35Z"},{"id":3882,"constituent_id":947022,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-08","finish_date":"2025-11-08","note":"Membership ended via LGL Testing Suite on 2025-11-08","created_at":"2025-11-08T13:08:35Z","updated_at":"2025-11-08T13:31:45Z"}],"custom_attrs":[]}
+)
+
+[2025-11-08 08:51:44] [debug] WpUsers: Creating class registration CCT via JetEngine API Array
+(
+    [cct_slug] => class_registrations
+    [class_name] => Spanish A0 Regular: Mondays
+    [order_id] => 88147
+    [product_id] => 86825
+    [user_id] => 1214
+)
+
+[2025-11-08 08:51:44] [debug] WpUsers: Class registration CCT created successfully Array
+(
+    [item_id] => 711
+    [class_name] => Spanish A0 Regular: Mondays
+)
+
+[2025-11-08 08:51:44] [debug] ClassOrderHandler: Class CCT created Array
+(
+    [item_id] => 711
+    [class_name] => Spanish A0 Regular: Mondays
+)
+
+[2025-11-08 08:51:44] [debug] ClassOrderHandler: Class registered in LGL 1214
+[2025-11-08 08:51:44] [debug] OrderEmailCustomizer: Running email customizer
+[2025-11-08 08:51:44] [debug] OrderEmailCustomizer: Rendered email template Array
+(
+    [template] => language-class-registration.html
+    [order_id] => 88147
+    [product_id] => 86825
+)
+
+[2025-11-08 08:51:44] [debug] OrderEmailCustomizer: Running email customizer
+[2025-11-08 08:51:44] [debug] ClassOrderHandler: Class order completed 88147
+[2025-11-08 08:51:44] [debug] ✅ OrderProcessor::processOrderProducts() COMPLETED Array
+(
+    [products_processed] => 1
+    [events_processed] => 0
+    [attendees_created] => 0
+)
+
+[2025-11-08 08:51:44] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
+(
+    [order_id] => 88147
+    [final_memory_usage] => 96MB
+)
+
+[2025-11-08 08:51:44] [debug] ✅ OrderProcessor completed - CCT records should be created
+[2025-11-08 08:51:44] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
 (
     [method] => Classes
 )
 
-[2025-11-08 08:06:27] [debug] 🔍 LGL Payments: No cache, making API requests...
-[2025-11-08 08:06:29] [debug] LGL Payments: Payment types retrieved Array
+[2025-11-08 08:51:44] [debug] 🔍 LGL Payments: No cache, making API requests...
+[2025-11-08 08:51:44] [debug] LGL Payments: Payment types retrieved Array
 (
     [method] => Classes
     [count] => 7
 )
 
-[2025-11-08 08:06:29] [debug] LGL Payments: ⚠️ Payment type not found, using first available Array
+[2025-11-08 08:51:44] [debug] LGL Payments: ⚠️ Payment type not found, using first available Array
 (
     [requested] => Bank Transfer
     [using_id] => 1517
     [using_name] => Cash
 )
 
-[2025-11-08 08:06:29] [debug] 💳 Connection::addPayment() Array
+[2025-11-08 08:51:44] [debug] 💳 Connection::addPayment() Array
 (
     [lgl_id] => 947022
     [payment_data] => Array
         (
-            [external_id] => 88133
+            [external_id] => 88147
             [is_anon] => 
             [gift_type_id] => 5
             [gift_type_name] => Other Income
@@ -313,7 +1707,7 @@
             [payment_type_name] => Cash
             [check_number] => 
             [deductible_amount] => 144.00
-            [note] => Class registration - Language Class - Order #88133
+            [note] => Class registration - Language Class - Order #88147
             [ack_template_name] => 
             [deposit_date] => 2025-11-08
             [deposited_amount] => 144.00
@@ -324,27 +1718,27 @@
 
 )
 
-[2025-11-08 08:06:29] [debug] ✅ Payment added successfully Array
+[2025-11-08 08:51:45] [debug] ✅ Payment added successfully Array
 (
-    [payment_id] => 905357
+    [payment_id] => 905412
 )
 
-[2025-11-08 08:06:30] [debug] LGL Payments: Class payment created Array
+[2025-11-08 08:51:45] [debug] LGL Payments: Class payment created Array
 (
     [lgl_id] => 947022
-    [order_id] => 88133
+    [order_id] => 88147
     [class_type] => Language Class
     [amount] => 144
 )
 
-[2025-11-08 08:06:30] [debug] ⚠️ Attempted to delete non-test order Array
+[2025-11-08 08:51:45] [debug] ⚠️ Attempted to delete non-test order Array
 (
-    [order_id] => 88133
+    [order_id] => 88147
 )
 
-[2025-11-08 08:06:30] [debug] ✅ Test payment created successfully Array
+[2025-11-08 08:51:45] [debug] ✅ Test payment created successfully Array
 (
-    [payment_id] => 905357
+    [payment_id] => 905412
     [test_order_deleted] => 1
 )
 

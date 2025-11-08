@@ -18,7 +18,7 @@ define('DELETE_MEMBERS', false);
 
 define('USERS_FILE_PATH', plugin_dir_path( __FILE__ ));
 require_once USERS_FILE_PATH . '../lgl-api.php';
-require_once USERS_FILE_PATH . '/jet-engine-cct-api.php';
+require_once USERS_FILE_PATH . '/jet-engine-cct-api.php'; // REMOVED: File deleted in Phase 1 cleanup, JetEngine integration now in src/JetFormBuilder/
 
 require_once WP_PLUGIN_DIR . '/jet-engine/jet-engine.php';
 require_once WP_PLUGIN_DIR . '/jet-engine/includes/components/relations/relation.php';

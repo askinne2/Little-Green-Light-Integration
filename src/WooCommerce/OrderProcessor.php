@@ -435,13 +435,17 @@ class OrderProcessor {
                 continue; // Skip if the meta fields are empty
             }
             
+            // Get product name (variation or parent product name)
+            $product_obj = wc_get_product($product_id);
+            $variation_name = $product_obj ? $product_obj->get_name() : '';
+            
             $attendee = [
                 'attendee_name' => $attendee_name,
                 'attendee_email' => $attendee_email,
                 'product' => $product,
                 'product_id' => $product_id,
                 'parent_id' => $parent_id,
-                'variation_name' => $this->helper->getVariationName($product_id),
+                'variation_name' => $variation_name,
             ];
             
             $this->helper->debug('OrderProcessor: Adding new attendee', $attendee['attendee_email']);
