@@ -90,13 +90,19 @@ class Connection {
      */
     private function __construct() {
         $this->lgl = ApiSettings::getInstance();
-        $this->initializeConnection();
+        // Note: Connection settings are lazy-loaded when first request is made
+        // to avoid circular dependencies during initialization
     }
     
     /**
-     * Initialize connection settings
+     * Initialize connection settings (lazy-loaded on first use)
      */
     private function initializeConnection(): void {
+        // Only initialize once
+        if (!empty($this->args)) {
+            return;
+        }
+        
         $api_key = $this->lgl->getApiKey();
         
         $this->args = [
@@ -125,6 +131,9 @@ class Connection {
      */
     public function makeRequest(string $endpoint, string $method = 'GET', array $data = [], bool $use_cache = true): array {
         try {
+            // Ensure connection is initialized (lazy loading to avoid circular dependencies)
+            $this->initializeConnection();
+            
             // Generate cache key for GET requests
             $cache_key = null;
             if ($method === 'GET' && $use_cache) {
@@ -210,8 +219,15 @@ class Connection {
                     $this->requestUri .= (strpos($this->requestUri, '?') !== false ? '&' : '?') . $query_params;
                 }
             } else {
-                // Add data as JSON body for other methods
-                $args['body'] = json_encode($data);
+                // Add data as JSON body for other methods (preserve booleans, don't escape slashes)
+                $json_body = json_encode($data, JSON_PRESERVE_ZERO_FRACTION | JSON_UNESCAPED_SLASHES);
+                
+                // Debug: Log the actual JSON being sent
+                if ($method === 'POST' && strpos($this->requestUri, 'constituents') !== false) {
+                    error_log('🔍 RAW JSON PAYLOAD: ' . $json_body);
+                }
+                
+                $args['body'] = $json_body;
             }
         }
         
@@ -362,6 +378,22 @@ class Connection {
      */
     public function createConstituent(array $constituent_data): array {
         $this->newConstituentFlag = true;
+        
+        // Debug: Log the exact payload being sent to LGL
+        $helper = Helper::getInstance();
+        $helper->debug('🚀 Connection::createConstituent() - Payload being sent to LGL', [
+            'payload_structure' => array_keys($constituent_data),
+            'has_email_addresses' => isset($constituent_data['email_addresses']),
+            'email_count' => isset($constituent_data['email_addresses']) ? count($constituent_data['email_addresses']) : 0,
+            'has_phone_numbers' => isset($constituent_data['phone_numbers']),
+            'phone_count' => isset($constituent_data['phone_numbers']) ? count($constituent_data['phone_numbers']) : 0,
+            'has_street_addresses' => isset($constituent_data['street_addresses']),
+            'address_count' => isset($constituent_data['street_addresses']) ? count($constituent_data['street_addresses']) : 0,
+            'has_memberships' => isset($constituent_data['memberships']),
+            'membership_count' => isset($constituent_data['memberships']) ? count($constituent_data['memberships']) : 0,
+            'full_payload' => $constituent_data
+        ]);
+        
         return $this->makeRequest('constituents', 'POST', $constituent_data, false);
     }
     
@@ -532,87 +564,114 @@ class Connection {
      * @param string $email Email address to verify match
      * @return string|false LGL constituent ID if found, false otherwise
      */
-    public function searchByName(string $name, string $email) {
+    /**
+     * Search for constituent by name and list of possible emails
+     *
+     * @param string $name
+     * @param string|array $emails
+     * @return array|null
+     */
+    public function searchByName(string $name, $emails) {
         $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
         
         $helper->debug('🔍 Connection::searchByName() STARTED', [
             'name' => $name,
-            'email' => $email
+            'email' => $emails
         ]);
+
+        $emailCandidates = $this->normalizeEmails($emails);
         
         try {
             // Clean up the name (remove URL encoding)
             $clean_name = str_replace('%20', ' ', $name);
-            
-            // Try different search approaches
-            $search_methods = [
-                // Method 1: Search by email first (most reliable)
-                ['endpoint' => 'constituents', 'params' => ['email' => $email]],
-                // Method 2: Search by name
-                ['endpoint' => 'constituents', 'params' => ['search' => $clean_name]],
-                // Method 3: Search with q parameter
-                ['endpoint' => 'constituents', 'params' => ['q' => $clean_name]]
-            ];
-            
-            foreach ($search_methods as $method_index => $method) {
-                $helper->debug("🔍 Trying search method " . ($method_index + 1), [
-                    'endpoint' => $method['endpoint'],
-                    'params' => $method['params']
-                ]);
-                
-                $response = $this->makeRequest($method['endpoint'], 'GET', $method['params'], false);
-                
-                $helper->debug("🔍 Search method " . ($method_index + 1) . " response", [
-                    'success' => $response['success'] ?? false,
-                    'http_code' => $response['http_code'] ?? 'unknown',
-                    'has_data' => isset($response['data']),
-                    'data_type' => isset($response['data']) ? gettype($response['data']) : 'none'
-                ]);
+
+            // Attempt direct email searches first (FAST - trust LGL's search results)
+            foreach ($emailCandidates as $emailCandidate) {
+                $response = $this->makeRequest('constituents', 'GET', ['email' => $emailCandidate], false);
                 
                 if ($response['success'] && isset($response['data'])) {
                     $constituents = $this->extractConstituentsFromResponse($response['data']);
                     
                     if (!empty($constituents)) {
-                        $helper->debug("✅ Found " . count($constituents) . " constituents with method " . ($method_index + 1));
+                        // Trust LGL's email search - if they returned it, it has this email
+                        $first_match = $constituents[0];
+                        $lgl_id = is_object($first_match) ? $first_match->id : $first_match['id'];
                         
-                        // For email search, return first match (most reliable)
-                        if ($method_index === 0 && !empty($constituents)) {
-                            $constituent = $constituents[0];
+                        $helper->debug('✅ Email search found match (trusting LGL search)', [
+                            'lgl_id' => $lgl_id,
+                            'email' => $emailCandidate,
+                            'total_results' => count($constituents)
+                        ]);
+                        
+                        return [
+                            'id' => $lgl_id,
+                            'email' => $emailCandidate,
+                            'method' => 'email'
+                        ];
+                    }
+                }
+            }
+
+            // FALLBACK: Try name-based search (less reliable, only if email search failed)
+            $helper->debug('🔍 Email search failed, trying name search', ['name' => $clean_name]);
+            
+            $response = $this->makeRequest('constituents', 'GET', ['search' => $clean_name], false);
+            
+            if ($response['success'] && isset($response['data'])) {
+                $constituents = $this->extractConstituentsFromResponse($response['data']);
+                
+                if (!empty($constituents)) {
+                    // If we have email candidates, verify the first match has one of them
+                    if (!empty($emailCandidates)) {
+                        $first_match = $constituents[0];
+                        
+                        // Check if email_addresses are included in the response
+                        $email_addresses = is_object($first_match) ? 
+                            ($first_match->email_addresses ?? null) : 
+                            ($first_match['email_addresses'] ?? null);
                             
-                            // Debug the constituent structure
-                            $helper->debug('🔍 Examining first constituent structure', [
-                                'constituent_type' => gettype($constituent),
-                                'constituent_keys' => is_object($constituent) ? array_keys((array)$constituent) : (is_array($constituent) ? array_keys($constituent) : 'not array/object'),
-                                'has_id_property' => is_object($constituent) ? isset($constituent->id) : isset($constituent['id']),
-                                'id_value' => is_object($constituent) ? ($constituent->id ?? 'not set') : ($constituent['id'] ?? 'not set')
-                            ]);
-                            
-                            $lgl_id = is_object($constituent) ? ($constituent->id ?? null) : ($constituent['id'] ?? null);
-                            
-                            if ($lgl_id) {
-                                $helper->debug('✅ Email search match found', ['lgl_id' => $lgl_id]);
-                                return $lgl_id;
-                            } else {
-                                $helper->debug('❌ Email search found constituent but no ID', [
-                                    'constituent_data' => $constituent
-                                ]);
+                        if (!empty($email_addresses) && is_array($email_addresses)) {
+                            // Check if any of the candidate emails match
+                            foreach ($email_addresses as $email_record) {
+                                $address = is_object($email_record) ? 
+                                    ($email_record->address ?? null) : 
+                                    ($email_record['address'] ?? null);
+                                    
+                                foreach ($emailCandidates as $emailCandidate) {
+                                    if ($address && strcasecmp($address, $emailCandidate) === 0) {
+                                        $lgl_id = is_object($first_match) ? $first_match->id : $first_match['id'];
+                                        $helper->debug('✅ Name search found match with email verification', [
+                                            'lgl_id' => $lgl_id,
+                                            'email' => $emailCandidate
+                                        ]);
+                                        return [
+                                            'id' => $lgl_id,
+                                            'email' => $emailCandidate,
+                                            'method' => 'name'
+                                        ];
+                                    }
+                                }
                             }
                         }
                         
-                        // For name searches, verify email match
-                        foreach ($constituents as $constituent) {
-                            if ($this->verifyConstituentEmail($constituent, $email)) {
-                                $lgl_id = is_object($constituent) ? $constituent->id : $constituent['id'];
-                                $helper->debug('✅ Name + email match confirmed', ['lgl_id' => $lgl_id]);
-                                return $lgl_id;
-                            }
-                        }
+                        // Email addresses not in response or didn't match - skip this result
+                        $helper->debug('⚠️ Name search found results but email verification failed');
+                    } else {
+                        // No email candidates provided, just return first match by name
+                        $first_match = $constituents[0];
+                        $lgl_id = is_object($first_match) ? $first_match->id : $first_match['id'];
+                        $helper->debug('✅ Name match confirmed (no emails provided)', ['lgl_id' => $lgl_id]);
+                        return [
+                            'id' => $lgl_id,
+                            'email' => null,
+                            'method' => 'name'
+                        ];
                     }
                 }
             }
             
             $helper->debug('❌ No matching constituent found with any search method');
-            return false;
+            return null;
             
         } catch (\Exception $e) {
             $helper->debug('❌ Connection::searchByName() - Exception', [
@@ -620,8 +679,62 @@ class Connection {
                 'file' => $e->getFile(),
                 'line' => $e->getLine()
             ]);
-            return false;
+            return null;
         }
+    }
+
+    /**
+     * Normalize email input into array
+     *
+     * @param string|array $emails
+     * @return array<int, string>
+     */
+    private function normalizeEmails($emails): array {
+        $list = [];
+        if (is_array($emails)) {
+            $list = $emails;
+        } elseif (is_string($emails) && !empty($emails)) {
+            $list = [$emails];
+        }
+        $normalized = array_filter(array_map(function($email) {
+            $email = trim((string) $email);
+            return $email !== '' ? strtolower($email) : null;
+        }, $list));
+        return array_values(array_unique($normalized));
+    }
+
+    /**
+     * Search LGL constituents by email address
+     *
+     * @param string $email
+     * @return array|null
+     */
+    private function searchByEmail(string $email): ?array {
+        $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
+
+        $helper->debug('🔍 Connection::searchByEmail()', ['email' => $email]);
+
+        $response = $this->makeRequest('constituents', 'GET', ['email' => $email], false);
+        if (!$this->isSuccessfulResponse($response) || empty($response['data'])) {
+            return null;
+        }
+
+        $constituents = $this->extractConstituentsFromResponse($response['data']);
+        foreach ($constituents as $constituent) {
+            if ($this->verifyConstituentEmail($constituent, $email)) {
+                $lgl_id = is_object($constituent) ? $constituent->id : $constituent['id'];
+                $helper->debug('✅ Email match confirmed', [
+                    'lgl_id' => $lgl_id,
+                    'email' => $email
+                ]);
+                return [
+                    'id' => $lgl_id,
+                    'email' => $email
+                ];
+            }
+        }
+
+        return null;
     }
     
     
@@ -671,7 +784,7 @@ class Connection {
                 ]);
                 return false;
             }
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $helper->debug('❌ Connection::addMembershipPayment() - Exception', [
                 'error' => $e->getMessage()
             ]);
@@ -686,24 +799,20 @@ class Connection {
      * @return array Array of constituents
      */
     private function extractConstituentsFromResponse($data): array {
-        $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
-        
-        $helper->debug('🔍 extractConstituentsFromResponse() - Raw data analysis', [
-            'data_type' => gettype($data),
-            'data_keys' => is_object($data) ? array_keys((array)$data) : (is_array($data) ? array_keys($data) : 'not array/object'),
-            'data_sample' => is_array($data) ? (count($data) > 0 ? $data[0] : 'empty array') : (is_object($data) ? 'object' : $data)
-        ]);
+        // Removed excessive debug logging for performance
+        // $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
+        // $helper->debug('🔍 extractConstituentsFromResponse() - Raw data analysis', ...);
         
         // Handle different response formats
         if (is_array($data)) {
             // Check if it has an 'items' key (LGL API format)
             if (isset($data['items']) && is_array($data['items'])) {
-                $helper->debug('✅ Found LGL API format with items array', ['count' => count($data['items'])]);
+                // $helper->debug('✅ Found LGL API format with items array', ['count' => count($data['items'])]);
                 return $data['items'];
             }
             // Check if it's a direct array of constituents
             if (!empty($data) && (isset($data[0]['id']) || (is_object($data[0]) && isset($data[0]->id)))) {
-                $helper->debug('✅ Found direct array of constituents', ['count' => count($data)]);
+                // $this->helper->debug('✅ Found direct array of constituents', ['count' => count($data)]);
                 return $data;
             }
             // Check if it's an array with numeric keys containing constituent data
@@ -714,29 +823,29 @@ class Connection {
                 }
             }
             if (!empty($constituents)) {
-                $helper->debug('✅ Extracted constituents from array', ['count' => count($constituents)]);
+                // $this->helper->debug('✅ Extracted constituents from array', ['count' => count($constituents)]);
                 return $constituents;
             }
         } elseif (is_object($data)) {
             // Object with items property
             if (isset($data->items) && is_array($data->items)) {
-                $helper->debug('✅ Found object with items property', ['count' => count($data->items)]);
+                // $this->helper->debug('✅ Found object with items property', ['count' => count($data->items)]);
                 return $data->items;
             }
             // Single constituent object
             if (isset($data->id)) {
-                $helper->debug('✅ Found single constituent object', ['id' => $data->id]);
+                // $this->helper->debug('✅ Found single constituent object', ['id' => $data->id]);
                 return [$data];
             }
             // Convert object to array and check again
             $data_array = (array)$data;
             if (isset($data_array['items']) && is_array($data_array['items'])) {
-                $helper->debug('✅ Found items in converted array', ['count' => count($data_array['items'])]);
+                // $this->helper->debug('✅ Found items in converted array', ['count' => count($data_array['items'])]);
                 return $data_array['items'];
             }
         }
         
-        $helper->debug('⚠️ Unknown response format in extractConstituentsFromResponse', [
+        $this->helper->debug('⚠️ Unknown response format in extractConstituentsFromResponse', [
             'data_type' => gettype($data),
             'data_keys' => is_object($data) ? array_keys((array)$data) : (is_array($data) ? array_keys($data) : 'not array/object'),
             'full_data' => $data
@@ -757,13 +866,31 @@ class Connection {
         
         $constituent_id = is_object($constituent) ? $constituent->id : $constituent['id'];
         
-        $helper->debug('📧 Verifying email for constituent', [
-            'constituent_id' => $constituent_id,
-            'target_email' => $email
-        ]);
+        // FIRST: Check if email_addresses are already included in the constituent data (most efficient)
+        $email_addresses = is_object($constituent) ? 
+            ($constituent->email_addresses ?? null) : 
+            ($constituent['email_addresses'] ?? null);
+            
+        if (!empty($email_addresses) && is_array($email_addresses)) {
+            foreach ($email_addresses as $email_record) {
+                $address = is_object($email_record) ? 
+                    ($email_record->address ?? null) : 
+                    ($email_record['address'] ?? null);
+                    
+                if ($address && strcasecmp($address, $email) === 0) {
+                    $helper->debug('✅ Email match confirmed (from constituent data)', [
+                        'constituent_id' => $constituent_id,
+                        'matched_email' => $address
+                    ]);
+                    return true;
+                }
+            }
+            // Email addresses were present but didn't match
+            return false;
+        }
         
+        // FALLBACK: Make separate API call if email_addresses not included in response
         try {
-            // Get email addresses for this constituent
             $emails_response = $this->makeRequest("constituents/{$constituent_id}/email_addresses", 'GET', [], false);
             
             if ($emails_response['success'] && isset($emails_response['data'])) {
@@ -781,9 +908,9 @@ class Connection {
                 }
             }
             
-            $helper->debug('❌ No email match for constituent', [
-                'constituent_id' => $constituent_id
-            ]);
+            // $helper->debug('❌ No email match for constituent', [
+            //     'constituent_id' => $constituent_id
+            // ]);
             return false;
             
         } catch (\Exception $e) {
@@ -878,42 +1005,6 @@ class Connection {
      * @param array $membership_data Membership data
      * @return string|false Membership ID on success, false on failure
      */
-    public function addMembership(string $lgl_id, array $membership_data) {
-        $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
-        
-        $helper->debug('➕ Connection::addMembership()', [
-            'lgl_id' => $lgl_id,
-            'membership_data' => $membership_data
-        ]);
-        
-        try {
-            $response = $this->makeRequest(
-                "constituents/{$lgl_id}/memberships",
-                'POST',
-                $membership_data,
-                false
-            );
-            
-            if ($response['success'] && isset($response['data']['id'])) {
-                $membership_id = $response['data']['id'];
-                $helper->debug('✅ Membership added successfully', [
-                    'membership_id' => $membership_id
-                ]);
-                return $membership_id;
-            } else {
-                $helper->debug('❌ Failed to add membership', $response);
-                return false;
-            }
-            
-        } catch (\Exception $e) {
-            $helper->debug('❌ Error adding membership', [
-                'lgl_id' => $lgl_id,
-                'error' => $e->getMessage()
-            ]);
-            return false;
-        }
-    }
-    
     /**
      * Add payment/gift to LGL constituent
      * 
@@ -981,6 +1072,58 @@ class Connection {
             'has_api_key' => !empty($this->lgl->getApiKey()),
             'debug_mode' => $this->isDebugMode()
         ];
+    }
+    
+    /**
+     * Add email address to existing constituent
+     * (Multi-request pattern - matching legacy lgl_add_object)
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param array $email_data Email data array
+     * @return array API response
+     */
+    public function addEmailAddress(string $lgl_id, array $email_data): array {
+        $endpoint = "constituents/{$lgl_id}/email_addresses";
+        return $this->makeRequest($endpoint, 'POST', $email_data, false);
+    }
+    
+    /**
+     * Add phone number to existing constituent
+     * (Multi-request pattern - matching legacy lgl_add_object)
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param array $phone_data Phone data array
+     * @return array API response
+     */
+    public function addPhoneNumber(string $lgl_id, array $phone_data): array {
+        $endpoint = "constituents/{$lgl_id}/phone_numbers";
+        return $this->makeRequest($endpoint, 'POST', $phone_data, false);
+    }
+    
+    /**
+     * Add street address to existing constituent
+     * (Multi-request pattern - matching legacy lgl_add_object)
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param array $address_data Address data array
+     * @return array API response
+     */
+    public function addStreetAddress(string $lgl_id, array $address_data): array {
+        $endpoint = "constituents/{$lgl_id}/street_addresses";
+        return $this->makeRequest($endpoint, 'POST', $address_data, false);
+    }
+    
+    /**
+     * Add membership to existing constituent
+     * (Multi-request pattern - matching legacy lgl_add_object)
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param array $membership_data Membership data array
+     * @return array API response
+     */
+    public function addMembership(string $lgl_id, array $membership_data): array {
+        $endpoint = "constituents/{$lgl_id}/memberships";
+        return $this->makeRequest($endpoint, 'POST', $membership_data, false);
     }
 }
 

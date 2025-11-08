@@ -54,6 +54,12 @@ function lgl_init_modern_architecture() {
     
     require_once $autoloader;
     
+    // Load admin helper functions
+    $admin_functions = LGL_PLUGIN_DIR . 'src/Admin/functions.php';
+    if (file_exists($admin_functions)) {
+        require_once $admin_functions;
+    }
+    
     // Initialize modern plugin architecture
     add_action('plugins_loaded', function() {
         try {

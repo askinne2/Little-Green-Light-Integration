@@ -322,9 +322,21 @@ class ServiceContainer implements ContainerInterface {
             return \UpstateInternational\LGL\LGL\Helper::getInstance();
         });
         
-        // Register SettingsHandler FIRST to ensure proper injection
+        // Register unified SettingsManager service (lazy-loaded to avoid circular dependencies)
+        $this->register('admin.settings_manager', function($container) {
+            return new \UpstateInternational\LGL\Admin\SettingsManager(
+                $container->get('lgl.helper'),
+                $container->get('lgl.connection'),
+                $container->get('cache.manager')
+            );
+        });
+        
+        // Register SettingsHandler WITHOUT SettingsManager dependency (to avoid circular dependency)
         $this->register('admin.settings_handler', function($container) {
-            error_log('🔧 ServiceContainer: Creating SettingsHandler...');
+            error_log('🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...');
+            
+            // Create handler with basic dependencies only
+            // SettingsManager will be lazy-loaded when needed via getSetting()
             $handler = new \UpstateInternational\LGL\Admin\SettingsHandler(
                 $container->get('lgl.helper'),
                 $container->get('lgl.connection')
@@ -384,6 +396,12 @@ class ServiceContainer implements ContainerInterface {
         
         // Register admin services
         $this->register('admin.dashboard_widgets', \UpstateInternational\LGL\Admin\DashboardWidgets::class);
+        $this->register('admin.asset_manager', function($container) {
+            return new \UpstateInternational\LGL\Admin\AssetManager(
+                LGL_PLUGIN_VERSION,
+                LGL_PLUGIN_URL
+            );
+        });
         
         // Register email services
         $this->register('email.blocker', \UpstateInternational\LGL\Email\EmailBlocker::class);
@@ -408,11 +426,21 @@ class ServiceContainer implements ContainerInterface {
         });
         
         // Register WooCommerce handler services
+        $this->register('memberships.registration_service', function($container) {
+            return new \UpstateInternational\LGL\Memberships\MembershipRegistrationService(
+                $container->get('lgl.connection'),
+                $container->get('lgl.helper'),
+                $container->get('lgl.constituents'),
+                $container->get('lgl.payments')
+            );
+        });
+
         $this->register('woocommerce.membership_handler', function($container) {
             return new \UpstateInternational\LGL\WooCommerce\MembershipOrderHandler(
                 $container->get('lgl.helper'),
                 $container->get('lgl.wp_users'),
-                $container->get('jetformbuilder.user_registration_action')
+                $container->get('memberships.registration_service'),
+                $container->get('lgl.api_settings')
             );
         });
         $this->register('woocommerce.class_handler', function($container) {
@@ -499,11 +527,18 @@ class ServiceContainer implements ContainerInterface {
         
         // Register Admin services
         // Removed: admin.settings_manager (over-engineered, replaced by simple SettingsHandler)
+        $this->register('admin.sync_log_page', function($container) {
+            return new \UpstateInternational\LGL\Admin\SyncLogPage(
+                $container->get('lgl.helper')
+            );
+        });
+
         $this->register('admin.menu_manager', function($container) {
             return new \UpstateInternational\LGL\Admin\AdminMenuManager(
                 $container->get('lgl.helper'),
                 $container->get('lgl.api_settings'),
-                $container->get('admin.settings_handler')
+                $container->get('admin.settings_handler'),
+                $container->get('admin.sync_log_page')
             );
         });
         $this->register('admin.testing_handler', function($container) {

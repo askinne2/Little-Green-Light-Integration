@@ -1,0 +1,32 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number"
+      },
+      "item_type": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "description": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "key": {
+        "type": "string"
+      },
+      "min_val": {
+        "type": "number"
+      },
+      "max_val": {
+        "type": "number"
+      }
+    }
+  }
+}

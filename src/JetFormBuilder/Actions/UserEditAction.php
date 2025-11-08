@@ -125,6 +125,29 @@ class UserEditAction implements JetFormActionInterface {
             $this->helper->debug('FAILED TO UPDATE contact', $existing_contact_id);
         }
     }
+
+    /**
+     * Collect candidate emails for constituent matching
+     *
+     * @param int $userId
+     * @param array $request
+     * @return array<string>
+     */
+    private function collectCandidateEmails(int $userId, array $request): array {
+        $user = get_userdata($userId);
+        $emails = [
+            $request['user_email'] ?? null,
+            $request['billing_email'] ?? null,
+            $user ? $user->user_email : null
+        ];
+
+        $emails = array_values(array_unique(array_filter(array_map(function($email) {
+            $email = is_string($email) ? trim($email) : '';
+            return $email !== '' ? strtolower($email) : null;
+        }, $emails))));
+
+        return $emails;
+    }
     
     /**
      * Create new LGL user from edit form (fallback)
@@ -140,7 +163,9 @@ class UserEditAction implements JetFormActionInterface {
         
         // Try to search for existing contact by name and email
         $username = str_replace(' ', '%20', $request['user_firstname'] . ' ' . $request['user_lastname']);
-        $lgl_id = $this->connection->searchByName($username, $user_email);
+        $emails = $this->collectCandidateEmails($uid, $request);
+        $match = $this->connection->searchByName($username, $emails);
+        $lgl_id = $match['id'] ?? null;
         
         if (!$lgl_id) {
             // Create new constituent if not found

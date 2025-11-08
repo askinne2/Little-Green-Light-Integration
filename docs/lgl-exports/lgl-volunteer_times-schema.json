@@ -1,0 +1,53 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number"
+      },
+      "constituent_id": {
+        "type": "number"
+      },
+      "external_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "volunteering_category_id": {
+        "type": "number"
+      },
+      "volunteering_category_name": {
+        "type": "string"
+      },
+      "description": {
+        "type": "string"
+      },
+      "hours": {
+        "type": "number"
+      },
+      "date": {
+        "type": "string"
+      },
+      "end_date": {
+        "type": "string"
+      },
+      "completed_hours": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "custom_fields": {
+        "type": "array"
+      },
+      "created_at": {
+        "type": "string"
+      },
+      "updated_at": {
+        "type": "string"
+      }
+    }
+  }
+}

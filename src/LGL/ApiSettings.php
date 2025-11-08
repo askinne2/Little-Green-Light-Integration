@@ -2,11 +2,11 @@
 /**
  * LGL API Settings Manager
  * 
- * Manages plugin settings, configuration, and admin interface.
- * Handles Carbon Fields integration for settings pages.
+ * Legacy settings accessor - maintained for backward compatibility.
  * 
  * @package UpstateInternational\LGL
  * @since 2.0.0
+ * @deprecated 2.1.0 Use SettingsManager instead via dependency injection
  */
 
 namespace UpstateInternational\LGL\LGL;
@@ -17,7 +17,10 @@ use Carbon_Fields\Field;
 /**
  * API Settings Class
  * 
- * Manages LGL API configuration and settings pages
+ * @deprecated 2.1.0 Use UpstateInternational\LGL\Admin\SettingsManager instead
+ * 
+ * Legacy wrapper that delegates to modern SettingsManager service.
+ * Kept for backward compatibility with existing code.
  */
 class ApiSettings {
     
@@ -43,9 +46,17 @@ class ApiSettings {
     private $settingsHandler = null;
     
     /**
+     * Modern settings manager (preferred for all settings access)
+     * 
+     * @var \UpstateInternational\LGL\Admin\SettingsManager|null
+     */
+    private $settingsManager = null;
+    
+    /**
      * Get instance
      * 
      * @return ApiSettings
+     * @deprecated 2.1.0 Use SettingsManager via dependency injection instead
      */
     public static function getInstance(): self {
         if (self::$instance === null) {
@@ -60,6 +71,7 @@ class ApiSettings {
      */
     private function __construct() {
         $this->initializeSettings();
+        // Note: SettingsManager will be lazy-loaded when first needed to avoid circular dependency
     }
     
     /**
@@ -70,6 +82,33 @@ class ApiSettings {
     public function setSettingsHandler($handler): void {
         $this->settingsHandler = $handler;
         error_log('🔗 ApiSettings: SettingsHandler injected successfully! Handler class: ' . get_class($handler));
+    }
+    
+    /**
+     * Set modern settings manager for delegation
+     * 
+     * @param \UpstateInternational\LGL\Admin\SettingsManager $manager
+     */
+    public function setSettingsManager($manager): void {
+        $this->settingsManager = $manager;
+    }
+    
+    /**
+     * Lazy-load SettingsManager if not already set
+     * 
+     * @return void
+     */
+    private function ensureSettingsManager(): void {
+        if ($this->settingsManager === null && function_exists('lgl_get_container')) {
+            try {
+                $container = lgl_get_container();
+                if ($container->has('admin.settings_manager')) {
+                    $this->settingsManager = $container->get('admin.settings_manager');
+                }
+            } catch (\Exception $e) {
+                // Settings manager not available yet, will use fallback
+            }
+        }
     }
     
     /**
@@ -279,6 +318,8 @@ class ApiSettings {
     
     /**
      * Get setting value with caching
+     * 
+     * @deprecated 2.1.0 Use SettingsManager::get() instead
      */
     public function getSetting(string $setting_name, $default = null) {
         // Check cache first
@@ -288,38 +329,52 @@ class ApiSettings {
         
         $value = null;
         
-        // Delegate to modern settings handler first (new native WordPress options)
-        if ($this->settingsHandler) {
+        // 1. Try SettingsManager first (preferred) - lazy load if needed
+        $this->ensureSettingsManager();
+        if ($this->settingsManager) {
             $modern_key = $this->mapToModernKey($setting_name);
-            $value = $this->settingsHandler->getSetting($modern_key, null);
-            error_log("LGL Settings: Using modern handler for '$setting_name' -> '$modern_key', got: " . print_r($value, true));
-        } else {
-            error_log("LGL Settings: No modern settings handler available for '$setting_name' - settingsHandler is NULL");
+            $value = $this->settingsManager->get($modern_key, null);
+            if ($value !== null) {
+                $this->settingsCache[$setting_name] = $value;
+                return $value;
+            }
         }
         
-        // Fallback to Carbon Fields if modern handler didn't have the value
-        if ($value === null && function_exists('carbon_get_theme_option')) {
+        // 2. Try modern settings handler (legacy bridge)
+        if ($this->settingsHandler) {
+            $modern_key = $this->mapToModernKey($setting_name);
+            $settings = $this->settingsHandler->getSettings();
+            $value = $settings[$modern_key] ?? null;
+            if ($value !== null) {
+                $this->settingsCache[$setting_name] = $value;
+                return $value;
+            }
+        }
+        
+        // 3. Fallback to Carbon Fields
+        if (function_exists('carbon_get_theme_option')) {
             $value = carbon_get_theme_option($setting_name);
             
-            // If not found, try legacy field names
             if (empty($value)) {
                 $legacy_name = $this->getLegacyFieldName($setting_name);
                 if ($legacy_name) {
                     $value = carbon_get_theme_option($legacy_name);
-                    error_log("LGL Settings: Using legacy field name '$legacy_name' for '$setting_name'");
                 }
+            }
+            
+            if ($value !== null) {
+                $this->settingsCache[$setting_name] = $value;
+                return $value;
             }
         }
         
-        // Final fallback to WordPress options
-        if ($value === null) {
-            $value = get_option("_$setting_name", $default);
-        }
+        // 4. Final fallback to WordPress options
+        $value = get_option("_$setting_name", $default);
         
         // Cache the value
-        $this->settingsCache[$setting_name] = $value;
+        $this->settingsCache[$setting_name] = $value !== null ? $value : $default;
         
-        return $value !== null ? $value : $default;
+        return $this->settingsCache[$setting_name];
     }
     
     /**

@@ -1,0 +1,182 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number"
+      },
+      "external_constituent_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "is_org": {
+        "type": "boolean"
+      },
+      "constituent_contact_type_id": {
+        "type": "number"
+      },
+      "constituent_contact_type_name": {
+        "type": "string"
+      },
+      "prefix": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "first_name": {
+        "type": "string"
+      },
+      "middle_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "last_name": {
+        "type": "string"
+      },
+      "suffix": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "spouse_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "org_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "job_title": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "addressee": {
+        "type": "string"
+      },
+      "salutation": {
+        "type": "string"
+      },
+      "sort_name": {
+        "type": "string"
+      },
+      "constituent_interest_level_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "constituent_interest_level_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "constituent_rating_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "constituent_rating_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "is_deceased": {
+        "type": "boolean"
+      },
+      "deceased_date": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "annual_report_name": {
+        "type": "string"
+      },
+      "birthday": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "gender": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "maiden_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "nick_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "spouse_nick_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "date_added": {
+        "type": "string"
+      },
+      "alt_salutation": {
+        "type": "string"
+      },
+      "alt_addressee": {
+        "type": "string"
+      },
+      "honorary_name": {
+        "type": "string"
+      },
+      "assistant_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "marital_status_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "marital_status_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "is_anon": {
+        "type": "boolean"
+      },
+      "created_at": {
+        "type": "string"
+      },
+      "updated_at": {
+        "type": "string"
+      }
+    }
+  }
+}

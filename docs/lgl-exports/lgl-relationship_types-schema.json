@@ -1,0 +1,56 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number"
+      },
+      "name": {
+        "type": "string"
+      },
+      "short_code": {
+        "type": "string"
+      },
+      "type_code": {
+        "type": "string"
+      },
+      "ordinal": {
+        "type": "number"
+      },
+      "removable": {
+        "type": "boolean"
+      },
+      "reciprocal_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "auto_soft_credit": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "share_class_year": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "share_membership": {
+        "type": "boolean"
+      },
+      "is_spouse_partner": {
+        "type": "boolean"
+      },
+      "share_class_year_to": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    }
+  }
+}

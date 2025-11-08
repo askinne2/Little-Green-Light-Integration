@@ -1,0 +1,1177 @@
+Order processing completed
+
+🔍 Captured Debug Messages:
+[18:03:11] 🚀 OrderProcessor::processCompletedOrder() STARTED
+Array
+(
+    [order_id] => 88077
+    [timestamp] => 2025-11-07 18:03:11
+    [memory_usage] => 120MB
+)
+[18:03:11] 📋 OrderProcessor: Order Details
+Array
+(
+    [order_id] => 88077
+    [order_status] => completed
+    [order_total] => 77.63
+    [customer_id] => 1937
+    [customer_email] => debug.test@example.com
+    [payment_method] => 
+    [order_date] => 2025-11-07 18:03:10
+    [item_count] => 1
+)
+[18:03:11] 👤 OrderProcessor: Customer Info
+Array
+(
+    [user_id] => 1937
+    [billing_email] => debug.test@example.com
+    [billing_first_name] => Debug
+    [billing_last_name] => Test
+    [billing_phone] => 555-DEBUG
+)
+[18:03:11] OrderProcessor: Payment method updated
+Array
+(
+    [user_id] => 1937
+    [payment_method] => 
+    [stored_as] => online
+)
+[18:03:11] 📝 OrderProcessor: Order Metadata Extracted
+Array
+(
+    [languages] => English, Spanish
+    [country] => United States
+    [referral] => 
+    [reason] => Testing debug functionality
+    [about] => 
+)
+[18:03:11] 🛍️ OrderProcessor: Starting product processing...
+[18:03:11] 🛍️ OrderProcessor::processOrderProducts() STARTED
+Array
+(
+    [total_products] => 1
+    [user_id] => 1937
+    [order_id] => 88077
+)
+[18:03:11] 🔍 OrderProcessor: Processing Product #1
+Array
+(
+    [name] => Membership - Individual
+    [quantity] => 1
+    [product_id] => 68386
+    [parent_id] => 67487
+    [categories] => Array
+        (
+            [0] => memberships
+        )
+
+    [item_total] => 75
+    [item_subtotal] => 75
+)
+[18:03:11] 🏷️ OrderProcessor: Product Type Detection
+Array
+(
+    [product_name] => Membership - Individual
+    [is_membership] => YES
+    [is_language_class] => NO
+    [is_event] => NO
+    [categories] => Array
+        (
+            [0] => memberships
+        )
+
+)
+[18:03:11] 🎯 OrderProcessor: ROUTING TO MEMBERSHIP HANDLER
+Array
+(
+    [product_name] => Membership - Individual
+    [handler] => MembershipOrderHandler
+)
+[18:03:11] 🎯 OrderProcessor::processMembershipProduct() STARTED
+Array
+(
+    [user_id] => 1937
+    [order_id] => 88077
+    [product_name] => Membership - Individual
+    [product_id] => 67487
+    [handler_class] => UpstateInternational\LGL\WooCommerce\MembershipOrderHandler
+    [handler_available] => YES
+)
+[18:03:11] 🔄 OrderProcessor: Delegating to MembershipOrderHandler...
+[18:03:11] 🎯 MembershipOrderHandler::processOrder() STARTED
+Array
+(
+    [user_id] => 1937
+    [order_id] => 88077
+    [membership_level] => Membership - Individual
+    [order_total] => 77.63
+    [customer_email] => debug.test@example.com
+    [timestamp] => 2025-11-07 18:03:11
+)
+[18:03:11] 🛍️ MembershipOrderHandler: Product Details
+Array
+(
+    [product_id] => 67487
+    [variation_id] => 68386
+    [product_name] => Membership - Individual
+    [product_total] => 75
+    [wc_name_passed] => Membership - Individual
+    [product_meta_keys] => Array
+        (
+            [0] => _variation_description
+            [1] => total_sales
+            [2] => _tax_status
+            [3] => _tax_class
+            [4] => _manage_stock
+            [5] => _backorders
+            [6] => _sold_individually
+            [7] => _virtual
+            [8] => _downloadable
+            [9] => _download_limit
+            [10] => _download_expiry
+            [11] => _stock
+            [12] => _stock_status
+            [13] => _wc_average_rating
+            [14] => _wc_review_count
+            [15] => attribute_level
+            [16] => _product_version
+            [17] => _regular_price
+            [18] => _price
+            [19] => _subscription_payment_sync_date
+            [20] => _hf_subscription_prorate
+            [21] => _hf_subscription_price
+            [22] => _subscription_sign_up_fee
+            [23] => _subscription_period
+            [24] => _subscription_period_interval
+            [25] => _subscription_length
+            [26] => _subscription_trial_period
+            [27] => _subscription_trial_length
+            [28] => _thumbnail_id
+            [29] => _subscription_price
+            [30] => _ppcp_enable_subscription_product
+            [31] => addf_vf_roles_select_roles
+        )
+
+)
+[18:03:11] 🔍 MembershipOrderHandler: Determining membership level
+Array
+(
+    [wc_product_name] => Membership - Individual
+    [product_price] => 75
+)
+[18:03:11] 🔄 Helper: Converting price to membership name
+Array
+(
+    [price] => 75
+)
+[18:03:11] ✅ Helper: Price mapping found
+Array
+(
+    [price] => 75
+    [membership_name] => Individual Membership
+)
+[18:03:11] ✅ MembershipOrderHandler: Using price-based detection
+Array
+(
+    [price] => 75
+    [membership_level] => Individual Membership
+    [method] => price_based
+)
+[18:03:11] 🎯 MembershipOrderHandler: Membership Level Determination
+Array
+(
+    [wc_product_name] => Membership - Individual
+    [product_price] => 75
+    [determined_membership_level] => Individual Membership
+    [method] => price_based_detection
+)
+[18:03:11] 👤 MembershipOrderHandler: Updating user role...
+[18:03:11] 👤 Helper: Changing user role
+Array
+(
+    [user_id] => 1937
+    [old_role] => customer
+    [new_role] => ui_member
+)
+[18:03:11] ✅ Helper: User role changed successfully
+Array
+(
+    [user_id] => 1937
+    [from] => customer
+    [to] => ui_member
+    [current_roles] => Array
+        (
+            [0] => ui_member
+        )
+
+)
+[18:03:11] MembershipOrderHandler: Updated user role to ui_member (individual)
+1937
+[18:03:11] 📋 MembershipOrderHandler: Building registration request...
+[18:03:11] 🔄 Helper: Converting WC name to LGL name
+Array
+(
+    [input] => Individual Membership
+)
+[18:03:11] ⚠️ Helper: No name mapping found, returning original
+Array
+(
+    [wc_name] => Individual Membership
+)
+[18:03:11] 📋 MembershipOrderHandler: Registration request built
+Array
+(
+    [user_firstname] => Debug
+    [user_lastname] => Test
+    [user_company] => 
+    [username] => debug_test_user
+    [user_email] => debug.test@example.com
+    [user_phone] => 555-DEBUG
+    [user-address-1] => 
+    [user-address-2] => 
+    [user-city] => 
+    [user-state] => 
+    [user-postal-code] => 
+    [user-country-of-origin] => United States
+    [current_date] => 1762556590
+    [price] => 77.63
+    [ui-membership-type] => Individual Membership
+    [inserted_post_id] => 88077
+    [user_id] => 1937
+)
+[18:03:11] 💾 MembershipOrderHandler: Processing user data updates...
+[18:03:11] LGL Constituents: Name set
+Array
+(
+    [first_name] => Debug
+    [last_name] => Test
+    [full_name] => Debug Test
+)
+[18:03:11] LGL Constituents: Email set
+debug.test@example.com
+[18:03:11] LGL Constituents: 🎯 setMembership() CALLED!
+Array
+(
+    [user_id] => 1937
+)
+[18:03:11] LGL Constituents: 🔍 Looking up membership level config
+Array
+(
+    [user_id] => 1937
+    [type] => Individual Membership
+)
+[18:03:11] LGL Constituents: 🔍 Looking up membership level config
+Array
+(
+    [membership_type] => Individual Membership
+    [user_id] => 1937
+)
+[18:03:11] LGL Constituents: ⚠️ No level config found by name, trying price-based lookup
+[18:03:11] LGL Constituents: 🛒 Found recent order
+Array
+(
+    [order_id] => 88077
+    [total] => 77.63
+)
+[18:03:11] LGL Constituents: 🔍 Constituents: Retrieved membership levels from ApiSettings
+Array
+(
+    [count] => 4
+    [levels] => Array
+        (
+            [0] => Array
+                (
+                    [level_name] => Indvidual
+                    [level_slug] => individual
+                    [lgl_membership_level_id] => 412
+                    [price] => 75
+                )
+
+            [1] => Array
+                (
+                    [level_name] => Family
+                    [level_slug] => family
+                    [lgl_membership_level_id] => 407
+                    [price] => 125
+                )
+
+            [2] => Array
+                (
+                    [level_name] => Patron
+                    [level_slug] => patron
+                    [lgl_membership_level_id] => 402
+                    [price] => 200
+                )
+
+            [3] => Array
+                (
+                    [level_name] => Patron Family
+                    [level_slug] => patron-family
+                    [lgl_membership_level_id] => 417
+                    [price] => 250
+                )
+
+        )
+
+)
+[18:03:11] LGL Constituents: 🔍 Checking price match
+Array
+(
+    [level_name] => Indvidual
+    [level_price] => 75
+    [order_total] => 77.63
+    [difference] => 2.63
+    [tolerance] => 7.5
+    [matches] => 1
+)
+[18:03:11] LGL Constituents: ✅ Found matching membership level by price
+Array
+(
+    [level] => Array
+        (
+            [level_name] => Indvidual
+            [level_slug] => individual
+            [lgl_membership_level_id] => 412
+            [price] => 75
+        )
+
+    [order_total] => 77.63
+    [level_price] => 75
+    [difference] => 2.63
+)
+[18:03:11] LGL Constituents: 📋 Final level config
+Array
+(
+    [level_name] => Indvidual
+    [level_slug] => individual
+    [lgl_membership_level_id] => 412
+    [price] => 75
+)
+[18:03:11] LGL Constituents: Modern Membership Data Created
+Array
+(
+    [user_id] => 1937
+    [membership_type] => Individual Membership
+    [level_config] => Array
+        (
+            [level_name] => Indvidual
+            [level_slug] => individual
+            [lgl_membership_level_id] => 412
+            [price] => 75
+        )
+
+    [membership_data] => Array
+        (
+            [membership_type] => Individual Membership
+            [membership_level_id] => 412
+            [membership_level_name] => Indvidual
+            [membership_status] => active
+            [date_start] => 2025-11-07
+            [finish_date] => 2026-11-07
+            [payment_method] => 
+            [note] => Membership created via Modern LGL API on 2025-11-07
+            [parent_user_id] => 
+        )
+
+)
+[18:03:11] LGL Constituents: Final Membership Data Set
+Array
+(
+    [membership_type] => Individual Membership
+    [membership_level_id] => 412
+    [membership_level_name] => Indvidual
+    [membership_status] => active
+    [date_start] => 2025-11-07
+    [finish_date] => 2026-11-07
+    [payment_method] => 
+    [note] => Membership created via Modern LGL API on 2025-11-07
+    [parent_user_id] => 
+)
+[18:03:11] LGL Constituents: All data set for user
+1937
+[18:03:11] LGL Constituents: Constituent created successfully
+Array
+(
+    [success] => 1
+    [http_code] => 200
+    [data] => Array
+        (
+            [api_version] => 1.0
+            [id] => 946872
+            [external_constituent_id] => 
+            [is_org] => 
+            [constituent_contact_type_id] => 1247
+            [constituent_contact_type_name] => Primary
+            [prefix] => 
+            [first_name] => Debug
+            [middle_name] => 
+            [last_name] => Test
+            [suffix] => 
+            [spouse_name] => 
+            [org_name] => 
+            [job_title] => 
+            [addressee] => Debug Test
+            [salutation] => Debug
+            [sort_name] => Test, Debug
+            [constituent_interest_level_id] => 
+            [constituent_interest_level_name] => 
+            [constituent_rating_id] => 
+            [constituent_rating_name] => 
+            [is_deceased] => 
+            [deceased_date] => 
+            [annual_report_name] => Debug Test
+            [birthday] => 
+            [gender] => 
+            [maiden_name] => 
+            [nick_name] => 
+            [spouse_nick_name] => 
+            [date_added] => 2025-11-07
+            [alt_salutation] => Debug
+            [alt_addressee] => Debug Test
+            [honorary_name] => Debug Test
+            [assistant_name] => 
+            [marital_status_id] => 
+            [marital_status_name] => 
+            [is_anon] => 
+            [created_at] => 2025-11-07T23:03:11Z
+            [updated_at] => 2025-11-07T23:03:11Z
+            [class_affiliations] => Array
+                (
+                )
+
+            [relationships] => Array
+                (
+                )
+
+            [street_addresses] => Array
+                (
+                )
+
+            [phone_numbers] => Array
+                (
+                )
+
+            [email_addresses] => Array
+                (
+                )
+
+            [web_addresses] => Array
+                (
+                )
+
+            [categories] => Array
+                (
+                )
+
+            [groups] => Array
+                (
+                )
+
+            [memberships] => Array
+                (
+                )
+
+            [custom_attrs] => Array
+                (
+                )
+
+        )
+
+    [raw_response] => {"api_version":"1.0","id":946872,"external_constituent_id":null,"is_org":false,"constituent_contact_type_id":1247,"constituent_contact_type_name":"Primary","prefix":null,"first_name":"Debug","middle_name":null,"last_name":"Test","suffix":null,"spouse_name":null,"org_name":null,"job_title":null,"addressee":"Debug Test","salutation":"Debug","sort_name":"Test, Debug","constituent_interest_level_id":null,"constituent_interest_level_name":null,"constituent_rating_id":null,"constituent_rating_name":null,"is_deceased":false,"deceased_date":null,"annual_report_name":"Debug Test","birthday":null,"gender":"","maiden_name":null,"nick_name":null,"spouse_nick_name":null,"date_added":"2025-11-07","alt_salutation":"Debug","alt_addressee":"Debug Test","honorary_name":"Debug Test","assistant_name":null,"marital_status_id":null,"marital_status_name":null,"is_anon":false,"created_at":"2025-11-07T23:03:11Z","updated_at":"2025-11-07T23:03:11Z","class_affiliations":[],"relationships":[],"street_addresses":[],"phone_numbers":[],"email_addresses":[],"web_addresses":[],"categories":[],"groups":[],"memberships":[],"custom_attrs":[]}
+)
+[18:03:11] MembershipOrderHandler: User data updated
+1937
+[18:03:11] 🔗 MembershipOrderHandler: Starting LGL registration...
+[18:03:11] 🔗 MembershipOrderHandler::registerUserInLGL() STARTED
+Array
+(
+    [user_id] => 1937
+    [user_email] => debug.test@example.com
+    [membership_type] => Individual Membership
+    [order_id] => 88077
+)
+[18:03:11] 🔄 MembershipOrderHandler: Getting LGL_API instance...
+[18:03:11] 📤 MembershipOrderHandler: Sending registration request to LGL_API...
+[18:03:11] 📋 MembershipOrderHandler: Full registration data
+Array
+(
+    [user_firstname] => Debug
+    [user_lastname] => Test
+    [user_company] => 
+    [username] => debug_test_user
+    [user_email] => debug.test@example.com
+    [user_phone] => 555-DEBUG
+    [user-address-1] => 
+    [user-address-2] => 
+    [user-city] => 
+    [user-state] => 
+    [user-postal-code] => 
+    [user-country-of-origin] => United States
+    [current_date] => 1762556590
+    [price] => 77.63
+    [ui-membership-type] => Individual Membership
+    [inserted_post_id] => 88077
+    [user_id] => 1937
+)
+[18:03:11] 🚀 UserRegistrationAction::handle() STARTED
+Array
+(
+    [timestamp] => 2025-11-07 18:03:11
+    [request_keys] => Array
+        (
+            [0] => user_firstname
+            [1] => user_lastname
+            [2] => user_company
+            [3] => username
+            [4] => user_email
+            [5] => user_phone
+            [6] => user-address-1
+            [7] => user-address-2
+            [8] => user-city
+            [9] => user-state
+            [10] => user-postal-code
+            [11] => user-country-of-origin
+            [12] => current_date
+            [13] => price
+            [14] => ui-membership-type
+            [15] => inserted_post_id
+            [16] => user_id
+        )
+
+    [action_handler_type] => array
+)
+[18:03:11] 📋 UserRegistrationAction: Processing valid request
+Array
+(
+    [user_id] => 1937
+    [user_email] => debug.test@example.com
+    [membership_type] => Individual Membership
+    [order_id] => 88077
+)
+[18:03:11] 👤 UserRegistrationAction: User Details
+Array
+(
+    [user_id] => 1937
+    [username] => Debug%20Test
+    [email] => debug.test@example.com
+    [membership_level] => Individual Membership
+    [method] => 
+)
+[18:03:11] 💳 UserRegistrationAction: Setting payment method...
+[18:03:11] Payment method set:
+online
+[18:03:11] 🏷️ UserRegistrationAction: Assigning membership role...
+[18:03:11] 🔍 UserRegistrationAction: Searching for existing LGL contact...
+[18:03:11] 🔍 Connection::searchByName() STARTED
+Array
+(
+    [name] => Debug%20Test
+    [email] => debug.test@example.com
+)
+[18:03:11] 🔍 Trying search method 1
+Array
+(
+    [endpoint] => constituents
+    [params] => Array
+        (
+            [email] => debug.test@example.com
+        )
+
+)
+[18:03:12] 🔍 Search method 1 response
+Array
+(
+    [success] => 1
+    [http_code] => 200
+    [has_data] => 1
+    [data_type] => array
+)
+[18:03:12] 🔍 extractConstituentsFromResponse() - Raw data analysis
+Array
+(
+    [data_type] => array
+    [data_keys] => Array
+        (
+            [0] => api_version
+            [1] => items_count
+            [2] => total_items
+            [3] => limit
+            [4] => offset
+            [5] => next_item
+            [6] => next_link
+            [7] => item_type
+            [8] => items
+        )
+
+    [data_sample] => 
+)
+[18:03:12] ✅ Found LGL API format with items array
+Array
+(
+    [count] => 25
+)
+[18:03:12] ✅ Found 25 constituents with method 1
+[18:03:12] 🔍 Examining first constituent structure
+Array
+(
+    [constituent_type] => array
+    [constituent_keys] => Array
+        (
+            [0] => id
+            [1] => external_constituent_id
+            [2] => is_org
+            [3] => constituent_contact_type_id
+            [4] => constituent_contact_type_name
+            [5] => prefix
+            [6] => first_name
+            [7] => middle_name
+            [8] => last_name
+            [9] => suffix
+            [10] => spouse_name
+            [11] => org_name
+            [12] => job_title
+            [13] => addressee
+            [14] => salutation
+            [15] => sort_name
+            [16] => constituent_interest_level_id
+            [17] => constituent_interest_level_name
+            [18] => constituent_rating_id
+            [19] => constituent_rating_name
+            [20] => is_deceased
+            [21] => deceased_date
+            [22] => annual_report_name
+            [23] => birthday
+            [24] => gender
+            [25] => maiden_name
+            [26] => nick_name
+            [27] => spouse_nick_name
+            [28] => date_added
+            [29] => alt_salutation
+            [30] => alt_addressee
+            [31] => honorary_name
+            [32] => assistant_name
+            [33] => marital_status_id
+            [34] => marital_status_name
+            [35] => is_anon
+            [36] => created_at
+            [37] => updated_at
+        )
+
+    [has_id_property] => 1
+    [id_value] => 944817
+)
+[18:03:12] ✅ Email search match found
+Array
+(
+    [lgl_id] => 944817
+)
+[18:03:12] 🔍 UserRegistrationAction: LGL search result
+Array
+(
+    [lgl_id] => 944817
+    [found_existing] => YES
+)
+[18:03:12] 🔄 UserRegistrationAction: Updating existing LGL constituent...
+[18:03:12] LGL Constituents: Name set
+Array
+(
+    [first_name] => Debug
+    [last_name] => Test
+    [full_name] => Debug Test
+)
+[18:03:12] LGL Constituents: Email set
+debug.test@example.com
+[18:03:12] LGL Constituents: 🎯 setMembership() CALLED!
+Array
+(
+    [user_id] => 1937
+)
+[18:03:12] LGL Constituents: 🔍 Looking up membership level config
+Array
+(
+    [user_id] => 1937
+    [type] => Individual Membership
+)
+[18:03:12] LGL Constituents: 🔍 Looking up membership level config
+Array
+(
+    [membership_type] => Individual Membership
+    [user_id] => 1937
+)
+[18:03:12] LGL Constituents: ⚠️ No level config found by name, trying price-based lookup
+[18:03:12] LGL Constituents: 🛒 Found recent order
+Array
+(
+    [order_id] => 88077
+    [total] => 77.63
+)
+[18:03:12] LGL Constituents: 🔍 Constituents: Retrieved membership levels from ApiSettings
+Array
+(
+    [count] => 4
+    [levels] => Array
+        (
+            [0] => Array
+                (
+                    [level_name] => Indvidual
+                    [level_slug] => individual
+                    [lgl_membership_level_id] => 412
+                    [price] => 75
+                )
+
+            [1] => Array
+                (
+                    [level_name] => Family
+                    [level_slug] => family
+                    [lgl_membership_level_id] => 407
+                    [price] => 125
+                )
+
+            [2] => Array
+                (
+                    [level_name] => Patron
+                    [level_slug] => patron
+                    [lgl_membership_level_id] => 402
+                    [price] => 200
+                )
+
+            [3] => Array
+                (
+                    [level_name] => Patron Family
+                    [level_slug] => patron-family
+                    [lgl_membership_level_id] => 417
+                    [price] => 250
+                )
+
+        )
+
+)
+[18:03:12] LGL Constituents: 🔍 Checking price match
+Array
+(
+    [level_name] => Indvidual
+    [level_price] => 75
+    [order_total] => 77.63
+    [difference] => 2.63
+    [tolerance] => 7.5
+    [matches] => 1
+)
+[18:03:12] LGL Constituents: ✅ Found matching membership level by price
+Array
+(
+    [level] => Array
+        (
+            [level_name] => Indvidual
+            [level_slug] => individual
+            [lgl_membership_level_id] => 412
+            [price] => 75
+        )
+
+    [order_total] => 77.63
+    [level_price] => 75
+    [difference] => 2.63
+)
+[18:03:12] LGL Constituents: 📋 Final level config
+Array
+(
+    [level_name] => Indvidual
+    [level_slug] => individual
+    [lgl_membership_level_id] => 412
+    [price] => 75
+)
+[18:03:12] LGL Constituents: Modern Membership Data Created
+Array
+(
+    [user_id] => 1937
+    [membership_type] => Individual Membership
+    [level_config] => Array
+        (
+            [level_name] => Indvidual
+            [level_slug] => individual
+            [lgl_membership_level_id] => 412
+            [price] => 75
+        )
+
+    [membership_data] => Array
+        (
+            [membership_type] => Individual Membership
+            [membership_level_id] => 412
+            [membership_level_name] => Indvidual
+            [membership_status] => active
+            [date_start] => 2025-11-07
+            [finish_date] => 2026-11-07
+            [payment_method] => 
+            [note] => Membership created via Modern LGL API on 2025-11-07
+            [parent_user_id] => 
+        )
+
+)
+[18:03:12] LGL Constituents: Final Membership Data Set
+Array
+(
+    [membership_type] => Individual Membership
+    [membership_level_id] => 412
+    [membership_level_name] => Indvidual
+    [membership_status] => active
+    [date_start] => 2025-11-07
+    [finish_date] => 2026-11-07
+    [payment_method] => 
+    [note] => Membership created via Modern LGL API on 2025-11-07
+    [parent_user_id] => 
+)
+[18:03:12] LGL Constituents: All data set for user
+1937
+[18:03:12] LGL Constituents: Constituent updated successfully
+Array
+(
+    [success] => 1
+    [http_code] => 200
+    [data] => Array
+        (
+            [api_version] => 1.0
+            [id] => 944817
+            [external_constituent_id] => t00004
+            [is_org] => 1
+            [constituent_contact_type_id] => 1247
+            [constituent_contact_type_name] => Primary
+            [prefix] => 
+            [first_name] => Debug
+            [middle_name] => 
+            [last_name] => Test
+            [suffix] => 
+            [spouse_name] => 
+            [org_name] => Avengers Mansion Headquarters of the Avengers
+            [job_title] => 
+            [addressee] => Headquarters of the Avengers
+            [salutation] => Debug
+            [sort_name] => Avengers Mansion Headquarters of the Avengers
+            [constituent_interest_level_id] => 
+            [constituent_interest_level_name] => 
+            [constituent_rating_id] => 
+            [constituent_rating_name] => 
+            [is_deceased] => 
+            [deceased_date] => 
+            [annual_report_name] => 
+            [birthday] => 
+            [gender] => 
+            [maiden_name] => 
+            [nick_name] => 
+            [spouse_nick_name] => 
+            [date_added] => 2023-02-27
+            [alt_salutation] => Debug
+            [alt_addressee] => Headquarters of the Avengers
+            [honorary_name] => 
+            [assistant_name] => 
+            [marital_status_id] => 
+            [marital_status_name] => 
+            [is_anon] => 
+            [created_at] => 2023-02-27T13:27:32Z
+            [updated_at] => 2025-11-07T23:03:12Z
+            [class_affiliations] => Array
+                (
+                )
+
+            [relationships] => Array
+                (
+                )
+
+            [street_addresses] => Array
+                (
+                    [0] => Array
+                        (
+                            [id] => 838407
+                            [street] => 890 Fifth Avenue
+                            [city] => Manhattan
+                            [state] => NY
+                            [country] => US
+                            [postal_code] => 10021
+                            [county] => 
+                            [street_address_type_id] => 1
+                            [street_type_name] => Home
+                            [is_preferred] => 1
+                            [not_current] => 
+                            [parent_id] => 
+                            [seasonal_from] => 01-01
+                            [seasonal_to] => 12-31
+                            [seasonal] => 
+                            [lat] => 
+                            [lng] => 
+                            [zip5] => 10021
+                            [verified] => 
+                            [verified_on] => 
+                            [created_at] => 2023-02-27T13:27:32Z
+                            [updated_at] => 2023-02-27T13:27:32Z
+                        )
+
+                )
+
+            [phone_numbers] => Array
+                (
+                    [0] => Array
+                        (
+                            [id] => 479977
+                            [number] => (888) 555-0004
+                            [phone_number_type_id] => 2
+                            [phone_type_name] => Work
+                            [is_preferred] => 1
+                            [not_current] => 
+                            [parent_id] => 
+                            [normalized_number] => 8885550004
+                            [created_at] => 2023-02-27T13:27:32Z
+                            [updated_at] => 2023-02-27T13:27:32Z
+                        )
+
+                )
+
+            [email_addresses] => Array
+                (
+                    [0] => Array
+                        (
+                            [id] => 276867
+                            [address] => mansion@avengers.com
+                            [email_address_type_id] => 1
+                            [email_type_name] => Home
+                            [is_preferred] => 1
+                            [not_current] => 
+                            [parent_id] => 
+                            [created_at] => 2023-02-27T13:27:32Z
+                            [updated_at] => 2023-02-27T13:27:32Z
+                        )
+
+                )
+
+            [web_addresses] => Array
+                (
+                )
+
+            [categories] => Array
+                (
+                    [0] => Array
+                        (
+                            [id] => 1287
+                            [item_type] => Constituent
+                            [name] => Giving Status
+                            [key] => giving_status
+                            [facet_type] => list
+                            [ordinal] => 100
+                            [removable] => 
+                            [editable] => 
+                            [display_format] => compact
+                            [keywords] => Array
+                                (
+                                    [0] => Array
+                                        (
+                                            [id] => 12777
+                                            [category_id] => 1287
+                                            [name] => Top 100 Donor
+                                            [description] => 
+                                            [short_code] => top_100_donor
+                                            [ordinal] => 0
+                                            [removable] => 
+                                            [can_change] => 1
+                                            [can_select] => 1
+                                            [created_at] => 2023-02-25T00:56:33Z
+                                            [updated_at] => 2023-02-25T00:56:33Z
+                                        )
+
+                                    [1] => Array
+                                        (
+                                            [id] => 12792
+                                            [category_id] => 1287
+                                            [name] => Lapsed Donor
+                                            [description] => 
+                                            [short_code] => lapsed_donor
+                                            [ordinal] => 3
+                                            [removable] => 
+                                            [can_change] => 1
+                                            [can_select] => 1
+                                            [created_at] => 2023-02-25T00:56:33Z
+                                            [updated_at] => 2023-02-25T00:56:33Z
+                                        )
+
+                                )
+
+                        )
+
+                )
+
+            [groups] => Array
+                (
+                )
+
+            [memberships] => Array
+                (
+                )
+
+            [custom_attrs] => Array
+                (
+                )
+
+        )
+
+    [raw_response] => {"api_version":"1.0","id":944817,"external_constituent_id":"t00004","is_org":true,"constituent_contact_type_id":1247,"constituent_contact_type_name":"Primary","prefix":null,"first_name":"Debug","middle_name":null,"last_name":"Test","suffix":null,"spouse_name":null,"org_name":"Avengers Mansion Headquarters of the Avengers","job_title":null,"addressee":"Headquarters of the Avengers","salutation":"Debug","sort_name":"Avengers Mansion Headquarters of the Avengers","constituent_interest_level_id":null,"constituent_interest_level_name":null,"constituent_rating_id":null,"constituent_rating_name":null,"is_deceased":false,"deceased_date":null,"annual_report_name":null,"birthday":null,"gender":"","maiden_name":null,"nick_name":null,"spouse_nick_name":null,"date_added":"2023-02-27","alt_salutation":"Debug","alt_addressee":"Headquarters of the Avengers","honorary_name":null,"assistant_name":null,"marital_status_id":null,"marital_status_name":null,"is_anon":false,"created_at":"2023-02-27T13:27:32Z","updated_at":"2025-11-07T23:03:12Z","class_affiliations":[],"relationships":[],"street_addresses":[{"id":838407,"street":"890 Fifth Avenue","city":"Manhattan","state":"NY","country":"US","postal_code":"10021","county":null,"street_address_type_id":1,"street_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":null,"lat":null,"lng":null,"zip5":"10021","verified":false,"verified_on":null,"created_at":"2023-02-27T13:27:32Z","updated_at":"2023-02-27T13:27:32Z"}],"phone_numbers":[{"id":479977,"number":"(888) 555-0004","phone_number_type_id":2,"phone_type_name":"Work","is_preferred":true,"not_current":false,"parent_id":null,"normalized_number":"8885550004","created_at":"2023-02-27T13:27:32Z","updated_at":"2023-02-27T13:27:32Z"}],"email_addresses":[{"id":276867,"address":"mansion@avengers.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2023-02-27T13:27:32Z","updated_at":"2023-02-27T13:27:32Z"}],"web_addresses":[],"categories":[{"id":1287,"item_type":"Constituent","name":"Giving Status","key":"giving_status","facet_type":"list","ordinal":100,"removable":false,"editable":false,"display_format":"compact","keywords":[{"id":12777,"category_id":1287,"name":"Top 100 Donor","description":null,"short_code":"top_100_donor","ordinal":0,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"},{"id":12792,"category_id":1287,"name":"Lapsed Donor","description":null,"short_code":"lapsed_donor","ordinal":3,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"}]}],"groups":[],"memberships":[],"custom_attrs":[]}
+)
+[18:03:13] ✅ Updated LGL constituent
+Array
+(
+    [lgl_id] => 944817
+)
+[18:03:13] 💳 UserRegistrationAction: Adding payment object...
+[18:03:13] 💳 UserRegistrationAction: Starting payment creation
+Array
+(
+    [uid] => 1937
+    [lgl_id] => 944817
+    [request_keys] => Array
+        (
+            [0] => user_firstname
+            [1] => user_lastname
+            [2] => user_company
+            [3] => username
+            [4] => user_email
+            [5] => user_phone
+            [6] => user-address-1
+            [7] => user-address-2
+            [8] => user-city
+            [9] => user-state
+            [10] => user-postal-code
+            [11] => user-country-of-origin
+            [12] => current_date
+            [13] => price
+            [14] => ui-membership-type
+            [15] => inserted_post_id
+            [16] => user_id
+        )
+
+)
+[18:03:13] 💳 Payment details extracted
+Array
+(
+    [order_id] => 88077
+    [price] => 77.63
+    [date] => 2025-11-07
+    [payment_type] => online
+)
+[18:03:13] 🔍 LGL Payments: retrievePaymentTypes called
+Array
+(
+    [method] => Memberships
+)
+[18:03:13] 🔍 LGL Payments: Using cached data
+[18:03:13] LGL Payments: Payment data retrieved
+Array
+(
+    [method] => Memberships
+    [data_keys] => Array
+        (
+            [0] => payment_types
+            [1] => gift_types
+            [2] => funds
+            [3] => campaigns
+            [4] => categories
+            [5] => method
+            [6] => retrieved_at
+        )
+
+    [funds_count] => 9
+    [campaigns_count] => 7
+    [payment_types_count] => 7
+)
+[18:03:13] 💳 Connection::addPayment()
+Array
+(
+    [lgl_id] => 944817
+    [payment_data] => Array
+        (
+            [external_id] => 88077
+            [is_anon] => 
+            [gift_type_id] => 
+            [gift_type_name] => Other Income
+            [gift_category_id] => 
+            [gift_category_name] => Donation
+            [campaign_id] => 
+            [campaign_name] => Membership Fees
+            [fund_id] => 
+            [fund_name] => General Fund
+            [appeal_id] => 0
+            [appeal_name] => 
+            [event_id] => 0
+            [event_name] => 
+            [received_amount] => 77.63
+            [received_date] => 2025-11-07
+            [payment_type_id] => 
+            [payment_type_name] => online
+            [check_number] => 
+            [deductible_amount] => 77.63
+            [note] => Website Registration, Order #88077
+            [ack_template_name] => 
+            [deposit_date] => 2025-11-07
+            [deposited_amount] => 77.63
+            [parent_gift_id] => 0
+            [parent_external_id] => 0
+            [team_member] => 
+        )
+
+)
+[18:03:13] ✅ Payment added successfully
+Array
+(
+    [payment_id] => 905277
+)
+[18:03:13] LGL Payments: Membership payment created
+Array
+(
+    [lgl_id] => 944817
+    [order_id] => 88077
+    [amount] => 77.63
+)
+[18:03:13] ✅ Added payment object successfully
+Array
+(
+    [payment_id] => 905277
+    [lgl_id] => 944817
+    [order_id] => 88077
+    [amount] => 77.63
+)
+[18:03:13] ✅ UserRegistrationAction::handle() COMPLETED SUCCESSFULLY
+Array
+(
+    [user_id] => 1937
+    [lgl_id] => 944817
+    [DEBUG_CHECKPOINT] => handleExistingConstituent should have been called above
+)
+[18:03:13] 📥 MembershipOrderHandler: LGL_API registration result
+Array
+(
+    [result] => 
+    [user_id] => 1937
+    [success] => Registration call completed
+)
+[18:03:13] ✅ MembershipOrderHandler::registerUserInLGL() COMPLETED
+Array
+(
+    [user_id] => 1937
+    [lgl_api_called] => YES
+)
+[18:03:13] ✅ MembershipOrderHandler: Completing order...
+[18:03:13] ✅ MembershipOrderHandler::processOrder() COMPLETED SUCCESSFULLY
+Array
+(
+    [order_id] => 88077
+    [user_id] => 1937
+    [final_membership_level] => Individual Membership
+)
+[18:03:13] ✅ OrderProcessor: MembershipOrderHandler completed successfully
+[18:03:13] ✅ OrderProcessor::processOrderProducts() COMPLETED
+Array
+(
+    [products_processed] => 1
+    [events_processed] => 0
+    [attendees_created] => 0
+)
+[18:03:13] ✅ OrderProcessor::processCompletedOrder() COMPLETED
+Array
+(
+    [order_id] => 88077
+    [final_memory_usage] => 120MB
+)

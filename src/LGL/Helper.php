@@ -363,15 +363,21 @@ class Helper {
      * @return bool True if in debug mode
      */
     public function isDebugMode(): bool {
-        // Check ApiSettings checkbox first
-        if (class_exists('\UpstateInternational\LGL\LGL\ApiSettings')) {
-            $apiSettings = ApiSettings::getInstance();
-            if ($apiSettings->isDebugMode()) {
+        // Check WordPress option directly to avoid circular dependency
+        // (ApiSettings::getInstance() can trigger infinite loop during initialization)
+        $settings = get_option('lgl_integration_settings', []);
+        if (isset($settings['debug_mode']) && $settings['debug_mode']) {
+            return true;
+        }
+        
+        // Fallback to Carbon Fields if new settings not found
+        if (function_exists('carbon_get_theme_option')) {
+            if (carbon_get_theme_option('lgl_debug_mode')) {
                 return true;
             }
         }
         
-        // Fallback to WP_DEBUG
+        // Final fallback to WP_DEBUG
         return defined('WP_DEBUG') && WP_DEBUG;
     }
     

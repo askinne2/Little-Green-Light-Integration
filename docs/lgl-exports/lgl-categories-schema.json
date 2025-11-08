@@ -1,0 +1,38 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number"
+      },
+      "item_type": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "key": {
+        "type": "string"
+      },
+      "facet_type": {
+        "type": "string"
+      },
+      "ordinal": {
+        "type": "number"
+      },
+      "removable": {
+        "type": "boolean"
+      },
+      "editable": {
+        "type": "boolean"
+      },
+      "display_format": {
+        "type": "string"
+      },
+      "keywords": {
+        "type": "array"
+      }
+    }
+  }
+}

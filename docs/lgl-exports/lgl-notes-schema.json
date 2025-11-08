@@ -1,0 +1,44 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number"
+      },
+      "constituent_id": {
+        "type": "number"
+      },
+      "note_type_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "note_type_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "text": {
+        "type": "string"
+      },
+      "external_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "original_date": {
+        "type": "string"
+      },
+      "created_at": {
+        "type": "string"
+      },
+      "updated_at": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number"
+      },
+      "name": {
+        "type": "string"
+      },
+      "code": {
+        "type": "string"
+      },
+      "mailing_type_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "mailing_type_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "template_type": {
+        "type": "string"
+      }
+    }
+  }
+}

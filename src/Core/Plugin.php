@@ -142,12 +142,16 @@ class Plugin {
             // Initialize admin-only services
             if (is_admin()) {
                 $this->container->get('admin.dashboard_widgets');
-                // Removed: admin.settings_manager (over-engineered, replaced by SettingsHandler)
+                
+                // Initialize AssetManager
+                $assetManager = $this->container->get('admin.asset_manager');
+                $assetManager->initialize();
+                
+                // Initialize admin menu and testing
                 $adminMenuManager = $this->container->get('admin.menu_manager');
                 $adminMenuManager->initialize();
                 $testingHandler = $this->container->get('admin.testing_handler');
                 $testingHandler->initialize();
-                // error_log('LGL Plugin: Settings handler initialized successfully');
             }
             
             // Initialize email services

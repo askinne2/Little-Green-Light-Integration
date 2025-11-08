@@ -109,13 +109,17 @@ class UserRegistrationAction implements JetFormActionInterface {
             
             // Search for existing LGL contact
             $this->helper->debug('🔍 UserRegistrationAction: Searching for existing LGL contact...');
-            $lgl_id = $this->connection->searchByName($username, $email);
-            
+            $emails = $this->collectCandidateEmails($uid, $request);
+            $match = $this->connection->searchByName($username, $emails);
+            $lgl_id = $match['id'] ?? null;
+
             $this->helper->debug('🔍 UserRegistrationAction: LGL search result', [
                 'lgl_id' => $lgl_id,
-                'found_existing' => $lgl_id ? 'YES' : 'NO'
+                'found_existing' => $lgl_id ? 'YES' : 'NO',
+                'match_method' => $match['method'] ?? null,
+                'matched_email' => $match['email'] ?? null
             ]);
-            
+
             // Follow Logic Model: Always add membership and payment objects regardless of user existence
             if (!$lgl_id) {
                 // CREATE LGL USER [Constituents::createConstituent()]
@@ -180,6 +184,29 @@ class UserRegistrationAction implements JetFormActionInterface {
         if (in_array($membership_level, ['Family Membership', 'Patron Family Membership'])) {
             $this->helper->changeUserRole($uid, 'ui_member', 'ui_patron_owner');
         }
+    }
+
+    /**
+     * Collect candidate email addresses for matching
+     *
+     * @param int $uid
+     * @param array $request
+     * @return array<string>
+     */
+    private function collectCandidateEmails(int $uid, array $request): array {
+        $user = get_userdata($uid);
+        $emails = [
+            $request['user_email'] ?? null,
+            $request['billing_email'] ?? null,
+            $user ? $user->user_email : null
+        ];
+
+        $emails = array_values(array_unique(array_filter(array_map(function($email) {
+            $email = is_string($email) ? trim($email) : '';
+            return $email !== '' ? strtolower($email) : null;
+        }, $emails))));
+
+        return $emails;
     }
     
     /**
@@ -280,10 +307,23 @@ class UserRegistrationAction implements JetFormActionInterface {
         $constituents = \UpstateInternational\LGL\LGL\Constituents::getInstance();
         $constituents->setData($uid);
         $constituent_data = $constituents->createConstituent();
-        
-        $lgl_id = $this->connection->createConstituent($constituent_data);
+
+        $response = $this->connection->createConstituent($constituent_data);
+        $httpCode = $response['http_code'] ?? 0;
+        if (
+            !is_array($response)
+            || empty($response['success'])
+            || $httpCode < 200
+            || $httpCode >= 300
+            || empty($response['data']['id'])
+        ) {
+            $error = $response['error'] ?? 'Failed to create constituent';
+            throw new \RuntimeException($error);
+        }
+
+        $lgl_id = (string) $response['data']['id'];
         $this->helper->debug('✅ Created LGL constituent', ['lgl_id' => $lgl_id]);
-        
+
         return $lgl_id;
     }
     

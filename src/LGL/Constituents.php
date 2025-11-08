@@ -156,9 +156,8 @@ class Constituents {
         $this->personalData['first_name'] = sanitize_text_field($first);
         $this->personalData['last_name'] = sanitize_text_field($last);
         
-        if (!empty($first) && !empty($last)) {
-            $this->personalData['full_name'] = trim($first . ' ' . $last);
-        }
+        // Note: LGL does NOT accept 'full_name' field - it auto-generates from first_name/last_name
+        // Removed: $this->personalData['full_name']
         
         $this->debug('Name set', $this->personalData);
     }
@@ -172,10 +171,20 @@ class Constituents {
         $sanitized_email = sanitize_email($email);
         
         if (is_email($sanitized_email)) {
+            // Check if this email is already added (prevent duplicates)
+            foreach ($this->emailData as $existing_email) {
+                if ($existing_email['address'] === $sanitized_email) {
+                    $this->debug('Email already set, skipping duplicate', $sanitized_email);
+                    return;
+                }
+            }
+            
             $this->emailData[] = [
-                'email_address' => $sanitized_email,
-                'email_type' => 'Primary',
-                'is_primary' => true
+                'address' => $sanitized_email,
+                'email_address_type_id' => 1,
+                'email_type_name' => 'Home',
+                'is_preferred' => true,
+                'not_current' => false
             ];
             
             $this->debug('Email set', $sanitized_email);
@@ -194,9 +203,11 @@ class Constituents {
         
         if (!empty($sanitized_phone)) {
             $this->phoneData[] = [
-                'phone_number' => $sanitized_phone,
-                'phone_type' => 'Primary',
-                'is_primary' => true
+                'number' => $sanitized_phone,
+                'phone_number_type_id' => 1,
+                'phone_type_name' => 'Home',
+                'is_preferred' => true,
+                'not_current' => false
             ];
             
             $this->debug('Phone set', $sanitized_phone);
@@ -213,23 +224,29 @@ class Constituents {
             return;
         }
         
-        $address_data = [
-            'street_address' => get_user_meta($user_id, 'user-address-1', true),
-            'street_address_2' => get_user_meta($user_id, 'user-address-2', true),
-            'city' => get_user_meta($user_id, 'user-city', true),
-            'state' => get_user_meta($user_id, 'user-state', true),
-            'postal_code' => get_user_meta($user_id, 'user-postal-code', true),
-            'country' => get_user_meta($user_id, 'user-country-of-origin', true) ?: 'US'
-        ];
+        $street1 = get_user_meta($user_id, 'user-address-1', true);
+        $street2 = get_user_meta($user_id, 'user-address-2', true);
+        $city = get_user_meta($user_id, 'user-city', true);
+        $state = get_user_meta($user_id, 'user-state', true);
+        $postal_code = get_user_meta($user_id, 'user-postal-code', true);
+        $country = get_user_meta($user_id, 'user-country-of-origin', true) ?: 'US';
         
         // Only add address if we have at least street and city
-        if (!empty($address_data['street_address']) && !empty($address_data['city'])) {
-            $this->addressData[] = array_merge($address_data, [
-                'address_type' => 'Primary',
-                'is_primary' => true
-            ]);
+        if (!empty($street1) && !empty($city)) {
+            $street = trim($street1 . ' ' . $street2);
+            $this->addressData[] = [
+                'street' => $street,
+                'street_address_type_id' => 1,
+                'street_type_name' => 'Home',
+                'city' => $city,
+                'state' => $state,
+                'postal_code' => $postal_code,
+                'country' => $country,
+                'is_preferred' => true,
+                'not_current' => false
+            ];
             
-            $this->debug('Address set', $address_data);
+            $this->debug('Address set', ['street' => $street, 'city' => $city]);
         }
     }
     
@@ -283,15 +300,26 @@ class Constituents {
             $membership_type = 'Individual Membership'; // Default fallback
         }
         
-        $this->debug('🔍 Looking up membership level config', ['user_id' => $user_id, 'type' => $membership_type]);
-        
         $this->debug('🔍 Looking up membership level config', [
             'membership_type' => $membership_type,
             'user_id' => $user_id
         ]);
-        
+
+        $membership_level_id_meta = (int) get_user_meta($user_id, 'lgl_membership_level_id', true);
+
         // Get membership level configuration from the membership type name
-        $level_config = $this->lgl->getMembershipLevel($membership_type);
+        $level_config = null;
+        if ($membership_level_id_meta > 0) {
+            $level_config = $this->lgl->getMembershipLevelByLglId($membership_level_id_meta);
+            $this->debug('🔍 Membership level config from user meta', [
+                'membership_level_id' => $membership_level_id_meta,
+                'found' => $level_config ? 'YES' : 'NO'
+            ]);
+        }
+
+        if (!$level_config) {
+            $level_config = $this->lgl->getMembershipLevel($membership_type);
+        }
         
         // If no config found by name, try to find by price (WooCommerce integration)
         if (!$level_config || empty($level_config['lgl_membership_level_id'])) {
@@ -320,22 +348,14 @@ class Constituents {
             $this->debug('❌ No membership_level_id found! This will cause LGL API to fail.');
         }
         
+        // Build membership data matching legacy structure (membership_level_id, membership_level_name, date_start, finish_date, note)
         $membership_data = [
-            'membership_type' => $membership_type,
             'membership_level_id' => $membership_level_id,
             'membership_level_name' => $membership_level_name,
-            'membership_status' => $membership_status,
             'date_start' => $this->formatDateForApi($membership_start),
             'finish_date' => $this->formatDateForApi($membership_renewal),
-            'payment_method' => $method,
-            'note' => $note ?: 'Membership created via Modern LGL API on ' . date('Y-m-d'),
-            'parent_user_id' => $parent_uid
+            'note' => $note ?: 'Membership created via Modern LGL API on ' . date('Y-m-d')
         ];
-        
-        // Add LGL constituent type if available
-        if ($level_config && isset($level_config['lgl_constituent_type'])) {
-            $membership_data['lgl_constituent_type'] = $level_config['lgl_constituent_type'];
-        }
         
         // Debug the membership data being created
         $this->debug('Modern Membership Data Created', [
@@ -358,6 +378,10 @@ class Constituents {
      */
     private function findMembershipLevelByPrice(int $user_id): ?array {
         // Get the most recent order for this user to find the price
+        if (!function_exists('wc_get_orders')) {
+            return null;
+        }
+        
         $orders = wc_get_orders([
             'customer_id' => $user_id,
             'status' => ['completed', 'processing', 'on-hold'],
@@ -473,16 +497,24 @@ class Constituents {
             // Set address
             $this->setAddress($user_id);
             
-            // Set additional personal data
+            // Set additional personal data (matching legacy lgl-constituents.php structure)
+            $first_name = $this->personalData['first_name'] ?? '';
+            $last_name = $this->personalData['last_name'] ?? '';
+            $full_name = trim($first_name . ' ' . $last_name);
+            
+            // MINIMAL personal data for initial constituent creation (matching legacy pattern)
+            // Legacy sends ONLY personal_data first, then adds email/phone/address/membership separately
             $this->personalData = array_merge($this->personalData, [
-                'company' => get_user_meta($user_id, 'user_company', true),
-                'title' => get_user_meta($user_id, 'user_title', true),
-                'date_of_birth' => $this->formatDateForApi(get_user_meta($user_id, 'user_date_of_birth', true)),
-                'gender' => get_user_meta($user_id, 'user_gender', true),
-                'languages' => get_user_meta($user_id, 'user-languages', true),
-                'interests' => get_user_meta($user_id, 'user_interests', true),
-                'wordpress_user_id' => $user_id,
-                'username' => $user->user_login
+                'is_org' => false,
+                'constituent_contact_type_id' => 1247,
+                'constituent_contact_type_name' => 'Primary',
+                'addressee' => $full_name,
+                'salutation' => $first_name,
+                'sort_name' => $last_name . ', ' . $first_name,
+                'is_deceased' => false,
+                'annual_report_name' => $full_name,
+                'date_added' => date('Y-m-d'),
+                'is_anon' => false
             ]);
             
             // Set membership data if not skipping
@@ -507,17 +539,19 @@ class Constituents {
      */
     private function setCustomFields(int $user_id): void {
         $custom_field_mappings = [
-            'subscription_id' => 'user-subscription-id',
-            'subscription_status' => 'user-subscription-status',
-            'lgl_id' => 'lgl_constituent_id',
-            'source' => 'user_registration_source',
-            'referral_source' => 'user_referral_source'
+            'wordpress_user_id' => $user_id, // Store WP user ID
+            'subscription_id' => get_user_meta($user_id, 'user-subscription-id', true),
+            'subscription_status' => get_user_meta($user_id, 'user-subscription-status', true),
+            'source' => get_user_meta($user_id, 'user_registration_source', true),
+            'referral_source' => get_user_meta($user_id, 'user_referral_source', true)
+            // NOTE: DO NOT include lgl_id here - it's set by LGL when creating the constituent
         ];
         
-        foreach ($custom_field_mappings as $lgl_field => $wp_meta_key) {
-            $value = get_user_meta($user_id, $wp_meta_key, true);
-            if (!empty($value)) {
+        foreach ($custom_field_mappings as $lgl_field => $value) {
+            if (!empty($value) && $lgl_field !== 'wordpress_user_id') {
                 $this->customData[$lgl_field] = $value;
+            } elseif ($lgl_field === 'wordpress_user_id') {
+                $this->customData[$lgl_field] = (string) $value; // Always include WP user ID
             }
         }
     }
@@ -666,46 +700,11 @@ class Constituents {
      * @return array Formatted constituent data
      */
     private function buildConstituentData(): array {
-        $data = [];
+        // MULTI-REQUEST PATTERN: Only return minimal personal data for initial constituent creation
+        // Email, phone, address, and membership are added via separate POST requests AFTER creation
+        // This is the ONLY pattern that works reliably with LGL's API
         
-        // Add personal data
-        if (!empty($this->personalData)) {
-            $data = array_merge($data, $this->personalData);
-        }
-        
-        // Add contact information
-        if (!empty($this->emailData)) {
-            $data['email_addresses'] = $this->emailData;
-        }
-        
-        if (!empty($this->phoneData)) {
-            $data['phone_numbers'] = $this->phoneData;
-        }
-        
-        if (!empty($this->addressData)) {
-            $data['addresses'] = $this->addressData;
-        }
-        
-        // Add membership data
-        if (!empty($this->membershipData)) {
-            $data['membership'] = $this->membershipData;
-        }
-        
-        // Add custom fields
-        if (!empty($this->customData)) {
-            $data['custom_fields'] = $this->customData;
-        }
-        
-        // Add categories and groups
-        if (!empty($this->categoryData)) {
-            $data['categories'] = $this->categoryData;
-        }
-        
-        if (!empty($this->groupsData)) {
-            $data['groups'] = $this->groupsData;
-        }
-        
-        return $data;
+        return $this->personalData;
     }
     
     /**
@@ -797,6 +796,42 @@ class Constituents {
             'categories' => $this->categoryData,
             'groups' => $this->groupsData
         ];
+    }
+    
+    /**
+     * Get email data for multi-request pattern
+     * 
+     * @return array Email data
+     */
+    public function getEmailData(): array {
+        return $this->emailData;
+    }
+    
+    /**
+     * Get phone data for multi-request pattern
+     * 
+     * @return array Phone data
+     */
+    public function getPhoneData(): array {
+        return $this->phoneData;
+    }
+    
+    /**
+     * Get address data for multi-request pattern
+     * 
+     * @return array Address data
+     */
+    public function getAddressData(): array {
+        return $this->addressData;
+    }
+    
+    /**
+     * Get membership data for multi-request pattern
+     * 
+     * @return array Membership data
+     */
+    public function getMembershipData(): array {
+        return $this->membershipData;
     }
 }
 

@@ -36,6 +36,13 @@ class SettingsHandler {
     private Connection $connection;
     
     /**
+     * Settings Manager service (lazy-loaded)
+     * 
+     * @var SettingsManager|null
+     */
+    private ?SettingsManager $settingsManager = null;
+    
+    /**
      * Settings option name
      */
     const OPTION_NAME = 'lgl_integration_settings';
@@ -49,6 +56,25 @@ class SettingsHandler {
     public function __construct(Helper $helper, Connection $connection) {
         $this->helper = $helper;
         $this->connection = $connection;
+    }
+    
+    /**
+     * Lazy-load SettingsManager to avoid circular dependency
+     * 
+     * @return SettingsManager|null
+     */
+    private function getSettingsManager(): ?SettingsManager {
+        if ($this->settingsManager === null && function_exists('lgl_get_container')) {
+            try {
+                $container = lgl_get_container();
+                if ($container->has('admin.settings_manager')) {
+                    $this->settingsManager = $container->get('admin.settings_manager');
+                }
+            } catch (\Exception $e) {
+                // SettingsManager not available, will use fallback
+            }
+        }
+        return $this->settingsManager;
     }
     
     /**
@@ -106,12 +132,23 @@ class SettingsHandler {
      * Get all settings
      */
     public function getSettings(): array {
+        // Try to delegate to SettingsManager, fallback to direct option access
+        $manager = $this->getSettingsManager();
+        if ($manager) {
+            return $manager->getAll();
+        }
+        
+        // Fallback: direct access with defaults
         $defaults = [
             'api_url' => '',
             'api_key' => '',
             'debug_mode' => false,
             'test_mode' => false,
-            'membership_levels' => []
+            'membership_levels' => [],
+            'fund_mappings' => [],
+            'campaign_mappings' => [],
+            'payment_types' => [],
+            'relation_endpoints' => []
         ];
         
         return wp_parse_args(get_option(self::OPTION_NAME, []), $defaults);
@@ -121,17 +158,16 @@ class SettingsHandler {
      * Update settings
      */
     public function updateSettings(array $settings): bool {
-        $current = $this->getSettings();
-        $updated = array_merge($current, $settings);
-        
-        $result = update_option(self::OPTION_NAME, $updated);
-        
-        // Clear cache after successful update
-        if ($result) {
-            $this->clearSettingsCache();
+        // Try to delegate to SettingsManager, fallback to direct update
+        $manager = $this->getSettingsManager();
+        if ($manager) {
+            return $manager->update($settings);
         }
         
-        return $result;
+        // Fallback: direct update
+        $current = $this->getSettings();
+        $updated = array_merge($current, $settings);
+        return update_option(self::OPTION_NAME, $updated);
     }
     
     /**
@@ -180,6 +216,10 @@ class SettingsHandler {
         
         $membership_levels = [];
         
+        if (!empty($_POST['import_membership_schema'])) {
+            $membership_levels = $this->importMembershipLevelsFromSchema(\sanitize_text_field($_POST['import_membership_schema']));
+        }
+        
         // Process membership levels if provided
         if (isset($_POST['membership_levels']) && is_array($_POST['membership_levels'])) {
             foreach ($_POST['membership_levels'] as $index => $level) {
@@ -188,17 +228,41 @@ class SettingsHandler {
                 }
                 
                 $membership_levels[] = [
-                    'level_name' => sanitize_text_field($level['level_name']),
-                    'level_slug' => sanitize_title($level['level_slug'] ?: $level['level_name']),
+                    'level_name' => \sanitize_text_field($level['level_name']),
+                    'level_slug' => \sanitize_title($level['level_slug'] ?: $level['level_name']),
                     'lgl_membership_level_id' => intval($level['lgl_membership_level_id']),
                     'price' => floatval($level['price'] ?? 0)
                 ];
             }
         }
         
+        $funds = $this->getSettings()['fund_mappings'];
+        if (!empty($_POST['import_fund_schema'])) {
+            $funds = $this->importFundMappingsFromSchema(\sanitize_text_field($_POST['import_fund_schema']));
+        }
+        
+        $campaigns = $this->getSettings()['campaign_mappings'];
+        if (!empty($_POST['import_campaign_schema'])) {
+            $campaigns = $this->importCampaignMappingsFromSchema(\sanitize_text_field($_POST['import_campaign_schema']));
+        }
+        
+        $payment_types = $this->getSettings()['payment_types'];
+        if (!empty($_POST['import_payment_schema'])) {
+            $payment_types = $this->importPaymentTypesFromSchema(\sanitize_text_field($_POST['import_payment_schema']));
+        }
+        
+        $relation_endpoints = $this->getSettings()['relation_endpoints'];
+        if (!empty($_POST['import_relation_schema'])) {
+            $relation_endpoints = $this->importRelationEndpointsFromSchema(\sanitize_text_field($_POST['import_relation_schema']));
+        }
+        
         // Save settings
         $settings = [
-            'membership_levels' => $membership_levels
+            'membership_levels' => $membership_levels,
+            'fund_mappings' => $funds,
+            'campaign_mappings' => $campaigns,
+            'payment_types' => $payment_types,
+            'relation_endpoints' => $relation_endpoints
         ];
         
         if ($this->updateSettings($settings)) {
@@ -238,8 +302,6 @@ class SettingsHandler {
      */
     public function handleConnectionTest(): void {
         error_log('🚨🚨🚨 LGL SettingsHandler: handleConnectionTest() METHOD CALLED! 🚨🚨🚨');
-        error_log('LGL SettingsHandler: Connection test requested');
-        error_log('LGL SettingsHandler: POST data: ' . print_r($_POST, true));
         
         // Check permissions - be more lenient for AJAX requests
         if (!current_user_can('manage_options') && !current_user_can('edit_posts')) {
@@ -255,40 +317,34 @@ class SettingsHandler {
             return;
         }
         
-        // Get API credentials - either from form data or saved settings
-        $api_url = $_POST['api_url'] ?? '';
-        $api_key = $_POST['api_key'] ?? '';
+        // Get API credentials from form or use saved settings
+        $api_url = $_POST['api_url'] ?? null;
+        $api_key = $_POST['api_key'] ?? null;
         
-        // If not provided in request, get from saved settings
-        if (empty($api_url) || empty($api_key)) {
-            $settings = $this->getSettings();
-            $api_url = $api_url ?: $settings['api_url'];
-            $api_key = $api_key ?: $settings['api_key'];
-        }
-        
-        if (empty($api_url) || empty($api_key)) {
-            wp_send_json_error([
-                'message' => 'API URL and API Key are required for testing. Please enter them in the form above.'
-            ]);
-            return;
-        }
-        
-        error_log('LGL SettingsHandler: Testing with URL: ' . $api_url . ', Key length: ' . strlen($api_key));
-        
-        // Test the connection
-        try {
-            $test_result = $this->testApiConnection($api_url, $api_key);
-            
-            if ($test_result['success']) {
-                wp_send_json_success($test_result);
-            } else {
-                wp_send_json_error($test_result);
+        // Try to delegate to SettingsManager
+        $manager = $this->getSettingsManager();
+        if ($manager) {
+            $result = $manager->testConnection($api_url, $api_key);
+        } else {
+            // Fallback: basic connection test
+            if (empty($api_url) || empty($api_key)) {
+                $settings = $this->getSettings();
+                $api_url = $api_url ?: $settings['api_url'];
+                $api_key = $api_key ?: $settings['api_key'];
             }
-        } catch (\Exception $e) {
-            error_log('LGL SettingsHandler: Connection test exception: ' . $e->getMessage());
-            wp_send_json_error([
-                'message' => 'Connection test failed: ' . $e->getMessage()
-            ]);
+            
+            if (empty($api_url) || empty($api_key)) {
+                wp_send_json_error(['message' => 'API URL and API Key are required']);
+                return;
+            }
+            
+            $result = $this->testApiConnection($api_url, $api_key);
+        }
+        
+        if ($result['success']) {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result);
         }
     }
     
@@ -457,6 +513,88 @@ class SettingsHandler {
      */
     public function isTestMode(): bool {
         return (bool) $this->getSetting('test_mode', false);
+    }
+
+    private function importMembershipLevelsFromSchema(string $schema): array {
+        $data = $this->loadSchemaData($schema, 'lgl-membership_levels.json');
+        if (empty($data['items'])) {
+            return [];
+        }
+        
+        $levels = [];
+        foreach ($data['items'] as $item) {
+            if (!isset($item['id']) || !isset($item['name'])) {
+                continue;
+            }
+            $levels[] = [
+                'level_name' => $item['name'],
+                'level_slug' => \sanitize_title($item['name']),
+                'lgl_membership_level_id' => (int) $item['id'],
+                'price' => isset($item['price']) ? (float) $item['price'] : 0
+            ];
+        }
+        return $levels;
+    }
+    
+    private function importFundMappingsFromSchema(string $schema): array {
+        $data = $this->loadSchemaData($schema, 'lgl-funds.json');
+        if (empty($data['items'])) {
+            return [];
+        }
+        $funds = [];
+        foreach ($data['items'] as $item) {
+            if (!isset($item['id']) || !isset($item['name'])) {
+                continue;
+            }
+            $funds[$item['name']] = (int) $item['id'];
+        }
+        return $funds;
+    }
+    
+    private function importCampaignMappingsFromSchema(string $schema): array {
+        $data = $this->loadSchemaData($schema, 'lgl-campaigns.json');
+        if (empty($data['items'])) {
+            return [];
+        }
+        $campaigns = [];
+        foreach ($data['items'] as $item) {
+            if (!isset($item['id']) || !isset($item['name'])) {
+                continue;
+            }
+            $campaigns[$item['name']] = (int) $item['id'];
+        }
+        return $campaigns;
+    }
+    
+    private function importPaymentTypesFromSchema(string $schema): array {
+        $data = $this->loadSchemaData($schema, 'lgl-payment_types.json');
+        if (empty($data['items'])) {
+            return [];
+        }
+        $types = [];
+        foreach ($data['items'] as $item) {
+            if (!isset($item['id']) || !isset($item['name'])) {
+                continue;
+            }
+            $types[$item['name']] = (int) $item['id'];
+        }
+        return $types;
+    }
+    
+    private function importRelationEndpointsFromSchema(string $schema): array {
+        $data = $this->loadSchemaData($schema, 'lgl-group_memberships.json');
+        return is_array($data) ? $data : [];
+    }
+    
+    private function loadSchemaData(string $schema, string $fallbackFile): array {
+        $baseDir = \trailingslashit(LGL_PLUGIN_DIR) . 'docs/lgl-exports/';
+        $file = $schema && file_exists($baseDir . $schema) ? $baseDir . $schema : $baseDir . $fallbackFile;
+        if (!file_exists($file)) {
+            return [];
+        }
+        $json = file_get_contents($file);
+        $decoded = json_decode($json, true);
+        return is_array($decoded) ? $decoded : [];
     }
 }
 ?>

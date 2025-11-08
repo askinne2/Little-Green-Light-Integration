@@ -1,0 +1,345 @@
+/**
+ * LGL Admin Bundle - MODERNIZED
+ * Consolidated CSS for all admin pages
+ * 
+ * @package UpstateInternational\LGL
+ * @since 2.1.0
+ */
+
+/* ==========================================================================
+   Layout & Grid System
+   ========================================================================== */
+
+.lgl-admin-page {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.lgl-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 24px;
+    margin-top: 24px;
+}
+
+/* Full width cards */
+.lgl-card.lgl-full-width {
+    grid-column: 1 / -1;
+}
+
+/* ==========================================================================
+   Card Component
+   ========================================================================== */
+
+.lgl-card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: box-shadow 0.2s ease;
+}
+
+.lgl-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+}
+
+.lgl-card h2,
+.lgl-card h3 {
+    margin-top: 0;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.lgl-card h2 {
+    font-size: 18px;
+    color: #1d2327;
+}
+
+/* ==========================================================================
+   Status Items
+   ========================================================================== */
+
+.lgl-status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid #ddd;
+}
+
+.lgl-status-item.status-success {
+    border-left-color: #46b450;
+    background: #f0f9f1;
+}
+
+.lgl-status-item.status-error {
+    border-left-color: #dc3232;
+    background: #fef2f2;
+}
+
+.lgl-status-item.status-warning {
+    border-left-color: #ffb900;
+    background: #fffbf0;
+}
+
+.lgl-status-label {
+    font-weight: 600;
+    color: #2c3338;
+}
+
+.lgl-status-value {
+    font-family: 'Consolas', 'Monaco', monospace;
+    padding: 4px 8px;
+    background: #fff;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+/* ==========================================================================
+   Buttons & Actions
+   ========================================================================== */
+
+.lgl-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.lgl-button {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.lgl-button-primary {
+    background: #2271b1;
+    color: #fff;
+}
+
+.lgl-button-primary:hover {
+    background: #135e96;
+    color: #fff;
+}
+
+.lgl-button-secondary {
+    background: #f6f7f7;
+    color: #2c3338;
+    border: 1px solid #c3c4c7;
+}
+
+.lgl-button-secondary:hover {
+    background: #e5e7e8;
+    color: #2c3338;
+}
+
+.lgl-button-danger {
+    background: #dc3232;
+    color: #fff;
+}
+
+.lgl-button-danger:hover {
+    background: #a02020;
+    color: #fff;
+}
+
+/* ==========================================================================
+   Tables
+   ========================================================================== */
+
+.lgl-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+}
+
+.lgl-table th {
+    background: #f8f9fa;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid #ddd;
+}
+
+.lgl-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #efefef;
+}
+
+.lgl-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+/* ==========================================================================
+   Notices
+   ========================================================================== */
+
+.lgl-notice {
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 4px;
+    border-left: 4px solid;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.lgl-notice-success {
+    background: #f0f9f1;
+    border-left-color: #46b450;
+    color: #1e4620;
+}
+
+.lgl-notice-error {
+    background: #fef2f2;
+    border-left-color: #dc3232;
+    color: #761919;
+}
+
+.lgl-notice-warning {
+    background: #fffbf0;
+    border-left-color: #ffb900;
+    color: #614200;
+}
+
+.lgl-notice-info {
+    background: #f0f6fc;
+    border-left-color: #2271b1;
+    color: #0a3055;
+}
+
+/* ==========================================================================
+   Settings Page
+   ========================================================================== */
+
+.lgl-settings-page .nav-tab-wrapper {
+    margin-bottom: 24px;
+}
+
+.lgl-tab-content {
+    background: #fff;
+    padding: 24px;
+    border: 1px solid #ddd;
+    border-radius: 0 4px 4px 4px;
+}
+
+/* ==========================================================================
+   Activity List
+   ========================================================================== */
+
+.lgl-activity-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.lgl-activity-item {
+    padding: 12px 0;
+    border-bottom: 1px solid #efefef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lgl-activity-item:last-child {
+    border-bottom: none;
+}
+
+.lgl-activity-time {
+    color: #757575;
+    font-size: 12px;
+}
+
+/* ==========================================================================
+   Architecture Status
+   ========================================================================== */
+
+.lgl-architecture-status {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+/* ==========================================================================
+   Connection Test Result
+   ========================================================================== */
+
+.lgl-connection-result {
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-top: 12px;
+    font-weight: 500;
+}
+
+.lgl-connection-result.success {
+    background: #f0f9f1;
+    color: #1e4620;
+    border: 1px solid #46b450;
+}
+
+.lgl-connection-result.error {
+    background: #fef2f2;
+    color: #761919;
+    border: 1px solid #dc3232;
+}
+
+/* ==========================================================================
+   Responsive Adjustments
+   ========================================================================== */
+
+@media (max-width: 782px) {
+    .lgl-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .lgl-quick-actions {
+        flex-direction: column;
+    }
+    
+    .lgl-button {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+/* ==========================================================================
+   Loading States
+   ========================================================================== */
+
+.lgl-loading {
+    opacity: 0.6;
+    pointer-events: none;
+    position: relative;
+}
+
+.lgl-loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 32px;
+    height: 32px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #2271b1;
+    border-radius: 50%;
+    animation: lgl-spin 0.8s linear infinite;
+}
+
+@keyframes lgl-spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}

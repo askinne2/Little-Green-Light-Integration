@@ -1,0 +1,38 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number"
+      },
+      "name": {
+        "type": "string"
+      },
+      "description": {
+        "type": "string"
+      },
+      "date": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "financial_goal": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "projected_amount": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "code": {
+        "type": "string"
+      }
+    }
+  }
+}

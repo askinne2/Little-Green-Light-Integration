@@ -1,0 +1,47 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number"
+      },
+      "item_id": {
+        "type": "number"
+      },
+      "item_type": {
+        "type": "string"
+      },
+      "number": {
+        "type": "string"
+      },
+      "phone_number_type_id": {
+        "type": "number"
+      },
+      "phone_type_name": {
+        "type": "string"
+      },
+      "is_preferred": {
+        "type": "boolean"
+      },
+      "not_current": {
+        "type": "boolean"
+      },
+      "parent_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "normalized_number": {
+        "type": "string"
+      },
+      "created_at": {
+        "type": "string"
+      },
+      "updated_at": {
+        "type": "string"
+      }
+    }
+  }
+}

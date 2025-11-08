@@ -18,9 +18,8 @@ if (!defined('ABSPATH')) {
 /**
  * Debug membership test shortcode
  */
-add_shortcode('debug_membership_test', 'debug_membership_test_shortcode');
-
-function debug_membership_test_shortcode($atts) {
+if (!function_exists('debug_membership_test_shortcode')) {
+    function debug_membership_test_shortcode($atts) {
     // Only allow admins
     if (!current_user_can('manage_options')) {
         return '<p>Access denied. Admin privileges required.</p>';
@@ -301,5 +300,8 @@ function run_debug_membership_test() {
     }
     
     return ob_get_clean();
+    }
+    
+    add_shortcode('debug_membership_test', 'debug_membership_test_shortcode');
 }
 ?>

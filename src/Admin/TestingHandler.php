@@ -52,6 +52,13 @@ class TestingHandler {
     private Plugin $plugin;
     
     /**
+     * Settings Manager service (lazy-loaded to avoid circular dependency)
+     * 
+     * @var SettingsManager|null
+     */
+    private ?SettingsManager $settingsManager = null;
+    
+    /**
      * Constructor
      * 
      * @param Helper $helper Helper service

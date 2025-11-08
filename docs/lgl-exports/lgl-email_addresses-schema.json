@@ -1,0 +1,44 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number"
+      },
+      "item_id": {
+        "type": "number"
+      },
+      "item_type": {
+        "type": "string"
+      },
+      "address": {
+        "type": "string"
+      },
+      "email_address_type_id": {
+        "type": "number"
+      },
+      "email_type_name": {
+        "type": "string"
+      },
+      "is_preferred": {
+        "type": "boolean"
+      },
+      "not_current": {
+        "type": "boolean"
+      },
+      "parent_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "created_at": {
+        "type": "string"
+      },
+      "updated_at": {
+        "type": "string"
+      }
+    }
+  }
+}

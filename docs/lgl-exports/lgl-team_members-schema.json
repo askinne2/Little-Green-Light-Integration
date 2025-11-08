@@ -1,0 +1,32 @@
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number"
+      },
+      "first_name": {
+        "type": "string"
+      },
+      "last_name": {
+        "type": "string"
+      },
+      "email": {
+        "type": "string"
+      },
+      "role_id": {
+        "type": "number"
+      },
+      "is_admin": {
+        "type": "boolean"
+      },
+      "is_primary_contact": {
+        "type": "boolean"
+      },
+      "is_billing_contact": {
+        "type": "boolean"
+      }
+    }
+  }
+}
