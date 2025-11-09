@@ -70,9 +70,9 @@ function lgl_init_modern_architecture() {
     add_action('plugins_loaded', function() {
         try {
             $plugin = \UpstateInternational\LGL\Core\Plugin::getInstance(LGL_PLUGIN_FILE);
-            error_log('LGL Plugin: Modern architecture initialized successfully');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Modern architecture initialized successfully');
         } catch (Exception $e) {
-            error_log('LGL Plugin Modern Architecture Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin Modern Architecture Error: ' . $e->getMessage());
         }
     }, 5); // Load early to ensure modern classes are available
 }
@@ -100,7 +100,7 @@ register_activation_hook(__FILE__, function() {
         lgl_plugin()->onActivation();
     }
     
-    error_log('LGL Plugin: Activation completed');
+    \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Activation completed');
 });
 
 register_deactivation_hook(__FILE__, function() {
@@ -109,7 +109,7 @@ register_deactivation_hook(__FILE__, function() {
         lgl_plugin()->onDeactivation();
     }
     
-    error_log('LGL Plugin: Deactivation completed');
+    \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Deactivation completed');
 });
 
 // Legacy shortcode support (temporary compatibility)

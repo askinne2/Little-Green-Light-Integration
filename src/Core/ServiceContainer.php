@@ -333,7 +333,7 @@ class ServiceContainer implements ContainerInterface {
         
         // Register SettingsHandler WITHOUT SettingsManager dependency (to avoid circular dependency)
         $this->register('admin.settings_handler', function($container) {
-            error_log('🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...');
             
             // Create handler with basic dependencies only
             // SettingsManager will be lazy-loaded when needed via getSetting()
@@ -343,11 +343,11 @@ class ServiceContainer implements ContainerInterface {
             );
             
             // Wire the modern handler to the legacy ApiSettings for delegation
-            error_log('🔧 ServiceContainer: Getting ApiSettings instance for injection...');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('🔧 ServiceContainer: Getting ApiSettings instance for injection...');
             $apiSettings = \UpstateInternational\LGL\LGL\ApiSettings::getInstance();
-            error_log('🔧 ServiceContainer: Calling setSettingsHandler...');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('🔧 ServiceContainer: Calling setSettingsHandler...');
             $apiSettings->setSettingsHandler($handler);
-            error_log('🔧 ServiceContainer: SettingsHandler injection completed');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('🔧 ServiceContainer: SettingsHandler injection completed');
             
             return $handler;
         });
@@ -413,6 +413,7 @@ class ServiceContainer implements ContainerInterface {
         // Register email services
         $this->register('email.blocker', function($container) {
             return new \UpstateInternational\LGL\Email\EmailBlocker(
+                $container->get('lgl.helper'),
                 $container->get('admin.settings_manager'),
                 $container->get('admin.operational_data')
             );

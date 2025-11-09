@@ -15,6 +15,7 @@ namespace UpstateInternational\LGL\Email;
 
 use UpstateInternational\LGL\Admin\SettingsManager;
 use UpstateInternational\LGL\Admin\OperationalDataManager;
+use UpstateInternational\LGL\LGL\Helper;
 
 /**
  * Email Blocker Class
@@ -37,6 +38,13 @@ class EmailBlocker {
     ];
     
     /**
+     * Helper service
+     * 
+     * @var Helper
+     */
+    private Helper $helper;
+    
+    /**
      * Settings manager
      * 
      * @var SettingsManager
@@ -53,10 +61,12 @@ class EmailBlocker {
     /**
      * Constructor
      * 
+     * @param Helper $helper Helper service
      * @param SettingsManager $settingsManager Settings manager instance
      * @param OperationalDataManager $operationalData Operational data manager instance
      */
-    public function __construct(SettingsManager $settingsManager, OperationalDataManager $operationalData) {
+    public function __construct(Helper $helper, SettingsManager $settingsManager, OperationalDataManager $operationalData) {
+        $this->helper = $helper;
         $this->settingsManager = $settingsManager;
         $this->operationalData = $operationalData;
     }
@@ -70,9 +80,9 @@ class EmailBlocker {
             add_action('admin_notices', [$this, 'showEmailBlockingNotice']);
             
             $mode = $this->isForceBlocking() ? 'MANUAL OVERRIDE ENABLED' : 'Development environment detected';
-            error_log('LGL Email Blocker: ACTIVE - ' . $mode);
+            $this->helper->debug('LGL Email Blocker: ACTIVE - ' . $mode);
         } else {
-            error_log('LGL Email Blocker: INACTIVE - Manual override disabled and environment not flagged');
+            $this->helper->debug('LGL Email Blocker: INACTIVE - Manual override disabled and environment not flagged');
         }
     }
     
@@ -131,29 +141,32 @@ class EmailBlocker {
     public function blockEmails(array $args) {
         $subject = $args['subject'] ?? 'No Subject';
         $to = is_array($args['to']) ? implode(', ', $args['to']) : ($args['to'] ?? 'Unknown');
+        $message = $args['message'] ?? 'No Message';
         
         // Check if temporarily disabled
         if ($this->operationalData->isEmailBlockingPaused()) {
-            error_log(sprintf(
+            $this->helper->debug(sprintf(
                 'LGL Email Blocker: ALLOWED (temporarily disabled) - To: %s | Subject: %s',
                 $to,
-                $subject
+                $subject,
+                $message
             ));
             return $args; // Allow email to send
         }
         
         // Check whitelist (for admin testing)
         if ($this->isWhitelisted($to)) {
-            error_log(sprintf(
+            $this->helper->debug(sprintf(
                 'LGL Email Blocker: ALLOWED (whitelisted) - To: %s | Subject: %s',
                 $to,
-                $subject
+                $subject,
+                $message
             ));
             return $args; // Allow email to send
         }
         
         // Log the blocked email attempt
-        error_log(sprintf(
+        $this->helper->debug(sprintf(
             'LGL Email Blocker: BLOCKED email - To: %s | Subject: %s | Environment: %s | Mode: %s',
             $to,
             $subject,
@@ -207,21 +220,21 @@ class EmailBlocker {
      * Show admin notice about email blocking
      */
     public function showEmailBlockingNotice(): void {
-        error_log('EmailBlocker: showEmailBlockingNotice() called');
+        $this->helper->debug('EmailBlocker: showEmailBlockingNotice() called');
         
         if (!$this->isBlockingEnabled()) {
-            error_log('EmailBlocker: Notice skipped - blocking not enabled');
+            $this->helper->debug('EmailBlocker: Notice skipped - blocking not enabled');
             return;
         }
 
         if (!current_user_can('manage_options')) {
-            error_log('EmailBlocker: Notice skipped - user lacks manage_options capability');
+            $this->helper->debug('EmailBlocker: Notice skipped - user lacks manage_options capability');
             return;
         }
         
-        error_log('EmailBlocker: Rendering admin notice');
+        $this->helper->debug('EmailBlocker: Rendering admin notice');
         $blocked_count = $this->operationalData->getBlockedEmailsCount();
-        error_log('EmailBlocker: Blocked count = ' . $blocked_count);
+        $this->helper->debug('EmailBlocker: Blocked count = ' . $blocked_count);
         
         // Make notice persistent (not dismissible) since this is a critical warning
         // Add unique ID and inline styles to prevent dismissal

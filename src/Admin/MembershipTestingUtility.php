@@ -672,12 +672,13 @@ class MembershipTestingUtility {
         );
         
         $subject = '[TEST] ' . $mailer->getSubjectLine($first_name, $interval);
-        $content = $mailer->getEmailContent(
-            $first_name,
-            $last_name,
-            $renewal_date_formatted,
-            $interval,
-            $membership_level
+        $content = $mailer->getEmailContent($interval);
+        
+        // Replace template variables with actual values
+        $content = str_replace(
+            ['{first_name}', '{last_name}', '{renewal_date}', '{days_until_renewal}', '{membership_level}'],
+            [$first_name, $last_name, $renewal_date_formatted, $interval, $membership_level],
+            $content
         );
         
         // Add test notice to content

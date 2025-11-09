@@ -141,7 +141,7 @@ class Connection {
                 $cached_response = CacheManager::get($cache_key);
                 
                 if ($cached_response !== false) {
-                    error_log('LGL Connection: Cache HIT for ' . $endpoint);
+                    Helper::getInstance()->debug('LGL Connection: Cache HIT for ' . $endpoint);
                     return $cached_response;
                 }
             }
@@ -172,7 +172,7 @@ class Connection {
             return $processed_response;
             
         } catch (\Exception $e) {
-            error_log('LGL Connection Error: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL Connection Error: ' . $e->getMessage());
             return $this->createErrorResponse('Request failed: ' . $e->getMessage());
         }
     }
@@ -224,7 +224,7 @@ class Connection {
                 
                 // Debug: Log the actual JSON being sent
                 if ($method === 'POST' && strpos($this->requestUri, 'constituents') !== false) {
-                    error_log('🔍 RAW JSON PAYLOAD: ' . $json_body);
+                    Helper::getInstance()->debug('🔍 RAW JSON PAYLOAD: ' . $json_body);
                 }
                 
                 $args['body'] = $json_body;
@@ -330,7 +330,7 @@ class Connection {
             return;
         }
         
-        error_log(sprintf(
+        Helper::getInstance()->debug(sprintf(
             'LGL Connection Request: %s %s | Data: %s',
             strtoupper($method),
             $endpoint,
@@ -352,7 +352,7 @@ class Connection {
         $status = $response['success'] ? 'SUCCESS' : 'ERROR';
         $message = $response['success'] ? 'Request completed' : ($response['error'] ?? 'Unknown error');
         
-        error_log(sprintf(
+        Helper::getInstance()->debug(sprintf(
             'LGL Connection Response: %s | %s | %s',
             $endpoint,
             $status,
@@ -551,7 +551,7 @@ class Connection {
             return $response['items'] ?? [];
         } catch (\Exception $e) {
             if ($this->isDebugMode()) {
-                error_log('LGL Connection: Failed to get membership levels: ' . $e->getMessage());
+                Helper::getInstance()->debug('LGL Connection: Failed to get membership levels: ' . $e->getMessage());
             }
             return [];
         }

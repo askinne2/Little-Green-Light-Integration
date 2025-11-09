@@ -38,7 +38,7 @@ class DashboardWidgets {
         add_action('wp_dashboard_setup', [static::class, 'registerWidgets']);
         add_action('admin_menu', [static::class, 'addAdminPages']);
         
-        error_log('LGL Dashboard Widgets: Initialized successfully');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Dashboard Widgets: Initialized successfully');
     }
     
     /**
@@ -88,7 +88,7 @@ class DashboardWidgets {
             static::renderOrderSummaryTable();
             static::renderEmailForm();
         } catch (\Exception $e) {
-            error_log('LGL Dashboard Widget Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Dashboard Widget Error: ' . $e->getMessage());
             echo '<div class="error"><p>Error loading widget. Please try again later.</p></div>';
         }
     }
@@ -412,7 +412,7 @@ class DashboardWidgets {
             static::renderEventsContent();
         } catch (\Exception $e) {
             echo '<div class="notice notice-error"><p>Error loading events. Please try again later.</p></div>';
-            error_log('LGL Events Newsletter Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Events Newsletter Error: ' . $e->getMessage());
         }
         
         echo '</div></div></div>';

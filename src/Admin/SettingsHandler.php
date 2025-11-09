@@ -99,17 +99,22 @@ class SettingsHandler {
         
         // AJAX handlers for connection testing - using closure to ensure proper callback
         add_action('wp_ajax_lgl_test_connection', function() {
-            error_log('🔥🔥🔥 AJAX ACTION lgl_test_connection TRIGGERED! Calling handleConnectionTest...');
+            $this->helper->debug('🔥🔥🔥 AJAX ACTION lgl_test_connection TRIGGERED! Calling handleConnectionTest...');
             $this->handleConnectionTest();
         }, 10);
         add_action('wp_ajax_lgl_test_api_connection', function() {
-            error_log('🔥🔥🔥 AJAX ACTION lgl_test_api_connection TRIGGERED!');
+            $this->helper->debug('🔥🔥🔥 AJAX ACTION lgl_test_api_connection TRIGGERED!');
             $this->handleConnectionTest();
         }, 10);
         add_action('wp_ajax_nopriv_lgl_test_connection', function() {
-            error_log('🔥🔥🔥 AJAX ACTION lgl_test_connection (nopriv) TRIGGERED!');
+            $this->helper->debug('🔥🔥🔥 AJAX ACTION lgl_test_connection (nopriv) TRIGGERED!');
             $this->handleConnectionTest();
         }, 10);
+        
+        // AJAX handlers for importing data from LGL API
+        add_action('wp_ajax_lgl_import_membership_levels', [$this, 'handleImportMembershipLevels']);
+        add_action('wp_ajax_lgl_import_events', [$this, 'handleImportEvents']);
+        add_action('wp_ajax_lgl_import_funds', [$this, 'handleImportFunds']);
         
         // Debug: Test if AJAX action is registered
         // error_log('LGL SettingsHandler: AJAX handlers registered for actions: wp_ajax_lgl_test_connection, wp_ajax_lgl_test_api_connection');
@@ -301,18 +306,18 @@ class SettingsHandler {
      * Handle connection test AJAX request
      */
     public function handleConnectionTest(): void {
-        error_log('🚨🚨🚨 LGL SettingsHandler: handleConnectionTest() METHOD CALLED! 🚨🚨🚨');
+        $this->helper->debug('🚨🚨🚨 LGL SettingsHandler: handleConnectionTest() METHOD CALLED! 🚨🚨🚨');
         
         // Check permissions - be more lenient for AJAX requests
         if (!current_user_can('manage_options') && !current_user_can('edit_posts')) {
-            error_log('LGL SettingsHandler: User lacks sufficient permissions');
+            $this->helper->debug('LGL SettingsHandler: User lacks sufficient permissions');
             wp_send_json_error('Insufficient permissions');
             return;
         }
         
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'lgl_admin_nonce')) {
-            error_log('LGL SettingsHandler: Nonce verification failed');
+            $this->helper->debug('LGL SettingsHandler: Nonce verification failed');
             wp_send_json_error('Nonce verification failed');
             return;
         }
@@ -362,11 +367,11 @@ class SettingsHandler {
         ];
         
         $base_url = rtrim($api_url, '/');
-        error_log('LGL SettingsHandler: Testing API connection with base URL: ' . $base_url);
+        $this->helper->debug('LGL SettingsHandler: Testing API connection with base URL: ' . $base_url);
         
         foreach ($endpoints_to_test as $endpoint) {
             $test_url = $base_url . $endpoint;
-            error_log('LGL SettingsHandler: Trying endpoint: ' . $test_url);
+            $this->helper->debug('LGL SettingsHandler: Trying endpoint: ' . $test_url);
             
             $response = wp_remote_get($test_url, [
                 'headers' => [
@@ -378,14 +383,14 @@ class SettingsHandler {
             ]);
             
             if (is_wp_error($response)) {
-                error_log('LGL SettingsHandler: WP Error for ' . $test_url . ': ' . $response->get_error_message());
+                $this->helper->debug('LGL SettingsHandler: WP Error for ' . $test_url . ': ' . $response->get_error_message());
                 continue; // Try next endpoint
             }
             
             $status_code = wp_remote_retrieve_response_code($response);
             $body = wp_remote_retrieve_body($response);
             
-            error_log('LGL SettingsHandler: ' . $test_url . ' - Status: ' . $status_code . ', Body length: ' . strlen($body));
+            $this->helper->debug('LGL SettingsHandler: ' . $test_url . ' - Status: ' . $status_code . ', Body length: ' . strlen($body));
             
             if ($status_code === 200) {
                 $data = json_decode($body, true);
@@ -416,7 +421,7 @@ class SettingsHandler {
             }
             
             // Log other status codes but continue trying
-            error_log('LGL SettingsHandler: ' . $test_url . ' returned HTTP ' . $status_code . ': ' . substr($body, 0, 100));
+            $this->helper->debug('LGL SettingsHandler: ' . $test_url . ' returned HTTP ' . $status_code . ': ' . substr($body, 0, 100));
         }
         
         // If we get here, none of the endpoints worked
@@ -435,7 +440,7 @@ class SettingsHandler {
         // This callback is only for WordPress's register_setting compatibility
         // Just return the input as-is since SettingsManager::sanitizeSettings() already handles it
         
-        error_log('SettingsHandler::sanitizeSettings called with ' . count($input) . ' keys');
+        $this->helper->debug('SettingsHandler::sanitizeSettings called with ' . count($input) . ' keys');
         
         // Let SettingsManager handle all sanitization - just pass through
         return $input;
@@ -573,6 +578,130 @@ class SettingsHandler {
         $json = file_get_contents($file);
         $decoded = json_decode($json, true);
         return is_array($decoded) ? $decoded : [];
+    }
+    
+    /**
+     * Handle AJAX request to import membership levels from LGL API
+     */
+    public function handleImportMembershipLevels(): void {
+        // Verify nonce
+        check_ajax_referer('lgl_import_levels', 'nonce');
+        
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error([
+                'message' => 'Insufficient permissions to import membership levels.'
+            ]);
+            return;
+        }
+        
+        $this->helper->debug('LGL SettingsHandler: Starting membership levels import from API');
+        
+        // Get SettingsManager instance
+        $settingsManager = $this->getSettingsManager();
+        
+        if (!$settingsManager) {
+            $this->helper->debug('LGL SettingsHandler: SettingsManager not available');
+            wp_send_json_error([
+                'message' => 'Settings manager not available. Please try again.'
+            ]);
+            return;
+        }
+        
+        // Import membership levels via SettingsManager
+        $result = $settingsManager->importMembershipLevels();
+        
+        $this->helper->debug('LGL SettingsHandler: Import result', $result);
+        
+        if ($result['success']) {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result);
+        }
+    }
+    
+    /**
+     * Handle AJAX request to import events from LGL API
+     * 
+     * @return void Outputs JSON response
+     */
+    public function handleImportEvents(): void {
+        // Verify nonce
+        check_ajax_referer('lgl_import_events', 'nonce');
+        
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error([
+                'message' => 'Insufficient permissions to import events.'
+            ]);
+            return;
+        }
+        
+        $this->helper->debug('LGL SettingsHandler: Starting events import from API');
+        
+        // Get SettingsManager instance
+        $settingsManager = $this->getSettingsManager();
+        
+        if (!$settingsManager) {
+            $this->helper->debug('LGL SettingsHandler: SettingsManager not available');
+            wp_send_json_error([
+                'message' => 'Settings manager not available. Please try again.'
+            ]);
+            return;
+        }
+        
+        // Import events via SettingsManager
+        $result = $settingsManager->importEvents();
+        
+        $this->helper->debug('LGL SettingsHandler: Import events result', $result);
+        
+        if ($result['success']) {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result);
+        }
+    }
+    
+    /**
+     * Handle AJAX request to import funds from LGL API
+     * 
+     * @return void Outputs JSON response
+     */
+    public function handleImportFunds(): void {
+        // Verify nonce
+        check_ajax_referer('lgl_import_funds', 'nonce');
+        
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error([
+                'message' => 'Insufficient permissions to import funds.'
+            ]);
+            return;
+        }
+        
+        $this->helper->debug('LGL SettingsHandler: Starting funds import from API');
+        
+        // Get SettingsManager instance
+        $settingsManager = $this->getSettingsManager();
+        
+        if (!$settingsManager) {
+            $this->helper->debug('LGL SettingsHandler: SettingsManager not available');
+            wp_send_json_error([
+                'message' => 'Settings manager not available. Please try again.'
+            ]);
+            return;
+        }
+        
+        // Import funds via SettingsManager
+        $result = $settingsManager->importFunds();
+        
+        $this->helper->debug('LGL SettingsHandler: Import funds result', $result);
+        
+        if ($result['success']) {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result);
+        }
     }
 }
 ?>

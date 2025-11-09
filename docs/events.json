@@ -1,0 +1,30 @@
+{
+  "api_version": "1.0",
+  "items_count": 2,
+  "total_items": 2,
+  "limit": 25,
+  "offset": 0,
+  "item_type": "event",
+  "items": [
+    {
+      "id": 1162,
+      "name": "Fancy Lunch (sample)",
+      "description": null,
+      "date": "2023-02-20",
+      "end_date": null,
+      "financial_goal": null,
+      "projected_amount": null,
+      "code": null
+    },
+    {
+      "id": 1167,
+      "name": "Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham",
+      "description": null,
+      "date": "2025-11-08",
+      "end_date": null,
+      "financial_goal": null,
+      "projected_amount": null,
+      "code": null
+    }
+  ]
+}

@@ -177,7 +177,7 @@ class Plugin {
             if (class_exists('\UpstateInternational\LGL\Memberships\MembershipNotificationMailer')) {
                 $this->initializeMembershipServices();
             } else {
-                error_log('LGL Plugin: Membership services not available - skipping initialization');
+                \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Membership services not available - skipping initialization');
             }
             
             // Initialize LGL services through container
@@ -189,10 +189,10 @@ class Plugin {
             $this->container->get('lgl.wp_users');
             $this->container->get('lgl.relations_manager');
             
-            // error_log('LGL Plugin: All services initialized successfully via DI container');
+            // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: All services initialized successfully via DI container');
             
         } catch (\Exception $e) {
-            error_log('LGL Plugin Service Initialization Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin Service Initialization Error: ' . $e->getMessage());
         }
     }
     
@@ -206,7 +206,7 @@ class Plugin {
         // Legacy shortcode support
         $this->hookManager->addAction('template_redirect', [$this, 'handleLegacyShortcodes'], 10);
         
-        // error_log('LGL Plugin: All hooks initialized successfully via HookManager');
+        // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: All hooks initialized successfully via HookManager');
     }
     
     /**
@@ -227,10 +227,10 @@ class Plugin {
             $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\MembershipDeactivationAction::class);
             
             // Actions are automatically registered with WordPress when calling register()
-            // error_log('LGL Plugin: JetFormBuilder actions initialized successfully - ' . count($actionRegistry->getRegisteredActions()) . ' actions registered');
+            // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: JetFormBuilder actions initialized successfully - ' . count($actionRegistry->getRegisteredActions()) . ' actions registered');
             
         } catch (\Exception $e) {
-            error_log('LGL Plugin JetFormBuilder Actions Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin JetFormBuilder Actions Error: ' . $e->getMessage());
         }
     }
     
@@ -252,10 +252,10 @@ class Plugin {
             // Initialize testing utility (registers shortcode)
             $this->container->get('admin.membership_testing_utility');
             
-            // error_log('LGL Plugin: Membership services initialized successfully');
+            // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Membership services initialized successfully');
             
         } catch (\Exception $e) {
-            error_log('LGL Plugin Membership Services Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin Membership Services Error: ' . $e->getMessage());
         }
     }
     
@@ -271,10 +271,10 @@ class Plugin {
             // Note: admin.settings_manager was removed - SettingsHandler is now used instead
             // The SettingsHandler is initialized in initializeServices() method
             
-            // error_log('LGL Plugin: Admin settings manager was removed - using SettingsHandler instead');
+            // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Admin settings manager was removed - using SettingsHandler instead');
             
         } catch (\Exception $e) {
-            error_log('LGL Plugin Admin Settings Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin Admin Settings Error: ' . $e->getMessage());
         }
     }
     
@@ -314,7 +314,7 @@ class Plugin {
     private function initializeLegacyCompatibility(): void {
         // Check if LegacyCompatibility class is available
         if (!class_exists('\UpstateInternational\LGL\Core\LegacyCompatibility')) {
-            error_log('LGL Plugin: LegacyCompatibility class not found - loading legacy files directly');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: LegacyCompatibility class not found - loading legacy files directly');
             $this->loadLegacyFilesDirect();
             return;
         }
@@ -323,9 +323,9 @@ class Plugin {
             // Initialize the legacy compatibility layer
             LegacyCompatibility::initialize();
             LegacyCompatibility::provideLegacyWrappers();
-            // error_log('LGL Plugin: Legacy compatibility layer initialized successfully');
+            // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Legacy compatibility layer initialized successfully');
         } catch (\Exception $e) {
-            error_log('LGL Plugin: Legacy compatibility error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Legacy compatibility error: ' . $e->getMessage());
             $this->loadLegacyFilesDirect();
         }
     }
@@ -373,7 +373,7 @@ class Plugin {
             }
         });
         
-        // error_log('LGL Plugin: Legacy files loaded directly (fallback mode)');
+        // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Legacy files loaded directly (fallback mode)');
     }
     
     /**
@@ -399,7 +399,7 @@ class Plugin {
         // Flush rewrite rules
         flush_rewrite_rules();
         
-        error_log('LGL Plugin: Activation completed successfully');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Activation completed successfully');
     }
     
     /**
@@ -413,7 +413,7 @@ class Plugin {
         // Flush rewrite rules
         flush_rewrite_rules();
         
-        error_log('LGL Plugin: Deactivation completed successfully');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Deactivation completed successfully');
     }
     
     /**

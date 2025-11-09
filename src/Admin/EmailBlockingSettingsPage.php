@@ -126,16 +126,16 @@ class EmailBlockingSettingsPage {
             $force_blocking = isset($_POST['force_email_blocking']);
             
             // Debug logging
-            error_log('EmailBlockingSettingsPage: Saving force_email_blocking = ' . ($force_blocking ? 'true' : 'false'));
+            $this->helper->debug('EmailBlockingSettingsPage: Saving force_email_blocking = ' . ($force_blocking ? 'true' : 'false'));
             
             $result = $this->settingsManager->set('force_email_blocking', $force_blocking);
             
             // Debug logging
-            error_log('EmailBlockingSettingsPage: Save result = ' . ($result ? 'success' : 'failed'));
+            $this->helper->debug('EmailBlockingSettingsPage: Save result = ' . ($result ? 'success' : 'failed'));
             
             // Verify it was saved
             $saved_value = $this->settingsManager->get('force_email_blocking');
-            error_log('EmailBlockingSettingsPage: Saved value = ' . ($saved_value ? 'true' : 'false'));
+            $this->helper->debug('EmailBlockingSettingsPage: Saved value = ' . ($saved_value ? 'true' : 'false'));
             
             $message = $force_blocking 
                 ? 'Email blocking enabled. All outgoing emails will now be blocked.' 

@@ -106,7 +106,7 @@ class RelationsManager {
         // Initialize relationship tracking
         $this->initializeRelationshipTracking();
         
-        // error_log('LGL Relations Manager: Initialized successfully');
+        // Helper::getInstance()->debug('LGL Relations Manager: Initialized successfully');
     }
     
     /**
@@ -120,7 +120,7 @@ class RelationsManager {
             }
             
         } catch (\Exception $e) {
-            error_log('LGL Relations Manager: Error initializing JetEngine relations: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL Relations Manager: Error initializing JetEngine relations: ' . $e->getMessage());
         }
     }
     
@@ -178,7 +178,7 @@ class RelationsManager {
             $this->debug('Relation registered', $relation_id);
             
         } catch (\Exception $e) {
-            error_log('LGL Relations Manager: Error registering relation ' . $relation_id . ': ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL Relations Manager: Error registering relation ' . $relation_id . ': ' . $e->getMessage());
         }
     }
     
@@ -207,7 +207,7 @@ class RelationsManager {
             }
             
         } catch (\Exception $e) {
-            error_log('LGL Relations Manager: Error tracking user registration: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL Relations Manager: Error tracking user registration: ' . $e->getMessage());
         }
     }
     
@@ -242,7 +242,7 @@ class RelationsManager {
             }
             
         } catch (\Exception $e) {
-            error_log('LGL Relations Manager: Error tracking new order: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL Relations Manager: Error tracking new order: ' . $e->getMessage());
         }
     }
     
@@ -263,7 +263,7 @@ class RelationsManager {
             }
             
         } catch (\Exception $e) {
-            error_log('LGL Relations Manager: Error tracking post save: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL Relations Manager: Error tracking post save: ' . $e->getMessage());
         }
     }
     
@@ -293,7 +293,7 @@ class RelationsManager {
             return true;
             
         } catch (\Exception $e) {
-            error_log('LGL Relations Manager: Error creating user to family relation: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL Relations Manager: Error creating user to family relation: ' . $e->getMessage());
             return false;
         }
     }
@@ -320,7 +320,7 @@ class RelationsManager {
             return true;
             
         } catch (\Exception $e) {
-            error_log('LGL Relations Manager: Error creating user to order relation: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL Relations Manager: Error creating user to order relation: ' . $e->getMessage());
             return false;
         }
     }
@@ -347,7 +347,7 @@ class RelationsManager {
             return true;
             
         } catch (\Exception $e) {
-            error_log('LGL Relations Manager: Error creating user to class registration relation: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL Relations Manager: Error creating user to class registration relation: ' . $e->getMessage());
             return false;
         }
     }
@@ -378,7 +378,7 @@ class RelationsManager {
             }
             
         } catch (\Exception $e) {
-            error_log('LGL Relations Manager: Error processing order item: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL Relations Manager: Error processing order item: ' . $e->getMessage());
         }
     }
     
@@ -404,7 +404,7 @@ class RelationsManager {
             return true;
             
         } catch (\Exception $e) {
-            error_log('LGL Relations Manager: Error creating order to class relation: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL Relations Manager: Error creating order to class relation: ' . $e->getMessage());
             return false;
         }
     }
@@ -431,7 +431,7 @@ class RelationsManager {
             return true;
             
         } catch (\Exception $e) {
-            error_log('LGL Relations Manager: Error creating order to membership relation: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL Relations Manager: Error creating order to membership relation: ' . $e->getMessage());
             return false;
         }
     }
@@ -493,7 +493,7 @@ class RelationsManager {
             $log_message .= ' ' . print_r($data, true);
         }
         
-        error_log($log_message);
+        Helper::getInstance()->debug($log_message);
     }
 }
 

@@ -383,6 +383,12 @@ class SettingsManager implements SettingsManagerInterface {
         try {
             $response = $this->connection->makeRequest('membership_levels', 'GET', [], false);
             
+            $this->helper->debug('SettingsManager: Import membership levels - Raw response', [
+                'success' => $response['success'] ?? false,
+                'has_data' => isset($response['data']),
+                'data_keys' => isset($response['data']) ? array_keys($response['data']) : []
+            ]);
+            
             if (!($response['success'] ?? false)) {
                 return [
                     'success' => false,
@@ -392,16 +398,34 @@ class SettingsManager implements SettingsManagerInterface {
             }
             
             $levels = [];
-            $data = $response['data'] ?? [];
             
-            foreach ($data as $level) {
+            // LGL API returns data in nested structure: response['data']['items']
+            $data = $response['data'] ?? [];
+            $items = $data['items'] ?? $data; // Fallback to $data if 'items' key doesn't exist
+            
+            $this->helper->debug('SettingsManager: Parsing membership levels', [
+                'items_count' => count($items),
+                'first_item' => !empty($items) ? reset($items) : null
+            ]);
+            
+            foreach ($items as $level) {
+                // Skip if level doesn't have required fields
+                if (empty($level['name']) || empty($level['id'])) {
+                    $this->helper->debug('SettingsManager: Skipping invalid level', $level);
+                    continue;
+                }
+                
                 $levels[] = [
                     'level_name' => $level['name'] ?? '',
                     'level_slug' => sanitize_title($level['name'] ?? ''),
-                    'lgl_membership_level_id' => $level['id'] ?? 0,
-                    'price' => 0.00 // Price needs to be set manually
+                    'lgl_membership_level_id' => (int) ($level['id'] ?? 0)
                 ];
             }
+            
+            $this->helper->debug('SettingsManager: Processed membership levels', [
+                'count' => count($levels),
+                'levels' => $levels
+            ]);
             
             // Save imported levels
             $this->set('membership_levels', $levels);
@@ -412,9 +436,170 @@ class SettingsManager implements SettingsManagerInterface {
                 'message' => sprintf('Successfully imported %d membership levels', count($levels))
             ];
         } catch (\Exception $e) {
+            $this->helper->debug('SettingsManager: Import error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return [
                 'success' => false,
                 'levels' => [],
+                'message' => 'Import error: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Import events from LGL API
+     * 
+     * @return array ['success' => bool, 'events' => array, 'message' => string]
+     */
+    public function importEvents(): array {
+        try {
+            $response = $this->connection->makeRequest('events', 'GET', [], false);
+            
+            $this->helper->debug('SettingsManager: Import events - Raw response', [
+                'success' => $response['success'] ?? false,
+                'has_data' => isset($response['data']),
+                'data_keys' => isset($response['data']) ? array_keys($response['data']) : []
+            ]);
+            
+            if (!($response['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'events' => [],
+                    'message' => 'Failed to fetch events from LGL'
+                ];
+            }
+            
+            $events = [];
+            
+            // LGL API returns data in nested structure: response['data']['items']
+            $data = $response['data'] ?? [];
+            $items = $data['items'] ?? $data;
+            
+            $this->helper->debug('SettingsManager: Parsing events', [
+                'items_count' => count($items),
+                'first_item' => !empty($items) ? reset($items) : null
+            ]);
+            
+            foreach ($items as $event) {
+                // Skip if event doesn't have required fields
+                if (empty($event['name']) || empty($event['id'])) {
+                    $this->helper->debug('SettingsManager: Skipping invalid event', $event);
+                    continue;
+                }
+                
+                $events[] = [
+                    'name' => $event['name'] ?? '',
+                    'lgl_event_id' => (int) ($event['id'] ?? 0),
+                    'description' => $event['description'] ?? '',
+                    'date' => $event['date'] ?? '',
+                    'end_date' => $event['end_date'] ?? '',
+                    'financial_goal' => $event['financial_goal'] ?? null,
+                    'projected_amount' => $event['projected_amount'] ?? null,
+                    'code' => $event['code'] ?? ''
+                ];
+            }
+            
+            $this->helper->debug('SettingsManager: Processed events', [
+                'count' => count($events),
+                'events' => $events
+            ]);
+            
+            // Save imported events
+            $this->set('lgl_events', $events);
+            
+            return [
+                'success' => true,
+                'events' => $events,
+                'message' => sprintf('Successfully imported %d events', count($events))
+            ];
+        } catch (\Exception $e) {
+            $this->helper->debug('SettingsManager: Import events error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return [
+                'success' => false,
+                'events' => [],
+                'message' => 'Import error: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Import funds from LGL API
+     * 
+     * @return array ['success' => bool, 'funds' => array, 'message' => string]
+     */
+    public function importFunds(): array {
+        try {
+            $response = $this->connection->makeRequest('funds', 'GET', [], false);
+            
+            $this->helper->debug('SettingsManager: Import funds - Raw response', [
+                'success' => $response['success'] ?? false,
+                'has_data' => isset($response['data']),
+                'data_keys' => isset($response['data']) ? array_keys($response['data']) : []
+            ]);
+            
+            if (!($response['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'funds' => [],
+                    'message' => 'Failed to fetch funds from LGL'
+                ];
+            }
+            
+            $funds = [];
+            
+            // LGL API returns data in nested structure: response['data']['items']
+            $data = $response['data'] ?? [];
+            $items = $data['items'] ?? $data;
+            
+            $this->helper->debug('SettingsManager: Parsing funds', [
+                'items_count' => count($items),
+                'first_item' => !empty($items) ? reset($items) : null
+            ]);
+            
+            foreach ($items as $fund) {
+                // Skip if fund doesn't have required fields
+                if (empty($fund['name']) || empty($fund['id'])) {
+                    $this->helper->debug('SettingsManager: Skipping invalid fund', $fund);
+                    continue;
+                }
+                
+                $funds[] = [
+                    'name' => $fund['name'] ?? '',
+                    'lgl_fund_id' => (int) ($fund['id'] ?? 0),
+                    'description' => $fund['description'] ?? '',
+                    'code' => $fund['code'] ?? '',
+                    'start_date' => $fund['start_date'] ?? '',
+                    'end_date' => $fund['end_date'] ?? '',
+                    'financial_goal' => $fund['financial_goal'] ?? null
+                ];
+            }
+            
+            $this->helper->debug('SettingsManager: Processed funds', [
+                'count' => count($funds),
+                'funds' => $funds
+            ]);
+            
+            // Save imported funds
+            $this->set('lgl_funds', $funds);
+            
+            return [
+                'success' => true,
+                'funds' => $funds,
+                'message' => sprintf('Successfully imported %d funds', count($funds))
+            ];
+        } catch (\Exception $e) {
+            $this->helper->debug('SettingsManager: Import funds error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return [
+                'success' => false,
+                'funds' => [],
                 'message' => 'Import error: ' . $e->getMessage()
             ];
         }
@@ -709,11 +894,86 @@ class SettingsManager implements SettingsManagerInterface {
                         'type' => 'integer',
                         'validation' => ['required', 'integer', 'min:1'],
                         'sanitize' => 'intval'
+                    ]
+                ]
+            ],
+            
+            // LGL Events (synced from API)
+            'lgl_events' => [
+                'type' => 'array',
+                'default' => [],
+                'sub_schema' => [
+                    'name' => [
+                        'type' => 'string',
+                        'validation' => ['required'],
+                        'sanitize' => 'sanitize_text_field'
                     ],
-                    'price' => [
-                        'type' => 'float',
-                        'validation' => ['numeric', 'min:0'],
-                        'sanitize' => 'floatval'
+                    'lgl_event_id' => [
+                        'type' => 'integer',
+                        'validation' => ['required', 'integer', 'min:1'],
+                        'sanitize' => 'intval'
+                    ],
+                    'description' => [
+                        'type' => 'string',
+                        'sanitize' => 'sanitize_textarea_field'
+                    ],
+                    'date' => [
+                        'type' => 'string',
+                        'sanitize' => 'sanitize_text_field'
+                    ],
+                    'end_date' => [
+                        'type' => 'string',
+                        'sanitize' => 'sanitize_text_field'
+                    ],
+                    'financial_goal' => [
+                        'type' => 'string',
+                        'sanitize' => 'sanitize_text_field'
+                    ],
+                    'projected_amount' => [
+                        'type' => 'string',
+                        'sanitize' => 'sanitize_text_field'
+                    ],
+                    'code' => [
+                        'type' => 'string',
+                        'sanitize' => 'sanitize_text_field'
+                    ]
+                ]
+            ],
+            
+            // LGL Funds (synced from API)
+            'lgl_funds' => [
+                'type' => 'array',
+                'default' => [],
+                'sub_schema' => [
+                    'name' => [
+                        'type' => 'string',
+                        'validation' => ['required'],
+                        'sanitize' => 'sanitize_text_field'
+                    ],
+                    'lgl_fund_id' => [
+                        'type' => 'integer',
+                        'validation' => ['required', 'integer', 'min:1'],
+                        'sanitize' => 'intval'
+                    ],
+                    'description' => [
+                        'type' => 'string',
+                        'sanitize' => 'sanitize_textarea_field'
+                    ],
+                    'code' => [
+                        'type' => 'string',
+                        'sanitize' => 'sanitize_text_field'
+                    ],
+                    'start_date' => [
+                        'type' => 'string',
+                        'sanitize' => 'sanitize_text_field'
+                    ],
+                    'end_date' => [
+                        'type' => 'string',
+                        'sanitize' => 'sanitize_text_field'
+                    ],
+                    'financial_goal' => [
+                        'type' => 'string',
+                        'sanitize' => 'sanitize_text_field'
                     ]
                 ]
             ],

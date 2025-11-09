@@ -305,7 +305,7 @@ class AdminMenuManager {
         // Build settings tabs
         $tabs = [
             'api' => 'API Configuration',
-            'memberships' => 'Membership Levels',
+            'memberships' => 'LGL Sync Data',
             'advanced' => 'Advanced Settings'
         ];
         
@@ -329,9 +329,9 @@ class AdminMenuManager {
         $content .= $this->renderApiSettingsForm($settings, $nonce);
         $content .= '</div>';
         
-        // Membership Levels Tab
+        // LGL Sync Data Tab (formerly Membership Levels)
         $content .= '<div id="lgl-tab-memberships" class="lgl-tab-content" style="display:none;">';
-        $content .= $this->renderMembershipSettingsForm($settings, $nonce);
+        $content .= $this->renderSyncDataForm($settings, $nonce);
         $content .= '</div>';
         
         // Advanced Settings Tab
@@ -582,44 +582,207 @@ class AdminMenuManager {
     }
     
     /**
-     * Render membership settings form
+     * Render LGL sync data form (membership levels, events, funds)
      */
-    private function renderMembershipSettingsForm(array $settings, string $nonce): string {
+    private function renderSyncDataForm(array $settings, string $nonce): string {
         $levels = $settings['membership_levels'] ?? [];
+        $events = $settings['lgl_events'] ?? [];
+        $funds = $settings['lgl_funds'] ?? [];
         
         ob_start();
         ?>
-        <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
-            <?php wp_nonce_field('lgl_membership_settings', '_wpnonce'); ?>
-            <input type="hidden" name="action" value="lgl_save_membership_settings" />
+        <div class="lgl-sync-data-container">
+            <p class="description">
+                Sync data from your Little Green Light account to use in WooCommerce products and forms. 
+                Click the import buttons below to fetch the latest data from the LGL API.
+            </p>
             
-            <p>Configure your membership levels and their LGL mappings.</p>
+            <!-- Membership Levels Section -->
+            <h3 style="margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
+                📋 Membership Levels
+            </h3>
             
-            <table class="widefat">
+            <table class="widefat" style="margin-top: 15px;">
                 <thead>
                     <tr>
                         <th>Level Name</th>
                         <th>LGL Level ID</th>
-                        <th>Price</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($levels)): ?>
-                        <tr><td colspan="3"><em>No membership levels configured. Add them below.</em></td></tr>
+                        <tr><td colspan="2"><em>No membership levels imported yet. Use the button below to import.</em></td></tr>
                     <?php else: ?>
                         <?php foreach ($levels as $level): ?>
                             <tr>
                                 <td><?php echo esc_html($level['level_name'] ?? ''); ?></td>
                                 <td><?php echo esc_html($level['lgl_membership_level_id'] ?? ''); ?></td>
-                                <td>$<?php echo number_format($level['price'] ?? 0, 2); ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </tbody>
             </table>
             
-            <?php submit_button('Import from LGL'); ?>
-        </form>
+            <p style="margin-top: 15px;">
+                <button type="button" id="lgl-import-levels" class="button button-secondary" style="padding: 8px 20px; height: auto;">
+                    🔄 Import Membership Levels
+                </button>
+                <span id="lgl-import-levels-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
+            </p>
+            
+            <!-- Events Section -->
+            <h3 style="margin-top: 40px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
+                🎉 Events
+            </h3>
+            
+            <table class="widefat" style="margin-top: 15px;">
+                <thead>
+                    <tr>
+                        <th>Event Name</th>
+                        <th>LGL Event ID</th>
+                        <th>Date</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($events)): ?>
+                        <tr><td colspan="4"><em>No events imported yet. Use the button below to import.</em></td></tr>
+                    <?php else: ?>
+                        <?php foreach ($events as $event): ?>
+                            <tr>
+                                <td><?php echo esc_html($event['name'] ?? ''); ?></td>
+                                <td><?php echo esc_html($event['lgl_event_id'] ?? ''); ?></td>
+                                <td><?php echo esc_html($event['date'] ?? ''); ?></td>
+                                <td><?php echo esc_html(wp_trim_words($event['description'] ?? '', 10)); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+            
+            <p style="margin-top: 15px;">
+                <button type="button" id="lgl-import-events" class="button button-secondary" style="padding: 8px 20px; height: auto;">
+                    🔄 Import Events
+                </button>
+                <span id="lgl-import-events-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
+            </p>
+            
+            <!-- Funds Section -->
+            <h3 style="margin-top: 40px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
+                💰 Funds
+            </h3>
+            
+            <table class="widefat" style="margin-top: 15px;">
+                <thead>
+                    <tr>
+                        <th>Fund Name</th>
+                        <th>LGL Fund ID</th>
+                        <th>Code</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($funds)): ?>
+                        <tr><td colspan="4"><em>No funds imported yet. Use the button below to import.</em></td></tr>
+                    <?php else: ?>
+                        <?php foreach ($funds as $fund): ?>
+                            <tr>
+                                <td><?php echo esc_html($fund['name'] ?? ''); ?></td>
+                                <td><?php echo esc_html($fund['lgl_fund_id'] ?? ''); ?></td>
+                                <td><?php echo esc_html($fund['code'] ?? ''); ?></td>
+                                <td><?php echo esc_html(wp_trim_words($fund['description'] ?? '', 10)); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+            
+            <p style="margin-top: 15px;">
+                <button type="button" id="lgl-import-funds" class="button button-secondary" style="padding: 8px 20px; height: auto;">
+                    🔄 Import Funds
+                </button>
+                <span id="lgl-import-funds-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
+            </p>
+        </div>
+        
+        <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            // Generic AJAX import handler
+            function handleImport(type, action, nonceValue, btnId, statusId) {
+                var $btn = $(btnId);
+                var $status = $(statusId);
+                
+                // Disable button and show loading state
+                $btn.prop('disabled', true).text('⏳ Importing...');
+                $status.html('<span class="spinner is-active" style="float: none; margin: 0;"></span> <em>Fetching ' + type + ' from LGL...</em>');
+                
+                $.ajax({
+                    url: ajaxurl,
+                    method: 'POST',
+                    data: {
+                        action: action,
+                        nonce: nonceValue
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            $status.html('<span style="color: #46b450; font-weight: 600;">✓ Success!</span> ' + 
+                                        '<span style="color: #666;">' + response.data.message + '</span>');
+                            
+                            // Reload page after 1.5 seconds to show imported data
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1500);
+                        } else {
+                            var errorMsg = response.data && response.data.message ? response.data.message : 'Import failed';
+                            $status.html('<span style="color: #dc3232; font-weight: 600;">✗ Error:</span> ' + 
+                                        '<span style="color: #666;">' + errorMsg + '</span>');
+                            $btn.prop('disabled', false).text('🔄 Import ' + type);
+                        }
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        console.error('AJAX Error:', textStatus, errorThrown);
+                        $status.html('<span style="color: #dc3232; font-weight: 600;">✗ Error:</span> ' + 
+                                    '<span style="color: #666;">Failed to connect to server. Please check your connection and try again.</span>');
+                        $btn.prop('disabled', false).text('🔄 Import ' + type);
+                    }
+                });
+            }
+            
+            // Membership Levels Import
+            $('#lgl-import-levels').on('click', function() {
+                handleImport(
+                    'Membership Levels',
+                    'lgl_import_membership_levels',
+                    '<?php echo wp_create_nonce("lgl_import_levels"); ?>',
+                    '#lgl-import-levels',
+                    '#lgl-import-levels-status'
+                );
+            });
+            
+            // Events Import
+            $('#lgl-import-events').on('click', function() {
+                handleImport(
+                    'Events',
+                    'lgl_import_events',
+                    '<?php echo wp_create_nonce("lgl_import_events"); ?>',
+                    '#lgl-import-events',
+                    '#lgl-import-events-status'
+                );
+            });
+            
+            // Funds Import
+            $('#lgl-import-funds').on('click', function() {
+                handleImport(
+                    'Funds',
+                    'lgl_import_funds',
+                    '<?php echo wp_create_nonce("lgl_import_funds"); ?>',
+                    '#lgl-import-funds',
+                    '#lgl-import-funds-status'
+                );
+            });
+        });
+        </script>
+        
         <?php
         return ob_get_clean();
     }

@@ -1,2 +1,1587 @@
+[2025-11-09 04:44:21] [debug] SettingsManager: Migration already completed, skipping
+[2025-11-09 04:44:21] [debug] LGL Cache: GET HIT for key lgl_settings_cache
+[2025-11-09 04:44:21] [debug] LGL Plugin: Modern architecture initialized successfully
+[2025-11-09 04:44:21] [debug] 🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...
+[2025-11-09 04:44:21] [debug] 🔧 ServiceContainer: Getting ApiSettings instance for injection...
+[2025-11-09 04:44:21] [debug] 🔧 ServiceContainer: Calling setSettingsHandler...
+[2025-11-09 04:44:21] [debug] 🔗 ApiSettings: SettingsHandler injected successfully! Handler class: UpstateInternational\LGL\Admin\SettingsHandler
+[2025-11-09 04:44:21] [debug] 🔧 ServiceContainer: SettingsHandler injection completed
+[2025-11-09 04:44:21] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED
+[2025-11-09 04:44:21] [debug] SettingsManager: Migration already completed, skipping
+[2025-11-09 04:44:21] [debug] LGL Cache: GET HIT for key lgl_settings_cache
+[2025-11-09 04:44:21] [debug] LGL Plugin: Modern architecture initialized successfully
+[2025-11-09 04:44:21] [debug] 🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...
+[2025-11-09 04:44:21] [debug] 🔧 ServiceContainer: Getting ApiSettings instance for injection...
+[2025-11-09 04:44:21] [debug] 🔧 ServiceContainer: Calling setSettingsHandler...
+[2025-11-09 04:44:21] [debug] 🔗 ApiSettings: SettingsHandler injected successfully! Handler class: UpstateInternational\LGL\Admin\SettingsHandler
+[2025-11-09 04:44:21] [debug] 🔧 ServiceContainer: SettingsHandler injection completed
+[2025-11-09 04:44:21] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED
+[2025-11-09 04:44:21] [debug] EmailBlocker: showEmailBlockingNotice() called
+[2025-11-09 04:44:21] [debug] EmailBlocker: Rendering admin notice
+[2025-11-09 04:44:21] [debug] EmailBlocker: Blocked count = 0
+[2025-11-09 04:44:26] [debug] SettingsManager: Migration already completed, skipping
+[2025-11-09 04:44:26] [debug] LGL Cache: GET HIT for key lgl_settings_cache
+[2025-11-09 04:44:26] [debug] LGL Plugin: Modern architecture initialized successfully
+[2025-11-09 04:44:26] [debug] 🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...
+[2025-11-09 04:44:26] [debug] 🔧 ServiceContainer: Getting ApiSettings instance for injection...
+[2025-11-09 04:44:26] [debug] 🔧 ServiceContainer: Calling setSettingsHandler...
+[2025-11-09 04:44:26] [debug] 🔗 ApiSettings: SettingsHandler injected successfully! Handler class: UpstateInternational\LGL\Admin\SettingsHandler
+[2025-11-09 04:44:26] [debug] 🔧 ServiceContainer: SettingsHandler injection completed
+[2025-11-09 04:44:26] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED
+[2025-11-09 04:44:26] [debug] LGL SettingsHandler: Starting events import from API
+[2025-11-09 04:44:26] [debug] SettingsManager: Import events - Raw response Array
+(
+    [success] => 1
+    [has_data] => 1
+    [data_keys] => Array
+        (
+            [0] => api_version
+            [1] => items_count
+            [2] => total_items
+            [3] => limit
+            [4] => offset
+            [5] => item_type
+            [6] => items
+        )
 
-[2025-11-08 13:19:06] [debug] SettingsManager: Migration already completed, skipping
+)
+
+[2025-11-09 04:44:26] [debug] SettingsManager: Parsing events Array
+(
+    [items_count] => 2
+    [first_item] => Array
+        (
+            [id] => 1162
+            [name] => Fancy Lunch (sample)
+            [description] => 
+            [date] => 2023-02-20
+            [end_date] => 
+            [financial_goal] => 
+            [projected_amount] => 
+            [code] => 
+        )
+
+)
+
+[2025-11-09 04:44:26] [debug] SettingsManager: Processed events Array
+(
+    [count] => 2
+    [events] => Array
+        (
+            [0] => Array
+                (
+                    [name] => Fancy Lunch (sample)
+                    [lgl_event_id] => 1162
+                    [description] => 
+                    [date] => 2023-02-20
+                    [end_date] => 
+                    [financial_goal] => 
+                    [projected_amount] => 
+                    [code] => 
+                )
+
+            [1] => Array
+                (
+                    [name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+                    [lgl_event_id] => 1167
+                    [description] => 
+                    [date] => 2025-11-08
+                    [end_date] => 
+                    [financial_goal] => 
+                    [projected_amount] => 
+                    [code] => 
+                )
+
+        )
+
+)
+
+[2025-11-09 04:44:26] [debug] SettingsManager: Before merge Array
+(
+    [current_keys] => Array
+        (
+            [0] => api_url
+            [1] => api_key
+            [2] => debug_mode
+            [3] => test_mode
+            [4] => membership_levels
+            [5] => log_level
+            [6] => cache_ttl
+            [7] => api_request_limit
+            [8] => email_blocking_enabled
+            [9] => admin_notification_email
+            [10] => daily_summary_enabled
+            [11] => force_email_blocking
+            [12] => email_whitelist
+            [13] => fund_mappings
+            [14] => campaign_mappings
+            [15] => payment_types
+            [16] => relation_endpoints
+            [17] => renewal_reminders_enabled
+            [18] => renewal_grace_period_days
+            [19] => renewal_notification_intervals
+            [20] => renewal_email_subject_30
+            [21] => renewal_email_content_30
+            [22] => renewal_email_subject_14
+            [23] => renewal_email_content_14
+            [24] => renewal_email_subject_7
+            [25] => renewal_email_content_7
+            [26] => renewal_email_subject_0
+            [27] => renewal_email_content_0
+            [28] => renewal_email_subject_-7
+            [29] => renewal_email_content_-7
+            [30] => renewal_email_subject_-30
+            [31] => renewal_email_content_-30
+        )
+
+    [sanitized] => Array
+        (
+            [lgl_events] => Array
+                (
+                    [0] => Array
+                        (
+                            [name] => Fancy Lunch (sample)
+                            [lgl_event_id] => 1162
+                            [description] => 
+                            [date] => 2023-02-20
+                            [end_date] => 
+                            [financial_goal] => 
+                            [projected_amount] => 
+                            [code] => 
+                        )
+
+                    [1] => Array
+                        (
+                            [name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+                            [lgl_event_id] => 1167
+                            [description] => 
+                            [date] => 2025-11-08
+                            [end_date] => 
+                            [financial_goal] => 
+                            [projected_amount] => 
+                            [code] => 
+                        )
+
+                )
+
+        )
+
+)
+
+[2025-11-09 04:44:26] [debug] SettingsManager: About to save Array
+(
+    [option_name] => lgl_integration_settings
+    [keys_to_update] => Array
+        (
+            [0] => lgl_events
+        )
+
+    [updated_values] => Array
+        (
+            [lgl_events] => Array
+                (
+                    [0] => Array
+                        (
+                            [name] => Fancy Lunch (sample)
+                            [lgl_event_id] => 1162
+                            [description] => 
+                            [date] => 2023-02-20
+                            [end_date] => 
+                            [financial_goal] => 
+                            [projected_amount] => 
+                            [code] => 
+                        )
+
+                    [1] => Array
+                        (
+                            [name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+                            [lgl_event_id] => 1167
+                            [description] => 
+                            [date] => 2025-11-08
+                            [end_date] => 
+                            [financial_goal] => 
+                            [projected_amount] => 
+                            [code] => 
+                        )
+
+                )
+
+        )
+
+    [total_keys] => 33
+    [serialized_size] => 8346 bytes
+)
+
+[2025-11-09 04:44:26] [debug] SettingsHandler::sanitizeSettings called with 33 keys
+[2025-11-09 04:44:26] [debug] SettingsManager: update_option result Array
+(
+    [result] => 1
+    [option_name] => lgl_integration_settings
+)
+
+[2025-11-09 04:44:26] [debug] LGL Cache: DELETED key lgl_settings_cache
+[2025-11-09 04:44:26] [debug] SettingsManager: Read back from DB Array
+(
+    [has_data] => 1
+    [is_array] => 1
+    [keys_count] => 33
+    [verify_type] => array
+)
+
+[2025-11-09 04:44:26] [debug] SettingsManager: Settings updated successfully Array
+(
+    [updated_keys] => Array
+        (
+            [0] => lgl_events
+        )
+
+    [update_option_result] => 1
+)
+
+[2025-11-09 04:44:26] [debug] LGL SettingsHandler: Import events result Array
+(
+    [success] => 1
+    [events] => Array
+        (
+            [0] => Array
+                (
+                    [name] => Fancy Lunch (sample)
+                    [lgl_event_id] => 1162
+                    [description] => 
+                    [date] => 2023-02-20
+                    [end_date] => 
+                    [financial_goal] => 
+                    [projected_amount] => 
+                    [code] => 
+                )
+
+            [1] => Array
+                (
+                    [name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures - UI Member Ham
+                    [lgl_event_id] => 1167
+                    [description] => 
+                    [date] => 2025-11-08
+                    [end_date] => 
+                    [financial_goal] => 
+                    [projected_amount] => 
+                    [code] => 
+                )
+
+        )
+
+    [message] => Successfully imported 2 events
+)
+
+[2025-11-09 04:44:28] [debug] SettingsManager: Migration already completed, skipping
+[2025-11-09 04:44:28] [debug] LGL Cache: GET MISS for key lgl_settings_cache
+[2025-11-09 04:44:28] [debug] LGL Cache: SET key lgl_settings_cache (TTL: 3600s)
+[2025-11-09 04:44:28] [debug] LGL Plugin: Modern architecture initialized successfully
+[2025-11-09 04:44:28] [debug] 🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...
+[2025-11-09 04:44:28] [debug] 🔧 ServiceContainer: Getting ApiSettings instance for injection...
+[2025-11-09 04:44:28] [debug] 🔧 ServiceContainer: Calling setSettingsHandler...
+[2025-11-09 04:44:28] [debug] 🔗 ApiSettings: SettingsHandler injected successfully! Handler class: UpstateInternational\LGL\Admin\SettingsHandler
+[2025-11-09 04:44:28] [debug] 🔧 ServiceContainer: SettingsHandler injection completed
+[2025-11-09 04:44:28] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED
+[2025-11-09 04:44:28] [debug] EmailBlocker: showEmailBlockingNotice() called
+[2025-11-09 04:44:28] [debug] EmailBlocker: Rendering admin notice
+[2025-11-09 04:44:28] [debug] EmailBlocker: Blocked count = 0
+[2025-11-09 04:44:33] [debug] SettingsManager: Migration already completed, skipping
+[2025-11-09 04:44:33] [debug] LGL Cache: GET HIT for key lgl_settings_cache
+[2025-11-09 04:44:33] [debug] LGL Plugin: Modern architecture initialized successfully
+[2025-11-09 04:44:33] [debug] 🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...
+[2025-11-09 04:44:33] [debug] 🔧 ServiceContainer: Getting ApiSettings instance for injection...
+[2025-11-09 04:44:33] [debug] 🔧 ServiceContainer: Calling setSettingsHandler...
+[2025-11-09 04:44:33] [debug] 🔗 ApiSettings: SettingsHandler injected successfully! Handler class: UpstateInternational\LGL\Admin\SettingsHandler
+[2025-11-09 04:44:33] [debug] 🔧 ServiceContainer: SettingsHandler injection completed
+[2025-11-09 04:44:33] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED
+[2025-11-09 04:44:33] [debug] LGL SettingsHandler: Starting funds import from API
+[2025-11-09 04:44:34] [debug] SettingsManager: Import funds - Raw response Array
+(
+    [success] => 1
+    [has_data] => 1
+    [data_keys] => Array
+        (
+            [0] => api_version
+            [1] => items_count
+            [2] => total_items
+            [3] => limit
+            [4] => offset
+            [5] => next_item
+            [6] => next_link
+            [7] => item_type
+            [8] => items
+        )
+
+)
+
+[2025-11-09 04:44:34] [debug] SettingsManager: Parsing funds Array
+(
+    [items_count] => 25
+    [first_item] => Array
+        (
+            [id] => 2422
+            [name] => Unrestricted (sample)
+            [description] => 
+            [code] => 
+            [start_date] => 
+            [end_date] => 
+            [financial_goal] => 
+        )
+
+)
+
+[2025-11-09 04:44:34] [debug] SettingsManager: Processed funds Array
+(
+    [count] => 25
+    [funds] => Array
+        (
+            [0] => Array
+                (
+                    [name] => Unrestricted (sample)
+                    [lgl_fund_id] => 2422
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [1] => Array
+                (
+                    [name] => New Building (sample)
+                    [lgl_fund_id] => 2427
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [2] => Array
+                (
+                    [name] => Memorial Fund (sample)
+                    [lgl_fund_id] => 2432
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [3] => Array
+                (
+                    [name] => Membership
+                    [lgl_fund_id] => 2437
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [4] => Array
+                (
+                    [name] => Spanish A1
+                    [lgl_fund_id] => 2442
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [5] => Array
+                (
+                    [name] => Danish A1
+                    [lgl_fund_id] => 2447
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [6] => Array
+                (
+                    [name] => English A1
+                    [lgl_fund_id] => 2452
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [7] => Array
+                (
+                    [name] => English A1 Intensive
+                    [lgl_fund_id] => 2457
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [8] => Array
+                (
+                    [name] => English A2
+                    [lgl_fund_id] => 2462
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [9] => Array
+                (
+                    [name] => English B1
+                    [lgl_fund_id] => 2467
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [10] => Array
+                (
+                    [name] => English B2 Intensive
+                    [lgl_fund_id] => 2472
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [11] => Array
+                (
+                    [name] => English C1
+                    [lgl_fund_id] => 2477
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [12] => Array
+                (
+                    [name] => English C1 Intensive
+                    [lgl_fund_id] => 2482
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [13] => Array
+                (
+                    [name] => English Intensive Intermediate
+                    [lgl_fund_id] => 2487
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [14] => Array
+                (
+                    [name] => English Intermediate
+                    [lgl_fund_id] => 2492
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [15] => Array
+                (
+                    [name] => Englisth B1 Intensive
+                    [lgl_fund_id] => 2497
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [16] => Array
+                (
+                    [name] => French A1
+                    [lgl_fund_id] => 2502
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [17] => Array
+                (
+                    [name] => French A2
+                    [lgl_fund_id] => 2507
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [18] => Array
+                (
+                    [name] => French Advanced
+                    [lgl_fund_id] => 2512
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [19] => Array
+                (
+                    [name] => French Advanced Conversational
+                    [lgl_fund_id] => 2517
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [20] => Array
+                (
+                    [name] => French B2
+                    [lgl_fund_id] => 2522
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [21] => Array
+                (
+                    [name] => French Beg 2&3 Combined
+                    [lgl_fund_id] => 2527
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [22] => Array
+                (
+                    [name] => French Beginner 1
+                    [lgl_fund_id] => 2532
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [23] => Array
+                (
+                    [name] => French Beginner 3
+                    [lgl_fund_id] => 2537
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [24] => Array
+                (
+                    [name] => French C1
+                    [lgl_fund_id] => 2542
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+        )
+
+)
+
+[2025-11-09 04:44:34] [debug] SettingsManager: Before merge Array
+(
+    [current_keys] => Array
+        (
+            [0] => api_url
+            [1] => api_key
+            [2] => debug_mode
+            [3] => test_mode
+            [4] => membership_levels
+            [5] => log_level
+            [6] => cache_ttl
+            [7] => api_request_limit
+            [8] => email_blocking_enabled
+            [9] => admin_notification_email
+            [10] => daily_summary_enabled
+            [11] => force_email_blocking
+            [12] => email_whitelist
+            [13] => fund_mappings
+            [14] => campaign_mappings
+            [15] => payment_types
+            [16] => relation_endpoints
+            [17] => renewal_reminders_enabled
+            [18] => renewal_grace_period_days
+            [19] => renewal_notification_intervals
+            [20] => renewal_email_subject_30
+            [21] => renewal_email_content_30
+            [22] => renewal_email_subject_14
+            [23] => renewal_email_content_14
+            [24] => renewal_email_subject_7
+            [25] => renewal_email_content_7
+            [26] => renewal_email_subject_0
+            [27] => renewal_email_content_0
+            [28] => renewal_email_subject_-7
+            [29] => renewal_email_content_-7
+            [30] => renewal_email_subject_-30
+            [31] => renewal_email_content_-30
+            [32] => lgl_events
+            [33] => lgl_funds
+        )
+
+    [sanitized] => Array
+        (
+            [lgl_funds] => Array
+                (
+                    [0] => Array
+                        (
+                            [name] => Unrestricted (sample)
+                            [lgl_fund_id] => 2422
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [1] => Array
+                        (
+                            [name] => New Building (sample)
+                            [lgl_fund_id] => 2427
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [2] => Array
+                        (
+                            [name] => Memorial Fund (sample)
+                            [lgl_fund_id] => 2432
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [3] => Array
+                        (
+                            [name] => Membership
+                            [lgl_fund_id] => 2437
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [4] => Array
+                        (
+                            [name] => Spanish A1
+                            [lgl_fund_id] => 2442
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [5] => Array
+                        (
+                            [name] => Danish A1
+                            [lgl_fund_id] => 2447
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [6] => Array
+                        (
+                            [name] => English A1
+                            [lgl_fund_id] => 2452
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [7] => Array
+                        (
+                            [name] => English A1 Intensive
+                            [lgl_fund_id] => 2457
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [8] => Array
+                        (
+                            [name] => English A2
+                            [lgl_fund_id] => 2462
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [9] => Array
+                        (
+                            [name] => English B1
+                            [lgl_fund_id] => 2467
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [10] => Array
+                        (
+                            [name] => English B2 Intensive
+                            [lgl_fund_id] => 2472
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [11] => Array
+                        (
+                            [name] => English C1
+                            [lgl_fund_id] => 2477
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [12] => Array
+                        (
+                            [name] => English C1 Intensive
+                            [lgl_fund_id] => 2482
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [13] => Array
+                        (
+                            [name] => English Intensive Intermediate
+                            [lgl_fund_id] => 2487
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [14] => Array
+                        (
+                            [name] => English Intermediate
+                            [lgl_fund_id] => 2492
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [15] => Array
+                        (
+                            [name] => Englisth B1 Intensive
+                            [lgl_fund_id] => 2497
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [16] => Array
+                        (
+                            [name] => French A1
+                            [lgl_fund_id] => 2502
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [17] => Array
+                        (
+                            [name] => French A2
+                            [lgl_fund_id] => 2507
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [18] => Array
+                        (
+                            [name] => French Advanced
+                            [lgl_fund_id] => 2512
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [19] => Array
+                        (
+                            [name] => French Advanced Conversational
+                            [lgl_fund_id] => 2517
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [20] => Array
+                        (
+                            [name] => French B2
+                            [lgl_fund_id] => 2522
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [21] => Array
+                        (
+                            [name] => French Beg 2&3 Combined
+                            [lgl_fund_id] => 2527
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [22] => Array
+                        (
+                            [name] => French Beginner 1
+                            [lgl_fund_id] => 2532
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [23] => Array
+                        (
+                            [name] => French Beginner 3
+                            [lgl_fund_id] => 2537
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [24] => Array
+                        (
+                            [name] => French C1
+                            [lgl_fund_id] => 2542
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                )
+
+        )
+
+)
+
+[2025-11-09 04:44:34] [debug] SettingsManager: About to save Array
+(
+    [option_name] => lgl_integration_settings
+    [keys_to_update] => Array
+        (
+            [0] => lgl_funds
+        )
+
+    [updated_values] => Array
+        (
+            [lgl_funds] => Array
+                (
+                    [0] => Array
+                        (
+                            [name] => Unrestricted (sample)
+                            [lgl_fund_id] => 2422
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [1] => Array
+                        (
+                            [name] => New Building (sample)
+                            [lgl_fund_id] => 2427
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [2] => Array
+                        (
+                            [name] => Memorial Fund (sample)
+                            [lgl_fund_id] => 2432
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [3] => Array
+                        (
+                            [name] => Membership
+                            [lgl_fund_id] => 2437
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [4] => Array
+                        (
+                            [name] => Spanish A1
+                            [lgl_fund_id] => 2442
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [5] => Array
+                        (
+                            [name] => Danish A1
+                            [lgl_fund_id] => 2447
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [6] => Array
+                        (
+                            [name] => English A1
+                            [lgl_fund_id] => 2452
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [7] => Array
+                        (
+                            [name] => English A1 Intensive
+                            [lgl_fund_id] => 2457
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [8] => Array
+                        (
+                            [name] => English A2
+                            [lgl_fund_id] => 2462
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [9] => Array
+                        (
+                            [name] => English B1
+                            [lgl_fund_id] => 2467
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [10] => Array
+                        (
+                            [name] => English B2 Intensive
+                            [lgl_fund_id] => 2472
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [11] => Array
+                        (
+                            [name] => English C1
+                            [lgl_fund_id] => 2477
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [12] => Array
+                        (
+                            [name] => English C1 Intensive
+                            [lgl_fund_id] => 2482
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [13] => Array
+                        (
+                            [name] => English Intensive Intermediate
+                            [lgl_fund_id] => 2487
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [14] => Array
+                        (
+                            [name] => English Intermediate
+                            [lgl_fund_id] => 2492
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [15] => Array
+                        (
+                            [name] => Englisth B1 Intensive
+                            [lgl_fund_id] => 2497
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [16] => Array
+                        (
+                            [name] => French A1
+                            [lgl_fund_id] => 2502
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [17] => Array
+                        (
+                            [name] => French A2
+                            [lgl_fund_id] => 2507
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [18] => Array
+                        (
+                            [name] => French Advanced
+                            [lgl_fund_id] => 2512
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [19] => Array
+                        (
+                            [name] => French Advanced Conversational
+                            [lgl_fund_id] => 2517
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [20] => Array
+                        (
+                            [name] => French B2
+                            [lgl_fund_id] => 2522
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [21] => Array
+                        (
+                            [name] => French Beg 2&3 Combined
+                            [lgl_fund_id] => 2527
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [22] => Array
+                        (
+                            [name] => French Beginner 1
+                            [lgl_fund_id] => 2532
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [23] => Array
+                        (
+                            [name] => French Beginner 3
+                            [lgl_fund_id] => 2537
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                    [24] => Array
+                        (
+                            [name] => French C1
+                            [lgl_fund_id] => 2542
+                            [description] => 
+                            [code] => 
+                            [start_date] => 
+                            [end_date] => 
+                            [financial_goal] => 
+                        )
+
+                )
+
+        )
+
+    [total_keys] => 34
+    [serialized_size] => 13031 bytes
+)
+
+[2025-11-09 04:44:34] [debug] SettingsHandler::sanitizeSettings called with 34 keys
+[2025-11-09 04:44:34] [debug] SettingsManager: update_option result Array
+(
+    [result] => 1
+    [option_name] => lgl_integration_settings
+)
+
+[2025-11-09 04:44:34] [debug] LGL Cache: DELETED key lgl_settings_cache
+[2025-11-09 04:44:34] [debug] SettingsManager: Read back from DB Array
+(
+    [has_data] => 1
+    [is_array] => 1
+    [keys_count] => 34
+    [verify_type] => array
+)
+
+[2025-11-09 04:44:34] [debug] SettingsManager: Settings updated successfully Array
+(
+    [updated_keys] => Array
+        (
+            [0] => lgl_funds
+        )
+
+    [update_option_result] => 1
+)
+
+[2025-11-09 04:44:34] [debug] LGL SettingsHandler: Import funds result Array
+(
+    [success] => 1
+    [funds] => Array
+        (
+            [0] => Array
+                (
+                    [name] => Unrestricted (sample)
+                    [lgl_fund_id] => 2422
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [1] => Array
+                (
+                    [name] => New Building (sample)
+                    [lgl_fund_id] => 2427
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [2] => Array
+                (
+                    [name] => Memorial Fund (sample)
+                    [lgl_fund_id] => 2432
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [3] => Array
+                (
+                    [name] => Membership
+                    [lgl_fund_id] => 2437
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [4] => Array
+                (
+                    [name] => Spanish A1
+                    [lgl_fund_id] => 2442
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [5] => Array
+                (
+                    [name] => Danish A1
+                    [lgl_fund_id] => 2447
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [6] => Array
+                (
+                    [name] => English A1
+                    [lgl_fund_id] => 2452
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [7] => Array
+                (
+                    [name] => English A1 Intensive
+                    [lgl_fund_id] => 2457
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [8] => Array
+                (
+                    [name] => English A2
+                    [lgl_fund_id] => 2462
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [9] => Array
+                (
+                    [name] => English B1
+                    [lgl_fund_id] => 2467
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [10] => Array
+                (
+                    [name] => English B2 Intensive
+                    [lgl_fund_id] => 2472
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [11] => Array
+                (
+                    [name] => English C1
+                    [lgl_fund_id] => 2477
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [12] => Array
+                (
+                    [name] => English C1 Intensive
+                    [lgl_fund_id] => 2482
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [13] => Array
+                (
+                    [name] => English Intensive Intermediate
+                    [lgl_fund_id] => 2487
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [14] => Array
+                (
+                    [name] => English Intermediate
+                    [lgl_fund_id] => 2492
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [15] => Array
+                (
+                    [name] => Englisth B1 Intensive
+                    [lgl_fund_id] => 2497
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [16] => Array
+                (
+                    [name] => French A1
+                    [lgl_fund_id] => 2502
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [17] => Array
+                (
+                    [name] => French A2
+                    [lgl_fund_id] => 2507
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [18] => Array
+                (
+                    [name] => French Advanced
+                    [lgl_fund_id] => 2512
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [19] => Array
+                (
+                    [name] => French Advanced Conversational
+                    [lgl_fund_id] => 2517
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [20] => Array
+                (
+                    [name] => French B2
+                    [lgl_fund_id] => 2522
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [21] => Array
+                (
+                    [name] => French Beg 2&3 Combined
+                    [lgl_fund_id] => 2527
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [22] => Array
+                (
+                    [name] => French Beginner 1
+                    [lgl_fund_id] => 2532
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [23] => Array
+                (
+                    [name] => French Beginner 3
+                    [lgl_fund_id] => 2537
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+            [24] => Array
+                (
+                    [name] => French C1
+                    [lgl_fund_id] => 2542
+                    [description] => 
+                    [code] => 
+                    [start_date] => 
+                    [end_date] => 
+                    [financial_goal] => 
+                )
+
+        )
+
+    [message] => Successfully imported 25 funds
+)
+
+[2025-11-09 04:44:35] [debug] SettingsManager: Migration already completed, skipping
+[2025-11-09 04:44:35] [debug] LGL Cache: GET MISS for key lgl_settings_cache
+[2025-11-09 04:44:35] [debug] LGL Cache: SET key lgl_settings_cache (TTL: 3600s)
+[2025-11-09 04:44:35] [debug] LGL Plugin: Modern architecture initialized successfully
+[2025-11-09 04:44:35] [debug] 🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...
+[2025-11-09 04:44:35] [debug] 🔧 ServiceContainer: Getting ApiSettings instance for injection...
+[2025-11-09 04:44:35] [debug] 🔧 ServiceContainer: Calling setSettingsHandler...
+[2025-11-09 04:44:35] [debug] 🔗 ApiSettings: SettingsHandler injected successfully! Handler class: UpstateInternational\LGL\Admin\SettingsHandler
+[2025-11-09 04:44:35] [debug] 🔧 ServiceContainer: SettingsHandler injection completed
+[2025-11-09 04:44:35] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED
+[2025-11-09 04:44:36] [debug] SettingsManager: Migration already completed, skipping
+[2025-11-09 04:44:36] [debug] LGL Cache: GET HIT for key lgl_settings_cache
+[2025-11-09 04:44:36] [debug] LGL Plugin: Modern architecture initialized successfully
+[2025-11-09 04:44:36] [debug] 🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...
+[2025-11-09 04:44:36] [debug] 🔧 ServiceContainer: Getting ApiSettings instance for injection...
+[2025-11-09 04:44:36] [debug] 🔧 ServiceContainer: Calling setSettingsHandler...
+[2025-11-09 04:44:36] [debug] 🔗 ApiSettings: SettingsHandler injected successfully! Handler class: UpstateInternational\LGL\Admin\SettingsHandler
+[2025-11-09 04:44:36] [debug] 🔧 ServiceContainer: SettingsHandler injection completed
+[2025-11-09 04:44:36] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED
+[2025-11-09 04:44:36] [debug] EmailBlocker: showEmailBlockingNotice() called
+[2025-11-09 04:44:36] [debug] EmailBlocker: Rendering admin notice
+[2025-11-09 04:44:36] [debug] EmailBlocker: Blocked count = 0
+[2025-11-09 04:45:36] [debug] SettingsManager: Migration already completed, skipping
+[2025-11-09 04:45:36] [debug] LGL Cache: GET HIT for key lgl_settings_cache
+[2025-11-09 04:45:36] [debug] LGL Plugin: Modern architecture initialized successfully
+[2025-11-09 04:45:36] [debug] 🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...
+[2025-11-09 04:45:36] [debug] 🔧 ServiceContainer: Getting ApiSettings instance for injection...
+[2025-11-09 04:45:36] [debug] 🔧 ServiceContainer: Calling setSettingsHandler...
+[2025-11-09 04:45:36] [debug] 🔗 ApiSettings: SettingsHandler injected successfully! Handler class: UpstateInternational\LGL\Admin\SettingsHandler
+[2025-11-09 04:45:36] [debug] 🔧 ServiceContainer: SettingsHandler injection completed
+[2025-11-09 04:45:36] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED
+[2025-11-09 04:45:36] [debug] SettingsManager: Migration already completed, skipping
+[2025-11-09 04:45:36] [debug] LGL Cache: GET HIT for key lgl_settings_cache
+[2025-11-09 04:45:36] [debug] LGL Plugin: Modern architecture initialized successfully
+[2025-11-09 04:45:36] [debug] 🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...
+[2025-11-09 04:45:36] [debug] 🔧 ServiceContainer: Getting ApiSettings instance for injection...
+[2025-11-09 04:45:36] [debug] 🔧 ServiceContainer: Calling setSettingsHandler...
+[2025-11-09 04:45:36] [debug] 🔗 ApiSettings: SettingsHandler injected successfully! Handler class: UpstateInternational\LGL\Admin\SettingsHandler
+[2025-11-09 04:45:36] [debug] 🔧 ServiceContainer: SettingsHandler injection completed
+[2025-11-09 04:45:36] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED

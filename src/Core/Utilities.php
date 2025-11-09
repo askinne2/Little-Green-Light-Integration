@@ -25,7 +25,7 @@ class Utilities {
         // Register backward compatibility functions
         static::registerBackwardCompatibility();
         
-        error_log('LGL Utilities: Initialized successfully');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Utilities: Initialized successfully');
     }
     
     /**
@@ -39,13 +39,13 @@ class Utilities {
     public static function getFilteredOrders($start_datetime, $end_datetime, $statuses = ['completed']) {
         // Validate WooCommerce availability
         if (!class_exists('WooCommerce') || !function_exists('wc_get_orders')) {
-            error_log('LGL Utilities: WooCommerce is not active or wc_get_orders() not available');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Utilities: WooCommerce is not active or wc_get_orders() not available');
             return [];
         }
 
         // Validate datetime parameters
         if (!($start_datetime instanceof \DateTime) || !($end_datetime instanceof \DateTime)) {
-            error_log('LGL Utilities: Invalid datetime parameters provided to getFilteredOrders()');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Utilities: Invalid datetime parameters provided to getFilteredOrders()');
             return [];
         }
 
@@ -74,14 +74,14 @@ class Utilities {
             $orders = wc_get_orders($args);
             
             if (!is_array($orders)) {
-                error_log('LGL Utilities: Invalid response from wc_get_orders()');
+                \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Utilities: Invalid response from wc_get_orders()');
                 return [];
             }
 
             // Cache the results for 1 hour
             CacheManager::set($cache_key, $orders, 3600);
 
-            error_log(sprintf(
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug(sprintf(
                 'LGL Utilities: Fetched %d orders from %s to %s',
                 count($orders),
                 $start_datetime->format('Y-m-d H:i:s'),
@@ -91,7 +91,7 @@ class Utilities {
             return $orders;
             
         } catch (\Exception $e) {
-            error_log('LGL Utilities: Error fetching orders - ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Utilities: Error fetching orders - ' . $e->getMessage());
             return [];
         }
     }
@@ -104,7 +104,7 @@ class Utilities {
      */
     public static function formatOrderData($order) {
         if (!is_object($order) || !method_exists($order, 'get_id')) {
-            error_log('LGL Utilities: Invalid order object provided to formatOrderData()');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Utilities: Invalid order object provided to formatOrderData()');
             return null;
         }
 
@@ -120,7 +120,7 @@ class Utilities {
             
             foreach ($required_methods as $method) {
                 if (!method_exists($order, $method)) {
-                    error_log('LGL Utilities: Order object missing required method: ' . $method);
+                    \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Utilities: Order object missing required method: ' . $method);
                     return null;
                 }
             }
@@ -187,7 +187,7 @@ class Utilities {
             ];
             
         } catch (\Exception $e) {
-            error_log('LGL Utilities: Error formatting order data for order #' . ($order->get_id() ?? 'unknown') . ' - ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Utilities: Error formatting order data for order #' . ($order->get_id() ?? 'unknown') . ' - ' . $e->getMessage());
             return null;
         }
     }
@@ -278,7 +278,7 @@ class Utilities {
      */
     public static function logEnvironmentInfo() {
         $env_info = static::getEnvironmentInfo();
-        error_log('LGL Utilities Environment: ' . json_encode($env_info, JSON_PRETTY_PRINT));
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Utilities Environment: ' . json_encode($env_info, JSON_PRETTY_PRINT));
     }
     
     /**

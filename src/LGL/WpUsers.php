@@ -74,7 +74,7 @@ class WpUsers {
         // Register dashboard widgets
         add_action('wp_dashboard_setup', [$this, 'registerSyncDashboardWidget']);
         
-        // error_log('LGL WP Users: Initialized successfully');
+        // Helper::getInstance()->debug('LGL WP Users: Initialized successfully');
     }
     
     /**
@@ -141,11 +141,11 @@ class WpUsers {
                 }
             }
             
-            error_log('LGL WP Users: ' . $message);
+            Helper::getInstance()->debug('LGL WP Users: ' . $message);
             return $message;
             
         } catch (\Exception $e) {
-            error_log('LGL WP Users: Monthly update failed: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL WP Users: Monthly update failed: ' . $e->getMessage());
             return 'Monthly update failed: ' . $e->getMessage();
         }
     }
@@ -191,11 +191,11 @@ class WpUsers {
             }
             
             $message = "User deletion check completed. Processed {$processed_count} users, deleted {$deleted_count}.";
-            error_log('LGL WP Users: ' . $message);
+            Helper::getInstance()->debug('LGL WP Users: ' . $message);
             return $message;
             
         } catch (\Exception $e) {
-            error_log('LGL WP Users: User deletion failed: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL WP Users: User deletion failed: ' . $e->getMessage());
             return 'User deletion failed: ' . $e->getMessage();
         }
     }
@@ -232,7 +232,7 @@ class WpUsers {
             ];
             
         } catch (\Exception $e) {
-            error_log('LGL WP Users: Error updating user data: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL WP Users: Error updating user data: ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -285,7 +285,7 @@ class WpUsers {
             ];
             
         } catch (\Exception $e) {
-            error_log('LGL WP Users: Error updating subscription info: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL WP Users: Error updating subscription info: ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -353,7 +353,7 @@ class WpUsers {
                     ];
                 } else {
                     $error_msg = $item_id && is_wp_error($item_id) ? $item_id->get_error_message() : 'Unknown error';
-                    error_log('LGL WP Users: Failed to create event registration CCT: ' . $error_msg);
+                    Helper::getInstance()->debug('LGL WP Users: Failed to create event registration CCT: ' . $error_msg);
                     \lgl_log('WpUsers: CCT creation failed', [
                         'error' => $error_msg,
                         'item_id' => $item_id
@@ -368,7 +368,7 @@ class WpUsers {
             ];
             
         } catch (\Exception $e) {
-            error_log('LGL WP Users: Error creating event registration CCT: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL WP Users: Error creating event registration CCT: ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -388,7 +388,7 @@ class WpUsers {
         try {
             // Check if JetEngine is available
             if (!function_exists('jet_cct_api_update_item')) {
-                error_log('LGL WP Users: JetEngine CCT API not available');
+                Helper::getInstance()->debug('LGL WP Users: JetEngine CCT API not available');
                 return ['success' => false, 'error' => 'JetEngine not available'];
             }
             
@@ -446,7 +446,7 @@ class WpUsers {
                 ];
             } else {
                 $error_msg = $item_id && is_wp_error($item_id) ? $item_id->get_error_message() : 'Unknown error';
-                error_log('LGL WP Users: Failed to create class registration CCT: ' . $error_msg);
+                Helper::getInstance()->debug('LGL WP Users: Failed to create class registration CCT: ' . $error_msg);
                 \lgl_log('WpUsers: Class CCT creation failed', [
                     'error' => $error_msg,
                     'item_id' => $item_id
@@ -459,7 +459,7 @@ class WpUsers {
             }
             
         } catch (\Exception $e) {
-            error_log('LGL WP Users: Error creating class registration CCT: ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL WP Users: Error creating class registration CCT: ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -521,7 +521,7 @@ class WpUsers {
             return $constituents->setDataAndUpdate($user_id);
             
         } catch (\Exception $e) {
-            error_log('LGL WP Users: Error syncing user ' . $user_id . ': ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL WP Users: Error syncing user ' . $user_id . ': ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -633,7 +633,7 @@ class WpUsers {
             }
             
         } catch (\Exception $e) {
-            error_log('LGL WP Users: Error deleting user ' . $user_id . ': ' . $e->getMessage());
+            Helper::getInstance()->debug('LGL WP Users: Error deleting user ' . $user_id . ': ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()

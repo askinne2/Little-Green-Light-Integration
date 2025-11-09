@@ -2,14 +2,17 @@
 /**
  * WooCommerce Subscription Renewal Manager
  * 
- * Handles subscription renewal settings and management.
- * Moved from theme to plugin for proper separation of concerns.
+ * Comprehensive solution to set all subscriptions to manual renewal
+ * and prevent auto-renewals across all subscription statuses.
+ * Compatible with WooCommerce HPOS (High-Performance Order Storage).
  * 
  * @package UpstateInternational\LGL
  * @since 2.0.0
  */
 
 namespace UpstateInternational\LGL\WooCommerce;
+
+use UpstateInternational\LGL\LGL\Helper;
 
 /**
  * Subscription Renewal Manager Class
@@ -30,186 +33,565 @@ class SubscriptionRenewalManager {
         // Register shortcodes
         add_shortcode('lgl_run_subscription_renewal', [static::class, 'renewalShortcode']);
         add_shortcode('lgl_display_manual_renewal_status', [static::class, 'displayManualRenewalShortcode']);
+        add_shortcode('admin_subscription_stats', [static::class, 'adminSubscriptionStatsShortcode']);
+        add_shortcode('admin_update_all_subscriptions', [static::class, 'adminUpdateAllSubscriptionsShortcode']);
         
         // Legacy shortcode support (will be deprecated)
         add_shortcode('run_subscription_renewal', [static::class, 'legacyRenewalShortcode']);
         add_shortcode('display_requires_manual_renewal', [static::class, 'legacyDisplayShortcode']);
         
-        error_log('LGL Subscription Renewal Manager: Initialized successfully');
+        // Register prevention hooks
+        static::registerPreventionHooks();
+        
+        Helper::getInstance()->debug('LGL Subscription Renewal Manager: Initialized successfully');
     }
     
     /**
-     * Run subscription renewal change (one-time operation)
-     * 
-     * @return string Status message
+     * Register prevention hooks to automatically enforce manual renewal
      */
-    public static function runSubscriptionRenewalChangeOnce(): string {
-        // Check if WooCommerce Subscriptions is active
-        if (!function_exists('wcs_get_subscriptions')) {
-            error_log('LGL Subscription Renewal: WooCommerce Subscriptions not active');
-            return 'Error: WooCommerce Subscriptions plugin is required.';
+    private static function registerPreventionHooks(): void {
+        // Force manual renewal on new subscriptions
+        add_action('woocommerce_new_subscription', [static::class, 'forceManualRenewalOnNew'], 10, 1);
+        add_action('woocommerce_subscription_created', [static::class, 'forceManualRenewalOnNew'], 10, 1);
+        
+        // Force manual renewal on status changes
+        add_action('woocommerce_subscription_status_updated', [static::class, 'forceManualRenewalOnStatusChange'], 10, 3);
+        
+        // Force manual renewal on payment method updates
+        add_action('woocommerce_subscription_payment_method_updated', [static::class, 'forceManualRenewalOnNew'], 10, 1);
+    }
+    
+    /**
+     * Force manual renewal on a subscription object
+     * 
+     * @param mixed $subscription Subscription object or ID
+     */
+    public static function forceManualRenewalOnNew($subscription): void {
+        // Handle case where hook passes subscription ID instead of object
+        if (is_int($subscription) || (is_numeric($subscription) && !is_object($subscription))) {
+            $subscription_id = (int) $subscription;
+            $subscription = wcs_get_subscription($subscription_id);
+            
+            // If subscription doesn't exist yet, it will be handled by another hook
+            if (!$subscription) {
+                Helper::getInstance()->debug("Warning: Subscription #{$subscription_id} not found in forceManualRenewalOnNew - will be handled by another hook");
+                return;
+            }
+        }
+        
+        // Verify we have a subscription object
+        if (!$subscription || !is_a($subscription, 'WC_Subscription')) {
+            Helper::getInstance()->debug("Warning: forceManualRenewalOnNew received invalid subscription: " . gettype($subscription));
+            return;
         }
         
         try {
-            error_log('LGL Subscription Renewal: Starting renewal update process');
-            
-            // Check if the function has already run
-            if (get_option(static::UPDATE_OPTION_KEY)) {
-                error_log('LGL Subscription Renewal: Update already completed');
-                return 'Subscription renewal update already completed.';
+            if ($subscription->get_requires_manual_renewal() !== true) {
+                $subscription->set_requires_manual_renewal(true);
+                $subscription->save();
+                Helper::getInstance()->debug("Auto-enforced manual renewal on subscription #{$subscription->get_id()}");
             }
-            
-            // Get all active subscriptions
-            $subscriptions = wcs_get_subscriptions(['subscription_status' => 'active']);
-            $updated_count = 0;
-            
-            error_log('LGL Subscription Renewal: Found ' . count($subscriptions) . ' active subscriptions');
-            
-            foreach ($subscriptions as $subscription) {
-                $subscription_id = $subscription->get_id();
-                
-                try {
-                    // Update the subscription to require manual renewals
-                    $subscription->set_requires_manual_renewal(true);
-                    $subscription->save();
-                    
-                    $updated_count++;
-                    
-                    // Log the update
-                    $requires_manual_renewal = $subscription->get_requires_manual_renewal();
-                    error_log(sprintf(
-                        'LGL Subscription Renewal: Updated subscription #%d - Manual renewal: %s',
-                        $subscription_id,
-                        $requires_manual_renewal ? 'true' : 'false'
-                    ));
-                    
-                } catch (\Exception $e) {
-                    error_log('LGL Subscription Renewal: Error updating subscription #' . $subscription_id . ': ' . $e->getMessage());
-                }
-            }
-            
-            // Set the flag to indicate the function has been executed
-            update_option(static::UPDATE_OPTION_KEY, true);
-            
-            $message = sprintf(
-                'Subscription renewal update completed. Updated %d of %d subscriptions.',
-                $updated_count,
-                count($subscriptions)
-            );
-            
-            error_log('LGL Subscription Renewal: ' . $message);
-            return $message;
-            
         } catch (\Exception $e) {
-            error_log('LGL Subscription Renewal Error: ' . $e->getMessage());
-            return 'Error occurred during subscription renewal update. Please check logs.';
+            Helper::getInstance()->debug("Error enforcing manual renewal on subscription #{$subscription->get_id()}: " . $e->getMessage());
         }
     }
     
     /**
-     * Display manual renewal status for current user
+     * Force manual renewal on subscription status change
      * 
+     * @param mixed $subscription Subscription object or ID
+     * @param string $new_status New subscription status
+     * @param string $old_status Old subscription status
+     */
+    public static function forceManualRenewalOnStatusChange($subscription, string $new_status, string $old_status): void {
+        // Handle case where subscription might be an ID
+        if (is_int($subscription) || (is_numeric($subscription) && !is_object($subscription))) {
+            $subscription = wcs_get_subscription((int) $subscription);
+        }
+        
+        if ($subscription && is_a($subscription, 'WC_Subscription')) {
+            try {
+                if ($subscription->get_requires_manual_renewal() !== true) {
+                    $subscription->set_requires_manual_renewal(true);
+                    $subscription->save();
+                    Helper::getInstance()->debug("Enforced manual renewal on subscription #{$subscription->get_id()} during status change from {$old_status} to {$new_status}");
+                }
+            } catch (\Exception $e) {
+                Helper::getInstance()->debug("Error enforcing manual renewal on subscription status change: " . $e->getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Run comprehensive subscription renewal update
+     * Updates ALL subscriptions regardless of status to require manual renewal
+     * 
+     * @return array Report of updates
+     */
+    public static function runComprehensiveSubscriptionRenewalUpdate(): array {
+        Helper::getInstance()->debug('=== COMPREHENSIVE SUBSCRIPTION RENEWAL UPDATE STARTED ===');
+        Helper::getInstance()->debug('Time: ' . current_time('mysql'));
+
+        // Get ALL subscriptions regardless of status
+        $all_statuses = ['active', 'on-hold', 'pending', 'pending-cancel', 'cancelled', 'expired'];
+        $subscriptions = wcs_get_subscriptions([
+            'subscription_status' => $all_statuses,
+            'subscriptions_per_page' => -1 // Get all subscriptions
+        ]);
+
+        Helper::getInstance()->debug('Total subscriptions found: ' . count($subscriptions));
+
+        $report = [
+            'total' => 0,
+            'updated' => 0,
+            'already_manual' => 0,
+            'failed' => 0,
+            'by_status' => [],
+            'updated_ids' => [],
+            'failed_ids' => []
+        ];
+
+        foreach ($subscriptions as $subscription) {
+            $subscription_id = $subscription->get_id();
+            $status = $subscription->get_status();
+            $report['total']++;
+
+            // Track by status
+            if (!isset($report['by_status'][$status])) {
+                $report['by_status'][$status] = [
+                    'total' => 0,
+                    'updated' => 0,
+                    'already_manual' => 0,
+                    'failed' => 0
+                ];
+            }
+            $report['by_status'][$status]['total']++;
+
+            // Check current state
+            $before = $subscription->get_requires_manual_renewal();
+            $db_value_before = $subscription->get_meta('_requires_manual_renewal', true);
+            
+            Helper::getInstance()->debug(sprintf(
+                'Subscription #%d (Status: %s) - Before: requires_manual=%s, meta=%s',
+                $subscription_id,
+                $status,
+                $before ? 'true' : 'false',
+                $db_value_before
+            ));
+
+            if ($before === true) {
+                $report['already_manual']++;
+                $report['by_status'][$status]['already_manual']++;
+                Helper::getInstance()->debug("Subscription #{$subscription_id} - Already set to manual renewal, skipping");
+                continue;
+            }
+
+            // Update to require manual renewal
+            try {
+                $subscription->set_requires_manual_renewal(true);
+                $subscription->save();
+
+                // Verify it saved
+                // Force refresh from database
+                $subscription = wcs_get_subscription($subscription_id);
+                $after = $subscription->get_requires_manual_renewal();
+                $db_value_after = $subscription->get_meta('_requires_manual_renewal', true);
+
+                Helper::getInstance()->debug(sprintf(
+                    'Subscription #%d - After: requires_manual=%s, meta=%s',
+                    $subscription_id,
+                    $after ? 'true' : 'false',
+                    $db_value_after
+                ));
+
+                if ($after === true && ($db_value_after === 'true' || $db_value_after === true)) {
+                    $report['updated']++;
+                    $report['by_status'][$status]['updated']++;
+                    $report['updated_ids'][] = $subscription_id;
+                    Helper::getInstance()->debug("Subscription #{$subscription_id} - ✓ Successfully updated");
+                } else {
+                    $report['failed']++;
+                    $report['by_status'][$status]['failed']++;
+                    $report['failed_ids'][] = $subscription_id;
+                    Helper::getInstance()->debug("Subscription #{$subscription_id} - ✗ FAILED to update properly (after={$after}, meta={$db_value_after})");
+                }
+            } catch (\Exception $e) {
+                $report['failed']++;
+                $report['by_status'][$status]['failed']++;
+                $report['failed_ids'][] = $subscription_id;
+                Helper::getInstance()->debug("Subscription #{$subscription_id} - ✗ Exception: " . $e->getMessage());
+            }
+        }
+
+        Helper::getInstance()->debug('=== UPDATE COMPLETE ===');
+        Helper::getInstance()->debug('Total: ' . $report['total']);
+        Helper::getInstance()->debug('Updated: ' . $report['updated']);
+        Helper::getInstance()->debug('Already Manual: ' . $report['already_manual']);
+        Helper::getInstance()->debug('Failed: ' . $report['failed']);
+        Helper::getInstance()->debug('By Status: ' . print_r($report['by_status'], true));
+        
+        if (!empty($report['failed_ids'])) {
+            Helper::getInstance()->debug('Failed IDs: ' . implode(', ', $report['failed_ids']));
+        }
+
+        return $report;
+    }
+    
+    /**
+     * Display manual renewal status for current user with enhanced features
+     * 
+     * @param array $atts Shortcode attributes
      * @return string HTML output
      */
-    public static function displayManualRenewalStatus(): string {
-        // Check if WooCommerce Subscriptions is active
-        if (!function_exists('wcs_get_users_subscriptions')) {
-            return '<div class="notice notice-error"><p>WooCommerce Subscriptions plugin is required.</p></div>';
-        }
+    public static function displayManualRenewalStatus(array $atts = []): string {
+        // Get shortcode attributes
+        $atts = shortcode_atts([
+            'show_all' => 'no'
+        ], $atts);
         
         // Get the current user ID
         $user_id = get_current_user_id();
         if (!$user_id) {
-            return '<div class="notice notice-warning"><p>Please log in to view your subscription status.</p></div>';
+            return '<div style="padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+                    ⚠️ <strong>User not logged in</strong></div>';
         }
+
+        // Get ALL subscriptions for the current user
+        $all_subscriptions = wcs_get_users_subscriptions($user_id);
+
+        if (empty($all_subscriptions)) {
+            return '<div style="padding: 15px; background: #d4edda; border: 1px solid #28a745; border-radius: 4px;">
+                    ℹ️ <strong>No subscriptions found</strong> for user ID: ' . $user_id . '</div>';
+        }
+
+        // Filter subscriptions based on show_all parameter
+        $subscriptions = [];
+        $hidden_count = 0;
         
-        try {
-            // Get the subscriptions for the current user
-            $subscriptions = wcs_get_users_subscriptions($user_id);
-            if (empty($subscriptions)) {
-                return '<div class="notice notice-info"><p>No subscriptions found for your account.</p></div>';
+        foreach ($all_subscriptions as $subscription) {
+            $status = $subscription->get_status();
+            
+            // Always exclude trash
+            if ($status === 'trash') {
+                $hidden_count++;
+                continue;
             }
             
-            ob_start();
-            ?>
-            <div class="lgl-subscription-status">
-                <style>
-                    .lgl-subscription-status { font-family: Arial, sans-serif; }
-                    .lgl-subscription-item { 
-                        background: #f9f9f9; 
-                        border-left: 4px solid #00797A; 
-                        padding: 15px; 
-                        margin-bottom: 15px; 
-                        border-radius: 5px;
-                    }
-                    .lgl-subscription-item h4 { margin-top: 0; color: #00797A; }
-                    .lgl-auto-renew-status { 
-                        display: inline-block; 
-                        padding: 5px 10px; 
-                        border-radius: 3px; 
-                        font-weight: bold; 
-                        font-size: 14px;
-                    }
-                    .lgl-auto-renew-on { background-color: #d4edda; color: #155724; }
-                    .lgl-auto-renew-off { background-color: #f8d7da; color: #721c24; }
-                    .lgl-manage-link { 
-                        display: inline-block; 
-                        margin-top: 10px; 
-                        padding: 8px 15px; 
-                        background-color: #00797A; 
-                        color: white; 
-                        text-decoration: none; 
-                        border-radius: 3px; 
-                    }
-                    .lgl-manage-link:hover { background-color: #005f61; color: white; }
-                </style>
-                
-                <h3>Your Subscription Status</h3>
-                
-                <?php foreach ($subscriptions as $subscription): ?>
-                    <?php if ($subscription->has_status('active')): ?>
-                        <?php
-                        $requires_manual_renewal = $subscription->get_requires_manual_renewal();
-                        $subscription_id = $subscription->get_id();
-                        $my_account_url = wc_get_account_endpoint_url('view-subscription') . $subscription_id;
-                        $next_payment = $subscription->get_date('next_payment');
-                        ?>
-                        <div class="lgl-subscription-item">
-                            <h4>Subscription #<?php echo esc_html($subscription_id); ?></h4>
-                            
-                            <p><strong>Status:</strong> <?php echo esc_html(ucfirst($subscription->get_status())); ?></p>
-                            
-                            <?php if ($next_payment): ?>
-                                <p><strong>Next Payment:</strong> <?php echo esc_html(date('F j, Y', strtotime($next_payment))); ?></p>
-                            <?php endif; ?>
-                            
-                            <p>
-                                <strong>Auto Renewal:</strong> 
-                                <span class="lgl-auto-renew-status <?php echo $requires_manual_renewal ? 'lgl-auto-renew-off' : 'lgl-auto-renew-on'; ?>">
-                                    <?php echo $requires_manual_renewal ? '❌ OFF' : '✅ ON'; ?>
-                                </span>
-                            </p>
-                            
-                            <?php if ($requires_manual_renewal): ?>
-                                <p><em>⚠️ You will need to manually renew this subscription before it expires.</em></p>
-                            <?php else: ?>
-                                <p><em>✅ This subscription will automatically renew on the next payment date.</em></p>
-                            <?php endif; ?>
-                            
-                            <a href="<?php echo esc_url($my_account_url); ?>" class="lgl-manage-link">
-                                🔧 Manage Subscription
-                            </a>
-                        </div>
-                    <?php endif; ?>
-                <?php endforeach; ?>
-            </div>
-            <?php
-            return ob_get_clean();
+            // If show_all is not enabled, only show active and on-hold
+            if ($atts['show_all'] !== 'yes') {
+                if (!in_array($status, ['active', 'on-hold', 'pending', 'pending-cancel'])) {
+                    $hidden_count++;
+                    continue;
+                }
+            }
             
-        } catch (\Exception $e) {
-            error_log('LGL Subscription Display Error: ' . $e->getMessage());
-            return '<div class="notice notice-error"><p>Error loading subscription information. Please try again later.</p></div>';
+            $subscriptions[] = $subscription;
         }
+
+        if (empty($subscriptions)) {
+            $message = '<div style="padding: 15px; background: #d4edda; border: 1px solid #28a745; border-radius: 4px;">';
+            $message .= 'ℹ️ <strong>No active subscriptions found</strong>';
+            if ($hidden_count > 0) {
+                $message .= '<p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">You have ' . $hidden_count . ' inactive subscription(s) that are not displayed.</p>';
+            }
+            $message .= '</div>';
+            return $message;
+        }
+
+        // Build comprehensive output
+        $output = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; font-size: 14px; line-height: 1.5;">';
+        $output .= '<h3 style="margin: 0 0 15px 0; font-size: 18px;">🔍 Your Subscription Status</h3>';
+        $output .= '<p style="margin: 0 0 10px 0; color: #666;"><strong>Active subscriptions:</strong> ' . count($subscriptions) . '</p>';
+        
+        if ($hidden_count > 0 && $atts['show_all'] !== 'yes') {
+            $output .= '<p style="margin: 0 0 20px 0; font-size: 13px; color: #666;"><em>' . $hidden_count . ' inactive subscription(s) hidden</em></p>';
+        } else {
+            $output .= '<div style="margin-bottom: 20px;"></div>';
+        }
+
+        foreach ($subscriptions as $subscription) {
+            $subscription_id = $subscription->get_id();
+            $status = $subscription->get_status();
+            $requires_manual_renewal = $subscription->get_requires_manual_renewal();
+            $payment_method_title = $subscription->get_payment_method_title();
+            $next_payment = $subscription->get_date('next_payment');
+            $last_modified = $subscription->get_date_modified();
+            
+            // Get items for display
+            $items = $subscription->get_items();
+            $item_names = [];
+            foreach ($items as $item) {
+                $item_names[] = $item->get_name();
+            }
+            $items_display = implode(', ', $item_names);
+
+            // Color code based on status
+            $status_colors = [
+                'active' => '#28a745',
+                'on-hold' => '#ffc107',
+                'cancelled' => '#6c757d',
+                'expired' => '#6c757d',
+                'pending-cancel' => '#fd7e14',
+                'pending' => '#17a2b8',
+            ];
+            $status_color = $status_colors[$status] ?? '#6c757d';
+
+            $output .= '<div style="margin: 0 0 20px 0; padding: 20px; background: #f8f9fa; border-left: 4px solid ' . $status_color . '; border-radius: 4px;">';
+            $output .= '<h4 style="margin: 0 0 15px 0; font-size: 16px;">Subscription #' . $subscription_id . '</h4>';
+            
+            // Items
+            if (!empty($items_display)) {
+                $output .= '<p style="margin: 0 0 15px 0; font-weight: 500;">' . esc_html($items_display) . '</p>';
+            }
+            
+            $output .= '<table style="width: 100%; border-collapse: collapse;">';
+            
+            // Status
+            $output .= '<tr><td style="padding: 8px 8px 8px 0; font-weight: 600; width: 180px;">Status:</td>';
+            $output .= '<td style="padding: 8px 0;"><span style="background: ' . $status_color . '; color: white; padding: 4px 12px; border-radius: 3px; font-size: 12px; font-weight: 600; text-transform: uppercase;">' . esc_html($status) . '</span></td></tr>';
+            
+            // Auto-Renew
+            $auto_renew_color = $requires_manual_renewal ? '#28a745' : '#dc3545';
+            $auto_renew_text = $requires_manual_renewal ? '❌ OFF (Manual Renewal Required)' : '⚠️ ON (Will Auto-Renew)';
+            $output .= '<tr><td style="padding: 8px 8px 8px 0; font-weight: 600;">Auto-Renew:</td>';
+            $output .= '<td style="padding: 8px 0;"><strong style="color: ' . $auto_renew_color . ';">' . $auto_renew_text . '</strong></td></tr>';
+            
+            // Payment Method
+            if (!empty($payment_method_title)) {
+                $output .= '<tr><td style="padding: 8px 8px 8px 0; font-weight: 600;">Payment Method:</td>';
+                $output .= '<td style="padding: 8px 0;">' . esc_html($payment_method_title) . '</td></tr>';
+            }
+            
+            // Next Payment
+            if ($next_payment && $status === 'active') {
+                $output .= '<tr><td style="padding: 8px 8px 8px 0; font-weight: 600;">Next Payment:</td>';
+                $output .= '<td style="padding: 8px 0;">' . esc_html($next_payment) . '</td></tr>';
+            }
+            
+            // Last Modified
+            $output .= '<tr><td style="padding: 8px 8px 8px 0; font-weight: 600;">Last Modified:</td>';
+            $output .= '<td style="padding: 8px 0;">' . esc_html($last_modified) . '</td></tr>';
+            
+            $output .= '</table>';
+
+            // Manage link
+            $my_account_url = wc_get_account_endpoint_url('view-subscription') . $subscription_id;
+            $output .= '<p style="margin: 15px 0 0 0;"><a href="' . esc_url($my_account_url) . '" style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">View/Manage Subscription →</a></p>';
+            $output .= '</div>';
+        }
+
+        $output .= '</div>';
+
+        return $output;
+    }
+    
+    /**
+     * Admin-only shortcode for showing global subscription renewal statistics
+     * 
+     * @return string HTML output
+     */
+    public static function adminSubscriptionStatsShortcode(): string {
+        if (!current_user_can('manage_options')) {
+            return '<div style="padding: 15px; background: #f8d7da; border: 1px solid #dc3545; border-radius: 4px;">
+                    ❌ <strong>Access Denied:</strong> Admin only</div>';
+        }
+
+        // Get all subscriptions
+        $all_statuses = ['active', 'on-hold', 'pending', 'pending-cancel', 'cancelled', 'expired'];
+        $subscriptions = wcs_get_subscriptions([
+            'subscription_status' => $all_statuses,
+            'subscriptions_per_page' => -1
+        ]);
+
+        if (empty($subscriptions)) {
+            return '<div style="padding: 15px; background: #f8d7da; border: 1px solid #dc3545; border-radius: 4px;">
+                    ❌ <strong>No subscriptions found</strong></div>';
+        }
+
+        // Calculate statistics
+        $stats = [];
+        $total_stats = [
+            'total' => 0,
+            'manual' => 0,
+            'auto' => 0
+        ];
+
+        foreach ($subscriptions as $subscription) {
+            $status = $subscription->get_status();
+            $requires_manual = $subscription->get_requires_manual_renewal();
+            
+            if (!isset($stats[$status])) {
+                $stats[$status] = [
+                    'total' => 0,
+                    'manual' => 0,
+                    'auto' => 0
+                ];
+            }
+            
+            $stats[$status]['total']++;
+            $total_stats['total']++;
+            
+            if ($requires_manual) {
+                $stats[$status]['manual']++;
+                $total_stats['manual']++;
+            } else {
+                $stats[$status]['auto']++;
+                $total_stats['auto']++;
+            }
+        }
+
+        // Build output
+        $output = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; font-size: 14px;">';
+        $output .= '<h3 style="margin: 0 0 20px 0;">📊 Global Subscription Renewal Statistics</h3>';
+        
+        // Summary stats
+        $auto_pct = $total_stats['total'] > 0 ? round(($total_stats['auto'] / $total_stats['total']) * 100, 1) : 0;
+        $manual_pct = $total_stats['total'] > 0 ? round(($total_stats['manual'] / $total_stats['total']) * 100, 1) : 0;
+        
+        $output .= '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">';
+        
+        $output .= '<div style="padding: 20px; background: #f8f9fa; border-left: 4px solid #007bff; border-radius: 4px;">';
+        $output .= '<div style="font-size: 12px; color: #666; margin-bottom: 5px;">TOTAL SUBSCRIPTIONS</div>';
+        $output .= '<div style="font-size: 32px; font-weight: 600;">' . $total_stats['total'] . '</div>';
+        $output .= '</div>';
+        
+        $output .= '<div style="padding: 20px; background: #d4edda; border-left: 4px solid #28a745; border-radius: 4px;">';
+        $output .= '<div style="font-size: 12px; color: #666; margin-bottom: 5px;">MANUAL RENEWAL</div>';
+        $output .= '<div style="font-size: 32px; font-weight: 600; color: #28a745;">' . $total_stats['manual'] . '</div>';
+        $output .= '<div style="font-size: 12px; color: #666;">' . $manual_pct . '%</div>';
+        $output .= '</div>';
+        
+        $bg_color = $auto_pct > 50 ? '#f8d7da' : ($auto_pct > 10 ? '#fff3cd' : '#d4edda');
+        $border_color = $auto_pct > 50 ? '#dc3545' : ($auto_pct > 10 ? '#ffc107' : '#28a745');
+        $text_color = $auto_pct > 50 ? '#dc3545' : ($auto_pct > 10 ? '#ff6b08' : '#28a745');
+        
+        $output .= '<div style="padding: 20px; background: ' . $bg_color . '; border-left: 4px solid ' . $border_color . '; border-radius: 4px;">';
+        $output .= '<div style="font-size: 12px; color: #666; margin-bottom: 5px;">AUTO-RENEW ENABLED</div>';
+        $output .= '<div style="font-size: 32px; font-weight: 600; color: ' . $text_color . ';">' . $total_stats['auto'] . '</div>';
+        $output .= '<div style="font-size: 12px; color: #666;">' . $auto_pct . '%</div>';
+        $output .= '</div>';
+        
+        $output .= '</div>';
+
+        // Detailed breakdown by status
+        $output .= '<h4 style="margin: 30px 0 15px 0;">Breakdown by Status:</h4>';
+        $output .= '<table style="width: 100%; border-collapse: collapse; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">';
+        $output .= '<thead><tr style="background: #f8f9fa;">';
+        $output .= '<th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; font-weight: 600;">Status</th>';
+        $output .= '<th style="padding: 12px; text-align: center; border-bottom: 2px solid #dee2e6; font-weight: 600;">Total</th>';
+        $output .= '<th style="padding: 12px; text-align: center; border-bottom: 2px solid #dee2e6; font-weight: 600;">Manual</th>';
+        $output .= '<th style="padding: 12px; text-align: center; border-bottom: 2px solid #dee2e6; font-weight: 600;">Auto-Renew</th>';
+        $output .= '<th style="padding: 12px; text-align: center; border-bottom: 2px solid #dee2e6; font-weight: 600;">Auto %</th>';
+        $output .= '</tr></thead><tbody>';
+
+        // Sort by total count descending
+        uasort($stats, function($a, $b) {
+            return $b['total'] - $a['total'];
+        });
+
+        foreach ($stats as $status => $counts) {
+            $status_auto_pct = $counts['total'] > 0 ? round(($counts['auto'] / $counts['total']) * 100, 1) : 0;
+            $pct_color = $status_auto_pct > 50 ? '#dc3545' : ($status_auto_pct > 10 ? '#ffc107' : '#28a745');
+            
+            $output .= '<tr style="border-bottom: 1px solid #dee2e6;">';
+            $output .= '<td style="padding: 12px; font-weight: 600; text-transform: uppercase; font-size: 12px;">' . esc_html($status) . '</td>';
+            $output .= '<td style="padding: 12px; text-align: center;">' . $counts['total'] . '</td>';
+            $output .= '<td style="padding: 12px; text-align: center; color: #28a745; font-weight: 600;">' . $counts['manual'] . '</td>';
+            $output .= '<td style="padding: 12px; text-align: center; color: #dc3545; font-weight: 600;">' . $counts['auto'] . '</td>';
+            $output .= '<td style="padding: 12px; text-align: center; color: ' . $pct_color . '; font-weight: 600;">' . $status_auto_pct . '%</td>';
+            $output .= '</tr>';
+        }
+
+        // Totals row
+        $output .= '<tr style="background: #f8f9fa; font-weight: 600;">';
+        $output .= '<td style="padding: 12px; border-top: 2px solid #dee2e6;">TOTAL</td>';
+        $output .= '<td style="padding: 12px; text-align: center; border-top: 2px solid #dee2e6;">' . $total_stats['total'] . '</td>';
+        $output .= '<td style="padding: 12px; text-align: center; color: #28a745; border-top: 2px solid #dee2e6;">' . $total_stats['manual'] . '</td>';
+        $output .= '<td style="padding: 12px; text-align: center; color: #dc3545; border-top: 2px solid #dee2e6;">' . $total_stats['auto'] . '</td>';
+        $output .= '<td style="padding: 12px; text-align: center; color: ' . $text_color . '; border-top: 2px solid #dee2e6;">' . $auto_pct . '%</td>';
+        $output .= '</tr>';
+
+        $output .= '</tbody></table>';
+
+        // Warning if auto-renew is still high
+        if ($auto_pct > 10) {
+            $output .= '<div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">';
+            $output .= '<h4 style="margin: 0 0 10px 0;">⚠️ Warning</h4>';
+            $output .= '<p style="margin: 0;">' . $total_stats['auto'] . ' subscriptions (' . $auto_pct . '%) still have auto-renewal enabled. ';
+            $output .= 'Consider running the comprehensive update to set all subscriptions to manual renewal.</p>';
+            $output .= '</div>';
+        } else {
+            $output .= '<div style="margin-top: 30px; padding: 20px; background: #d4edda; border-left: 4px solid #28a745; border-radius: 4px;">';
+            $output .= '<h4 style="margin: 0 0 10px 0;">✓ Looking Good!</h4>';
+            $output .= '<p style="margin: 0;">Only ' . $auto_pct . '% of subscriptions have auto-renewal enabled. The prevention hooks should keep this low.</p>';
+            $output .= '</div>';
+        }
+
+        $output .= '<p style="margin-top: 20px; font-size: 12px; color: #666;"><em>Last updated: ' . current_time('F j, Y g:i a') . '</em></p>';
+        $output .= '</div>';
+
+        return $output;
+    }
+    
+    /**
+     * Admin-only shortcode for running the comprehensive update
+     * 
+     * @return string HTML output
+     */
+    public static function adminUpdateAllSubscriptionsShortcode(): string {
+        if (!current_user_can('manage_options')) {
+            return '<div style="padding: 15px; background: #f8d7da; border: 1px solid #dc3545; border-radius: 4px;">
+                    ❌ <strong>Access Denied:</strong> Admin only</div>';
+        }
+
+        // Safety check - require confirmation parameter
+        if (!isset($_GET['confirm']) || $_GET['confirm'] !== 'yes') {
+            return '<div style="padding: 20px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+                    <h3 style="margin: 0 0 15px 0;">⚠️ Comprehensive Subscription Update</h3>
+                    <p>This will update ALL subscriptions (across all statuses) to require manual renewal.</p>
+                    <p><strong>This action will affect:</strong></p>
+                    <ul>
+                        <li>Active subscriptions</li>
+                        <li>On-hold subscriptions</li>
+                        <li>Cancelled subscriptions</li>
+                        <li>Pending subscriptions</li>
+                        <li>All other subscription statuses</li>
+                    </ul>
+                    <p><a href="' . add_query_arg('confirm', 'yes') . '" style="display: inline-block; padding: 12px 24px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">⚠️ Confirm and Run Update</a></p>
+                    </div>';
+        }
+
+        $report = static::runComprehensiveSubscriptionRenewalUpdate();
+
+        $output = '<div style="padding: 20px; background: #d4edda; border: 1px solid #28a745; border-radius: 4px;">';
+        $output .= '<h3 style="margin: 0 0 15px 0;">✓ Subscription Update Complete</h3>';
+        $output .= '<table style="width: 100%; border-collapse: collapse; margin: 20px 0;">';
+        $output .= '<tr><td style="padding: 8px; font-weight: 600; border-bottom: 1px solid #ddd;">Total Subscriptions:</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">' . $report['total'] . '</td></tr>';
+        $output .= '<tr><td style="padding: 8px; font-weight: 600; border-bottom: 1px solid #ddd;">Successfully Updated:</td><td style="padding: 8px; border-bottom: 1px solid #ddd; color: #28a745; font-weight: 600;">' . $report['updated'] . '</td></tr>';
+        $output .= '<tr><td style="padding: 8px; font-weight: 600; border-bottom: 1px solid #ddd;">Already Manual:</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">' . $report['already_manual'] . '</td></tr>';
+        $output .= '<tr><td style="padding: 8px; font-weight: 600; border-bottom: 1px solid #ddd;">Failed:</td><td style="padding: 8px; border-bottom: 1px solid #ddd; color: ' . ($report['failed'] > 0 ? '#dc3545' : '#28a745') . '; font-weight: 600;">' . $report['failed'] . '</td></tr>';
+        $output .= '</table>';
+
+        if (!empty($report['by_status'])) {
+            $output .= '<h4 style="margin: 20px 0 10px 0;">Breakdown by Status:</h4>';
+            $output .= '<table style="width: 100%; border-collapse: collapse;">';
+            $output .= '<tr style="background: #f8f9fa;"><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Status</th><th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Total</th><th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Updated</th><th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Already Manual</th><th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Failed</th></tr>';
+            foreach ($report['by_status'] as $status => $stats) {
+                $output .= '<tr>';
+                $output .= '<td style="padding: 8px; border: 1px solid #ddd; font-weight: 600;">' . esc_html($status) . '</td>';
+                $output .= '<td style="padding: 8px; text-align: center; border: 1px solid #ddd;">' . $stats['total'] . '</td>';
+                $output .= '<td style="padding: 8px; text-align: center; border: 1px solid #ddd; color: #28a745; font-weight: 600;">' . $stats['updated'] . '</td>';
+                $output .= '<td style="padding: 8px; text-align: center; border: 1px solid #ddd;">' . $stats['already_manual'] . '</td>';
+                $output .= '<td style="padding: 8px; text-align: center; border: 1px solid #ddd;">' . $stats['failed'] . '</td>';
+                $output .= '</tr>';
+            }
+            $output .= '</table>';
+        }
+
+        $output .= '<p style="margin: 20px 0 0 0;"><em>📋 Check error logs for detailed information about each subscription.</em></p>';
+        $output .= '</div>';
+
+        return $output;
     }
     
     /**
@@ -221,15 +603,25 @@ class SubscriptionRenewalManager {
             update_option(static::UPDATE_OPTION_KEY, false);
         }
         
-        error_log('LGL Subscription Renewal: Shortcode executed');
-        return static::runSubscriptionRenewalChangeOnce();
+        Helper::getInstance()->debug('LGL Subscription Renewal: Shortcode executed');
+        
+        // Run comprehensive update instead of basic one
+        $report = static::runComprehensiveSubscriptionRenewalUpdate();
+        
+        return sprintf(
+            'Subscription renewal update completed. Updated %d, Already Manual: %d, Failed: %d out of %d total subscriptions.',
+            $report['updated'],
+            $report['already_manual'],
+            $report['failed'],
+            $report['total']
+        );
     }
     
     /**
      * Shortcode handler for displaying manual renewal status
      */
     public static function displayManualRenewalShortcode(array $atts): string {
-        return static::displayManualRenewalStatus();
+        return static::displayManualRenewalStatus($atts);
     }
     
     /**
@@ -237,7 +629,7 @@ class SubscriptionRenewalManager {
      */
     public static function legacyRenewalShortcode(array $atts): string {
         // Log deprecation warning
-        error_log('LGL Subscription Renewal: Legacy shortcode "run_subscription_renewal" used. Please update to "lgl_run_subscription_renewal"');
+        Helper::getInstance()->debug('LGL Subscription Renewal: Legacy shortcode "run_subscription_renewal" used. Please update to "lgl_run_subscription_renewal"');
         return static::renewalShortcode($atts);
     }
     
@@ -246,7 +638,7 @@ class SubscriptionRenewalManager {
      */
     public static function legacyDisplayShortcode(array $atts): string {
         // Log deprecation warning  
-        error_log('LGL Subscription Renewal: Legacy shortcode "display_requires_manual_renewal" used. Please update to "lgl_display_manual_renewal_status"');
+        Helper::getInstance()->debug('LGL Subscription Renewal: Legacy shortcode "display_requires_manual_renewal" used. Please update to "lgl_display_manual_renewal_status"');
         return static::displayManualRenewalShortcode($atts);
     }
     
@@ -255,35 +647,7 @@ class SubscriptionRenewalManager {
      */
     public static function resetRenewalFlag(): void {
         delete_option(static::UPDATE_OPTION_KEY);
-        error_log('LGL Subscription Renewal: Update flag reset');
-    }
-    
-    /**
-     * Get renewal statistics
-     */
-    public static function getRenewalStats(): ?array {
-        if (!function_exists('wcs_get_subscriptions')) {
-            return null;
-        }
-        
-        $all_subscriptions = wcs_get_subscriptions(['subscription_status' => 'active']);
-        $manual_count = 0;
-        $auto_count = 0;
-        
-        foreach ($all_subscriptions as $subscription) {
-            if ($subscription->get_requires_manual_renewal()) {
-                $manual_count++;
-            } else {
-                $auto_count++;
-            }
-        }
-        
-        return [
-            'total' => count($all_subscriptions),
-            'manual_renewal' => $manual_count,
-            'auto_renewal' => $auto_count,
-            'update_completed' => get_option(static::UPDATE_OPTION_KEY, false)
-        ];
+        Helper::getInstance()->debug('LGL Subscription Renewal: Update flag reset');
     }
     
     /**
@@ -291,36 +655,5 @@ class SubscriptionRenewalManager {
      */
     public static function isWooCommerceSubscriptionsActive(): bool {
         return function_exists('wcs_get_subscriptions');
-    }
-    
-    /**
-     * Get subscription renewal status for a specific user
-     */
-    public static function getUserSubscriptionStatus(int $user_id): array {
-        if (!static::isWooCommerceSubscriptionsActive()) {
-            return ['error' => 'WooCommerce Subscriptions not active'];
-        }
-        
-        $subscriptions = wcs_get_users_subscriptions($user_id);
-        $status = [
-            'total_subscriptions' => count($subscriptions),
-            'active_subscriptions' => 0,
-            'manual_renewal_count' => 0,
-            'auto_renewal_count' => 0
-        ];
-        
-        foreach ($subscriptions as $subscription) {
-            if ($subscription->has_status('active')) {
-                $status['active_subscriptions']++;
-                
-                if ($subscription->get_requires_manual_renewal()) {
-                    $status['manual_renewal_count']++;
-                } else {
-                    $status['auto_renewal_count']++;
-                }
-            }
-        }
-        
-        return $status;
     }
 }

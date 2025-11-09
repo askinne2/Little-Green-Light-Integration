@@ -60,7 +60,7 @@ class CacheManager {
         // Schedule cleanup on plugin activation
         static::scheduleCleanup();
         
-        error_log('LGL Cache Manager: Initialized successfully');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache Manager: Initialized successfully');
     }
     
     /**
@@ -78,11 +78,11 @@ class CacheManager {
         $cached_data = get_transient($cache_key);
         
         if (false !== $cached_data) {
-            error_log('LGL Cache: HIT for key ' . $key);
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: HIT for key ' . $key);
             return $cached_data;
         }
         
-        error_log('LGL Cache: MISS for key ' . $key);
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: MISS for key ' . $key);
         
         // Generate fresh data
         try {
@@ -91,12 +91,12 @@ class CacheManager {
             // Cache the result
             set_transient($cache_key, $fresh_data, $ttl);
             
-            error_log('LGL Cache: STORED for key ' . $key . ' (TTL: ' . $ttl . 's)');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: STORED for key ' . $key . ' (TTL: ' . $ttl . 's)');
             
             return $fresh_data;
             
         } catch (\Exception $e) {
-            error_log('LGL Cache: ERROR generating data for key ' . $key . ': ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: ERROR generating data for key ' . $key . ': ' . $e->getMessage());
             return null;
         }
     }
@@ -115,9 +115,9 @@ class CacheManager {
         $result = set_transient($cache_key, $data, $ttl);
         
         if ($result) {
-            error_log('LGL Cache: SET key ' . $key . ' (TTL: ' . $ttl . 's)');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: SET key ' . $key . ' (TTL: ' . $ttl . 's)');
         } else {
-            error_log('LGL Cache: FAILED to set key ' . $key);
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: FAILED to set key ' . $key);
         }
         
         return $result;
@@ -134,9 +134,9 @@ class CacheManager {
         $data = get_transient($cache_key);
         
         if (false !== $data) {
-            error_log('LGL Cache: GET HIT for key ' . $key);
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: GET HIT for key ' . $key);
         } else {
-            error_log('LGL Cache: GET MISS for key ' . $key);
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: GET MISS for key ' . $key);
         }
         
         return $data;
@@ -153,7 +153,7 @@ class CacheManager {
         $result = delete_transient($cache_key);
         
         if ($result) {
-            error_log('LGL Cache: DELETED key ' . $key);
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: DELETED key ' . $key);
         }
         
         return $result;
@@ -184,7 +184,7 @@ class CacheManager {
             }
         }
         
-        error_log('LGL Cache: CLEARED ' . $cleared . ' cache entries');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: CLEARED ' . $cleared . ' cache entries');
         
         return $cleared;
     }
@@ -297,12 +297,12 @@ class CacheManager {
      * Warm up cache with frequently accessed data
      */
     public static function warmCache() {
-        error_log('LGL Cache: Starting cache warm-up');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: Starting cache warm-up');
         
         // This could be expanded to pre-load frequently accessed data
         // For now, just log that warm-up was initiated
         
-        error_log('LGL Cache: Cache warm-up completed');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: Cache warm-up completed');
     }
     
     /**
@@ -334,7 +334,7 @@ class CacheManager {
         // Invalidate API cache when LGL data might have changed
         add_action('lgl_api_data_updated', [static::class, 'invalidateApiCache']);
         
-        error_log('LGL Cache: Invalidation hooks initialized');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: Invalidation hooks initialized');
     }
     
     /**
@@ -373,7 +373,7 @@ class CacheManager {
         }
         
         if ($cleared > 0) {
-            error_log('LGL Cache: Invalidated ' . $cleared . ' order cache entries due to order update');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: Invalidated ' . $cleared . ' order cache entries due to order update');
         }
     }
     
@@ -388,7 +388,7 @@ class CacheManager {
         // Clear order cache since user data affects order formatting
         static::invalidateOrderCache();
         
-        error_log('LGL Cache: Invalidated user cache for user ID ' . $user_id);
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: Invalidated user cache for user ID ' . $user_id);
     }
     
     /**
@@ -419,7 +419,7 @@ class CacheManager {
             // Clear events newsletter cache
             static::delete('lgl_events_newsletter_content');
             
-            error_log('LGL Cache: Invalidated event cache for post ID ' . $post_id);
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: Invalidated event cache for post ID ' . $post_id);
         }
     }
     
@@ -430,7 +430,7 @@ class CacheManager {
         if (get_post_type($post_id) === 'ui-events') {
             static::delete('lgl_events_newsletter_content');
             
-            error_log('LGL Cache: Invalidated event cache due to event deletion');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: Invalidated event cache due to event deletion');
         }
     }
     
@@ -461,7 +461,7 @@ class CacheManager {
         }
         
         if ($cleared > 0) {
-            error_log('LGL Cache: Invalidated ' . $cleared . ' API cache entries');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: Invalidated ' . $cleared . ' API cache entries');
         }
     }
     
@@ -472,7 +472,7 @@ class CacheManager {
         // WordPress handles transient cleanup automatically,
         // but we can add custom logic here if needed
         
-        error_log('LGL Cache: Cleanup process initiated');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: Cleanup process initiated');
         
         // Get cache stats before cleanup
         $stats_before = static::getStats();
@@ -484,7 +484,7 @@ class CacheManager {
         $stats_after = static::getStats();
         
         $cleaned = $stats_before['total_entries'] - $stats_after['total_entries'];
-        error_log('LGL Cache: Cleanup completed - removed ' . $cleaned . ' entries');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: Cleanup completed - removed ' . $cleaned . ' entries');
         
         return $cleaned;
     }

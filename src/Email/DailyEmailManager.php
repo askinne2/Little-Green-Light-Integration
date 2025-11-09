@@ -31,6 +31,7 @@ class DailyEmailManager {
      */
     const DEFAULT_RECIPIENTS = [
         'andrew@21adsmedia.com',
+        'finance@upstateinternational.org',
         'info@upstateinternational.org'
     ];
     
@@ -50,7 +51,7 @@ class DailyEmailManager {
             wp_clear_scheduled_hook('send_daily_order_summary_email_event');
         }
         
-        // error_log('LGL Daily Email Manager: Initialized successfully');
+        // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email Manager: Initialized successfully');
     }
     
     /**
@@ -89,7 +90,7 @@ class DailyEmailManager {
             }
             
             if (empty($orders)) {
-                error_log('LGL Daily Email: No orders found for ' . $start_datetime->format('Y-m-d'));
+                \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email: No orders found for ' . $start_datetime->format('Y-m-d'));
                 return;
             }
             
@@ -110,15 +111,15 @@ class DailyEmailManager {
                 if (is_email($recipient)) {
                     $sent = wp_mail($recipient, $subject, $email_content, $headers);
                     if ($sent) {
-                        error_log('LGL Daily Email: Successfully sent to ' . $recipient);
+                        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email: Successfully sent to ' . $recipient);
                     } else {
-                        error_log('LGL Daily Email: Failed to send to ' . $recipient);
+                        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email: Failed to send to ' . $recipient);
                     }
                 }
             }
             
         } catch (\Exception $e) {
-            error_log('LGL Daily Email Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email Error: ' . $e->getMessage());
         }
     }
     
@@ -183,8 +184,13 @@ class DailyEmailManager {
                             <th>Customer</th>
                             <th>Total</th>
                             <th>Items</th>
-                            <th>LGL ID</th>
                             <th>Status</th>
+                            <th>LGL ID</th>
+                            <th>Membership Type</th>
+                            <th>Subscription Status</th>
+                            <th>Membership Start</th>
+                            <th>Renewal Date</th>
+                            <th>Subscription ID</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -197,8 +203,13 @@ class DailyEmailManager {
                                     <td><?php echo esc_html($order_data['customer_name']); ?></td>
                                     <td><strong><?php echo Utilities::formatPrice($order_data['total']); ?></strong></td>
                                     <td><?php echo esc_html($order_data['item_count']); ?></td>
-                                    <td><?php echo esc_html($order_data['lgl_id']); ?></td>
                                     <td><?php echo esc_html(ucfirst($order->get_status())); ?></td>
+                                    <td><?php echo esc_html($order_data['lgl_id']); ?></td>
+                                    <td><?php echo esc_html($order_data['membership_type']); ?></td>
+                                    <td><?php echo esc_html($order_data['subscription_status']); ?></td>
+                                    <td><?php echo esc_html($order_data['membership_start_date']); ?></td>
+                                    <td><?php echo esc_html($order_data['renewal_date']); ?></td>
+                                    <td><?php echo esc_html($order_data['subscription_id']); ?></td>
                                 </tr>
                             <?php endif; ?>
                         <?php endforeach; ?>
@@ -239,6 +250,27 @@ class DailyEmailManager {
                             
                             <?php if ($order->get_billing_phone()): ?>
                                 <p><strong>📞 Phone:</strong> <?php echo esc_html($order->get_billing_phone()); ?></p>
+                            <?php endif; ?>
+                            
+                            <?php if ($order_data['membership_type'] !== 'N/A' || $order_data['subscription_status'] !== 'N/A'): ?>
+                                <h4>👤 Membership Information:</h4>
+                                <div class="product-list">
+                                    <?php if ($order_data['membership_type'] !== 'N/A'): ?>
+                                        <p><strong>Membership Type:</strong> <?php echo esc_html($order_data['membership_type']); ?></p>
+                                    <?php endif; ?>
+                                    <?php if ($order_data['subscription_status'] !== 'N/A'): ?>
+                                        <p><strong>Subscription Status:</strong> <?php echo esc_html($order_data['subscription_status']); ?></p>
+                                    <?php endif; ?>
+                                    <?php if ($order_data['membership_start_date'] !== 'N/A'): ?>
+                                        <p><strong>Membership Start Date:</strong> <?php echo esc_html($order_data['membership_start_date']); ?></p>
+                                    <?php endif; ?>
+                                    <?php if ($order_data['renewal_date'] !== 'N/A'): ?>
+                                        <p><strong>Renewal Date:</strong> <?php echo esc_html($order_data['renewal_date']); ?></p>
+                                    <?php endif; ?>
+                                    <?php if ($order_data['subscription_id'] !== 'N/A'): ?>
+                                        <p><strong>Subscription ID:</strong> <?php echo esc_html($order_data['subscription_id']); ?></p>
+                                    <?php endif; ?>
+                                </div>
                             <?php endif; ?>
                         </div>
                     <?php endif; ?>
@@ -283,7 +315,7 @@ class DailyEmailManager {
      */
     public static function unschedule(): void {
         wp_clear_scheduled_hook(static::EMAIL_HOOK);
-        error_log('LGL Daily Email Manager: Unscheduled daily emails');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email Manager: Unscheduled daily emails');
     }
     
     /**
@@ -308,7 +340,7 @@ class DailyEmailManager {
             static::sendDailySummary(null, null, $recipients);
             return true;
         } catch (\Exception $e) {
-            error_log('LGL Daily Email Manual Trigger Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email Manual Trigger Error: ' . $e->getMessage());
             return false;
         }
     }

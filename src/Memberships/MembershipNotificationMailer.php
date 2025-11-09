@@ -125,7 +125,7 @@ class MembershipNotificationMailer {
      * @param int $days_until_renewal Days until renewal
      * @return string Email subject
      */
-    private function getSubjectLine(string $first_name, int $days_until_renewal): string {
+    public function getSubjectLine(string $first_name, int $days_until_renewal): string {
         // Use settings-driven templates if available
         if ($this->settingsManager) {
             $settings = $this->settingsManager->getAll();
@@ -157,7 +157,7 @@ class MembershipNotificationMailer {
      * @param int $days_until_renewal Days until renewal
      * @return string Email content HTML
      */
-    private function getEmailContent(int $days_until_renewal): string {
+    public function getEmailContent(int $days_until_renewal): string {
         $content = '';
         
         // Use settings-driven templates if available

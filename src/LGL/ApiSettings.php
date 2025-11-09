@@ -78,7 +78,7 @@ class ApiSettings {
      */
     public function setSettingsHandler($handler): void {
         $this->settingsHandler = $handler;
-        error_log('🔗 ApiSettings: SettingsHandler injected successfully! Handler class: ' . get_class($handler));
+        Helper::getInstance()->debug('🔗 ApiSettings: SettingsHandler injected successfully! Handler class: ' . get_class($handler));
     }
     
     /**
@@ -138,12 +138,12 @@ class ApiSettings {
      * Get membership levels
      */
     public function getMembershipLevels(): array {
-        error_log('🔍 ApiSettings::getMembershipLevels() called');
-        error_log('🔍 ApiSettings: settingsHandler is ' . ($this->settingsHandler ? 'SET' : 'NULL'));
+        Helper::getInstance()->debug('🔍 ApiSettings::getMembershipLevels() called');
+        Helper::getInstance()->debug('🔍 ApiSettings: settingsHandler is ' . ($this->settingsHandler ? 'SET' : 'NULL'));
         $levels = $this->getSetting('lgl_membership_levels');
-        error_log('🔍 ApiSettings::getMembershipLevels() called, raw result: ' . print_r($levels, true));
+        Helper::getInstance()->debug('🔍 ApiSettings::getMembershipLevels() called, raw result: ' . print_r($levels, true));
         $result = is_array($levels) ? $levels : [];
-        error_log('🔍 ApiSettings::getMembershipLevels() returning: ' . print_r($result, true));
+        Helper::getInstance()->debug('🔍 ApiSettings::getMembershipLevels() returning: ' . print_r($result, true));
         return $result;
     }
     
@@ -337,7 +337,7 @@ class ApiSettings {
      */
     public function clearCache(): void {
         $this->settingsCache = [];
-        error_log('LGL API Settings: Cache cleared');
+        Helper::getInstance()->debug('LGL API Settings: Cache cleared');
     }
     
     /**
@@ -367,7 +367,7 @@ class ApiSettings {
             $log_message .= ' ' . print_r($data, true);
         }
         
-        error_log('LGL API Settings Debug: ' . $log_message);
+        Helper::getInstance()->debug('LGL API Settings Debug: ' . $log_message);
     }
     
     /**

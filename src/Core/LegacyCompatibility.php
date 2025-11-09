@@ -160,7 +160,7 @@ class LegacyCompatibility {
         add_action('woocommerce_subscription_status_updated', [$lgl_api, 'update_user_subscription_status'], 10, 3);
         add_action('woocommerce_email_before_order_table', [$lgl_api, 'custom_email_content_for_category'], 10, 4);
         
-        error_log('LGL Plugin: Fallback legacy hooks registered (modern architecture not available)');
+        Helper::getInstance()->debug('LGL Plugin: Fallback legacy hooks registered (modern architecture not available)');
     }
     
     /**

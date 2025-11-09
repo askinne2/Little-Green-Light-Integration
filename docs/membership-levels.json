@@ -1,0 +1,45 @@
+{
+  "api_version": "1.0",
+  "items_count": 7,
+  "total_items": 7,
+  "limit": 25,
+  "offset": 0,
+  "item_type": "membership_level",
+  "items": [
+    {
+      "id": 387,
+      "name": "General",
+      "ordinal": 0
+    },
+    {
+      "id": 392,
+      "name": "Friend",
+      "ordinal": 1
+    },
+    {
+      "id": 397,
+      "name": "Patron Indiv",
+      "ordinal": 100
+    },
+    {
+      "id": 402,
+      "name": "Patron Family",
+      "ordinal": 100
+    },
+    {
+      "id": 407,
+      "name": "Family",
+      "ordinal": 100
+    },
+    {
+      "id": 412,
+      "name": "Individual",
+      "ordinal": 100
+    },
+    {
+      "id": 417,
+      "name": "Daily Plan",
+      "ordinal": 100
+    }
+  ]
+}
