@@ -232,6 +232,12 @@ class EmailBlocker {
             return;
         }
         
+        // Skip notice on the Email Blocking Settings page (it has its own status section)
+        if (isset($_GET['page']) && $_GET['page'] === 'lgl-email-blocking') {
+            $this->helper->debug('EmailBlocker: Notice skipped - on Email Blocking Settings page');
+            return;
+        }
+        
         $this->helper->debug('EmailBlocker: Rendering admin notice');
         $blocked_count = $this->operationalData->getBlockedEmailsCount();
         $this->helper->debug('EmailBlocker: Blocked count = ' . $blocked_count);

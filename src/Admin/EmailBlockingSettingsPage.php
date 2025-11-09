@@ -87,7 +87,7 @@ class EmailBlockingSettingsPage {
         $status = $this->emailBlocker->getBlockingStatus();
         
         ?>
-        <div class="wrap">
+        <div class="wrap lgl-admin-page ">
             <h1>Email Blocking Configuration</h1>
             
             <?php 
@@ -188,10 +188,13 @@ class EmailBlockingSettingsPage {
      * @return void
      */
     private function renderStatusSection(array $status): void {
+        // Determine notice class based on blocking status
+        $notice_class = $status['is_actively_blocking'] ? 'notice-warning' : 'notice-info';
+        $border_color = $status['is_actively_blocking'] ? '#d63638' : '#72aee6';
         ?>
-        <div class="notice notice-info">
+        <div id="lgl-email-status-notice" class="notice <?php echo $notice_class; ?>" style="border-left-color: <?php echo $border_color; ?>; border-left-width: 4px; display: block !important; visibility: visible !important; opacity: 1 !important;">
             <h3>Current Status</h3>
-            <table class="widefat" style="max-width: 600px;">
+            <table class="widefat">
                 <tr>
                     <th style="width: 200px;">Environment</th>
                     <td><?php echo esc_html($status['environment_info']); ?></td>
@@ -239,6 +242,66 @@ class EmailBlockingSettingsPage {
             </table>
             <p><em>Admin email (<?php echo esc_html(get_option('admin_email')); ?>) is always whitelisted when blocking is active.</em></p>
         </div>
+        
+        <script type="text/javascript">
+        (function() {
+            // Store the notice HTML for re-injection if needed
+            var noticeHTML = document.getElementById('lgl-email-status-notice');
+            if (!noticeHTML) return;
+            
+            var originalHTML = noticeHTML.outerHTML;
+            
+            // Function to ensure notice is visible and protected
+            function ensureStatusNoticeVisible() {
+                var notice = document.getElementById('lgl-email-status-notice');
+                if (!notice) {
+                    // Notice was removed - re-inject it
+                    var wrap = document.querySelector('.lgl-admin-page') || document.querySelector('.wrap');
+                    if (wrap) {
+                        var tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = originalHTML;
+                        var h1 = wrap.querySelector('h1');
+                        if (h1 && h1.nextSibling) {
+                            wrap.insertBefore(tempDiv.firstChild, h1.nextSibling);
+                            console.log('LGL Email Status notice re-injected');
+                        }
+                    }
+                } else {
+                    // Notice exists - ensure it's visible and remove dismiss button
+                    var dismissBtn = notice.querySelector('.notice-dismiss');
+                    if (dismissBtn) {
+                        dismissBtn.remove();
+                    }
+                    notice.style.display = 'block';
+                    notice.style.visibility = 'visible';
+                    notice.style.opacity = '1';
+                }
+            }
+            
+            // Initial setup
+            ensureStatusNoticeVisible();
+            console.log('LGL Email Status notice rendered and protected from dismissal');
+            
+            // Monitor for removal attempts using MutationObserver
+            if (window.MutationObserver) {
+                var observer = new MutationObserver(function(mutations) {
+                    ensureStatusNoticeVisible();
+                });
+                
+                // Watch the wrap element for changes
+                var wrapElement = document.querySelector('.lgl-admin-page') || document.querySelector('.wrap');
+                if (wrapElement) {
+                    observer.observe(wrapElement, {
+                        childList: true,
+                        subtree: true
+                    });
+                }
+            }
+            
+            // Also check periodically as backup
+            setInterval(ensureStatusNoticeVisible, 1000);
+        })();
+        </script>
         <?php
     }
     
@@ -251,7 +314,7 @@ class EmailBlockingSettingsPage {
     private function renderSettingsForm(array $settings): void {
         $force_checked = !empty($settings['force_email_blocking']) ? 'checked="checked"' : '';
         ?>
-        <div class="card">
+        <div class="card" style="max-width: inherit;">
             <h2>Email Blocking Control</h2>
             <form method="post">
                 <?php wp_nonce_field('lgl_email_blocking_settings'); ?>
@@ -289,7 +352,7 @@ class EmailBlockingSettingsPage {
         $whitelist = $settings['email_whitelist'] ?? [];
         $whitelist_text = implode("\n", $whitelist);
         ?>
-        <div class="card">
+        <div class="card" style="max-width: inherit;">
             <h2>Email Whitelist</h2>
             <p>Email addresses in the whitelist will always be allowed through, even when blocking is active.</p>
             <p><strong>Note:</strong> The admin email (<?php echo esc_html(get_option('admin_email')); ?>) is <em>automatically whitelisted</em> and does not need to be added here.</p>
@@ -321,7 +384,7 @@ class EmailBlockingSettingsPage {
      */
     private function renderBlockedEmailsLog(array $blocked_emails): void {
         ?>
-        <div class="card">
+        <div class="card" style="max-width: inherit;">
             <h2>Blocked Emails Log</h2>
             
             <?php if (empty($blocked_emails)): ?>
@@ -367,7 +430,7 @@ class EmailBlockingSettingsPage {
      */
     private function renderTestingTools(): void {
         ?>
-        <div class="card">
+        <div class="card" style="max-width: inherit;">
             <h2>Testing Tools</h2>
             <p>Need to test the renewal email system?</p>
             <p>

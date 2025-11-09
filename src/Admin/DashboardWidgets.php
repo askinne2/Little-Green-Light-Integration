@@ -56,6 +56,15 @@ class DashboardWidgets {
             'Events Newsletter for Constant Contact',
             [static::class, 'renderEventsNewsletterWidget']
         );
+        
+        // Only add subscription widget if WooCommerce Subscriptions is active
+        if (class_exists('WC_Subscriptions')) {
+            wp_add_dashboard_widget(
+                'lgl_subscription_renewal_widget',
+                '🔄 Subscription Renewal Status',
+                [static::class, 'renderSubscriptionRenewalWidget']
+            );
+        }
     }
     
     /**
@@ -527,5 +536,162 @@ class DashboardWidgets {
         echo '</div>' . "\n";
         
         return ob_get_clean();
+    }
+    
+    /**
+     * Render subscription renewal status widget
+     */
+    public static function renderSubscriptionRenewalWidget() {
+        if (!class_exists('WC_Subscriptions') || !function_exists('wcs_get_subscriptions')) {
+            echo '<div class="notice notice-error"><p>WooCommerce Subscriptions is required for this widget.</p></div>';
+            return;
+        }
+        
+        try {
+            echo '<style>
+                .lgl-sub-widget { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; }
+                .lgl-sub-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+                .lgl-sub-stat-card { padding: 15px; background: #f8f9fa; border-left: 4px solid #007bff; border-radius: 4px; }
+                .lgl-sub-stat-card.manual { border-color: #28a745; background: #d4edda; }
+                .lgl-sub-stat-card.auto { border-color: #dc3545; background: #f8d7da; }
+                .lgl-sub-stat-card.warning { border-color: #ffc107; background: #fff3cd; }
+                .lgl-sub-stat-label { font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600; margin-bottom: 5px; }
+                .lgl-sub-stat-value { font-size: 28px; font-weight: 600; }
+                .lgl-sub-stat-pct { font-size: 12px; color: #666; margin-top: 5px; }
+                .lgl-sub-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                .lgl-sub-table th { background: #f8f9fa; padding: 8px; text-align: left; border-bottom: 2px solid #dee2e6; font-weight: 600; }
+                .lgl-sub-table td { padding: 8px; border-bottom: 1px solid #dee2e6; }
+                .lgl-sub-alert { padding: 15px; border-left: 4px solid; border-radius: 4px; margin-top: 15px; }
+                .lgl-sub-alert.success { background: #d4edda; border-color: #28a745; }
+                .lgl-sub-alert.warning { background: #fff3cd; border-color: #ffc107; }
+                .lgl-sub-button { display: inline-block; padding: 8px 16px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 12px; margin-top: 10px; }
+                .lgl-sub-button:hover { background: #0056b3; color: white; }
+                .lgl-sub-button.danger { background: #dc3545; }
+                .lgl-sub-button.danger:hover { background: #c82333; }
+            </style>';
+            
+            echo '<div class="lgl-sub-widget">';
+            
+            // Get all subscriptions
+            $all_statuses = ['active', 'on-hold', 'pending', 'pending-cancel', 'cancelled', 'expired'];
+            // @phpstan-ignore-next-line - WooCommerce Subscriptions function, checked above
+            $subscriptions = \wcs_get_subscriptions([
+                'subscription_status' => $all_statuses,
+                'subscriptions_per_page' => -1
+            ]);
+            
+            if (empty($subscriptions)) {
+                echo '<div class="notice notice-warning"><p>No subscriptions found in the system.</p></div>';
+                echo '</div>';
+                return;
+            }
+            
+            // Calculate statistics
+            $stats = [];
+            $total_stats = [
+                'total' => 0,
+                'manual' => 0,
+                'auto' => 0
+            ];
+            
+            foreach ($subscriptions as $subscription) {
+                $status = $subscription->get_status();
+                $requires_manual = $subscription->get_requires_manual_renewal();
+                
+                if (!isset($stats[$status])) {
+                    $stats[$status] = [
+                        'total' => 0,
+                        'manual' => 0,
+                        'auto' => 0
+                    ];
+                }
+                
+                $stats[$status]['total']++;
+                $total_stats['total']++;
+                
+                if ($requires_manual) {
+                    $stats[$status]['manual']++;
+                    $total_stats['manual']++;
+                } else {
+                    $stats[$status]['auto']++;
+                    $total_stats['auto']++;
+                }
+            }
+            
+            // Calculate percentages
+            $auto_pct = $total_stats['total'] > 0 ? round(($total_stats['auto'] / $total_stats['total']) * 100, 1) : 0;
+            $manual_pct = $total_stats['total'] > 0 ? round(($total_stats['manual'] / $total_stats['total']) * 100, 1) : 0;
+            
+            // Summary stats cards
+            echo '<div class="lgl-sub-stats">';
+            
+            echo '<div class="lgl-sub-stat-card">';
+            echo '<div class="lgl-sub-stat-label">Total</div>';
+            echo '<div class="lgl-sub-stat-value">' . $total_stats['total'] . '</div>';
+            echo '</div>';
+            
+            echo '<div class="lgl-sub-stat-card manual">';
+            echo '<div class="lgl-sub-stat-label">Manual</div>';
+            echo '<div class="lgl-sub-stat-value" style="color: #28a745;">' . $total_stats['manual'] . '</div>';
+            echo '<div class="lgl-sub-stat-pct">' . $manual_pct . '%</div>';
+            echo '</div>';
+            
+            $card_class = $auto_pct > 50 ? 'auto' : ($auto_pct > 10 ? 'warning' : 'manual');
+            $text_color = $auto_pct > 50 ? '#dc3545' : ($auto_pct > 10 ? '#ff6b08' : '#28a745');
+            
+            echo '<div class="lgl-sub-stat-card ' . $card_class . '">';
+            echo '<div class="lgl-sub-stat-label">Auto-Renew</div>';
+            echo '<div class="lgl-sub-stat-value" style="color: ' . $text_color . ';">' . $total_stats['auto'] . '</div>';
+            echo '<div class="lgl-sub-stat-pct">' . $auto_pct . '%</div>';
+            echo '</div>';
+            
+            echo '</div>';
+            
+            // Status breakdown table (top 5 statuses)
+            echo '<h4 style="margin: 20px 0 10px 0;">Top Subscription Statuses:</h4>';
+            
+            // Sort by total count and get top 5
+            uasort($stats, function($a, $b) {
+                return $b['total'] - $a['total'];
+            });
+            $top_stats = array_slice($stats, 0, 5, true);
+            
+            echo '<table class="lgl-sub-table">';
+            echo '<thead><tr>';
+            echo '<th>Status</th><th style="text-align: center;">Total</th><th style="text-align: center;">Manual</th><th style="text-align: center;">Auto</th>';
+            echo '</tr></thead><tbody>';
+            
+            foreach ($top_stats as $status => $counts) {
+                $status_auto_pct = $counts['total'] > 0 ? round(($counts['auto'] / $counts['total']) * 100, 1) : 0;
+                
+                echo '<tr>';
+                echo '<td style="text-transform: uppercase; font-weight: 600; font-size: 11px;">' . esc_html($status) . '</td>';
+                echo '<td style="text-align: center;">' . $counts['total'] . '</td>';
+                echo '<td style="text-align: center; color: #28a745; font-weight: 600;">' . $counts['manual'] . '</td>';
+                echo '<td style="text-align: center; color: #dc3545; font-weight: 600;">' . $counts['auto'] . ' <span style="color: #666; font-weight: normal;">(' . $status_auto_pct . '%)</span></td>';
+                echo '</tr>';
+            }
+            
+            echo '</tbody></table>';
+            
+            // Alert based on auto-renew percentage
+            if ($auto_pct > 10) {
+                echo '<div class="lgl-sub-alert warning">';
+                echo '<strong>⚠️ Warning:</strong> ' . $total_stats['auto'] . ' subscriptions (' . $auto_pct . '%) still have auto-renewal enabled.';
+                echo '<br><a href="' . admin_url('admin.php?page=lgl-subscription-management') . '" class="lgl-sub-button danger">Run Comprehensive Update</a>';
+                echo '</div>';
+            } else {
+                echo '<div class="lgl-sub-alert success">';
+                echo '<strong>✓ Looking Good!</strong> Only ' . $auto_pct . '% of subscriptions have auto-renewal enabled.';
+                echo '</div>';
+            }
+            
+            echo '<p style="margin-top: 15px; font-size: 11px; color: #666;"><em>Last updated: ' . current_time('F j, Y g:i a') . '</em></p>';
+            echo '</div>';
+            
+        } catch (\Exception $e) {
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Subscription Widget Error: ' . $e->getMessage());
+            echo '<div class="notice notice-error"><p>Error loading subscription data. Please try again later.</p></div>';
+        }
     }
 }
