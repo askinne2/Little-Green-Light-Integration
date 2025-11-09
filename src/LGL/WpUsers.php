@@ -72,7 +72,7 @@ class WpUsers {
         $this->registerCronJobs();
         
         // Register dashboard widgets
-        add_action('wp_dashboard_setup', [$this, 'registerSyncDashboardWidget']);
+        // add_action('wp_dashboard_setup', [$this, 'registerSyncDashboardWidget']);
         
         // Helper::getInstance()->debug('LGL WP Users: Initialized successfully');
     }

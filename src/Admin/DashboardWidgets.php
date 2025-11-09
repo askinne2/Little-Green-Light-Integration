@@ -34,9 +34,7 @@ class DashboardWidgets {
         if (!class_exists('WooCommerce')) {
             return;
         }
-        
-        add_action('wp_dashboard_setup', [static::class, 'registerWidgets']);
-        add_action('admin_menu', [static::class, 'addAdminPages']);
+    
         
         \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Dashboard Widgets: Initialized successfully');
     }
@@ -51,11 +49,6 @@ class DashboardWidgets {
             [static::class, 'renderNonprofitWidget']
         );
         
-        wp_add_dashboard_widget(
-            'lgl_events_newsletter_widget',
-            'Events Newsletter for Constant Contact',
-            [static::class, 'renderEventsNewsletterWidget']
-        );
         
         // Only add subscription widget if WooCommerce Subscriptions is active
         if (class_exists('WC_Subscriptions')) {
@@ -67,20 +60,7 @@ class DashboardWidgets {
         }
     }
     
-    /**
-     * Add admin pages
-     */
-    public static function addAdminPages() {
-        add_submenu_page(
-            null, // Hidden from menu
-            'Events Newsletter Preview',
-            'Events Newsletter Preview',
-            'manage_options',
-            'lgl-events-newsletter-preview',
-            [static::class, 'renderEventsNewsletterPage']
-        );
-    }
-    
+
     /**
      * Render nonprofit order summary widget
      */
@@ -319,224 +299,6 @@ class DashboardWidgets {
         echo '</form>';
     }
     
-    /**
-     * Render events newsletter widget
-     */
-    public static function renderEventsNewsletterWidget() {
-        $preview_url = add_query_arg([
-            'page' => 'lgl-events-newsletter-preview',
-            'nonce' => wp_create_nonce('lgl_events_preview_nonce')
-        ], admin_url('admin.php'));
-        
-        echo '<style>
-            .lgl-events-widget { font-family: Arial, sans-serif; }
-            .lgl-events-instructions { 
-                background-color: #e8f4f8; 
-                padding: 15px; 
-                border-left: 4px solid #00797A; 
-                margin-bottom: 20px; 
-                border-radius: 5px; 
-            }
-            .lgl-events-button {
-                text-align: center;
-                padding: 20px;
-                background-color: #f9f9f9;
-                border: 2px dashed #00797A;
-                border-radius: 5px;
-                margin: 15px 0;
-            }
-            .lgl-events-button a {
-                display: inline-block;
-                background-color: #00797A;
-                color: white;
-                padding: 15px 30px;
-                text-decoration: none;
-                border-radius: 5px;
-                font-weight: bold;
-                font-size: 16px;
-            }
-            .lgl-events-button a:hover {
-                background-color: #005f61;
-                color: white;
-            }
-        </style>';
-
-        echo '<div class="lgl-events-widget">';
-        echo '<div class="lgl-events-instructions">';
-        echo '<h3 style="margin-top: 0;">📧 Events Newsletter for Constant Contact</h3>';
-        echo '<p><strong>Generate beautifully formatted event content for your newsletters.</strong></p>';
-        echo '<p>Click the button below to open the events preview page with copy-ready content.</p>';
-        echo '<p><em>💡 <strong>Note:</strong> Content is automatically generated from your latest upcoming events.</em></p>';
-        echo '</div>';
-        echo '<div class="lgl-events-button">';
-        echo '<a href="' . esc_url($preview_url) . '" target="_blank">📅 Generate Events Newsletter Content</a>';
-        echo '</div>';
-        echo '</div>';
-    }
-    
-    /**
-     * Render events newsletter admin page
-     */
-    public static function renderEventsNewsletterPage() {
-        // Security checks
-        if (!current_user_can('manage_options')) {
-            wp_die('Access denied: Administrator privileges required.');
-        }
-        
-        if (isset($_GET['nonce']) && !wp_verify_nonce($_GET['nonce'], 'lgl_events_preview_nonce')) {
-            wp_die('Security check failed.');
-        }
-        
-        echo '<div class="wrap">';
-        echo '<style>
-            .lgl-events-admin { font-family: Arial, sans-serif; }
-            .lgl-events-header { background-color: #23282d; color: white; padding: 20px; margin: 0 -20px 20px -12px; }
-            .lgl-events-header h1 { margin: 0; font-size: 28px; color: white; }
-            .lgl-events-header p { margin: 10px 0 0 0; opacity: 0.8; font-size: 16px; }
-            .lgl-events-instructions { background-color: #fff; border-left: 4px solid #00797A; padding: 20px; margin-bottom: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-            .lgl-events-content { background-color: #fff; padding: 25px; border: 2px dashed #00797A; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-            .lgl-copy-note { text-align: center; font-weight: bold; color: #00797A; margin-bottom: 20px; font-size: 16px; }
-            .kbd { background: #f1f1f1; border: 1px solid #ccc; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
-        </style>';
-        
-        echo '<div class="lgl-events-admin">';
-        echo '<div class="lgl-events-header">';
-        echo '<h1>📧 Events Newsletter Generator</h1>';
-        echo '<p>Create formatted content for Constant Contact newsletters</p>';
-        echo '</div>';
-        
-        echo '<div class="lgl-events-instructions">';
-        echo '<h2>📋 Instructions:</h2>';
-        echo '<ol style="font-size: 15px; line-height: 1.6;">';
-        echo '<li><strong>Select All:</strong> Click in the dashed box below, then press <span class="kbd">Ctrl+A</span> (PC) or <span class="kbd">Cmd+A</span> (Mac)</li>';
-        echo '<li><strong>Copy:</strong> Press <span class="kbd">Ctrl+C</span> (PC) or <span class="kbd">Cmd+C</span> (Mac)</li>';
-        echo '<li><strong>Paste:</strong> Go to Constant Contact and paste - formatting will be preserved!</li>';
-        echo '</ol>';
-        echo '</div>';
-        
-        echo '<div class="lgl-events-content">';
-        echo '<div class="lgl-copy-note">👇 SELECT AND COPY ALL CONTENT BELOW 👇</div>';
-        
-        try {
-            static::renderEventsContent();
-        } catch (\Exception $e) {
-            echo '<div class="notice notice-error"><p>Error loading events. Please try again later.</p></div>';
-            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Events Newsletter Error: ' . $e->getMessage());
-        }
-        
-        echo '</div></div></div>';
-    }
-    
-    /**
-     * Render events content with caching
-     */
-    private static function renderEventsContent() {
-        $cache_key = 'lgl_events_newsletter_content';
-        $content = CacheManager::get($cache_key);
-        
-        if (false === $content) {
-            $content = static::generateEventsContent();
-            // Cache for 30 minutes
-            CacheManager::set($cache_key, $content, 1800);
-        }
-        
-        echo $content;
-    }
-    
-    /**
-     * Generate events content
-     */
-    private static function generateEventsContent() {
-        $events_query = new \WP_Query([
-            'post_type' => 'ui-events',
-            'post_status' => 'publish',
-            'posts_per_page' => 10,
-            'meta_query' => [
-                [
-                    'key' => 'ui_events_start_datetime',
-                    'value' => current_time('timestamp'),
-                    'compare' => '>=',
-                    'type' => 'NUMERIC'
-                ]
-            ],
-            'meta_key' => 'ui_events_start_datetime',
-            'orderby' => 'meta_value_num',
-            'order' => 'ASC'
-        ]);
-        
-        if (!$events_query->have_posts()) {
-            return '<div class="notice notice-warning"><p>No upcoming events found.</p></div>';
-        }
-        
-        ob_start();
-        echo '<div style="font-family: Arial, sans-serif; color: #333333; line-height: 1.5; max-width: 600px;">' . "\n";
-        
-        $count = 1;
-        while ($events_query->have_posts()) : $events_query->the_post();
-            $post_id = get_the_ID();
-            $title = get_the_title();
-            $link = get_permalink();
-            
-            // Get new datetime fields
-            $start_timestamp = get_post_meta($post_id, 'ui_events_start_datetime', true);
-            $location_name = get_post_meta($post_id, 'ui_events_location_name', true);
-            $location_address = get_post_meta($post_id, 'ui_events_location_address', true);
-            $price = get_post_meta($post_id, 'ui_events_price', true);
-            
-            $description = get_the_excerpt() ?: wp_trim_words(strip_tags(get_the_content()), 30);
-            $description = html_entity_decode($description, ENT_QUOTES, 'UTF-8');
-            
-            // Format date and time
-            $date_formatted = $start_timestamp ? date('l, F j, Y', $start_timestamp) : 'Date TBA';
-            $time_formatted = $start_timestamp ? date('g:i A', $start_timestamp) : '';
-            
-            // Format price
-            $price_display = ($price == 0) ? 'FREE' : '$' . number_format($price, 2);
-            
-            echo '<table width="100%" cellpadding="10" cellspacing="0" border="0" style="background-color: #f9f9f9; margin-bottom: 15px; border-left: 4px solid #00797A;">' . "\n";
-            echo '<tr><td>' . "\n";
-            echo '<h3 style="color: #00797A; margin: 0 0 10px 0; font-size: 18px;">' . $count . '. ' . esc_html($title) . '</h3>' . "\n";
-            echo '<p style="margin: 3px 0; font-size: 14px;"><strong>📅 Date:</strong> ' . esc_html($date_formatted) . '</p>' . "\n";
-            
-            if ($time_formatted) {
-                echo '<p style="margin: 3px 0; font-size: 14px;"><strong>🕐 Time:</strong> ' . esc_html($time_formatted) . '</p>' . "\n";
-            }
-            
-            if ($location_name) {
-                echo '<p style="margin: 3px 0; font-size: 14px;"><strong>📍 Location:</strong> ' . esc_html($location_name) . '</p>' . "\n";
-                if ($location_address) {
-                    echo '<p style="margin: 3px 0 8px 20px; font-size: 12px; color: #666;">📍 ' . esc_html($location_address) . '</p>' . "\n";
-                }
-            }
-            
-            $price_color = ($price == 0) ? '#28a745' : '#007bff';
-            echo '<p style="margin: 3px 0; font-size: 14px;"><strong>💰 Cost:</strong> <span style="color: ' . $price_color . '; font-weight: bold;">' . esc_html($price_display) . '</span></p>' . "\n";
-            
-            if ($description && strlen($description) > 10) {
-                $short_description = strlen($description) > 150 ? substr($description, 0, 150) . '...' : $description;
-                echo '<p style="margin: 8px 0; font-size: 13px; color: #555; font-style: italic;">' . esc_html($short_description) . '</p>' . "\n";
-            }
-            
-            echo '<table cellpadding="0" cellspacing="0" border="0" style="margin-top: 10px;"><tr><td style="padding: 8px 16px; border-radius: 3px;"><a href="' . esc_url($link) . '" style="color: #00797A; text-decoration: none; font-weight: bold; font-size: 14px;">📖 Learn More</a></td></tr></table>' . "\n";
-            echo '</td></tr></table>' . "\n";
-            echo '<p>&nbsp;</p>' . "\n\n";
-            
-            $count++;
-            if ($count > 10) break;
-        endwhile;
-        
-        wp_reset_postdata();
-        
-        // Footer
-        echo '<table width="100%" cellpadding="15" cellspacing="0" border="0" style="background-color: #00797A; margin-top: 20px;"><tr><td align="center">' . "\n";
-        echo '<p style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; color: #ffffff;">🌐 View All Events</p>' . "\n";
-        echo '<p style="margin: 0 0 15px 0; font-size: 14px; color: #ffffff;">For the complete list of events:</p>' . "\n";
-        echo '<table cellpadding="0" cellspacing="0" border="0"><tr><td style="background-color: #005f61; padding: 10px 20px; border-radius: 3px;"><a href="' . home_url('/events/') . '" style="color: #ffffff; text-decoration: none; font-weight: bold; font-size: 14px;">🗓️ Visit Events Calendar</a></td></tr></table>' . "\n";
-        echo '</td></tr></table>' . "\n";
-        echo '</div>' . "\n";
-        
-        return ob_get_clean();
-    }
     
     /**
      * Render subscription renewal status widget
