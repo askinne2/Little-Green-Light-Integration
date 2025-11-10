@@ -299,13 +299,47 @@ class OrderProcessor {
     /**
      * Check if product is a membership product
      * 
+     * Recognizes both old subscription-based products (containing "membership")
+     * and new one-time products (Member, Supporter, Patron, etc.)
+     * 
      * @param int $parent_id Parent product ID
      * @param string $product_name Product name
      * @return bool
      */
     private function isMembershipProduct(int $parent_id, string $product_name): bool {
-        return has_term('memberships', 'product_cat', $parent_id) && 
-               stripos($product_name, 'membership') !== false;
+        // Must be in memberships category
+        if (!has_term('memberships', 'product_cat', $parent_id)) {
+            return false;
+        }
+        
+        // New one-time membership products (2024+ model)
+        $new_membership_names = [
+            'Member',
+            'Supporter', 
+            'Patron',
+            'Family Member' // Token-based family slot product
+        ];
+        
+        foreach ($new_membership_names as $name) {
+            if (stripos($product_name, $name) !== false) {
+                return true;
+            }
+        }
+        
+        // Legacy subscription products (contains "membership")
+        if (stripos($product_name, 'membership') !== false) {
+            return true;
+        }
+        
+        // If in memberships category but name doesn't match known patterns,
+        // still treat as membership (category is authoritative)
+        $this->helper->debug('⚠️ OrderProcessor: Unknown membership product name in memberships category', [
+            'product_name' => $product_name,
+            'parent_id' => $parent_id,
+            'treating_as' => 'membership'
+        ]);
+        
+        return true;
     }
     
     /**

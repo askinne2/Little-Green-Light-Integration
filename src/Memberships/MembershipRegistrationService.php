@@ -56,24 +56,68 @@ class MembershipRegistrationService {
             \update_user_meta($userId, 'lgl_membership_level_id', (int) $membershipLevelId);
         }
 
-        $match = $this->connection->searchByName($searchName, !empty($emails) ? $emails : $email);
-        $matchMethod = $match['method'] ?? null;
-        $matchedEmail = $match['email'] ?? null;
-        $lglId = $match['id'] ?? null;
-        $created = false;
-
-        if (!$lglId) {
-            $this->ensureUserProfileHasNames($userId, $request, $order);
-            $lglId = $this->createConstituent($userId, $request);
-            $created = true;
-        } else {
+        // CHECK USER META FIRST - Single source of truth for existing users
+        $existingLglId = get_user_meta($userId, 'lgl_id', true);
+        
+        if ($existingLglId) {
+            // User already has an LGL ID - use it directly (no API search needed)
+            $this->helper->debug('✅ MembershipRegistrationService: Using existing lgl_id from user meta', [
+                'user_id' => $userId,
+                'lgl_id' => $existingLglId,
+                'source' => 'user_meta'
+            ]);
+            
+            $lglId = $existingLglId;
+            $matchMethod = 'user_meta';
+            $matchedEmail = null;
+            $created = false;
+            
+            // Update the existing constituent
             $this->ensureUserProfileHasNames($userId, $request, $order);
             $this->updateConstituent($userId, (string) $lglId, $request);
+            
+        } else {
+            // No existing LGL ID - search LGL database
+            $this->helper->debug('🔍 MembershipRegistrationService: No lgl_id in user meta, searching LGL', [
+                'user_id' => $userId,
+                'search_name' => $searchName,
+                'emails' => $emails
+            ]);
+            
+            $match = $this->connection->searchByName($searchName, !empty($emails) ? $emails : $email);
+            $matchMethod = $match['method'] ?? null;
+            $matchedEmail = $match['email'] ?? null;
+            $lglId = $match['id'] ?? null;
+            $created = false;
+
+            if (!$lglId) {
+                // Not found in LGL - create new constituent
+                $this->helper->debug('🆕 MembershipRegistrationService: Creating new constituent', [
+                    'user_id' => $userId
+                ]);
+                $this->ensureUserProfileHasNames($userId, $request, $order);
+                $lglId = $this->createConstituent($userId, $request);
+                $created = true;
+            } else {
+                // Found in LGL - update existing constituent
+                $this->helper->debug('✏️ MembershipRegistrationService: Updating matched constituent', [
+                    'user_id' => $userId,
+                    'lgl_id' => $lglId,
+                    'match_method' => $matchMethod
+                ]);
+                $this->ensureUserProfileHasNames($userId, $request, $order);
+                $this->updateConstituent($userId, (string) $lglId, $request);
+            }
+            
+            // Save the LGL ID to user meta for future use
+            $this->helper->debug('💾 MembershipRegistrationService: Saving lgl_id to user meta', [
+                'user_id' => $userId,
+                'lgl_id' => $lglId
+            ]);
+            \update_user_meta($userId, 'lgl_id', $lglId);
         }
 
         $constituentVerification = $this->connection->getConstituent((string) $lglId);
-
-        \update_user_meta($userId, 'lgl_id', $lglId);
         \update_user_meta($userId, 'user-membership-type', $membershipLevel);
 
         $paymentId = null;

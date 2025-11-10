@@ -112,10 +112,22 @@ class ClassOrderHandler {
      * @return string LGL fund ID
      */
     private function getLglFundId(int $product_id): string {
-        $product_meta = get_post_meta($product_id);
-        $lgl_fund_id = $product_meta['_lc_lgl_fund_id'][0] ?? '';
+        // Check for unified LGL Sync ID field first (new standard)
+        $lgl_fund_id = get_post_meta($product_id, '_ui_lgl_sync_id', true);
+        $source = 'unified';
         
-        $this->helper->debug('ClassOrderHandler: Class Registration LGL FUND ID', $lgl_fund_id);
+        if (empty($lgl_fund_id)) {
+            // Fallback to legacy class-specific field
+            $product_meta = get_post_meta($product_id);
+            $lgl_fund_id = $product_meta['_lc_lgl_fund_id'][0] ?? '';
+            $source = 'legacy';
+        }
+        
+        $this->helper->debug('ClassOrderHandler: Class Registration LGL FUND ID', [
+            'product_id' => $product_id,
+            'fund_id' => $lgl_fund_id,
+            'source' => $source
+        ]);
         
         return $lgl_fund_id;
     }
@@ -242,8 +254,14 @@ class ClassOrderHandler {
     public function getClassProductMeta(int $product_id): array {
         $product_meta = get_post_meta($product_id);
         
+        // Check for unified LGL Sync ID first, fallback to legacy field
+        $lgl_fund_id = get_post_meta($product_id, '_ui_lgl_sync_id', true);
+        if (empty($lgl_fund_id)) {
+            $lgl_fund_id = $product_meta['_lc_lgl_fund_id'][0] ?? '';
+        }
+        
         return [
-            'lgl_fund_id' => $product_meta['_lc_lgl_fund_id'][0] ?? '',
+            'lgl_fund_id' => $lgl_fund_id,
             'class_level' => $product_meta['_class_level'][0] ?? '',
             'class_duration' => $product_meta['_class_duration'][0] ?? '',
             'class_schedule' => $product_meta['_class_schedule'][0] ?? '',
@@ -290,7 +308,8 @@ class ClassOrderHandler {
      */
     public function getRequiredMetaFields(): array {
         return [
-            '_lc_lgl_fund_id'
+            '_ui_lgl_sync_id', // Unified LGL fund ID (preferred)
+            '_lc_lgl_fund_id' // Legacy field (fallback)
         ];
     }
 }

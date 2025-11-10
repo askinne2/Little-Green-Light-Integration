@@ -70,7 +70,7 @@ function lgl_init_modern_architecture() {
     add_action('plugins_loaded', function() {
         try {
             $plugin = \UpstateInternational\LGL\Core\Plugin::getInstance(LGL_PLUGIN_FILE);
-            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Modern architecture initialized successfully');
+            // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: Modern architecture initialized successfully');
         } catch (Exception $e) {
             \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin Modern Architecture Error: ' . $e->getMessage());
         }

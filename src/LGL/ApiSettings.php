@@ -78,7 +78,7 @@ class ApiSettings {
      */
     public function setSettingsHandler($handler): void {
         $this->settingsHandler = $handler;
-        Helper::getInstance()->debug('🔗 ApiSettings: SettingsHandler injected successfully! Handler class: ' . get_class($handler));
+        // Helper::getInstance()->debug('🔗 ApiSettings: SettingsHandler injected successfully! Handler class: ' . get_class($handler));
     }
     
     /**

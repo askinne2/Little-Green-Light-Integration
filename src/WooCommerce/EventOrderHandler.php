@@ -102,14 +102,22 @@ class EventOrderHandler {
      * @return string LGL fund ID
      */
     private function getLglFundId(int $parent_id): string {
-        $product_meta = get_post_meta($parent_id);
+        // Check for unified LGL Sync ID field first (new standard)
+        $lgl_fund_id = get_post_meta($parent_id, '_ui_lgl_sync_id', true);
+        $source = 'unified';
         
-        // Debug variation meta retrieval
-        $this->helper->debug('EventOrderHandler: VARIATION get_meta', get_post_meta($parent_id, '_ui_event_lgl_fund_id', true));
+        if (empty($lgl_fund_id)) {
+            // Fallback to legacy event-specific field
+            $product_meta = get_post_meta($parent_id);
+            $lgl_fund_id = $product_meta['_ui_event_lgl_fund_id'][0] ?? '';
+            $source = 'legacy';
+        }
         
-        $lgl_fund_id = $product_meta['_ui_event_lgl_fund_id'][0] ?? '';
-        
-        $this->helper->debug('EventOrderHandler: Event Registration LGL FUND ID', $lgl_fund_id);
+        $this->helper->debug('EventOrderHandler: Event Registration LGL FUND ID', [
+            'parent_id' => $parent_id,
+            'fund_id' => $lgl_fund_id,
+            'source' => $source
+        ]);
         
         return $lgl_fund_id;
     }
@@ -241,8 +249,14 @@ class EventOrderHandler {
     public function getEventProductMeta(int $product_id): array {
         $product_meta = get_post_meta($product_id);
         
+        // Check for unified LGL Sync ID first, fallback to legacy field
+        $lgl_fund_id = get_post_meta($product_id, '_ui_lgl_sync_id', true);
+        if (empty($lgl_fund_id)) {
+            $lgl_fund_id = $product_meta['_ui_event_lgl_fund_id'][0] ?? '';
+        }
+        
         return [
-            'lgl_fund_id' => $product_meta['_ui_event_lgl_fund_id'][0] ?? '',
+            'lgl_fund_id' => $lgl_fund_id,
             'start_datetime' => $product_meta['_ui_event_start_datetime'][0] ?? '',
             'end_datetime' => $product_meta['_ui_event_end_datetime'][0] ?? '',
             'location_name' => $product_meta['_ui_event_location_name'][0] ?? '',
@@ -325,7 +339,8 @@ class EventOrderHandler {
      */
     public function getRequiredMetaFields(): array {
         return [
-            '_ui_event_lgl_fund_id',
+            '_ui_lgl_sync_id', // Unified LGL fund ID (preferred)
+            '_ui_event_lgl_fund_id', // Legacy field (fallback)
             '_ui_event_start_datetime'
         ];
     }

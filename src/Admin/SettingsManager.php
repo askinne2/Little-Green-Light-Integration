@@ -722,7 +722,7 @@ class SettingsManager implements SettingsManagerInterface {
     private function migrateFromCarbonFields(): void {
         // Check if migration already done
         if (get_option(self::MIGRATION_FLAG)) {
-            $this->helper->debug('SettingsManager: Migration already completed, skipping');
+            // $this->helper->debug('SettingsManager: Migration already completed, skipping');
             return;
         }
         

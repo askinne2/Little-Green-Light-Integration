@@ -441,7 +441,7 @@ class Payments {
                 }
             }
             
-            // CRITICAL: Use the passed fund ID directly (from _lc_lgl_fund_id)
+            // CRITICAL: Use the passed fund ID directly (from _ui_lgl_sync_id or legacy _lc_lgl_fund_id)
             // The $lgl_class_id parameter is actually the fund ID from your JetEngine meta
             $fund_id = (int) $lgl_class_id;
             
@@ -585,7 +585,7 @@ class Payments {
                 }
             }
             
-            // CRITICAL: Use the passed fund ID directly (from _ui_event_lgl_fund_id)
+            // CRITICAL: Use the passed fund ID directly (from _ui_lgl_sync_id or legacy _ui_event_lgl_fund_id)
             // The $lgl_class_id parameter is actually the fund ID from your JetEngine meta
             $fund_id = (int) $lgl_class_id;
             

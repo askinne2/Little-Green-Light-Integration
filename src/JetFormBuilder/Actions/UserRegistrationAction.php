@@ -132,9 +132,14 @@ class UserRegistrationAction implements JetFormActionInterface {
                 $this->updateConstituent($uid, $lgl_id, $request);
             }
             
-            // ADD LGL PAYMENT OBJECT [Payments::createGift()] - ALWAYS HAPPENS
-            $this->helper->debug('💳 UserRegistrationAction: Adding payment object...');
-            $this->addPaymentObject($uid, $lgl_id, $request);
+            // ADD LGL PAYMENT OBJECT [Payments::createGift()] - ONLY FOR PAID REGISTRATIONS
+            // Skip payment object creation for family members (they don't pay, parent already paid)
+            if (!$method) {
+                $this->helper->debug('💳 UserRegistrationAction: Adding payment object...');
+                $this->addPaymentObject($uid, $lgl_id, $request);
+            } else {
+                $this->helper->debug('⏭️ UserRegistrationAction: Skipping payment object (family member registration)');
+            }
             
             $this->helper->debug('✅ UserRegistrationAction::handle() COMPLETED SUCCESSFULLY', [
                 'user_id' => $uid,

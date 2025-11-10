@@ -614,6 +614,16 @@ class TestingHandler {
                 throw new \Exception('User not found: ' . $userId);
             }
             
+            // CHECK IF USER ALREADY HAS LGL ID
+            $existingLglId = get_user_meta($userId, 'lgl_id', true);
+            if ($existingLglId) {
+                echo '<div class="notice notice-warning">';
+                echo '<p>⚠️ <strong>Warning:</strong> This user already has an LGL ID: <code>' . esc_html($existingLglId) . '</code></p>';
+                echo '<p>Creating a new constituent will result in a DUPLICATE. Consider using "Update Constituent" instead.</p>';
+                echo '<p>Proceeding anyway for testing purposes...</p>';
+                echo '</div>';
+            }
+            
             // Get constituent service
             $constituentsClass = \UpstateInternational\LGL\LGL\Constituents::getInstance();
             
@@ -834,24 +844,34 @@ class TestingHandler {
             
             // Get LGL ID (try both meta keys for compatibility)
             $lglId = get_user_meta($userId, 'lgl_constituent_id', true);
+            $metaKeyUsed = 'lgl_constituent_id';
             if (!$lglId) {
                 $lglId = get_user_meta($userId, 'lgl_id', true);
+                $metaKeyUsed = 'lgl_id';
             }
             
-            \lgl_log("🔍 Retrieved LGL ID from user meta", ['user_id' => $userId, 'lgl_id' => $lglId, 'meta_key_used' => $lglId ? ($lglId === get_user_meta($userId, 'lgl_constituent_id', true) ? 'lgl_constituent_id' : 'lgl_id') : 'none']);
+            \lgl_log("🔍 Retrieved LGL ID from user meta", ['user_id' => $userId, 'lgl_id' => $lglId, 'meta_key_used' => $lglId ? $metaKeyUsed : 'none']);
             
             if (!$lglId) {
                 \lgl_log("❌ No LGL ID found for user", ['user_id' => $userId]);
                 throw new \Exception('No LGL ID found for user ' . $userId . '. Run Add Constituent first.');
             }
             
-            echo '<div class="notice notice-info"><p>📋 User LGL ID: <strong>' . esc_html($lglId) . '</strong></p></div>';
+            echo '<div class="notice notice-info">';
+            echo '<p>📋 <strong>User LGL ID:</strong> <code>' . esc_html($lglId) . '</code> <span style="color: green;">(from user meta: ' . esc_html($metaKeyUsed) . ')</span></p>';
+            echo '<p><em>✅ Using existing LGL constituent - no duplicate will be created</em></p>';
+            echo '</div>';
             
-            // Get membership level ID from product variation
-            $fundId = get_post_meta($variationId, '_lgl_membership_fund_id', true);
-            \lgl_log("🔍 Retrieved membership fund ID from product", ['variation_id' => $variationId, 'fund_id' => $fundId]);
+            // Get membership level ID from product variation (unified field with legacy fallback)
+            $fundId = get_post_meta($variationId, '_ui_lgl_sync_id', true);
+            $source = 'unified';
+            if (empty($fundId)) {
+                $fundId = get_post_meta($variationId, '_lgl_membership_fund_id', true);
+                $source = 'legacy';
+            }
+            \lgl_log("🔍 Retrieved membership fund ID from product", ['variation_id' => $variationId, 'fund_id' => $fundId, 'source' => $source]);
             if (!$fundId) {
-                throw new \Exception('No _lgl_membership_fund_id found for variation ' . $variationId);
+                throw new \Exception('No _ui_lgl_sync_id or _lgl_membership_fund_id found for variation ' . $variationId);
             }
             
             // Get membership level name
@@ -948,16 +968,21 @@ class TestingHandler {
             
             // Get LGL ID (try both meta keys for compatibility)
             $lglId = get_user_meta($userId, 'lgl_constituent_id', true);
+            $metaKeyUsed = 'lgl_constituent_id';
             if (!$lglId) {
                 $lglId = get_user_meta($userId, 'lgl_id', true);
+                $metaKeyUsed = 'lgl_id';
             }
             
             if (!$lglId) {
                 throw new \Exception('No LGL ID found for user ' . $userId . '. Run Add Constituent first.');
             }
             
-            \lgl_log("🔍 Retrieved LGL ID for user {$userId}", ['lgl_id' => $lglId]);
-            echo '<div class="notice notice-info"><p>📋 User LGL ID: <strong>' . esc_html($lglId) . '</strong></p></div>';
+            \lgl_log("🔍 Retrieved LGL ID for user {$userId}", ['lgl_id' => $lglId, 'meta_key_used' => $metaKeyUsed]);
+            echo '<div class="notice notice-info">';
+            echo '<p>📋 <strong>User LGL ID:</strong> <code>' . esc_html($lglId) . '</code> <span style="color: green;">(from user meta: ' . esc_html($metaKeyUsed) . ')</span></p>';
+            echo '<p><em>✅ Using existing LGL constituent - updating memberships</em></p>';
+            echo '</div>';
             
             // Step 1: Get existing memberships from LGL using dedicated memberships endpoint
             echo '<div class="notice notice-info"><p>📋 Fetching ALL memberships from LGL (active & inactive)...</p></div>';
@@ -1025,10 +1050,13 @@ class TestingHandler {
             // Step 3: Create new membership with new level
             echo '<div class="notice notice-info"><p>➕ Creating new membership...</p></div>';
             
-            // Get new membership level from product variation
-            $fundId = get_post_meta($variationId, '_lgl_membership_fund_id', true);
+            // Get new membership level from product variation (unified field with legacy fallback)
+            $fundId = get_post_meta($variationId, '_ui_lgl_sync_id', true);
+            if (empty($fundId)) {
+                $fundId = get_post_meta($variationId, '_lgl_membership_fund_id', true);
+            }
             if (!$fundId) {
-                throw new \Exception('No _lgl_membership_fund_id found for variation ' . $variationId);
+                throw new \Exception('No _ui_lgl_sync_id or _lgl_membership_fund_id found for variation ' . $variationId);
             }
             
             $product = function_exists('wc_get_product') ? wc_get_product($variationId) : null;
@@ -1125,20 +1153,26 @@ class TestingHandler {
             $eventName = $product->get_name();
             $price = (float) $product->get_price();
             
-            // Get event fund ID from product meta
-            // Events use _ui_event_lgl_fund_id on the PARENT product
+            // Get event fund ID from product meta (unified field with legacy fallback)
+            // Try unified field first on parent, then legacy field
             $eventFundId = null;
             if ($product->get_parent_id()) {
-                $eventFundId = get_post_meta($product->get_parent_id(), '_ui_event_lgl_fund_id', true);
+                $eventFundId = get_post_meta($product->get_parent_id(), '_ui_lgl_sync_id', true);
+                if (empty($eventFundId)) {
+                    $eventFundId = get_post_meta($product->get_parent_id(), '_ui_event_lgl_fund_id', true);
+                }
             }
             
             // Fallback to variation if not found on parent
             if (!$eventFundId) {
-                $eventFundId = get_post_meta($variationId, '_ui_event_lgl_fund_id', true);
+                $eventFundId = get_post_meta($variationId, '_ui_lgl_sync_id', true);
+                if (empty($eventFundId)) {
+                    $eventFundId = get_post_meta($variationId, '_ui_event_lgl_fund_id', true);
+                }
             }
             
             if (!$eventFundId) {
-                throw new \Exception('Event does not have _ui_event_lgl_fund_id configured on product ' . ($product->get_parent_id() ?: $variationId));
+                throw new \Exception('Event does not have _ui_lgl_sync_id or _ui_event_lgl_fund_id configured on product ' . ($product->get_parent_id() ?: $variationId));
             }
             
             \lgl_log("🎟️ Testing Event Registration", [
@@ -1219,11 +1253,13 @@ class TestingHandler {
             $className = $product->get_name();
             $price = (float) $product->get_price();
             
-            // Get class fund ID from product meta
-            // Classes use _lc_lgl_fund_id on the product
-            $classFundId = get_post_meta($classProductId, '_lc_lgl_fund_id', true);
+            // Get class fund ID from product meta (unified field with legacy fallback)
+            $classFundId = get_post_meta($classProductId, '_ui_lgl_sync_id', true);
+            if (empty($classFundId)) {
+                $classFundId = get_post_meta($classProductId, '_lc_lgl_fund_id', true);
+            }
             if (!$classFundId) {
-                throw new \Exception('Class does not have _lc_lgl_fund_id configured on product ' . $classProductId);
+                throw new \Exception('Class does not have _ui_lgl_sync_id or _lc_lgl_fund_id configured on product ' . $classProductId);
             }
             
             // Determine class type (could be stored in meta or derived from product)

@@ -489,11 +489,24 @@ class Helper {
         
         // Map WooCommerce variation names to LGL membership names
         $name_mapping = [
+            // NEW membership names (primary)
+            'Member' => 'Member',
+            'Supporter' => 'Supporter', 
+            'Patron' => 'Patron',
+            'Family Member' => 'Family Member',
+            
+            // LEGACY names (sunset in 1 year - keep for backward compatibility)
             'Membership - Individual' => 'Individual Membership',
             'Membership - Family' => 'Family Membership', 
             'Membership - Patron' => 'Patron Membership',
             'Membership - Patron Family' => 'Patron Family Membership',
-            'Daily Membership - Daily' => 'Daily Plan'
+            'Daily Membership - Daily' => 'Daily Plan',
+            
+            // Legacy fallbacks (convert old names to new)
+            'Individual Membership' => 'Member',
+            'Family Membership' => 'Member',
+            'Patron Membership' => 'Patron',
+            'Patron Family Membership' => 'Patron',
         ];
         
         if (isset($name_mapping[$wc_product_name])) {
@@ -522,9 +535,15 @@ class Helper {
             'price' => $price
         ]);
         
-        // Price-to-name mapping (matches legacy system)
+        // Price-to-name mapping (NEW system + legacy for backward compatibility)
         $price_mapping = [
-            75 => 'Individual Membership',
+            // NEW pricing structure
+            75 => 'Member',
+            150 => 'Supporter',
+            500 => 'Patron',
+            25 => 'Family Member',
+            
+            // LEGACY pricing (sunset in 1 year - keep for backward compatibility)
             100 => 'Family Membership',
             200 => 'Patron Membership', 
             250 => 'Patron Family Membership',
@@ -558,8 +577,15 @@ class Helper {
             'membership_name' => $membership_name
         ]);
         
-        // Name-to-price mapping (matches legacy system)
+        // Name-to-price mapping (NEW system + legacy for backward compatibility)
         $name_mapping = [
+            // NEW membership names
+            'Member' => 75,
+            'Supporter' => 150,
+            'Patron' => 500,
+            'Family Member' => 25,
+            
+            // LEGACY names (sunset in 1 year - keep for backward compatibility)
             'Individual Membership' => 75,
             'Family Membership' => 100,
             'Patron Membership' => 200,

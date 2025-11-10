@@ -135,10 +135,24 @@ class EmailBlocker {
     /**
      * Block emails and log attempts
      * 
-     * @param array $args Email arguments
+     * @param array|false $args Email arguments or false if already blocked
      * @return false|array Returns false to block, or modified args to allow
      */
-    public function blockEmails(array $args) {
+    public function blockEmails($args) {
+        // If another filter already blocked this email, respect that
+        if ($args === false) {
+            return false;
+        }
+        
+        // Ensure we have an array at this point
+        if (!is_array($args)) {
+            $this->helper->debug('EmailBlocker: Invalid argument type received', [
+                'type' => gettype($args),
+                'value' => $args
+            ]);
+            return false;
+        }
+        
         $subject = $args['subject'] ?? 'No Subject';
         $to = is_array($args['to']) ? implode(', ', $args['to']) : ($args['to'] ?? 'Unknown');
         $message = $args['message'] ?? 'No Message';

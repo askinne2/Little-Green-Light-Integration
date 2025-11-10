@@ -134,7 +134,7 @@ class CacheManager {
         $data = get_transient($cache_key);
         
         if (false !== $data) {
-            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: GET HIT for key ' . $key);
+            // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: GET HIT for key ' . $key);
         } else {
             \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Cache: GET MISS for key ' . $key);
         }

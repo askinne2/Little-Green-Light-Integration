@@ -142,6 +142,10 @@ class MembershipOrderHandler {
             $this->helper->debug('👤 MembershipOrderHandler: Updating user role...');
             $this->updateUserRole($uid, $actual_membership_level);
             
+            // Process family slot purchases (token-based system)
+            $this->helper->debug('🎟️ MembershipOrderHandler: Processing family slot purchases...');
+            $this->processFamilySlots($order, $uid);
+            
             // Prepare registration request (use actual membership level)
             $this->helper->debug('📋 MembershipOrderHandler: Building registration request...');
             $request = $this->buildRegistrationRequest(
@@ -210,14 +214,38 @@ class MembershipOrderHandler {
         ]);
         $variation_id = $product->get_variation_id() ?: $product->get_product_id();
         $candidate_ids = [];
-        $meta_value = get_post_meta($variation_id, '_lgl_membership_fund_id', true);
+        
+        // Check for unified LGL Sync ID field first (new standard)
+        $meta_value = get_post_meta($variation_id, '_ui_lgl_sync_id', true);
+        if (empty($meta_value)) {
+            // Fallback to legacy membership-specific field
+            $meta_value = get_post_meta($variation_id, '_lgl_membership_fund_id', true);
+        }
+        
         if (!empty($meta_value)) {
             $candidate_ids[] = (int) $meta_value;
+            $this->helper->debug('🔍 Found LGL sync ID on variation', [
+                'variation_id' => $variation_id,
+                'fund_id' => (int) $meta_value,
+                'source' => get_post_meta($variation_id, '_ui_lgl_sync_id', true) ? 'unified' : 'legacy'
+            ]);
         }
+        
+        // Check parent product if this is a variation
         if ($variation_id !== $product->get_product_id()) {
-            $parent_meta = get_post_meta($product->get_product_id(), '_lgl_membership_fund_id', true);
+            $parent_meta = get_post_meta($product->get_product_id(), '_ui_lgl_sync_id', true);
+            if (empty($parent_meta)) {
+                // Fallback to legacy field on parent
+                $parent_meta = get_post_meta($product->get_product_id(), '_lgl_membership_fund_id', true);
+            }
+            
             if (!empty($parent_meta)) {
                 $candidate_ids[] = (int) $parent_meta;
+                $this->helper->debug('🔍 Found LGL sync ID on parent product', [
+                    'parent_id' => $product->get_product_id(),
+                    'fund_id' => (int) $parent_meta,
+                    'source' => get_post_meta($product->get_product_id(), '_ui_lgl_sync_id', true) ? 'unified' : 'legacy'
+                ]);
             }
         }
         $candidate_ids = array_values(array_unique(array_filter($candidate_ids)));
@@ -255,11 +283,17 @@ class MembershipOrderHandler {
         if ($variation_id) {
             $level_attribute = get_post_meta($variation_id, 'attribute_level', true);
             if (!empty($level_attribute)) {
-                // Convert attribute to full membership name
+                // Convert attribute to membership name
                 $attribute_mapping = [
+                    // New membership model (2024+)
+                    'Member' => 'Member',
+                    'Supporter' => 'Supporter',
+                    'Patron' => 'Patron',
+                    'Family Member' => 'Family Member',
+                    
+                    // Legacy membership model (for backwards compatibility)
                     'Individual' => 'Individual Membership',
                     'Family' => 'Family Membership',
-                    'Patron' => 'Patron Membership',
                     'Patron Family' => 'Patron Family Membership',
                     'Daily' => 'Daily Plan'
                 ];
@@ -525,6 +559,13 @@ class MembershipOrderHandler {
      */
     public function getSupportedMembershipTypes(): array {
         return [
+            // New one-time membership model (2024+)
+            'Member',
+            'Supporter',
+            'Patron',
+            'Family Member',
+            
+            // Legacy subscription model (for backwards compatibility)
             'Individual Membership',
             'Family Membership',
             'Patron Membership',
@@ -590,6 +631,66 @@ class MembershipOrderHandler {
             // User has active subscription - mark as WC-managed
             update_user_meta($user_id, 'user-subscription-status', 'wc-subscription');
             $this->helper->debug("User {$user_id} has active WC subscription, renewal managed by WooCommerce");
+        }
+    }
+    
+    /**
+     * Process family member slot purchases
+     * Updates user_available_family_slots and user_total_family_slots_purchased
+     * Assigns ui_patron_owner role when slots are purchased
+     * 
+     * @param \WC_Order $order WooCommerce order
+     * @param int $uid User ID
+     * @return void
+     */
+    private function processFamilySlots(\WC_Order $order, int $uid): void {
+        $family_product_id = 89889; // Family Member product
+        $family_sku = 'UIFAMILYMEMBER25';
+        
+        foreach ($order->get_items() as $item) {
+            $product_id = $item->get_product_id();
+            $product = wc_get_product($product_id);
+            
+            if (!$product) {
+                continue;
+            }
+            
+            // Check if this is the family member slot product
+            if ($product_id === $family_product_id || $product->get_sku() === $family_sku) {
+                $qty = (int) $item->get_quantity();
+                
+                // Update available slots
+                $current_slots = (int) get_user_meta($uid, 'user_available_family_slots', true);
+                $new_available = $current_slots + $qty;
+                update_user_meta($uid, 'user_available_family_slots', $new_available);
+                
+                // Track total purchased for reporting
+                $total_purchased = (int) get_user_meta($uid, 'user_total_family_slots_purchased', true);
+                $new_total = $total_purchased + $qty;
+                update_user_meta($uid, 'user_total_family_slots_purchased', $new_total);
+                
+                // Assign ui_patron_owner role if not already assigned
+                // Note: Role slug is ui_patron_owner (display name: "UI Family Owner")
+                $user = new \WP_User($uid);
+                if (!in_array('ui_patron_owner', $user->roles)) {
+                    // If user is ui_member, upgrade to ui_patron_owner
+                    if (in_array('ui_member', $user->roles)) {
+                        $this->helper->changeUserRole($uid, 'ui_member', 'ui_patron_owner');
+                        $this->helper->debug('MembershipOrderHandler: Promoted user to ui_patron_owner', [
+                            'user_id' => $uid,
+                            'available_slots' => $new_available
+                        ]);
+                    }
+                }
+                
+                $this->helper->debug('MembershipOrderHandler: Added family slots', [
+                    'user_id' => $uid,
+                    'order_id' => $order->get_id(),
+                    'purchased_qty' => $qty,
+                    'new_available' => $new_available,
+                    'new_total_purchased' => $new_total
+                ]);
+            }
         }
     }
 }

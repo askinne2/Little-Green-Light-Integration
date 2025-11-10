@@ -333,7 +333,7 @@ class ServiceContainer implements ContainerInterface {
         
         // Register SettingsHandler WITHOUT SettingsManager dependency (to avoid circular dependency)
         $this->register('admin.settings_handler', function($container) {
-            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...');
+            // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('🔧 ServiceContainer: Creating SettingsHandler (without SettingsManager to avoid circular dependency)...');
             
             // Create handler with basic dependencies only
             // SettingsManager will be lazy-loaded when needed via getSetting()
@@ -343,11 +343,11 @@ class ServiceContainer implements ContainerInterface {
             );
             
             // Wire the modern handler to the legacy ApiSettings for delegation
-            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('🔧 ServiceContainer: Getting ApiSettings instance for injection...');
+            // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('🔧 ServiceContainer: Getting ApiSettings instance for injection...');
             $apiSettings = \UpstateInternational\LGL\LGL\ApiSettings::getInstance();
-            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('🔧 ServiceContainer: Calling setSettingsHandler...');
+            // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('🔧 ServiceContainer: Calling setSettingsHandler...');
             $apiSettings->setSettingsHandler($handler);
-            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('🔧 ServiceContainer: SettingsHandler injection completed');
+            // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('🔧 ServiceContainer: SettingsHandler injection completed');
             
             return $handler;
         });
