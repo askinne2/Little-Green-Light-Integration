@@ -112,7 +112,7 @@ class ClassRegistrationAction implements JetFormActionInterface {
      * @param mixed $order_id Order ID
      * @param float $price Class price
      * @param string $date Registration date
-     * @param string $lgl_fund_id LGL fund ID
+     * @param string $lgl_fund_id LGL fund ID (deprecated - fund ID now determined internally by payment method)
      * @return void
      */
     private function processClassRegistration(
@@ -142,14 +142,14 @@ class ClassRegistrationAction implements JetFormActionInterface {
             return;
         }
         
-        // Setup class payment
+        // Setup class payment (fund ID determined internally by payment method)
         $payment_data = $this->payments->setupClassPayment(
-            $this,
+            $lgl_id,
             $order_id,
             $price,
             $date,
             $class_name,
-            $lgl_fund_id
+            $class_name // event_name = class name for event tracking
         );
         
         $this->helper->debug('Class payment data: ', $payment_data);

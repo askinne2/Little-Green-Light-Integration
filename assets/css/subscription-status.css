@@ -1,0 +1,486 @@
+/**
+ * LGL Subscription & Membership Status Display Styles
+ * 
+ * Styles for the subscription and membership status shortcodes
+ * [lgl_display_manual_renewal_status]
+ * [display_requires_manual_renewal]
+ * 
+ * Inherits theme colors from theme.json and follows site design patterns
+ * Compatible with Elementor and Hello Theme Child
+ * 
+ * @package UpstateInternational\LGL
+ * @since 2.0.0
+ */
+
+/* CSS Custom Properties - Theme Color Integration */
+:root {
+    --lgl-primary: #68C5D3;
+    --lgl-secondary: #3D3D3D;
+    --lgl-accent: #8DCAD3;
+    --lgl-text: #5D5D5D;
+    --lgl-button-primary: #1E73BE;
+    --lgl-button-hover: #013969;
+    --lgl-navy: #2c4c64;
+    --lgl-success: #059669;
+    --lgl-warning: #BBBA4A;
+    --lgl-danger: #F50600;
+    --lgl-info: #68C5D3;
+    --lgl-light-gray: #F6F6F6;
+    --lgl-gray: #D8D8D8;
+    --lgl-border: #e5e7eb;
+    --lgl-card-bg: #f9fafb;
+}
+
+/* Container Styles */
+.lgl-subscription-status {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--lgl-text);
+}
+
+.lgl-subscription-status h3 {
+    margin: 0 0 1.5rem 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--lgl-secondary);
+}
+
+/* Alert/Notice Boxes - Theme Styled */
+.lgl-status-notice {
+    padding: 1.25rem;
+    border: 1px solid;
+    border-radius: 15px;
+    margin: 1rem 0;
+}
+
+.lgl-status-notice.warning {
+    background: #fef3c7;
+    border-color: var(--lgl-warning);
+    color: #92400e;
+}
+
+.lgl-status-notice.success {
+    background: #f7fffb;
+    border-color: var(--lgl-success);
+    color: #065f46;
+}
+
+.lgl-status-notice.info {
+    background: #e0f2fe;
+    border-color: var(--lgl-info);
+    color: #075985;
+}
+
+/* Membership/Subscription Card - Matches CourseStorm Style */
+.lgl-membership-card {
+    margin: 0 0 1.5rem 0;
+    /* padding: 1.5rem; */
+    background: white;
+    /* border: 1px solid var(--lgl-border); */
+    /* border-left: 4px solid; */
+    border-radius: 15px;
+    transition: all 0.2s;
+}
+
+/* .lgl-membership-card:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+} */
+
+.lgl-membership-card.status-active {
+    border-left-color: var(--lgl-success);
+}
+
+.lgl-membership-card.status-expiring-soon {
+    border-left-color: var(--lgl-warning);
+}
+
+.lgl-membership-card.status-on-hold {
+    border-left-color: var(--lgl-warning);
+    background: var(--lgl-card-bg);
+}
+
+.lgl-membership-card.status-cancelled {
+    border-left-color: var(--lgl-gray);
+    background: var(--lgl-card-bg);
+}
+
+.lgl-membership-card.status-expired {
+    border-left-color: var(--lgl-gray);
+    background: var(--lgl-card-bg);
+}
+
+.lgl-membership-card.status-pending-cancel {
+    border-left-color: #F27137; /* Orange Primary from theme */
+    background: var(--lgl-card-bg);
+}
+
+.lgl-membership-card.status-pending {
+    border-left-color: var(--lgl-primary);
+    background: var(--lgl-card-bg);
+}
+
+.lgl-membership-card h4 {
+    margin: 0 0 1rem 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--lgl-secondary);
+    line-height: 1.4;
+}
+
+/* Membership Details Table */
+.lgl-membership-details {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.lgl-membership-details td {
+    padding: 8px;
+    vertical-align: top;
+}
+
+.lgl-membership-details td:first-child {
+    font-weight: 600;
+    width: 180px;
+    padding-right: 8px;
+}
+
+
+/* Status Badges - Theme Styled */
+.lgl-status-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 15px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    color: white;
+}
+
+.lgl-status-badge.active {
+    background: var(--lgl-success);
+}
+
+.lgl-status-badge.expiring-soon {
+    background: var(--lgl-warning);
+    color: #92400e;
+}
+
+.lgl-status-badge.on-hold {
+    background: var(--lgl-warning);
+    color: #92400e;
+}
+
+.lgl-status-badge.cancelled {
+    background: var(--lgl-gray);
+    color: var(--lgl-text);
+}
+
+.lgl-status-badge.expired {
+    background: var(--lgl-gray);
+    color: var(--lgl-text);
+}
+
+.lgl-status-badge.pending-cancel {
+    background: #F27137; /* Orange Primary */
+    color: white;
+}
+
+.lgl-status-badge.pending {
+    background: var(--lgl-primary);
+    color: white;
+}
+
+/* Text Colors - Theme Based */
+.lgl-text-success {
+    color: var(--lgl-success);
+}
+
+.lgl-text-warning {
+    color: var(--lgl-warning);
+}
+
+.lgl-text-danger {
+    color: var(--lgl-danger);
+}
+
+.lgl-text-muted {
+    color: #6b7280;
+}
+
+/* Buttons - Matches Theme Button Styling */
+.lgl-btn {
+    display: inline-block;
+    padding: 0.75rem 1.875rem;
+    background: var(--lgl-button-primary);
+    color: white !important;
+    text-decoration: none !important;
+    border-radius: 25px; /* Matches theme.json button radius */
+    font-weight: 700;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.lgl-btn:hover {
+    background: var(--lgl-button-hover);
+    color: white !important;
+    text-decoration: none !important;
+}
+
+.lgl-btn:active {
+    transform: scale(0.98);
+}
+
+/* Ensure Elementor doesn't override our buttons */
+.lgl-subscription-status .lgl-btn:not([class*="elementor"]) {
+    padding: 0.75rem 1.875rem;
+    background: var(--lgl-button-primary);
+    border-radius: 25px;
+}
+
+.lgl-subscription-status .lgl-btn:not([class*="elementor"]):hover {
+    background: var(--lgl-button-hover);
+}
+
+/* Expiration Warning Box - Theme Styled */
+.lgl-expiration-warning {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #fef3c7;
+    border: 1px solid var(--lgl-warning);
+    border-radius: 15px;
+}
+
+.lgl-expiration-warning strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #92400e;
+}
+
+.lgl-expiration-warning span {
+    font-size: 0.95rem;
+    color: #92400e;
+    line-height: 1.6;
+}
+
+/* Summary Stats */
+.lgl-summary-stats {
+    margin: 0 0 1rem 0;
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.lgl-summary-stats strong {
+    color: var(--lgl-secondary);
+}
+
+.lgl-hidden-info {
+    margin: 0 0 1.5rem 0;
+    font-size: 0.95rem;
+    color: #6b7280;
+    font-style: italic;
+}
+
+/* Admin Stats Dashboard - Theme Styled */
+.lgl-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.lgl-stat-card {
+    padding: 1.5rem;
+    background: white;
+    border: 1px solid var(--lgl-border);
+    border-left: 4px solid;
+    border-radius: 15px;
+    transition: all 0.2s;
+}
+
+.lgl-stat-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.lgl-stat-card.primary {
+    border-left-color: var(--lgl-button-primary);
+    background: #eff6ff;
+}
+
+.lgl-stat-card.success {
+    background: #f7fffb;
+    border-left-color: var(--lgl-success);
+}
+
+.lgl-stat-card.warning {
+    background: #fef3c7;
+    border-left-color: var(--lgl-warning);
+}
+
+.lgl-stat-card.danger {
+    background: #fee2e2;
+    border-left-color: var(--lgl-danger);
+}
+
+.lgl-stat-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.lgl-stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--lgl-secondary);
+}
+
+.lgl-stat-meta {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+/* Data Tables - Theme Styled */
+.lgl-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin: 1.5rem 0;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.lgl-data-table thead {
+    background: var(--lgl-card-bg);
+}
+
+.lgl-data-table th {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 2px solid var(--lgl-border);
+    font-weight: 600;
+    color: var(--lgl-secondary);
+    font-size: 0.95rem;
+}
+
+.lgl-data-table th.center,
+.lgl-data-table td.center {
+    text-align: center;
+}
+
+.lgl-data-table tbody tr {
+    border-bottom: 1px solid var(--lgl-border);
+    transition: background 0.2s;
+}
+
+.lgl-data-table tbody tr:hover {
+    background: var(--lgl-light-gray);
+}
+
+.lgl-data-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.lgl-data-table td {
+    padding: 1rem;
+    color: var(--lgl-text);
+}
+
+.lgl-data-table tfoot {
+    background: var(--lgl-card-bg);
+    font-weight: 600;
+}
+
+.lgl-data-table tfoot td {
+    border-top: 2px solid var(--lgl-border);
+}
+
+.lgl-status-indicator {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .lgl-stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .lgl-membership-details td:first-child {
+        width: auto;
+        display: block;
+        padding-bottom: 4px;
+    }
+    
+    .lgl-membership-details td:last-child {
+        display: block;
+        padding-left: 0;
+    }
+    
+    .lgl-data-table {
+        font-size: 12px;
+    }
+    
+    .lgl-data-table th,
+    .lgl-data-table td {
+        padding: 8px;
+    }
+}
+
+/* Utility Classes */
+.lgl-mt-10 { margin-top: 0.625rem; }
+.lgl-mt-15 { margin-top: 1rem; }
+.lgl-mt-20 { margin-top: 1.25rem; }
+.lgl-mb-10 { margin-bottom: 0.625rem; }
+.lgl-mb-15 { margin-bottom: 1rem; }
+.lgl-mb-20 { margin-bottom: 1.25rem; }
+
+/* ==========================================================================
+   Elementor Compatibility
+   ========================================================================== */
+
+/* Prevent Elementor from overriding our specific styles */
+.elementor-widget-container .lgl-subscription-status {
+    font-size: 1rem;
+}
+
+.elementor-widget-container .lgl-membership-card {
+    border-radius: 15px;
+    border: none;
+}
+
+.elementor-widget-container .lgl-btn {
+    padding: 0.75rem 1.875rem !important;
+    border-radius: 25px !important;
+    background: var(--lgl-button-primary) !important;
+    color: white !important;
+}
+
+.elementor-widget-container .lgl-btn:hover {
+    background: var(--lgl-button-hover) !important;
+}
+
+/* Ensure clean spacing within Elementor sections */
+.elementor-section .lgl-subscription-status {
+    max-width: 100%;
+}
+
+/* Override any Elementor heading styles that might interfere */
+.elementor-widget-container .lgl-subscription-status h3,
+.elementor-widget-container .lgl-subscription-status h4 {
+    color: var(--lgl-secondary);
+    font-weight: 700;
+}
+
+.elementor-widget-container .lgl-membership-card h4 {
+    color: var(--lgl-secondary);
+}
+

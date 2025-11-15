@@ -112,7 +112,7 @@ class EventRegistrationAction implements JetFormActionInterface {
      * @param mixed $order_id Order ID
      * @param float $price Event price
      * @param string $date Registration date
-     * @param string $lgl_fund_id LGL fund ID
+     * @param string $lgl_fund_id LGL fund ID (deprecated - fund ID now determined internally by payment method)
      * @return void
      */
     private function processEventRegistration(
@@ -142,14 +142,13 @@ class EventRegistrationAction implements JetFormActionInterface {
             return;
         }
         
-        // Setup event payment
+        // Setup event payment (fund ID determined internally by payment method)
         $payment_data = $this->payments->setupEventPayment(
-            $this,
+            $lgl_id,
             $order_id,
             $price,
             $date,
-            $event_name,
-            $lgl_fund_id
+            $event_name
         );
         
         $this->helper->debug('Event payment data: ', $payment_data);

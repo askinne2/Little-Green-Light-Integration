@@ -30,6 +30,7 @@ class SubscriptionRenewalManager {
      * Initialize subscription renewal management
      */
     public static function init(): void {
+        
         // Register shortcodes
         add_shortcode('lgl_run_subscription_renewal', [static::class, 'renewalShortcode']);
         add_shortcode('lgl_display_manual_renewal_status', [static::class, 'displayManualRenewalShortcode']);
@@ -40,10 +41,25 @@ class SubscriptionRenewalManager {
         add_shortcode('run_subscription_renewal', [static::class, 'legacyRenewalShortcode']);
         add_shortcode('display_requires_manual_renewal', [static::class, 'legacyDisplayShortcode']);
         
+        
         // Register prevention hooks
         static::registerPreventionHooks();
         
-        Helper::getInstance()->debug('LGL Subscription Renewal Manager: Initialized successfully');
+        // Enqueue frontend styles
+        add_action('wp_enqueue_scripts', [static::class, 'enqueueStyles']);
+        
+    }
+    
+    /**
+     * Enqueue frontend styles for subscription status display
+     */
+    public static function enqueueStyles(): void {
+        wp_enqueue_style(
+            'lgl-subscription-status',
+            plugin_dir_url(dirname(__DIR__)) . 'assets/css/subscription-status.css',
+            [],
+            '2.0.0'
+        );
     }
     
     /**
@@ -238,6 +254,226 @@ class SubscriptionRenewalManager {
     }
     
     /**
+     * Get one-time membership status for a user
+     * 
+     * @param int $user_id User ID
+     * @return array|null Membership status data or null if not found/expired
+     */
+    private static function getOneTimeMembershipStatus(int $user_id): ?array {
+        Helper::getInstance()->debug('🔍 Getting one-time membership status', ['user_id' => $user_id]);
+        
+        $subscription_status = get_user_meta($user_id, 'user-subscription-status', true);
+        $renewal_timestamp = get_user_meta($user_id, 'user-membership-renewal-date', true);
+        $start_timestamp = get_user_meta($user_id, 'user-membership-start-date', true);
+        $membership_level = get_user_meta($user_id, 'user-membership-type', true);
+        
+        Helper::getInstance()->debug('📊 User meta values', [
+            'user_id' => $user_id,
+            'subscription_status' => $subscription_status,
+            'renewal_timestamp' => $renewal_timestamp,
+            'start_timestamp' => $start_timestamp,
+            'membership_level' => $membership_level,
+            'renewal_date_formatted' => $renewal_timestamp ? date('Y-m-d H:i:s', $renewal_timestamp) : 'not set',
+            'start_date_formatted' => $start_timestamp ? date('Y-m-d H:i:s', $start_timestamp) : 'not set'
+        ]);
+        
+        // Only process one-time memberships
+        if ($subscription_status !== 'one-time') {
+            Helper::getInstance()->debug('❌ Not a one-time membership', [
+                'user_id' => $user_id,
+                'subscription_status' => $subscription_status,
+                'expected' => 'one-time'
+            ]);
+            return null;
+        }
+        
+        if (!$renewal_timestamp) {
+            Helper::getInstance()->debug('❌ No renewal timestamp found', ['user_id' => $user_id]);
+            return null;
+        }
+        
+        // Check if membership is still active
+        $now = current_time('timestamp');
+        $is_active = $renewal_timestamp > $now;
+        
+        Helper::getInstance()->debug('⏰ Membership expiration check', [
+            'user_id' => $user_id,
+            'now' => date('Y-m-d H:i:s', $now),
+            'renewal_date' => date('Y-m-d H:i:s', $renewal_timestamp),
+            'is_active' => $is_active,
+            'seconds_remaining' => $renewal_timestamp - $now
+        ]);
+        
+        if (!$is_active) {
+            Helper::getInstance()->debug('❌ Membership has expired', [
+                'user_id' => $user_id,
+                'expired_on' => date('Y-m-d', $renewal_timestamp)
+            ]);
+            return null; // Expired membership
+        }
+        
+        // Calculate days remaining
+        $days_remaining = ceil(($renewal_timestamp - $now) / DAY_IN_SECONDS);
+        
+        Helper::getInstance()->debug('📅 Days remaining calculated', [
+            'user_id' => $user_id,
+            'days_remaining' => $days_remaining
+        ]);
+        
+        // Get last membership order for product name
+        $product_name = static::getLastMembershipProductName($user_id);
+        
+        Helper::getInstance()->debug('🎫 Product name retrieved', [
+            'user_id' => $user_id,
+            'product_name' => $product_name
+        ]);
+        
+        $status_data = [
+            'user_id' => $user_id,
+            'membership_level' => $membership_level ?: 'Member',
+            'product_name' => $product_name,
+            'start_date' => $start_timestamp ? date('F j, Y', $start_timestamp) : 'Unknown',
+            'renewal_date' => date('F j, Y', $renewal_timestamp),
+            'days_remaining' => $days_remaining,
+            'is_active' => true,
+            'status' => $days_remaining <= 30 ? 'expiring_soon' : 'active'
+        ];
+        
+        Helper::getInstance()->debug('✅ One-time membership status compiled', [
+            'user_id' => $user_id,
+            'status_data' => $status_data
+        ]);
+        
+        return $status_data;
+    }
+    
+    /**
+     * Get the last membership product name from user's orders
+     * 
+     * @param int $user_id User ID
+     * @return string Product name or default
+     */
+    private static function getLastMembershipProductName(int $user_id): string {
+        Helper::getInstance()->debug('🔍 Getting last membership product name', ['user_id' => $user_id]);
+        
+        $args = [
+            'customer_id' => $user_id,
+            'limit' => -1,
+            'status' => ['completed', 'processing'],
+            'orderby' => 'date',
+            'order' => 'DESC'
+        ];
+        
+        $orders = wc_get_orders($args);
+        
+        Helper::getInstance()->debug('📦 Orders found', [
+            'user_id' => $user_id,
+            'order_count' => count($orders)
+        ]);
+        
+        foreach ($orders as $order) {
+            Helper::getInstance()->debug('🔍 Checking order', [
+                'order_id' => $order->get_id(),
+                'order_date' => $order->get_date_created()->format('Y-m-d H:i:s')
+            ]);
+            
+            foreach ($order->get_items() as $item) {
+                $product = $item->get_product();
+                if ($product) {
+                    $product_id = $product->get_id();
+                    $has_membership_term = has_term('memberships', 'product_cat', $product_id);
+                    
+                    Helper::getInstance()->debug('🏷️ Checking product', [
+                        'product_id' => $product_id,
+                        'product_name' => $item->get_name(),
+                        'has_membership_category' => $has_membership_term
+                    ]);
+                    
+                    if ($has_membership_term) {
+                        Helper::getInstance()->debug('✅ Found membership product', [
+                            'product_name' => $item->get_name(),
+                            'order_id' => $order->get_id()
+                        ]);
+                        return $item->get_name();
+                    }
+                }
+            }
+        }
+        
+        Helper::getInstance()->debug('⚠️ No membership product found in orders, using default', [
+            'user_id' => $user_id,
+            'default' => 'Membership'
+        ]);
+        
+        return 'Membership';
+    }
+    
+    /**
+     * Display one-time membership status
+     * 
+     * @param array $status Membership status data
+     * @return string HTML output
+     */
+    private static function displayOneTimeMembershipStatus(array $status): string {
+        $status_class = $status['status'] === 'expiring_soon' ? 'status-expiring-soon' : 'status-active';
+        $status_badge = $status['status'] === 'expiring_soon' ? 'expiring-soon' : 'active';
+        $status_text = $status['status'] === 'expiring_soon' ? 'EXPIRING SOON' : 'ACTIVE';
+        
+        $output = '<div class="lgl-subscription-status">';
+        
+        $output .= '<div class="lgl-membership-card ' . $status_class . '">';
+        // $output .= '<h4>' . esc_html($status['product_name']) . '</h4>';
+        
+        $output .= '<table class="lgl-membership-details">';
+        
+        // Status
+        $output .= '<tr><td>Status:</td>';
+        $output .= '<td><span class="lgl-status-badge ' . $status_badge . '">' . $status_text . '</span></td></tr>';
+        
+        // Membership Level
+        if (!empty($status['membership_level'])) {
+            $output .= '<tr><td>Membership Level:</td>';
+            $output .= '<td>' . esc_html($status['membership_level']) . '</td></tr>';
+        }
+        
+        // Start Date
+        $output .= '<tr><td>Member Since:</td>';
+        $output .= '<td>' . esc_html($status['start_date']) . '</td></tr>';
+        
+        // Renewal Date
+        $output .= '<tr><td>Renewal Date:</td>';
+        $output .= '<td><strong>' . esc_html($status['renewal_date']) . '</strong></td></tr>';
+        
+        // Days Remaining
+        $days_class = $status['days_remaining'] <= 30 ? 'lgl-text-danger' : 'lgl-text-success';
+        $output .= '<tr><td>Days Remaining:</td>';
+        $output .= '<td><strong class="' . $days_class . '">' . $status['days_remaining'] . ' days</strong></td></tr>';
+        
+        // Renewal Type
+        $output .= '<tr><td>Renewal Type:</td>';
+        $output .= '<td><strong class="lgl-text-success">Manual Renewal Required</strong></td></tr>';
+        
+        $output .= '</table>';
+        
+        // Expiring soon warning
+        if ($status['status'] === 'expiring_soon') {
+            $output .= '<div class="lgl-expiration-warning">';
+            $output .= '<strong>⚠️ Your membership expires soon!</strong>';
+            $output .= '<span>Renew now to maintain your member benefits.</span>';
+            $output .= '</div>';
+        }
+        
+        // Manage link
+        $my_account_url = wc_get_account_endpoint_url('orders');
+        $output .= '<p class="lgl-mt-15"><a href="' . esc_url($my_account_url) . '" class="lgl-btn">View Orders →</a></p>';
+        
+        $output .= '</div>'; // .lgl-membership-card
+        $output .= '</div>'; // .lgl-subscription-status
+        
+        return $output;
+    }
+    
+    /**
      * Display manual renewal status for current user with enhanced features
      * 
      * @param array $atts Shortcode attributes
@@ -251,17 +487,60 @@ class SubscriptionRenewalManager {
         
         // Get the current user ID
         $user_id = get_current_user_id();
+        
+        Helper::getInstance()->debug('🔍 SubscriptionRenewalManager: displayManualRenewalStatus() called', [
+            'user_id' => $user_id,
+            'show_all' => $atts['show_all']
+        ]);
+        
         if (!$user_id) {
-            return '<div style="padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+            Helper::getInstance()->debug('❌ No user logged in');
+            return '<div class="lgl-status-notice warning">
                     ⚠️ <strong>User not logged in</strong></div>';
         }
 
         // Get ALL subscriptions for the current user
         $all_subscriptions = wcs_get_users_subscriptions($user_id);
+        
+        Helper::getInstance()->debug('📊 WC Subscriptions check', [
+            'user_id' => $user_id,
+            'subscription_count' => count($all_subscriptions),
+            'has_subscriptions' => !empty($all_subscriptions)
+        ]);
 
+        // PRIORITY CHECK: Check for one-time membership FIRST (takes priority over WC subscriptions)
+        Helper::getInstance()->debug('🔍 Checking for one-time membership (priority check)', [
+            'user_id' => $user_id
+        ]);
+        
+        $one_time_status = static::getOneTimeMembershipStatus($user_id);
+        
+        Helper::getInstance()->debug('📋 One-time membership status result', [
+            'user_id' => $user_id,
+            'status_found' => !is_null($one_time_status),
+            'status_data' => $one_time_status
+        ]);
+        
+        // If one-time membership exists and is active, show ONLY that (hide WC subscriptions)
+        if ($one_time_status) {
+            Helper::getInstance()->debug('✅ One-time membership found - displaying it (hiding any WC subscriptions)', [
+                'user_id' => $user_id,
+                'membership_level' => $one_time_status['membership_level'],
+                'days_remaining' => $one_time_status['days_remaining'],
+                'wc_subscriptions_hidden' => count($all_subscriptions)
+            ]);
+            return static::displayOneTimeMembershipStatus($one_time_status);
+        }
+        
+        // No one-time membership - proceed to show WC subscriptions if they exist
+        Helper::getInstance()->debug('⏭️ No one-time membership found, proceeding to WC subscriptions', [
+            'user_id' => $user_id
+        ]);
+        
         if (empty($all_subscriptions)) {
-            return '<div style="padding: 15px; background: #d4edda; border: 1px solid #28a745; border-radius: 4px;">
-                    ℹ️ <strong>No subscriptions found</strong> for user ID: ' . $user_id . '</div>';
+            Helper::getInstance()->debug('❌ No WC subscriptions or one-time membership found', ['user_id' => $user_id]);
+            return '<div class="lgl-status-notice success">
+                    ℹ️ <strong>No active membership found</strong> for user ID: ' . $user_id . '</div>';
         }
 
         // Filter subscriptions based on show_all parameter
@@ -289,24 +568,31 @@ class SubscriptionRenewalManager {
         }
 
         if (empty($subscriptions)) {
-            $message = '<div style="padding: 15px; background: #d4edda; border: 1px solid #28a745; border-radius: 4px;">';
+            Helper::getInstance()->debug('⚠️ All WC subscriptions filtered out - no active subscriptions to display', [
+                'user_id' => $user_id,
+                'total_subscriptions' => count($all_subscriptions),
+                'hidden_count' => $hidden_count
+            ]);
+            
+            // Note: One-time membership was already checked at priority level above
+            $message = '<div class="lgl-status-notice success">';
             $message .= 'ℹ️ <strong>No active subscriptions found</strong>';
             if ($hidden_count > 0) {
-                $message .= '<p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">You have ' . $hidden_count . ' inactive subscription(s) that are not displayed.</p>';
+                $message .= '<p class="lgl-text-muted lgl-mt-10">You have ' . $hidden_count . ' inactive subscription(s) that are not displayed.</p>';
             }
             $message .= '</div>';
             return $message;
         }
 
         // Build comprehensive output
-        $output = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; font-size: 14px; line-height: 1.5;">';
-        $output .= '<h3 style="margin: 0 0 15px 0; font-size: 18px;">🔍 Your Subscription Status</h3>';
-        $output .= '<p style="margin: 0 0 10px 0; color: #666;"><strong>Active subscriptions:</strong> ' . count($subscriptions) . '</p>';
+        $output = '<div class="lgl-subscription-status">';
+        $output .= '<h3>🔍 Your Subscription Status</h3>';
+        $output .= '<p class="lgl-summary-stats"><strong>Active subscriptions:</strong> ' . count($subscriptions) . '</p>';
         
         if ($hidden_count > 0 && $atts['show_all'] !== 'yes') {
-            $output .= '<p style="margin: 0 0 20px 0; font-size: 13px; color: #666;"><em>' . $hidden_count . ' inactive subscription(s) hidden</em></p>';
+            $output .= '<p class="lgl-hidden-info">' . $hidden_count . ' inactive subscription(s) hidden</p>';
         } else {
-            $output .= '<div style="margin-bottom: 20px;"></div>';
+            $output .= '<div class="lgl-mb-20"></div>';
         }
 
         foreach ($subscriptions as $subscription) {
@@ -325,58 +611,50 @@ class SubscriptionRenewalManager {
             }
             $items_display = implode(', ', $item_names);
 
-            // Color code based on status
-            $status_colors = [
-                'active' => '#28a745',
-                'on-hold' => '#ffc107',
-                'cancelled' => '#6c757d',
-                'expired' => '#6c757d',
-                'pending-cancel' => '#fd7e14',
-                'pending' => '#17a2b8',
-            ];
-            $status_color = $status_colors[$status] ?? '#6c757d';
+            // Map status to CSS class
+            $status_class = 'status-' . $status;
 
-            $output .= '<div style="margin: 0 0 20px 0; padding: 20px; background: #f8f9fa; border-left: 4px solid ' . $status_color . '; border-radius: 4px;">';
-            $output .= '<h4 style="margin: 0 0 15px 0; font-size: 16px;">Subscription #' . $subscription_id . '</h4>';
+            $output .= '<div class="lgl-membership-card ' . $status_class . '">';
+            $output .= '<h4>Subscription #' . $subscription_id . '</h4>';
             
             // Items
             if (!empty($items_display)) {
-                $output .= '<p style="margin: 0 0 15px 0; font-weight: 500;">' . esc_html($items_display) . '</p>';
+                $output .= '<p class="lgl-mb-15" style="font-weight: 500;">' . esc_html($items_display) . '</p>';
             }
             
-            $output .= '<table style="width: 100%; border-collapse: collapse;">';
+            $output .= '<table class="lgl-membership-details">';
             
             // Status
-            $output .= '<tr><td style="padding: 8px 8px 8px 0; font-weight: 600; width: 180px;">Status:</td>';
-            $output .= '<td style="padding: 8px 0;"><span style="background: ' . $status_color . '; color: white; padding: 4px 12px; border-radius: 3px; font-size: 12px; font-weight: 600; text-transform: uppercase;">' . esc_html($status) . '</span></td></tr>';
+            $output .= '<tr><td>Status:</td>';
+            $output .= '<td><span class="lgl-status-badge ' . $status . '">' . esc_html($status) . '</span></td></tr>';
             
             // Auto-Renew
-            $auto_renew_color = $requires_manual_renewal ? '#28a745' : '#dc3545';
+            $auto_renew_class = $requires_manual_renewal ? 'lgl-text-success' : 'lgl-text-danger';
             $auto_renew_text = $requires_manual_renewal ? '❌ OFF (Manual Renewal Required)' : '⚠️ ON (Will Auto-Renew)';
-            $output .= '<tr><td style="padding: 8px 8px 8px 0; font-weight: 600;">Auto-Renew:</td>';
-            $output .= '<td style="padding: 8px 0;"><strong style="color: ' . $auto_renew_color . ';">' . $auto_renew_text . '</strong></td></tr>';
+            $output .= '<tr><td>Auto-Renew:</td>';
+            $output .= '<td><strong class="' . $auto_renew_class . '">' . $auto_renew_text . '</strong></td></tr>';
             
             // Payment Method
             if (!empty($payment_method_title)) {
-                $output .= '<tr><td style="padding: 8px 8px 8px 0; font-weight: 600;">Payment Method:</td>';
-                $output .= '<td style="padding: 8px 0;">' . esc_html($payment_method_title) . '</td></tr>';
+                $output .= '<tr><td>Payment Method:</td>';
+                $output .= '<td>' . esc_html($payment_method_title) . '</td></tr>';
             }
             
             // Next Payment
             if ($next_payment && $status === 'active') {
-                $output .= '<tr><td style="padding: 8px 8px 8px 0; font-weight: 600;">Next Payment:</td>';
-                $output .= '<td style="padding: 8px 0;">' . esc_html($next_payment) . '</td></tr>';
+                $output .= '<tr><td>Next Payment:</td>';
+                $output .= '<td>' . esc_html($next_payment) . '</td></tr>';
             }
             
             // Last Modified
-            $output .= '<tr><td style="padding: 8px 8px 8px 0; font-weight: 600;">Last Modified:</td>';
-            $output .= '<td style="padding: 8px 0;">' . esc_html($last_modified) . '</td></tr>';
+            $output .= '<tr><td>Last Modified:</td>';
+            $output .= '<td>' . esc_html($last_modified) . '</td></tr>';
             
             $output .= '</table>';
 
             // Manage link
             $my_account_url = wc_get_account_endpoint_url('view-subscription') . $subscription_id;
-            $output .= '<p style="margin: 15px 0 0 0;"><a href="' . esc_url($my_account_url) . '" style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">View/Manage Subscription →</a></p>';
+            $output .= '<p class="lgl-mt-15"><a href="' . esc_url($my_account_url) . '" class="lgl-btn">View/Manage Subscription →</a></p>';
             $output .= '</div>';
         }
 

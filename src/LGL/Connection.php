@@ -845,7 +845,7 @@ class Connection {
             }
         }
         
-        $this->helper->debug('⚠️ Unknown response format in extractConstituentsFromResponse', [
+        Helper::getInstance()->debug('⚠️ Unknown response format in extractConstituentsFromResponse', [
             'data_type' => gettype($data),
             'data_keys' => is_object($data) ? array_keys((array)$data) : (is_array($data) ? array_keys($data) : 'not array/object'),
             'full_data' => $data
@@ -1125,6 +1125,348 @@ class Connection {
     }
     
     /**
+     * Update existing email address
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param int $email_id Email address ID
+     * @param array $email_data Updated email data array
+     * @return array API response
+     */
+    public function updateEmailAddress(string $lgl_id, int $email_id, array $email_data): array {
+        $helper = Helper::getInstance();
+        $endpoint = "constituents/{$lgl_id}/email_addresses/{$email_id}";
+        
+        // Ensure id is included in payload (some APIs require it)
+        $update_payload = array_merge($email_data, ['id' => $email_id]);
+        
+        $helper->debug('🔧 updateEmailAddress: Making PUT request', [
+            'endpoint' => $endpoint,
+            'email_id' => $email_id,
+            'update_payload' => $update_payload
+        ]);
+        
+        $response = $this->makeRequest($endpoint, 'PUT', $update_payload, false);
+        
+        $helper->debug('📥 updateEmailAddress: Raw API response', [
+            'success' => $response['success'] ?? false,
+            'http_code' => $response['http_code'] ?? null,
+            'error' => $response['error'] ?? null
+        ]);
+        
+        return $response;
+    }
+    
+    /**
+     * Update existing phone number
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param int $phone_id Phone number ID
+     * @param array $phone_data Updated phone data array
+     * @return array API response
+     */
+    public function updatePhoneNumber(string $lgl_id, int $phone_id, array $phone_data): array {
+        $helper = Helper::getInstance();
+        $endpoint = "constituents/{$lgl_id}/phone_numbers/{$phone_id}";
+        
+        // Ensure id is included in payload (some APIs require it)
+        $update_payload = array_merge($phone_data, ['id' => $phone_id]);
+        
+        $helper->debug('🔧 updatePhoneNumber: Making PUT request', [
+            'endpoint' => $endpoint,
+            'phone_id' => $phone_id,
+            'update_payload' => $update_payload
+        ]);
+        
+        $response = $this->makeRequest($endpoint, 'PUT', $update_payload, false);
+        
+        $helper->debug('📥 updatePhoneNumber: Raw API response', [
+            'success' => $response['success'] ?? false,
+            'http_code' => $response['http_code'] ?? null,
+            'error' => $response['error'] ?? null
+        ]);
+        
+        return $response;
+    }
+    
+    /**
+     * Update existing street address
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param int $address_id Street address ID
+     * @param array $address_data Updated address data array
+     * @return array API response
+     */
+    public function updateStreetAddress(string $lgl_id, int $address_id, array $address_data): array {
+        $helper = Helper::getInstance();
+        $endpoint = "constituents/{$lgl_id}/street_addresses/{$address_id}";
+        
+        // Ensure id is included in payload (some APIs require it)
+        $update_payload = array_merge($address_data, ['id' => $address_id]);
+        
+        $helper->debug('🔧 updateStreetAddress: Making PUT request', [
+            'endpoint' => $endpoint,
+            'address_id' => $address_id,
+            'address_data' => $address_data,
+            'update_payload' => $update_payload
+        ]);
+        
+        $response = $this->makeRequest($endpoint, 'PUT', $update_payload, false);
+        
+        $helper->debug('📥 updateStreetAddress: Raw API response', [
+            'endpoint' => $endpoint,
+            'success' => $response['success'] ?? false,
+            'http_code' => $response['http_code'] ?? null,
+            'error' => $response['error'] ?? null,
+            'response_data' => $response['data'] ?? null,
+            'raw_response' => $response['raw_response'] ?? null
+        ]);
+        
+        return $response;
+    }
+    
+    /**
+     * Safely add email address - checks for duplicates first
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param array $email_data Email data array
+     * @return array API response with 'skipped' flag if duplicate found
+     */
+    public function addEmailAddressSafe(string $lgl_id, array $email_data): array {
+        $helper = Helper::getInstance();
+        $email_address = strtolower(trim($email_data['address'] ?? ''));
+        
+        if (empty($email_address)) {
+            return ['success' => false, 'error' => 'No email address provided'];
+        }
+        
+        // CRITICAL: Add debug logging at the START to confirm this method is being called
+        $helper->debug('🔍 addEmailAddressSafe: START - Checking for duplicate', [
+            'lgl_id' => $lgl_id,
+            'email' => $email_address
+        ]);
+        
+        // Check if email already exists
+        $existing_emails = $this->getConstituentEmails($lgl_id);
+        $helper->debug('🔍 addEmailAddressSafe: Found existing emails', [
+            'count' => count($existing_emails),
+            'emails' => array_map(function($e) {
+                return is_array($e) ? ($e['address'] ?? 'unknown') : ($e->address ?? 'unknown');
+            }, $existing_emails)
+        ]);
+        
+        foreach ($existing_emails as $existing_email) {
+            // Handle both array and object formats
+            $existing_address = '';
+            if (is_array($existing_email)) {
+                $existing_address = strtolower(trim($existing_email['address'] ?? ''));
+            } elseif (is_object($existing_email)) {
+                $existing_address = strtolower(trim($existing_email->address ?? ''));
+            }
+            
+            if ($existing_address && $existing_address === $email_address) {
+                $helper->debug('⚠️ Email already exists, skipping duplicate', [
+                    'lgl_id' => $lgl_id,
+                    'email' => $email_address,
+                    'existing_email_id' => is_array($existing_email) ? ($existing_email['id'] ?? null) : ($existing_email->id ?? null)
+                ]);
+                return ['success' => true, 'skipped' => true, 'message' => 'Email already exists'];
+            }
+        }
+        
+        // Email doesn't exist, add it
+        $helper->debug('✅ addEmailAddressSafe: Email is new, adding', ['email' => $email_address]);
+        return $this->addEmailAddress($lgl_id, $email_data);
+    }
+    
+    /**
+     * Update or add email address - updates if exists and different, adds if new
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param array $email_data Email data array
+     * @return array API response with 'updated', 'added', or 'skipped' flag
+     */
+    public function updateOrAddEmailAddress(string $lgl_id, array $email_data): array {
+        $helper = Helper::getInstance();
+        $email_address = strtolower(trim($email_data['address'] ?? ''));
+        
+        if (empty($email_address)) {
+            return ['success' => false, 'error' => 'No email address provided'];
+        }
+        
+        $helper->debug('🔄 updateOrAddEmailAddress: Checking existing emails', [
+            'lgl_id' => $lgl_id,
+            'email' => $email_address
+        ]);
+        
+        // Check if email already exists
+        $existing_emails = $this->getConstituentEmails($lgl_id);
+        $exact_match_found = false;
+        $exact_match_id = null;
+        
+        foreach ($existing_emails as $existing_email) {
+            $existing_address = '';
+            $existing_id = null;
+            
+            if (is_array($existing_email)) {
+                $existing_address = strtolower(trim($existing_email['address'] ?? ''));
+                $existing_id = $existing_email['id'] ?? null;
+            } elseif (is_object($existing_email)) {
+                $existing_address = strtolower(trim($existing_email->address ?? ''));
+                $existing_id = $existing_email->id ?? null;
+            }
+            
+            if ($existing_address && $existing_address === $email_address) {
+                $exact_match_found = true;
+                $exact_match_id = $existing_id;
+                // Email exists - check if it needs updating
+                $needs_update = false;
+                if (is_array($existing_email)) {
+                    $existing_type = $existing_email['email_address_type_id'] ?? null;
+                    $new_type = $email_data['email_address_type_id'] ?? null;
+                    $existing_preferred = !empty($existing_email['is_preferred']);
+                    $new_preferred = !empty($email_data['is_preferred']);
+                    if ($existing_type != $new_type || $existing_preferred != $new_preferred) {
+                        $needs_update = true;
+                    }
+                }
+                
+                if ($needs_update && $existing_id) {
+                    $helper->debug('🔄 updateOrAddEmailAddress: Updating existing email', [
+                        'email_id' => $existing_id,
+                        'email' => $email_address
+                    ]);
+                    $result = $this->updateEmailAddress($lgl_id, $existing_id, $email_data);
+                    return array_merge($result, ['updated' => true]);
+                } else {
+                    $helper->debug('✅ updateOrAddEmailAddress: Email unchanged, skipping', [
+                        'email' => $email_address
+                    ]);
+                    return ['success' => true, 'skipped' => true, 'message' => 'Email unchanged'];
+                }
+            }
+        }
+        
+        // If email address is different but we have existing emails, update the preferred one
+        if (!$exact_match_found && !empty($existing_emails)) {
+            // Find preferred email to replace
+            $preferred_email_id = null;
+            foreach ($existing_emails as $check_email) {
+                $is_preferred = false;
+                $check_id = null;
+                if (is_array($check_email)) {
+                    $is_preferred = !empty($check_email['is_preferred']);
+                    $check_id = $check_email['id'] ?? null;
+                } elseif (is_object($check_email)) {
+                    $is_preferred = !empty($check_email->is_preferred);
+                    $check_id = $check_email->id ?? null;
+                }
+                if ($is_preferred && $check_id) {
+                    $preferred_email_id = $check_id;
+                    break;
+                }
+            }
+            
+            // If no preferred found, use first one
+            if (!$preferred_email_id && !empty($existing_emails[0])) {
+                $first_email = $existing_emails[0];
+                $preferred_email_id = is_array($first_email) ? ($first_email['id'] ?? null) : ($first_email->id ?? null);
+            }
+            
+            if ($preferred_email_id) {
+                $helper->debug('🔄 updateOrAddEmailAddress: Updating existing email (replacing preferred/first)', [
+                    'email_id' => $preferred_email_id,
+                    'new_email' => $email_address
+                ]);
+                $result = $this->updateEmailAddress($lgl_id, $preferred_email_id, $email_data);
+                return array_merge($result, ['updated' => true]);
+            }
+        }
+        
+        // Email doesn't exist, add it
+        $helper->debug('➕ updateOrAddEmailAddress: Adding new email', ['email' => $email_address]);
+        $result = $this->addEmailAddress($lgl_id, $email_data);
+        return array_merge($result, ['added' => true]);
+    }
+    
+    /**
+     * Get all email addresses for a constituent
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @return array Array of email address records
+     */
+    private function getConstituentEmails(string $lgl_id): array {
+        $helper = Helper::getInstance();
+        try {
+            $response = $this->makeRequest("constituents/{$lgl_id}/email_addresses", 'GET', [], false);
+            if ($response['success'] && isset($response['data'])) {
+                $data = $response['data'];
+                
+                // Log the raw response format for debugging
+                $helper->debug('🔍 getConstituentEmails: Raw response format', [
+                    'lgl_id' => $lgl_id,
+                    'data_type' => gettype($data),
+                    'is_array' => is_array($data),
+                    'has_items' => is_array($data) && isset($data['items']),
+                    'first_item_has_address' => is_array($data) && !empty($data) && isset($data[0]['address']),
+                    'data_keys' => is_array($data) ? array_keys($data) : 'not_array'
+                ]);
+                
+                // Handle different response formats
+                if (is_array($data)) {
+                    // Check if it's a direct array of email objects
+                    if (!empty($data) && (isset($data[0]['address']) || (is_object($data[0]) && isset($data[0]->address)))) {
+                        $helper->debug('🔍 getConstituentEmails: Direct array format', ['count' => count($data)]);
+                        return $data;
+                    }
+                    // Check if it has 'items' key
+                    if (isset($data['items']) && is_array($data['items'])) {
+                        $helper->debug('🔍 getConstituentEmails: Items array format', ['count' => count($data['items'])]);
+                        return $data['items'];
+                    }
+                    // Check if it's an empty array
+                    if (empty($data)) {
+                        $helper->debug('🔍 getConstituentEmails: Empty array');
+                        return [];
+                    }
+                } elseif (is_object($data)) {
+                    // Object with items property
+                    if (isset($data->items) && is_array($data->items)) {
+                        $helper->debug('🔍 getConstituentEmails: Object items format', ['count' => count($data->items)]);
+                        return $data->items;
+                    }
+                    // Single email object
+                    if (isset($data->address)) {
+                        $helper->debug('🔍 getConstituentEmails: Single email object');
+                        return [$data];
+                    }
+                }
+                
+                // Fallback to extraction method
+                $emails = $this->extractConstituentsFromResponse($data);
+                $helper->debug('🔍 getConstituentEmails: Extracted via fallback', [
+                    'count' => count($emails),
+                    'response_format' => gettype($data),
+                    'raw_data_sample' => is_array($data) && !empty($data) ? array_slice($data, 0, 1) : $data
+                ]);
+                return $emails;
+            } else {
+                $helper->debug('❌ getConstituentEmails: Request failed', [
+                    'lgl_id' => $lgl_id,
+                    'success' => $response['success'] ?? false,
+                    'error' => $response['error'] ?? 'Unknown error'
+                ]);
+            }
+        } catch (\Exception $e) {
+            $helper->debug('❌ getConstituentEmails: Error fetching emails', [
+                'lgl_id' => $lgl_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+        return [];
+    }
+    
+    /**
      * Add phone number to existing constituent
      * (Multi-request pattern - matching legacy lgl_add_object)
      * 
@@ -1135,6 +1477,231 @@ class Connection {
     public function addPhoneNumber(string $lgl_id, array $phone_data): array {
         $endpoint = "constituents/{$lgl_id}/phone_numbers";
         return $this->makeRequest($endpoint, 'POST', $phone_data, false);
+    }
+    
+    /**
+     * Safely add phone number - checks for duplicates first
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param array $phone_data Phone data array
+     * @return array API response with 'skipped' flag if duplicate found
+     */
+    public function addPhoneNumberSafe(string $lgl_id, array $phone_data): array {
+        $helper = Helper::getInstance();
+        $phone_number = $this->normalizePhoneNumber($phone_data['number'] ?? '');
+        
+        if (empty($phone_number)) {
+            return ['success' => false, 'error' => 'No phone number provided'];
+        }
+        
+        $helper->debug('🔍 addPhoneNumberSafe: Checking for duplicate', [
+            'lgl_id' => $lgl_id,
+            'phone' => $phone_number
+        ]);
+        
+        // Check if phone already exists
+        $existing_phones = $this->getConstituentPhones($lgl_id);
+        $helper->debug('🔍 addPhoneNumberSafe: Found existing phones', [
+            'count' => count($existing_phones),
+            'phones' => array_map(function($p) {
+                return is_array($p) ? ($p['number'] ?? 'unknown') : ($p->number ?? 'unknown');
+            }, $existing_phones)
+        ]);
+        
+        foreach ($existing_phones as $existing_phone) {
+            // Handle both array and object formats
+            $existing_number_raw = '';
+            if (is_array($existing_phone)) {
+                $existing_number_raw = $existing_phone['number'] ?? '';
+            } elseif (is_object($existing_phone)) {
+                $existing_number_raw = $existing_phone->number ?? '';
+            }
+            
+            $existing_number = $this->normalizePhoneNumber($existing_number_raw);
+            if ($existing_number && $existing_number === $phone_number) {
+                $helper->debug('⚠️ Phone already exists, skipping duplicate', [
+                    'lgl_id' => $lgl_id,
+                    'phone' => $phone_number,
+                    'existing_phone_id' => is_array($existing_phone) ? ($existing_phone['id'] ?? null) : ($existing_phone->id ?? null)
+                ]);
+                return ['success' => true, 'skipped' => true, 'message' => 'Phone already exists'];
+            }
+        }
+        
+        // Phone doesn't exist, add it
+        $helper->debug('✅ addPhoneNumberSafe: Phone is new, adding', ['phone' => $phone_number]);
+        return $this->addPhoneNumber($lgl_id, $phone_data);
+    }
+    
+    /**
+     * Update or add phone number - updates if exists and different, adds if new
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param array $phone_data Phone data array
+     * @return array API response with 'updated', 'added', or 'skipped' flag
+     */
+    public function updateOrAddPhoneNumber(string $lgl_id, array $phone_data): array {
+        $helper = Helper::getInstance();
+        $phone_number = $this->normalizePhoneNumber($phone_data['number'] ?? '');
+        
+        if (empty($phone_number)) {
+            return ['success' => false, 'error' => 'No phone number provided'];
+        }
+        
+        $helper->debug('🔄 updateOrAddPhoneNumber: Checking existing phones', [
+            'lgl_id' => $lgl_id,
+            'phone' => $phone_number
+        ]);
+        
+        // Check if phone already exists
+        $existing_phones = $this->getConstituentPhones($lgl_id);
+        $exact_match_found = false;
+        
+        foreach ($existing_phones as $existing_phone) {
+            $existing_number_raw = '';
+            $existing_id = null;
+            
+            if (is_array($existing_phone)) {
+                $existing_number_raw = $existing_phone['number'] ?? '';
+                $existing_id = $existing_phone['id'] ?? null;
+            } elseif (is_object($existing_phone)) {
+                $existing_number_raw = $existing_phone->number ?? '';
+                $existing_id = $existing_phone->id ?? null;
+            }
+            
+            $existing_number = $this->normalizePhoneNumber($existing_number_raw);
+            
+            if ($existing_number && $existing_number === $phone_number) {
+                $exact_match_found = true;
+                // Phone exists - check if it needs updating
+                $needs_update = false;
+                if (is_array($existing_phone)) {
+                    $existing_type = $existing_phone['phone_number_type_id'] ?? null;
+                    $new_type = $phone_data['phone_number_type_id'] ?? null;
+                    $existing_preferred = !empty($existing_phone['is_preferred']);
+                    $new_preferred = !empty($phone_data['is_preferred']);
+                    if ($existing_type != $new_type || $existing_preferred != $new_preferred) {
+                        $needs_update = true;
+                    }
+                }
+                
+                if ($needs_update && $existing_id) {
+                    $helper->debug('🔄 updateOrAddPhoneNumber: Updating existing phone', [
+                        'phone_id' => $existing_id,
+                        'phone' => $phone_number
+                    ]);
+                    $result = $this->updatePhoneNumber($lgl_id, $existing_id, $phone_data);
+                    return array_merge($result, ['updated' => true]);
+                } else {
+                    $helper->debug('✅ updateOrAddPhoneNumber: Phone unchanged, skipping', [
+                        'phone' => $phone_number
+                    ]);
+                    return ['success' => true, 'skipped' => true, 'message' => 'Phone unchanged'];
+                }
+            }
+        }
+        
+        // If phone number is different but we have existing phones, update the preferred one
+        if (!$exact_match_found && !empty($existing_phones)) {
+            // Find preferred phone to replace
+            $preferred_phone_id = null;
+            foreach ($existing_phones as $check_phone) {
+                $is_preferred = false;
+                $check_id = null;
+                if (is_array($check_phone)) {
+                    $is_preferred = !empty($check_phone['is_preferred']);
+                    $check_id = $check_phone['id'] ?? null;
+                } elseif (is_object($check_phone)) {
+                    $is_preferred = !empty($check_phone->is_preferred);
+                    $check_id = $check_phone->id ?? null;
+                }
+                if ($is_preferred && $check_id) {
+                    $preferred_phone_id = $check_id;
+                    break;
+                }
+            }
+            
+            // If no preferred found, use first one
+            if (!$preferred_phone_id && !empty($existing_phones[0])) {
+                $first_phone = $existing_phones[0];
+                $preferred_phone_id = is_array($first_phone) ? ($first_phone['id'] ?? null) : ($first_phone->id ?? null);
+            }
+            
+            if ($preferred_phone_id) {
+                $helper->debug('🔄 updateOrAddPhoneNumber: Updating existing phone (replacing preferred/first)', [
+                    'phone_id' => $preferred_phone_id,
+                    'new_phone' => $phone_number
+                ]);
+                $result = $this->updatePhoneNumber($lgl_id, $preferred_phone_id, $phone_data);
+                return array_merge($result, ['updated' => true]);
+            }
+        }
+        
+        // Phone doesn't exist, add it
+        $helper->debug('➕ updateOrAddPhoneNumber: Adding new phone', ['phone' => $phone_number]);
+        $result = $this->addPhoneNumber($lgl_id, $phone_data);
+        return array_merge($result, ['added' => true]);
+    }
+    
+    /**
+     * Get all phone numbers for a constituent
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @return array Array of phone number records
+     */
+    private function getConstituentPhones(string $lgl_id): array {
+        $helper = Helper::getInstance();
+        try {
+            $response = $this->makeRequest("constituents/{$lgl_id}/phone_numbers", 'GET', [], false);
+            if ($response['success'] && isset($response['data'])) {
+                $data = $response['data'];
+                
+                // Handle different response formats
+                if (is_array($data)) {
+                    // Check if it's a direct array of phone objects
+                    if (!empty($data) && (isset($data[0]['number']) || (is_object($data[0]) && isset($data[0]->number)))) {
+                        $helper->debug('🔍 getConstituentPhones: Direct array format', ['count' => count($data)]);
+                        return $data;
+                    }
+                    // Check if it has 'items' key
+                    if (isset($data['items']) && is_array($data['items'])) {
+                        $helper->debug('🔍 getConstituentPhones: Items array format', ['count' => count($data['items'])]);
+                        return $data['items'];
+                    }
+                } elseif (is_object($data)) {
+                    // Object with items property
+                    if (isset($data->items) && is_array($data->items)) {
+                        $helper->debug('🔍 getConstituentPhones: Object items format', ['count' => count($data->items)]);
+                        return $data->items;
+                    }
+                }
+                
+                // Fallback to extraction method
+                $phones = $this->extractConstituentsFromResponse($data);
+                $helper->debug('🔍 getConstituentPhones: Extracted via fallback', [
+                    'count' => count($phones),
+                    'response_format' => gettype($data)
+                ]);
+                return $phones;
+            }
+        } catch (\Exception $e) {
+            $helper->debug('❌ getConstituentPhones: Error fetching phones', [
+                'lgl_id' => $lgl_id,
+                'error' => $e->getMessage()
+            ]);
+        }
+        return [];
+    }
+    
+    /**
+     * Normalize phone number for comparison (remove formatting)
+     * 
+     * @param string $phone Phone number
+     * @return string Normalized phone number
+     */
+    private function normalizePhoneNumber(string $phone): string {
+        // Remove all non-digit characters
+        return preg_replace('/\D/', '', $phone);
     }
     
     /**
@@ -1174,6 +1741,289 @@ class Connection {
         }
 
         return $response;
+    }
+
+    /**
+     * Safely add street address - checks for duplicates first
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param array $address_data Address data array
+     * @return array API response with 'skipped' flag if duplicate found
+     */
+    public function addStreetAddressSafe(string $lgl_id, array $address_data): array {
+        $helper = Helper::getInstance();
+        
+        // Extract key address fields for comparison
+        $street = trim($address_data['street'] ?? '');
+        $city = trim($address_data['city'] ?? '');
+        $postal_code = trim($address_data['postal_code'] ?? '');
+        
+        if (empty($street)) {
+            return ['success' => false, 'error' => 'No street address provided'];
+        }
+        
+        $helper->debug('🔍 addStreetAddressSafe: Checking for duplicate', [
+            'lgl_id' => $lgl_id,
+            'street' => $street,
+            'city' => $city,
+            'postal_code' => $postal_code
+        ]);
+        
+        // Check if address already exists
+        $existing_addresses = $this->getConstituentAddresses($lgl_id);
+        $helper->debug('🔍 addStreetAddressSafe: Found existing addresses', [
+            'count' => count($existing_addresses)
+        ]);
+        
+        foreach ($existing_addresses as $existing_address) {
+            $existing_street = '';
+            $existing_city = '';
+            $existing_postal = '';
+            
+            if (is_array($existing_address)) {
+                $existing_street = trim($existing_address['street'] ?? '');
+                $existing_city = trim($existing_address['city'] ?? '');
+                $existing_postal = trim($existing_address['postal_code'] ?? '');
+            } elseif (is_object($existing_address)) {
+                $existing_street = trim($existing_address->street ?? '');
+                $existing_city = trim($existing_address->city ?? '');
+                $existing_postal = trim($existing_address->postal_code ?? '');
+            }
+            
+            // Compare normalized addresses (street + city + postal code if both have it)
+            $street_match = strcasecmp($existing_street, $street) === 0;
+            $city_match = strcasecmp($existing_city, $city) === 0;
+            $postal_match = true; // Default to true if either is empty
+            if (!empty($postal_code) && !empty($existing_postal)) {
+                $postal_match = strcasecmp($existing_postal, $postal_code) === 0;
+            }
+            
+            if ($existing_street && $street_match && $city_match && $postal_match) {
+                $helper->debug('⚠️ Address already exists, skipping duplicate', [
+                    'lgl_id' => $lgl_id,
+                    'street' => $street,
+                    'address_id' => is_array($existing_address) ? ($existing_address['id'] ?? null) : ($existing_address->id ?? null)
+                ]);
+                return ['success' => true, 'skipped' => true, 'message' => 'Address already exists'];
+            }
+        }
+        
+        // Address doesn't exist, add it
+        $helper->debug('✅ addStreetAddressSafe: Address is new, adding', ['street' => $street]);
+        return $this->addStreetAddress($lgl_id, $address_data);
+    }
+    
+    /**
+     * Update or add street address - updates if exists and different, adds if new
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param array $address_data Address data array
+     * @return array API response with 'updated', 'added', or 'skipped' flag
+     */
+    public function updateOrAddStreetAddress(string $lgl_id, array $address_data): array {
+        $helper = Helper::getInstance();
+        
+        $street = trim($address_data['street'] ?? '');
+        $city = trim($address_data['city'] ?? '');
+        $postal_code = trim($address_data['postal_code'] ?? '');
+        
+        if (empty($street)) {
+            return ['success' => false, 'error' => 'No street address provided'];
+        }
+        
+        $helper->debug('🔄 updateOrAddStreetAddress: Checking existing addresses', [
+            'lgl_id' => $lgl_id,
+            'street' => $street,
+            'city' => $city
+        ]);
+        
+        // Check if address already exists
+        $existing_addresses = $this->getConstituentAddresses($lgl_id);
+        
+        // Find preferred address or first address to update
+        $address_to_update = null;
+        $address_to_update_id = null;
+        $exact_match_found = false;
+        
+        foreach ($existing_addresses as $existing_address) {
+            $existing_street = '';
+            $existing_city = '';
+            $existing_postal = '';
+            $existing_id = null;
+            $is_preferred = false;
+            
+            if (is_array($existing_address)) {
+                $existing_street = trim($existing_address['street'] ?? '');
+                $existing_city = trim($existing_address['city'] ?? '');
+                $existing_postal = trim($existing_address['postal_code'] ?? '');
+                $existing_id = $existing_address['id'] ?? null;
+                $is_preferred = !empty($existing_address['is_preferred']);
+            } elseif (is_object($existing_address)) {
+                $existing_street = trim($existing_address->street ?? '');
+                $existing_city = trim($existing_address->city ?? '');
+                $existing_postal = trim($existing_address->postal_code ?? '');
+                $existing_id = $existing_address->id ?? null;
+                $is_preferred = !empty($existing_address->is_preferred);
+            }
+            
+            // Compare normalized addresses (street + city + postal code if both have it)
+            $street_match = strcasecmp($existing_street, $street) === 0;
+            $city_match = strcasecmp($existing_city, $city) === 0;
+            $postal_match = true; // Default to true if either is empty
+            if (!empty($postal_code) && !empty($existing_postal)) {
+                $postal_match = strcasecmp($existing_postal, $postal_code) === 0;
+            }
+            
+            // If exact match found, update it
+            if ($existing_street && $street_match && $city_match && $postal_match) {
+                $exact_match_found = true;
+                $address_to_update = $existing_address;
+                $address_to_update_id = $existing_id;
+                break; // Found exact match, use this one
+            }
+            
+            // Track preferred address or first address for potential update
+            if (!$address_to_update && ($is_preferred || !$address_to_update)) {
+                $address_to_update = $existing_address;
+                $address_to_update_id = $existing_id;
+            }
+        }
+        
+        // If exact match found, check if it needs updating
+        if ($exact_match_found && $address_to_update_id) {
+            $needs_update = false;
+            if (is_array($address_to_update)) {
+                $existing_street_from_update = trim($address_to_update['street'] ?? '');
+                $existing_state = trim($address_to_update['state'] ?? '');
+                $new_state = trim($address_data['state'] ?? '');
+                $existing_type = $address_to_update['street_address_type_id'] ?? null;
+                $new_type = $address_data['street_address_type_id'] ?? null;
+                $existing_preferred = !empty($address_to_update['is_preferred']);
+                $new_preferred = !empty($address_data['is_preferred']);
+                
+                if ($existing_street_from_update !== $street || 
+                    $existing_state !== $new_state || 
+                    $existing_type != $new_type || 
+                    $existing_preferred != $new_preferred) {
+                    $needs_update = true;
+                }
+            }
+            
+            if ($needs_update) {
+                $helper->debug('🔄 updateOrAddStreetAddress: Updating existing address (exact match)', [
+                    'address_id' => $address_to_update_id,
+                    'old_street' => is_array($address_to_update) ? ($address_to_update['street'] ?? '') : ($address_to_update->street ?? ''),
+                    'new_street' => $street,
+                    'address_data' => $address_data
+                ]);
+                $result = $this->updateStreetAddress($lgl_id, $address_to_update_id, $address_data);
+                $helper->debug('📥 updateOrAddStreetAddress: Update API response', [
+                    'address_id' => $address_to_update_id,
+                    'success' => $result['success'] ?? false,
+                    'http_code' => $result['http_code'] ?? null,
+                    'error' => $result['error'] ?? null,
+                    'response_data' => $result['data'] ?? null
+                ]);
+                if (!empty($result['success'])) {
+                    return array_merge($result, ['updated' => true]);
+                } else {
+                    $helper->debug('❌ updateOrAddStreetAddress: Update failed, will try adding instead', [
+                        'error' => $result['error'] ?? 'Unknown error'
+                    ]);
+                    // If update failed, try adding as new
+                    $result = $this->addStreetAddress($lgl_id, $address_data);
+                    return array_merge($result, ['added' => true, 'update_failed' => true]);
+                }
+            } else {
+                $helper->debug('✅ updateOrAddStreetAddress: Address unchanged, skipping', [
+                    'street' => $street
+                ]);
+                return ['success' => true, 'skipped' => true, 'message' => 'Address unchanged'];
+            }
+        }
+        
+        // No exact match - update preferred address or first address if exists
+        if ($address_to_update_id) {
+            $helper->debug('🔄 updateOrAddStreetAddress: Updating existing address (replacing preferred/first)', [
+                'address_id' => $address_to_update_id,
+                'old_street' => is_array($address_to_update) ? ($address_to_update['street'] ?? '') : ($address_to_update->street ?? ''),
+                'new_street' => $street,
+                'address_data' => $address_data
+            ]);
+            $result = $this->updateStreetAddress($lgl_id, $address_to_update_id, $address_data);
+            $helper->debug('📥 updateOrAddStreetAddress: Update API response', [
+                'address_id' => $address_to_update_id,
+                'success' => $result['success'] ?? false,
+                'http_code' => $result['http_code'] ?? null,
+                'error' => $result['error'] ?? null,
+                'response_data' => $result['data'] ?? null
+            ]);
+            if (!empty($result['success'])) {
+                return array_merge($result, ['updated' => true]);
+            } else {
+                $helper->debug('❌ updateOrAddStreetAddress: Update failed, will try adding instead', [
+                    'error' => $result['error'] ?? 'Unknown error'
+                ]);
+                // If update failed, try adding as new
+                $result = $this->addStreetAddress($lgl_id, $address_data);
+                return array_merge($result, ['added' => true, 'update_failed' => true]);
+            }
+        }
+        
+        // No existing address, add it
+        $helper->debug('➕ updateOrAddStreetAddress: Adding new address', ['street' => $street]);
+        $result = $this->addStreetAddress($lgl_id, $address_data);
+        return array_merge($result, ['added' => true]);
+    }
+
+    /**
+     * Get all street addresses for a constituent
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @return array Array of address records
+     */
+    private function getConstituentAddresses(string $lgl_id): array {
+        $helper = Helper::getInstance();
+        try {
+            $response = $this->makeRequest("constituents/{$lgl_id}/street_addresses", 'GET', [], false);
+            if ($response['success'] && isset($response['data'])) {
+                $data = $response['data'];
+                
+                // Handle different response formats (same as emails/phones)
+                if (is_array($data)) {
+                    // Check if it's a direct array of address objects
+                    if (!empty($data) && (isset($data[0]['street']) || (is_object($data[0]) && isset($data[0]->street)))) {
+                        $helper->debug('🔍 getConstituentAddresses: Direct array format', ['count' => count($data)]);
+                        return $data;
+                    }
+                    // Check if it has 'items' key
+                    if (isset($data['items']) && is_array($data['items'])) {
+                        $helper->debug('🔍 getConstituentAddresses: Items array format', ['count' => count($data['items'])]);
+                        return $data['items'];
+                    }
+                } elseif (is_object($data)) {
+                    // Object with items property
+                    if (isset($data->items) && is_array($data->items)) {
+                        $helper->debug('🔍 getConstituentAddresses: Object items format', ['count' => count($data->items)]);
+                        return $data->items;
+                    }
+                }
+                
+                // Fallback to extraction method
+                $addresses = $this->extractConstituentsFromResponse($data);
+                $helper->debug('🔍 getConstituentAddresses: Extracted via fallback', [
+                    'count' => count($addresses),
+                    'response_format' => gettype($data)
+                ]);
+                return $addresses;
+            }
+        } catch (\Exception $e) {
+            $helper->debug('❌ getConstituentAddresses: Error fetching addresses', [
+                'lgl_id' => $lgl_id,
+                'error' => $e->getMessage()
+            ]);
+        }
+        return [];
     }
 }
 

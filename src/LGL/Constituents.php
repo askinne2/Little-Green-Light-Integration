@@ -12,6 +12,8 @@
 namespace UpstateInternational\LGL\LGL;
 
 use UpstateInternational\LGL\Core\CacheManager;
+use UpstateInternational\LGL\LGL\Connection;
+use UpstateInternational\LGL\LGL\Helper;
 
 /**
  * Constituents Class
@@ -202,6 +204,14 @@ class Constituents {
         $sanitized_phone = $this->sanitizePhone($phone);
         
         if (!empty($sanitized_phone)) {
+            // Check if this phone is already added (prevent duplicates)
+            foreach ($this->phoneData as $existing_phone) {
+                if ($existing_phone['number'] === $sanitized_phone) {
+                    $this->debug('Phone already set, skipping duplicate', $sanitized_phone);
+                    return;
+                }
+            }
+            
             $this->phoneData[] = [
                 'number' => $sanitized_phone,
                 'phone_number_type_id' => 1,
@@ -231,22 +241,45 @@ class Constituents {
         $postal_code = get_user_meta($user_id, 'user-postal-code', true);
         $country = get_user_meta($user_id, 'user-country-of-origin', true) ?: 'US';
         
+        $this->debug('🔍 setAddress: Checking user meta', [
+            'user_id' => $user_id,
+            'street1' => $street1,
+            'city' => $city,
+            'has_street1' => !empty($street1),
+            'has_city' => !empty($city)
+        ]);
+        
         // Only add address if we have at least street and city
         if (!empty($street1) && !empty($city)) {
             $street = trim($street1 . ' ' . $street2);
-            $this->addressData[] = [
+            $addressEntry = [
                 'street' => $street,
                 'street_address_type_id' => 1,
                 'street_type_name' => 'Home',
                 'city' => $city,
                 'state' => $state,
                 'postal_code' => $postal_code,
+                'county' => '',
                 'country' => $country,
+                'seasonal_from' => '01-01',
+                'seasonal_to' => '12-31',
+                'seasonal' => false,
                 'is_preferred' => true,
                 'not_current' => false
             ];
+            $this->addressData[] = $addressEntry;
             
-            $this->debug('Address set', ['street' => $street, 'city' => $city]);
+            $this->debug('✅ Address set and added to array', [
+                'street' => $street,
+                'city' => $city,
+                'address_data_count' => count($this->addressData),
+                'address_entry' => $addressEntry
+            ]);
+        } else {
+            $this->debug('⚠️ setAddress: Skipping - missing street1 or city', [
+                'street1' => $street1,
+                'city' => $city
+            ]);
         }
     }
     
@@ -561,12 +594,13 @@ class Constituents {
      * 
      * @param int $user_id WordPress user ID
      * @param array $request Additional request data
+     * @param bool $skip_membership Skip membership sync (for non-membership orders)
      * @return array Update result
      */
-    public function setDataAndUpdate(int $user_id, array $request = []): array {
+    public function setDataAndUpdate(int $user_id, array $request = [], bool $skip_membership = false): array {
         try {
-            // Set all constituent data
-            $this->setData($user_id);
+            // Set all constituent data (skip membership updates for non-membership orders)
+            $this->setData($user_id, $skip_membership);
             
             // Merge with additional request data
             if (!empty($request)) {
@@ -577,7 +611,7 @@ class Constituents {
             $lgl_id = $this->getUserLglId($user_id);
             
             if ($lgl_id) {
-                // Update existing constituent
+                // Update existing constituent (includes contact info in payload using legacy pattern)
                 $result = $this->updateConstituent($lgl_id);
             } else {
                 // Create new constituent
@@ -585,7 +619,11 @@ class Constituents {
                 
                 // Save LGL ID to user meta if creation was successful
                 if ($result['success'] && isset($result['data']['id'])) {
-                    update_user_meta($user_id, 'lgl_constituent_id', $result['data']['id']);
+                    $lgl_id = $result['data']['id'];
+                    update_user_meta($user_id, 'lgl_constituent_id', $lgl_id);
+                    
+                    // Add contact info for new constituent
+                    $this->syncContactInfo($lgl_id);
                 }
             }
             
@@ -597,6 +635,92 @@ class Constituents {
                 'success' => false,
                 'error' => $e->getMessage()
             ];
+        }
+    }
+    
+    /**
+     * Sync contact info (email, phone, address) with LGL
+     * Updates existing or adds new contact info
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @return void
+     */
+    private function syncContactInfo(string $lgl_id): void {
+        $connection = Connection::getInstance();
+        $helper = Helper::getInstance();
+        
+        // Sync email addresses
+        $emailData = $this->getEmailData();
+        if (!empty($emailData)) {
+            foreach ($emailData as $email) {
+                $response = $connection->updateOrAddEmailAddress($lgl_id, $email);
+                if (isset($response['updated']) && $response['updated']) {
+                    $helper->debug('🔄 syncContactInfo: Email updated', [
+                        'lgl_id' => $lgl_id,
+                        'email' => $email['address'] ?? 'unknown'
+                    ]);
+                } elseif (isset($response['added']) && $response['added']) {
+                    $helper->debug('➕ syncContactInfo: Email added', [
+                        'lgl_id' => $lgl_id,
+                        'email' => $email['address'] ?? 'unknown'
+                    ]);
+                } elseif (isset($response['skipped']) && $response['skipped']) {
+                    $helper->debug('✅ syncContactInfo: Email unchanged', [
+                        'lgl_id' => $lgl_id,
+                        'email' => $email['address'] ?? 'unknown'
+                    ]);
+                }
+            }
+        }
+        
+        // Sync phone numbers
+        $phoneData = $this->getPhoneData();
+        if (!empty($phoneData)) {
+            foreach ($phoneData as $phone) {
+                $response = $connection->updateOrAddPhoneNumber($lgl_id, $phone);
+                if (isset($response['updated']) && $response['updated']) {
+                    $helper->debug('🔄 syncContactInfo: Phone updated', [
+                        'lgl_id' => $lgl_id,
+                        'phone' => $phone['number'] ?? 'unknown'
+                    ]);
+                } elseif (isset($response['added']) && $response['added']) {
+                    $helper->debug('➕ syncContactInfo: Phone added', [
+                        'lgl_id' => $lgl_id,
+                        'phone' => $phone['number'] ?? 'unknown'
+                    ]);
+                } elseif (isset($response['skipped']) && $response['skipped']) {
+                    $helper->debug('✅ syncContactInfo: Phone unchanged', [
+                        'lgl_id' => $lgl_id,
+                        'phone' => $phone['number'] ?? 'unknown'
+                    ]);
+                }
+            }
+        }
+        
+        // Sync street addresses
+        $addressData = $this->getAddressData();
+        if (!empty($addressData)) {
+            foreach ($addressData as $address) {
+                $response = $connection->updateOrAddStreetAddress($lgl_id, $address);
+                if (isset($response['updated']) && $response['updated']) {
+                    $helper->debug('🔄 syncContactInfo: Address updated', [
+                        'lgl_id' => $lgl_id,
+                        'street' => $address['street'] ?? 'unknown'
+                    ]);
+                } elseif (isset($response['added']) && $response['added']) {
+                    $helper->debug('➕ syncContactInfo: Address added', [
+                        'lgl_id' => $lgl_id,
+                        'street' => $address['street'] ?? 'unknown'
+                    ]);
+                } elseif (isset($response['skipped']) && $response['skipped']) {
+                    $helper->debug('✅ syncContactInfo: Address unchanged', [
+                        'lgl_id' => $lgl_id,
+                        'street' => $address['street'] ?? 'unknown'
+                    ]);
+                }
+            }
+        } else {
+            $helper->debug('⚠️ syncContactInfo: No address data to sync', ['lgl_id' => $lgl_id]);
         }
     }
     
@@ -667,7 +791,8 @@ class Constituents {
         try {
             $connection = Connection::getInstance();
             
-            $constituent_data = $this->buildConstituentData();
+            // Use legacy pattern: include contact info in update payload with remove_previous flags
+            $constituent_data = $this->buildUpdateData();
             
             $result = $connection->updateConstituent($lgl_id, $constituent_data);
             
@@ -705,6 +830,61 @@ class Constituents {
         // This is the ONLY pattern that works reliably with LGL's API
         
         return $this->personalData;
+    }
+    
+    /**
+     * Build update data with contact info (legacy pattern)
+     * Includes email, phone, and address in the update payload with remove_previous flags
+     * 
+     * @return array Formatted update data
+     */
+    private function buildUpdateData(): array {
+        $helper = Helper::getInstance();
+        
+        // Start with personal data
+        $update_data = $this->personalData;
+        
+        // Add remove_previous flags (legacy pattern)
+        $flags = [
+            'remove_previous_email_addresses' => true,
+            'remove_previous_phone_numbers' => true,
+            'remove_previous_street_addresses' => true,
+            'remove_previous_web_addresses' => true,
+        ];
+        $update_data = array_merge($update_data, $flags);
+        
+        // Add email addresses if available
+        if (!empty($this->emailData)) {
+            $update_data['email_addresses'] = $this->emailData;
+            $helper->debug('🔧 buildUpdateData: Including email addresses', [
+                'count' => count($this->emailData),
+                'emails' => array_map(function($e) { return $e['address'] ?? 'unknown'; }, $this->emailData)
+            ]);
+        }
+        
+        // Add phone numbers if available
+        if (!empty($this->phoneData)) {
+            $update_data['phone_numbers'] = $this->phoneData;
+            $helper->debug('🔧 buildUpdateData: Including phone numbers', [
+                'count' => count($this->phoneData),
+                'phones' => array_map(function($p) { return $p['number'] ?? 'unknown'; }, $this->phoneData)
+            ]);
+        }
+        
+        // Add street addresses if available
+        if (!empty($this->addressData)) {
+            $update_data['street_addresses'] = $this->addressData;
+            $helper->debug('🔧 buildUpdateData: Including street addresses', [
+                'count' => count($this->addressData),
+                'addresses' => array_map(function($a) { return $a['street'] ?? 'unknown'; }, $this->addressData)
+            ]);
+        } else {
+            $helper->debug('⚠️ buildUpdateData: No address data available', [
+                'address_data' => $this->addressData
+            ]);
+        }
+        
+        return $update_data;
     }
     
     /**
@@ -822,6 +1002,10 @@ class Constituents {
      * @return array Address data
      */
     public function getAddressData(): array {
+        $this->debug('🔍 getAddressData: Returning address data', [
+            'count' => count($this->addressData),
+            'data' => $this->addressData
+        ]);
         return $this->addressData;
     }
     

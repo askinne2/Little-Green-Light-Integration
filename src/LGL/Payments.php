@@ -296,9 +296,9 @@ class Payments {
             $gift_types_items = $payment_data['gift_types']['items'] ?? [];
             $payment_types_items = $payment_data['payment_types']['items'] ?? [];
             
-            // Find appropriate fund
-            $fund_name = $this->determineMembershipFund($order);
-            $fund_id = $this->findLglObjectKey($fund_name, 'name', $funds_items);
+            // Get fund ID from settings based on product category
+            $fund_id = $this->getFundIdByProductCategory($order);
+            $fund_name = ''; // Empty - LGL resolves it
             
             // Find campaign (match legacy: 'Membership Fees')
             $campaign_name = 'Membership Fees';
@@ -388,7 +388,7 @@ class Payments {
      * @param float $price Payment amount
      * @param string $date Payment date
      * @param string $class_type Class type
-     * @param string $lgl_class_id LGL class ID
+     * @param string $event_name Class name for event tracking (product name)
      * @return array Payment setup result
      */
     public function setupClassPayment(
@@ -397,7 +397,7 @@ class Payments {
         float $price, 
         string $date, 
         string $class_type, 
-        string $lgl_class_id
+        string $event_name
     ): array {
         try {
             // Get order details
@@ -411,7 +411,7 @@ class Payments {
             }
             
             // Get payment types for classes
-            $payment_data = $this->retrievePaymentTypes('Classes', null, null, $lgl_class_id);
+            $payment_data = $this->retrievePaymentTypes('Classes');
             
             if (empty($payment_data)) {
                 throw new \Exception('No payment types available for classes');
@@ -441,9 +441,8 @@ class Payments {
                 }
             }
             
-            // CRITICAL: Use the passed fund ID directly (from _ui_lgl_sync_id or legacy _lc_lgl_fund_id)
-            // The $lgl_class_id parameter is actually the fund ID from your JetEngine meta
-            $fund_id = (int) $lgl_class_id;
+            // Get fund ID from settings based on product category
+            $fund_id = $this->getFundIdByProductCategory($order);
             
             // Get gift type and category for classes (match legacy structure)
             $gift_types_items = $payment_data['gift_types']['items'] ?? [];
@@ -477,7 +476,7 @@ class Payments {
                 'appeal_id' => 0,
                 'appeal_name' => '',
                 'event_id' => 0,
-                'event_name' => '',
+                'event_name' => $event_name, // Class name for event tracking
                 'received_amount' => $formatted_amount,
                 'received_date' => $this->formatDateForApi($date),
                 'payment_type_id' => $type_id,
@@ -532,7 +531,6 @@ class Payments {
      * @param float $price Payment amount
      * @param string $date Payment date
      * @param string $event_name Event name
-     * @param string $lgl_class_id LGL event/class ID
      * @return array Payment setup result
      */
     public function setupEventPayment(
@@ -540,8 +538,7 @@ class Payments {
         int $order_id, 
         float $price, 
         string $date, 
-        string $event_name, 
-        string $lgl_class_id
+        string $event_name
     ): array {
         try {
             // Get order details
@@ -555,7 +552,7 @@ class Payments {
             }
             
             // Get payment types for events
-            $payment_data = $this->retrievePaymentTypes('Events', null, null, $lgl_class_id);
+            $payment_data = $this->retrievePaymentTypes('Events');
             
             if (empty($payment_data)) {
                 throw new \Exception('No payment types available for events');
@@ -585,9 +582,8 @@ class Payments {
                 }
             }
             
-            // CRITICAL: Use the passed fund ID directly (from _ui_lgl_sync_id or legacy _ui_event_lgl_fund_id)
-            // The $lgl_class_id parameter is actually the fund ID from your JetEngine meta
-            $fund_id = (int) $lgl_class_id;
+            // Get fund ID from settings based on product category
+            $fund_id = $this->getFundIdByProductCategory($order);
             
             // Get gift type and category for events (match legacy structure)
             $gift_types_items = $payment_data['gift_types']['items'] ?? [];
@@ -727,8 +723,78 @@ class Payments {
     }
     
     /**
+     * Get fund ID by product category from settings
+     * 
+     * Determines the appropriate fund ID based on WooCommerce product category.
+     * Settings always override legacy product meta fields.
+     * 
+     * @param \WC_Order $order WooCommerce order
+     * @return int Fund ID from settings
+     */
+    private function getFundIdByProductCategory(\WC_Order $order): int {
+        // Get SettingsManager instance from container
+        $settingsManager = null;
+        if (function_exists('lgl_get_container')) {
+            try {
+                $container = lgl_get_container();
+                if ($container->has('admin.settings_manager')) {
+                    $settingsManager = $container->get('admin.settings_manager');
+                }
+            } catch (\Exception $e) {
+                // SettingsManager not available, will use defaults
+            }
+        }
+        
+        // Check order items for product categories
+        foreach ($order->get_items() as $item) {
+            $product = $item->get_product();
+            if ($product) {
+                // Get parent product ID (variations inherit categories from parent)
+                $product_id = $product->get_id();
+                $parent_id = $product->get_parent_id() ?: $product_id;
+                
+                // Get categories from parent product (variations don't have their own categories)
+                $categories = wp_get_post_terms($parent_id, 'product_cat', ['fields' => 'slugs']);
+                
+                $this->debug('Fund ID detection by category', [
+                    'product_id' => $product_id,
+                    'parent_id' => $parent_id,
+                    'product_type' => $product->get_type(),
+                    'categories' => $categories
+                ]);
+                
+                // Check for membership category (use 'memberships' plural as that's the actual slug)
+                if (in_array('memberships', $categories) || in_array('membership', $categories)) {
+                    $fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_membership', 2437) : 2437;
+                    $this->debug('Membership category detected', ['fund_id' => $fund_id]);
+                    return $fund_id;
+                }
+                
+                // Check for language class category
+                if (in_array('language-class', $categories)) {
+                    $fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_language_classes', 4132) : 4132;
+                    $this->debug('Language class category detected', ['fund_id' => $fund_id]);
+                    return $fund_id;
+                }
+                
+                // Check for events category
+                if (in_array('events', $categories)) {
+                    $fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_events', 4142) : 4142;
+                    $this->debug('Events category detected', ['fund_id' => $fund_id]);
+                    return $fund_id;
+                }
+            }
+        }
+        
+        // Default to general fund if no category matched
+        $this->debug('No category matched, using general fund', []);
+        return $settingsManager ? (int) $settingsManager->get('fund_id_general', 4127) : 4127;
+    }
+    
+    /**
      * Determine membership fund based on order
      * 
+     * @deprecated Use getFundIdByProductCategory() instead
      * @param \WC_Order $order WooCommerce order
      * @return string Fund name
      */

@@ -703,6 +703,62 @@ class AdminMenuManager {
                 </button>
                 <span id="lgl-import-funds-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
             </p>
+            
+            <!-- Consolidated Fund IDs Section -->
+            <h3 style="margin-top: 40px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
+                ⚙️ Consolidated Fund IDs (Post-Remediation)
+            </h3>
+            
+            <p class="description" style="margin-top: 15px;">
+                Configure the LGL fund IDs used for different order types. These replace individual product-level fund assignments.
+                After the LGL fund consolidation, all orders of each type will use these centralized fund IDs. Settings always override product meta fields.
+            </p>
+            
+            <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
+                <?php wp_nonce_field('lgl_fund_settings', '_wpnonce'); ?>
+                <input type="hidden" name="action" value="lgl_save_fund_settings" />
+                
+                <table class="form-table" style="margin-top: 15px;">
+                    <tr>
+                        <th><label for="fund_id_membership">Membership Fund ID</label></th>
+                        <td>
+                            <input type="number" id="fund_id_membership" name="fund_id_membership" 
+                                   value="<?php echo esc_attr($settings['fund_id_membership'] ?? 2437); ?>" 
+                                   class="regular-text" min="1" />
+                            <p class="description">LGL fund ID for membership payments (default: 2437)</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="fund_id_language_classes">Language Classes Fund ID</label></th>
+                        <td>
+                            <input type="number" id="fund_id_language_classes" name="fund_id_language_classes" 
+                                   value="<?php echo esc_attr($settings['fund_id_language_classes'] ?? 4132); ?>" 
+                                   class="regular-text" min="1" />
+                            <p class="description">LGL fund ID for language class registrations (default: 4132)</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="fund_id_events">Events Fund ID</label></th>
+                        <td>
+                            <input type="number" id="fund_id_events" name="fund_id_events" 
+                                   value="<?php echo esc_attr($settings['fund_id_events'] ?? 4142); ?>" 
+                                   class="regular-text" min="1" />
+                            <p class="description">LGL fund ID for event registrations (default: 4142)</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="fund_id_general">General Fund ID</label></th>
+                        <td>
+                            <input type="number" id="fund_id_general" name="fund_id_general" 
+                                   value="<?php echo esc_attr($settings['fund_id_general'] ?? 4127); ?>" 
+                                   class="regular-text" min="1" />
+                            <p class="description">LGL fund ID for general donations (default: 4127)</p>
+                        </td>
+                    </tr>
+                </table>
+                
+                <?php submit_button('Save Fund Settings'); ?>
+            </form>
         </div>
         
         <script type="text/javascript">

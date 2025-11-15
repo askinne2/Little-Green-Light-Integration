@@ -206,23 +206,24 @@ class WpUsers {
      * @param array $request Request data
      * @param \WC_Order $order WooCommerce order
      * @param array $order_meta Order metadata
+     * @param bool $skip_membership_sync Skip membership sync (for non-membership orders)
      * @return array Update result
      */
-    public function updateUserData(array $request, \WC_Order $order, array $order_meta): array {
+    public function updateUserData(array $request, \WC_Order $order, array $order_meta, bool $skip_membership_sync = false): array {
         try {
             $user_id = $order->get_customer_id();
             if (!$user_id) {
                 throw new \Exception('No customer ID found for order');
             }
             
-            // Update user meta from order
+            // Update user meta from order (billing/contact info always syncs)
             $this->updateUserMetaFromOrder($user_id, $order, $order_meta);
             
             // Update subscription info if applicable
             $this->updateUserSubscriptionInfo($user_id, $order->get_id());
             
-            // Sync with LGL
-            $sync_result = $this->syncUserWithLgl($user_id);
+            // Sync with LGL (skip membership updates for non-membership orders)
+            $sync_result = $this->syncUserWithLgl($user_id, $skip_membership_sync);
             
             return [
                 'success' => true,
@@ -515,10 +516,10 @@ class WpUsers {
      * @param int $user_id WordPress user ID
      * @return array Sync result
      */
-    private function syncUserWithLgl(int $user_id): array {
+    private function syncUserWithLgl(int $user_id, bool $skip_membership = false): array {
         try {
             $constituents = Constituents::getInstance();
-            return $constituents->setDataAndUpdate($user_id);
+            return $constituents->setDataAndUpdate($user_id, [], $skip_membership);
             
         } catch (\Exception $e) {
             Helper::getInstance()->debug('LGL WP Users: Error syncing user ' . $user_id . ': ' . $e->getMessage());

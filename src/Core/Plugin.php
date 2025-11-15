@@ -164,6 +164,10 @@ class Plugin {
             // Initialize WooCommerce services
             if (class_exists('WooCommerce')) {
                 $this->container->get('woocommerce.subscription_renewal');
+                
+                // Initialize SubscriptionRenewalManager shortcodes and hooks
+                SubscriptionRenewalManager::init();
+                
                 $this->container->get('woocommerce.order_processor');
                 $this->container->get('woocommerce.subscription_handler');
             }

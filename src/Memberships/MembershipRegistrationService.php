@@ -56,68 +56,24 @@ class MembershipRegistrationService {
             \update_user_meta($userId, 'lgl_membership_level_id', (int) $membershipLevelId);
         }
 
-        // CHECK USER META FIRST - Single source of truth for existing users
-        $existingLglId = get_user_meta($userId, 'lgl_id', true);
-        
-        if ($existingLglId) {
-            // User already has an LGL ID - use it directly (no API search needed)
-            $this->helper->debug('✅ MembershipRegistrationService: Using existing lgl_id from user meta', [
-                'user_id' => $userId,
-                'lgl_id' => $existingLglId,
-                'source' => 'user_meta'
-            ]);
-            
-            $lglId = $existingLglId;
-            $matchMethod = 'user_meta';
-            $matchedEmail = null;
-            $created = false;
-            
-            // Update the existing constituent
+        $match = $this->connection->searchByName($searchName, !empty($emails) ? $emails : $email);
+        $matchMethod = $match['method'] ?? null;
+        $matchedEmail = $match['email'] ?? null;
+        $lglId = $match['id'] ?? null;
+        $created = false;
+
+        if (!$lglId) {
+            $this->ensureUserProfileHasNames($userId, $request, $order);
+            $lglId = $this->createConstituent($userId, $request);
+            $created = true;
+        } else {
             $this->ensureUserProfileHasNames($userId, $request, $order);
             $this->updateConstituent($userId, (string) $lglId, $request);
-            
-        } else {
-            // No existing LGL ID - search LGL database
-            $this->helper->debug('🔍 MembershipRegistrationService: No lgl_id in user meta, searching LGL', [
-                'user_id' => $userId,
-                'search_name' => $searchName,
-                'emails' => $emails
-            ]);
-            
-            $match = $this->connection->searchByName($searchName, !empty($emails) ? $emails : $email);
-            $matchMethod = $match['method'] ?? null;
-            $matchedEmail = $match['email'] ?? null;
-            $lglId = $match['id'] ?? null;
-            $created = false;
-
-            if (!$lglId) {
-                // Not found in LGL - create new constituent
-                $this->helper->debug('🆕 MembershipRegistrationService: Creating new constituent', [
-                    'user_id' => $userId
-                ]);
-                $this->ensureUserProfileHasNames($userId, $request, $order);
-                $lglId = $this->createConstituent($userId, $request);
-                $created = true;
-            } else {
-                // Found in LGL - update existing constituent
-                $this->helper->debug('✏️ MembershipRegistrationService: Updating matched constituent', [
-                    'user_id' => $userId,
-                    'lgl_id' => $lglId,
-                    'match_method' => $matchMethod
-                ]);
-                $this->ensureUserProfileHasNames($userId, $request, $order);
-                $this->updateConstituent($userId, (string) $lglId, $request);
-            }
-            
-            // Save the LGL ID to user meta for future use
-            $this->helper->debug('💾 MembershipRegistrationService: Saving lgl_id to user meta', [
-                'user_id' => $userId,
-                'lgl_id' => $lglId
-            ]);
-            \update_user_meta($userId, 'lgl_id', $lglId);
         }
 
         $constituentVerification = $this->connection->getConstituent((string) $lglId);
+
+        \update_user_meta($userId, 'lgl_id', $lglId);
         \update_user_meta($userId, 'user-membership-type', $membershipLevel);
 
         $paymentId = null;
@@ -293,19 +249,34 @@ class MembershipRegistrationService {
             $this->helper->debug('⚠️ MembershipRegistrationService: No phone data to add (Step 3/4)');
         }
         
-        // STEP 4: Add street address
+        // STEP 4: Add street address (with duplicate checking)
         $addressData = $this->constituents->getAddressData();
+        $this->helper->debug('🔍 MembershipRegistrationService: Checking address data', [
+            'lgl_id' => $lglId,
+            'address_data_count' => count($addressData),
+            'address_data' => $addressData
+        ]);
         if (!empty($addressData)) {
             foreach ($addressData as $address) {
-                $response = $this->connection->addStreetAddress($lglId, $address);
-                $this->helper->debug('✅ MembershipRegistrationService: Address added (Step 4/4)', [
-                    'lgl_id' => $lglId,
-                    'success' => $response['success'] ?? false,
-                    'response' => $response
-                ]);
+                $response = $this->connection->addStreetAddressSafe($lglId, $address);
+                if (isset($response['skipped']) && $response['skipped']) {
+                    $this->helper->debug('⚠️ MembershipRegistrationService: Address skipped (already exists)', [
+                        'lgl_id' => $lglId,
+                        'street' => $address['street'] ?? 'unknown'
+                    ]);
+                } else {
+                    $this->helper->debug('✅ MembershipRegistrationService: Address added (Step 4/4)', [
+                        'lgl_id' => $lglId,
+                        'success' => $response['success'] ?? false,
+                        'response' => $response
+                    ]);
+                }
             }
         } else {
-            $this->helper->debug('⚠️ MembershipRegistrationService: No address data to add (Step 4/4)');
+            $this->helper->debug('⚠️ MembershipRegistrationService: No address data to add (Step 4/4)', [
+                'lgl_id' => $lglId,
+                'address_data' => $addressData
+            ]);
         }
         
         // STEP 5A: CRITICAL - Deactivate old active memberships BEFORE adding new one

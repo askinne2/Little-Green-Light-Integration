@@ -90,6 +90,7 @@ class SettingsHandler {
         add_action('admin_post_lgl_save_api_settings', [$this, 'handleApiSettings']);
         add_action('admin_post_lgl_save_membership_settings', [$this, 'handleMembershipSettings']);
         add_action('admin_post_lgl_save_debug_settings', [$this, 'handleDebugSettings']);
+        add_action('admin_post_lgl_save_fund_settings', [$this, 'handleFundSettings']);
         
         //  error_log('LGL SettingsHandler: admin_post hooks registered - lgl_save_api_settings, lgl_save_membership_settings, lgl_save_debug_settings');
         
@@ -299,6 +300,36 @@ class SettingsHandler {
             $this->redirectWithMessage('updated', 'Debug settings saved successfully!');
         } else {
             $this->redirectWithMessage('error', 'Failed to save debug settings.');
+        }
+    }
+    
+    /**
+     * Handle fund settings form submission
+     */
+    public function handleFundSettings(): void {
+        if (!current_user_can('manage_options') || !wp_verify_nonce($_POST['_wpnonce'], 'lgl_fund_settings')) {
+            wp_die('Insufficient permissions');
+        }
+        
+        $fund_settings = [
+            'fund_id_membership' => isset($_POST['fund_id_membership']) ? (int) $_POST['fund_id_membership'] : 2437,
+            'fund_id_language_classes' => isset($_POST['fund_id_language_classes']) ? (int) $_POST['fund_id_language_classes'] : 4132,
+            'fund_id_events' => isset($_POST['fund_id_events']) ? (int) $_POST['fund_id_events'] : 4142,
+            'fund_id_general' => isset($_POST['fund_id_general']) ? (int) $_POST['fund_id_general'] : 4127,
+        ];
+        
+        // Validate fund IDs are positive integers
+        foreach ($fund_settings as $key => $value) {
+            if ($value < 1) {
+                $this->redirectWithMessage('error', 'All fund IDs must be positive integers.');
+                return;
+            }
+        }
+        
+        if ($this->updateSettings($fund_settings)) {
+            $this->redirectWithMessage('updated', 'Fund settings saved successfully!');
+        } else {
+            $this->redirectWithMessage('error', 'Failed to save fund settings.');
         }
     }
     

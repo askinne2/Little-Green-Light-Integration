@@ -77,14 +77,11 @@ class EventOrderHandler {
             'quantity' => $quantity
         ]);
         
-        // Get LGL fund ID from product meta
-        $lgl_fund_id = $this->getLglFundId($parent_id);
+        // Build event registration data (fund ID determined internally by payment method)
+        $event_registration = $this->buildEventRegistration($uid, $order, $order_meta, $product);
         
-        // Build event registration data
-        $event_registration = $this->buildEventRegistration($uid, $order, $order_meta, $product, $lgl_fund_id);
-        
-        // Update user data
-        $this->wpUsers->updateUserData($event_registration, $order, $order_meta);
+        // Update user data (skip membership sync - only sync billing/contact info)
+        $this->wpUsers->updateUserData($event_registration, $order, $order_meta, true);
         
         // Register event in LGL
         $this->registerEventInLGL($event_registration);
@@ -96,48 +93,19 @@ class EventOrderHandler {
     }
     
     /**
-     * Get LGL fund ID from product meta
-     * 
-     * @param int $parent_id Parent product ID
-     * @return string LGL fund ID
-     */
-    private function getLglFundId(int $parent_id): string {
-        // Check for unified LGL Sync ID field first (new standard)
-        $lgl_fund_id = get_post_meta($parent_id, '_ui_lgl_sync_id', true);
-        $source = 'unified';
-        
-        if (empty($lgl_fund_id)) {
-            // Fallback to legacy event-specific field
-            $product_meta = get_post_meta($parent_id);
-            $lgl_fund_id = $product_meta['_ui_event_lgl_fund_id'][0] ?? '';
-            $source = 'legacy';
-        }
-        
-        $this->helper->debug('EventOrderHandler: Event Registration LGL FUND ID', [
-            'parent_id' => $parent_id,
-            'fund_id' => $lgl_fund_id,
-            'source' => $source
-        ]);
-        
-        return $lgl_fund_id;
-    }
-    
-    /**
      * Build event registration data
      * 
      * @param int $uid User ID
      * @param \WC_Order $order WooCommerce order
      * @param array $order_meta Order metadata
      * @param mixed $product Product item
-     * @param string $lgl_fund_id LGL fund ID
      * @return array Event registration data
      */
     private function buildEventRegistration(
         int $uid,
         \WC_Order $order,
         array $order_meta,
-        $product,
-        string $lgl_fund_id
+        $product
     ): array {
         $product_name = $product->get_name();
         $product_id = $product->get_variation_id() ?: $product->get_product_id();
@@ -150,9 +118,8 @@ class EventOrderHandler {
             'user_lastname' => $order->get_billing_last_name(),
             'user_email' => $order->get_billing_email(),
             'user_phone' => $order->get_billing_phone(),
-            'event_name' => $product_name,
+            'event_name' => $product_name, // Event name for LGL event auto-creation
             'event_price' => $order->get_total(),
-            'lgl_fund_id' => $lgl_fund_id,
             'user_preferred_language' => $order_meta['languages'] ?? '',
             'user_home_country' => $order_meta['country'] ?? '',
             'order_notes' => get_post_meta($order->get_id(), '_order_notes', true),

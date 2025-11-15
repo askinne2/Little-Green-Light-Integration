@@ -613,8 +613,12 @@ class UserRegistrationAction implements JetFormActionInterface {
             'email_address_type_name' => 'Primary'
         ];
         
-        $response = $this->connection->makeRequest("constituents/{$lgl_id}/email_addresses.json", 'POST', $email_data, false);
-        $this->helper->debug('✅ UserRegistrationAction: Added email address', ['email' => $email, 'response' => $response]);
+        $response = $this->connection->addEmailAddressSafe($lgl_id, $email_data);
+        if (isset($response['skipped']) && $response['skipped']) {
+            $this->helper->debug('⚠️ UserRegistrationAction: Email skipped (already exists)', ['email' => $email]);
+        } else {
+            $this->helper->debug('✅ UserRegistrationAction: Added email address', ['email' => $email, 'response' => $response]);
+        }
     }
     
     /**
@@ -631,8 +635,12 @@ class UserRegistrationAction implements JetFormActionInterface {
             'phone_number_type_name' => 'Primary'
         ];
         
-        $response = $this->connection->makeRequest("constituents/{$lgl_id}/phone_numbers.json", 'POST', $phone_data, false);
-        $this->helper->debug('✅ UserRegistrationAction: Added phone number', ['phone' => $phone, 'response' => $response]);
+        $response = $this->connection->addPhoneNumberSafe($lgl_id, $phone_data);
+        if (isset($response['skipped']) && $response['skipped']) {
+            $this->helper->debug('⚠️ UserRegistrationAction: Phone skipped (already exists)', ['phone' => $phone]);
+        } else {
+            $this->helper->debug('✅ UserRegistrationAction: Added phone number', ['phone' => $phone, 'response' => $response]);
+        }
     }
     
     /**

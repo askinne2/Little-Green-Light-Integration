@@ -662,8 +662,10 @@ class TestingHandler {
                 if (!empty($emailData)) {
                     echo '<div class="notice notice-info"><p>📧 Adding ' . count($emailData) . ' email address(es)...</p></div>';
                     foreach ($emailData as $emailPayload) {
-                        $emailResponse = $connection->addEmailAddress((string) $constituentId, $emailPayload);
-                        if (!empty($emailResponse['success'])) {
+                        $emailResponse = $connection->addEmailAddressSafe((string) $constituentId, $emailPayload);
+                        if (isset($emailResponse['skipped']) && $emailResponse['skipped']) {
+                            echo '<div class="notice notice-info"><p>ℹ️ Email skipped (already exists): ' . esc_html($emailPayload['address']) . '</p></div>';
+                        } elseif (!empty($emailResponse['success'])) {
                             echo '<div class="notice notice-success"><p>✅ Email added: ' . esc_html($emailPayload['address']) . '</p></div>';
                         } else {
                             echo '<div class="notice notice-warning"><p>⚠️ Failed to add email ' . esc_html($emailPayload['address']) . ': ' . esc_html(wp_json_encode($emailResponse)) . '</p></div>';
@@ -676,8 +678,10 @@ class TestingHandler {
                 if (!empty($phoneData)) {
                     echo '<div class="notice notice-info"><p>📞 Adding ' . count($phoneData) . ' phone number(s)...</p></div>';
                     foreach ($phoneData as $phonePayload) {
-                        $phoneResponse = $connection->addPhoneNumber((string) $constituentId, $phonePayload);
-                        if (!empty($phoneResponse['success'])) {
+                        $phoneResponse = $connection->addPhoneNumberSafe((string) $constituentId, $phonePayload);
+                        if (isset($phoneResponse['skipped']) && $phoneResponse['skipped']) {
+                            echo '<div class="notice notice-info"><p>ℹ️ Phone skipped (already exists): ' . esc_html($phonePayload['number']) . '</p></div>';
+                        } elseif (!empty($phoneResponse['success'])) {
                             echo '<div class="notice notice-success"><p>✅ Phone added: ' . esc_html($phonePayload['number']) . '</p></div>';
                         } else {
                             echo '<div class="notice notice-warning"><p>⚠️ Failed to add phone ' . esc_html($phonePayload['number']) . ': ' . esc_html(wp_json_encode($phoneResponse)) . '</p></div>';
@@ -690,8 +694,11 @@ class TestingHandler {
                 if (!empty($addressData)) {
                     echo '<div class="notice notice-info"><p>🏠 Adding ' . count($addressData) . ' street address(es)...</p></div>';
                     foreach ($addressData as $addressPayload) {
-                        $addressResponse = $connection->addStreetAddress((string) $constituentId, $addressPayload);
-                        if (!empty($addressResponse['success'])) {
+                        $addressResponse = $connection->addStreetAddressSafe((string) $constituentId, $addressPayload);
+                        if (isset($addressResponse['skipped']) && $addressResponse['skipped']) {
+                            $addressString = $addressPayload['street1'] ?? $addressPayload['street_address'] ?? 'Address';
+                            echo '<div class="notice notice-info"><p>ℹ️ Address skipped (already exists): ' . esc_html($addressString) . '</p></div>';
+                        } elseif (!empty($addressResponse['success'])) {
                             $addressString = $addressPayload['street1'] ?? $addressPayload['street_address'] ?? 'Address';
                             echo '<div class="notice notice-success"><p>✅ Address added: ' . esc_html($addressString) . '</p></div>';
                         } else {
@@ -771,8 +778,10 @@ class TestingHandler {
                 if (!empty($emailData)) {
                     echo '<div class="notice notice-info"><p>📧 Ensuring email addresses are current (' . count($emailData) . ')...</p></div>';
                     foreach ($emailData as $emailPayload) {
-                        $emailResponse = $connection->addEmailAddress((string) $constituentId, $emailPayload);
-                        if (!empty($emailResponse['success'])) {
+                        $emailResponse = $connection->addEmailAddressSafe((string) $constituentId, $emailPayload);
+                        if (isset($emailResponse['skipped']) && $emailResponse['skipped']) {
+                            echo '<div class="notice notice-info"><p>ℹ️ Email already exists: ' . esc_html($emailPayload['address']) . '</p></div>';
+                        } elseif (!empty($emailResponse['success'])) {
                             echo '<div class="notice notice-success"><p>✅ Email confirmed: ' . esc_html($emailPayload['address']) . '</p></div>';
                         } else {
                             echo '<div class="notice notice-warning"><p>⚠️ Email update issue for ' . esc_html($emailPayload['address']) . ': ' . esc_html(wp_json_encode($emailResponse)) . '</p></div>';
@@ -785,8 +794,10 @@ class TestingHandler {
                 if (!empty($phoneData)) {
                     echo '<div class="notice notice-info"><p>📞 Ensuring phone numbers are current (' . count($phoneData) . ')...</p></div>';
                     foreach ($phoneData as $phonePayload) {
-                        $phoneResponse = $connection->addPhoneNumber((string) $constituentId, $phonePayload);
-                        if (!empty($phoneResponse['success'])) {
+                        $phoneResponse = $connection->addPhoneNumberSafe((string) $constituentId, $phonePayload);
+                        if (isset($phoneResponse['skipped']) && $phoneResponse['skipped']) {
+                            echo '<div class="notice notice-info"><p>ℹ️ Phone already exists: ' . esc_html($phonePayload['number']) . '</p></div>';
+                        } elseif (!empty($phoneResponse['success'])) {
                             echo '<div class="notice notice-success"><p>✅ Phone confirmed: ' . esc_html($phonePayload['number']) . '</p></div>';
                         } else {
                             echo '<div class="notice notice-warning"><p>⚠️ Phone update issue for ' . esc_html($phonePayload['number']) . ': ' . esc_html(wp_json_encode($phoneResponse)) . '</p></div>';
@@ -799,8 +810,11 @@ class TestingHandler {
                 if (!empty($addressData)) {
                     echo '<div class="notice notice-info"><p>🏠 Ensuring street addresses are current (' . count($addressData) . ')...</p></div>';
                     foreach ($addressData as $addressPayload) {
-                        $addressResponse = $connection->addStreetAddress((string) $constituentId, $addressPayload);
-                        if (!empty($addressResponse['success'])) {
+                        $addressResponse = $connection->addStreetAddressSafe((string) $constituentId, $addressPayload);
+                        if (isset($addressResponse['skipped']) && $addressResponse['skipped']) {
+                            $addressString = $addressPayload['street1'] ?? $addressPayload['street_address'] ?? ($addressPayload['street'] ?? 'Address');
+                            echo '<div class="notice notice-info"><p>ℹ️ Address already exists: ' . esc_html($addressString) . '</p></div>';
+                        } elseif (!empty($addressResponse['success'])) {
                             $addressString = $addressPayload['street1'] ?? $addressPayload['street_address'] ?? ($addressPayload['street'] ?? 'Address');
                             echo '<div class="notice notice-success"><p>✅ Address confirmed: ' . esc_html($addressString) . '</p></div>';
                         } else {
@@ -1523,8 +1537,7 @@ class TestingHandler {
                     $testOrderId,
                     $amount,
                     date('Y-m-d'),
-                    $name,  // Event name
-                    $fundId  // LGL event fund ID (_ui_event_lgl_fund_id)
+                    $name  // Event name (fund ID determined internally)
                 );
             } elseif ($type === 'Class') {
                 $result = $this->payments->setupClassPayment(
@@ -1533,7 +1546,7 @@ class TestingHandler {
                     $amount,
                     date('Y-m-d'),
                     $classType ?? 'Language Class',  // Class type
-                    $fundId  // LGL class fund ID (_lc_lgl_fund_id)
+                    $name  // event_name = class name (fund ID determined internally)
                 );
             } else {
                 // Fallback to membership payment for unknown types

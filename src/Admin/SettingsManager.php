@@ -984,6 +984,41 @@ class SettingsManager implements SettingsManagerInterface {
                 'default' => [],
                 'sanitize' => function($val) { return array_map('intval', (array)$val); }
             ],
+            
+            // Consolidated Fund IDs (Post-Remediation)
+            'fund_id_membership' => [
+                'type' => 'integer',
+                'default' => 2437,
+                'validation' => ['integer', 'min:1'],
+                'sanitize' => 'intval',
+                'label' => 'Membership Fund ID',
+                'description' => 'LGL fund ID for membership payments'
+            ],
+            'fund_id_language_classes' => [
+                'type' => 'integer',
+                'default' => 4132,
+                'validation' => ['integer', 'min:1'],
+                'sanitize' => 'intval',
+                'label' => 'Language Classes Fund ID',
+                'description' => 'LGL fund ID for language class registrations'
+            ],
+            'fund_id_events' => [
+                'type' => 'integer',
+                'default' => 4142,
+                'validation' => ['integer', 'min:1'],
+                'sanitize' => 'intval',
+                'label' => 'Events Fund ID',
+                'description' => 'LGL fund ID for event registrations'
+            ],
+            'fund_id_general' => [
+                'type' => 'integer',
+                'default' => 4127,
+                'validation' => ['integer', 'min:1'],
+                'sanitize' => 'intval',
+                'label' => 'General Fund ID',
+                'description' => 'LGL fund ID for general donations'
+            ],
+            
             'campaign_mappings' => [
                 'type' => 'array',
                 'default' => [],

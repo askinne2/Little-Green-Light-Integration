@@ -73,14 +73,11 @@ class ClassOrderHandler {
             'product_id' => $product_id
         ]);
         
-        // Get LGL fund ID from product meta
-        $lgl_fund_id = $this->getLglFundId($product_id);
+        // Build class registration data (fund ID determined internally by payment method)
+        $class_registration = $this->buildClassRegistration($uid, $order, $order_meta, $product);
         
-        // Build class registration data
-        $class_registration = $this->buildClassRegistration($uid, $order, $order_meta, $product, $lgl_fund_id);
-        
-        // Update user data
-        $this->wpUsers->updateUserData($class_registration, $order, $order_meta);
+        // Update user data (skip membership sync - only sync billing/contact info)
+        $this->wpUsers->updateUserData($class_registration, $order, $order_meta, true);
         
         // Create JetEngine CCT for class registration
         $cct_result = $this->wpUsers->createClassRegistrationCct($order, $product_id, $order_meta);
@@ -106,49 +103,22 @@ class ClassOrderHandler {
     }
     
     /**
-     * Get LGL fund ID from product meta
-     * 
-     * @param int $product_id Product ID
-     * @return string LGL fund ID
-     */
-    private function getLglFundId(int $product_id): string {
-        // Check for unified LGL Sync ID field first (new standard)
-        $lgl_fund_id = get_post_meta($product_id, '_ui_lgl_sync_id', true);
-        $source = 'unified';
-        
-        if (empty($lgl_fund_id)) {
-            // Fallback to legacy class-specific field
-            $product_meta = get_post_meta($product_id);
-            $lgl_fund_id = $product_meta['_lc_lgl_fund_id'][0] ?? '';
-            $source = 'legacy';
-        }
-        
-        $this->helper->debug('ClassOrderHandler: Class Registration LGL FUND ID', [
-            'product_id' => $product_id,
-            'fund_id' => $lgl_fund_id,
-            'source' => $source
-        ]);
-        
-        return $lgl_fund_id;
-    }
-    
-    /**
      * Build class registration data
      * 
      * @param int $uid User ID
      * @param \WC_Order $order WooCommerce order
      * @param array $order_meta Order metadata
      * @param mixed $product Product item
-     * @param string $lgl_fund_id LGL fund ID
      * @return array Class registration data
      */
     private function buildClassRegistration(
         int $uid,
         \WC_Order $order,
         array $order_meta,
-        $product,
-        string $lgl_fund_id
+        $product
     ): array {
+        $class_name = $product->get_name(); // e.g., "Spanish C1 Regular"
+        
         return [
             'user_id' => $uid,
             'class_id' => $product->get_product_id(),
@@ -157,9 +127,9 @@ class ClassOrderHandler {
             'user_lastname' => $order->get_billing_last_name(),
             'user_email' => $order->get_billing_email(),
             'user_phone' => $order->get_billing_phone(),
-            'class_name' => $product->get_name(),
+            'class_name' => $class_name,
             'class_price' => $order->get_total(),
-            'lgl_fund_id' => $lgl_fund_id,
+            'event_name' => $class_name, // Populate for LGL event auto-creation
             'user_preferred_language' => $order_meta['languages'] ?? '',
             'user_home_country' => $order_meta['country'] ?? '',
             'order_notes' => get_post_meta($order->get_id(), '_order_notes', true),

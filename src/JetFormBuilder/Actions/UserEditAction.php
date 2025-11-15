@@ -82,10 +82,15 @@ class UserEditAction implements JetFormActionInterface {
         
         // Get existing LGL user
         $user_lgl_id = get_user_meta($uid, 'lgl_id', true);
-        $existing_user = $this->connection->getLglData('SINGLE_CONSTITUENT', $user_lgl_id);
         
-        if ($existing_user) {
-            $this->updateExistingUser($existing_user, $uid, $request);
+        if ($user_lgl_id) {
+            $existing_user = $this->connection->getConstituentData($user_lgl_id);
+            
+            if ($existing_user) {
+                $this->updateExistingUser($existing_user, $uid, $request);
+            } else {
+                $this->createNewUserFromEdit($uid, $request, $user_name, $user_email);
+            }
         } else {
             $this->createNewUserFromEdit($uid, $request, $user_name, $user_email);
         }
@@ -100,7 +105,8 @@ class UserEditAction implements JetFormActionInterface {
      * @return void
      */
     private function updateExistingUser($existing_user, int $uid, array $request): void {
-        $existing_contact_id = $existing_user->id;
+        // Handle both object and array formats
+        $existing_contact_id = is_object($existing_user) ? $existing_user->id : ($existing_user['id'] ?? null);
         $this->helper->debug('LGL USER EXISTS: ', $existing_contact_id);
         
         if (!$existing_contact_id) {
@@ -108,21 +114,17 @@ class UserEditAction implements JetFormActionInterface {
             return;
         }
         
-        // Prepare update data using Constituents service
-        $update_data = $this->constituents->setDataAndUpdate($uid, $request);
+        // Update constituent using Constituents service (handles update internally)
+        $result = $this->constituents->setDataAndUpdate($uid, $request);
         
-        if (!$update_data) {
-            $this->helper->debug('UserEditAction: Failed to prepare update data');
-            return;
-        }
-        
-        // Update contact in LGL
-        $response = $this->connection->updateLglObject($existing_contact_id, $update_data, '.json');
-        
-        if ($response) {
+        if ($result && isset($result['success']) && $result['success']) {
             $this->helper->debug('UPDATED CONTACT', $existing_contact_id);
         } else {
-            $this->helper->debug('FAILED TO UPDATE contact', $existing_contact_id);
+            $error = $result['error'] ?? 'Unknown error';
+            $this->helper->debug('FAILED TO UPDATE contact', [
+                'contact_id' => $existing_contact_id,
+                'error' => $error
+            ]);
         }
     }
 
@@ -297,8 +299,11 @@ class UserEditAction implements JetFormActionInterface {
         
         try {
             $response = $this->connection->createConstituent($constituent_data);
-            return $response['data']['id'] ?? false;
-        } catch (Exception $e) {
+            if ($response['success'] && isset($response['data']['id'])) {
+                return $response['data']['id'];
+            }
+            return false;
+        } catch (\Exception $e) {
             $this->helper->debug('UserEditAction: Exception creating constituent', [
                 'error' => $e->getMessage()
             ]);
