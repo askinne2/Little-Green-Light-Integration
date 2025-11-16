@@ -68,10 +68,19 @@ class MembershipDeactivationAction implements JetFormActionInterface {
      * @return void
      */
     public function handle(array $request, $action_handler): void {
+        try {
         // Validate request data
         if (!$this->validateRequest($request)) {
             $this->helper->debug('MembershipDeactivationAction: Invalid request data', $request);
-            return;
+                $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
+                
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
         }
         
         $this->helper->debug('MembershipDeactivationAction: Processing request', $request);
@@ -80,7 +89,15 @@ class MembershipDeactivationAction implements JetFormActionInterface {
         
         if ($uid === 0) {
             $this->helper->debug('No User ID in Request, MembershipDeactivationAction');
-            return;
+                $error_message = 'User ID is missing. Please ensure you are logged in and try again.';
+                
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
         }
         
         // Process membership deactivation in LGL
@@ -88,6 +105,29 @@ class MembershipDeactivationAction implements JetFormActionInterface {
         
         // Process WordPress user deactivation
         $this->deactivateWordPressUser($uid);
+            
+        } catch (\Exception $e) {
+            $this->helper->debug('MembershipDeactivationAction: Error occurred', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            // Re-throw Action_Exception, convert others
+            if ($e instanceof \Jet_Form_Builder\Exceptions\Action_Exception || 
+                $e instanceof \JFB_Modules\Actions\V2\Action_Exception) {
+                throw $e;
+            }
+            
+            // Convert to Action_Exception if possible
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($e->getMessage());
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($e->getMessage());
+            } else {
+                throw $e;
+            }
+        }
     }
     
     /**
@@ -102,31 +142,63 @@ class MembershipDeactivationAction implements JetFormActionInterface {
         
         if (!$user_lgl_id) {
             $this->helper->debug('MembershipDeactivationAction: No LGL ID found for user', $uid);
-            return;
+            $error_message = 'Unable to deactivate membership. LGL account ID not found. Please contact support.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
         
         // Get existing user data from LGL
-        $existing_user = $this->connection->getLglData('SINGLE_CONSTITUENT', $user_lgl_id);
+        $existing_user = $this->connection->getConstituentData($user_lgl_id);
         
         if (!$existing_user) {
             $this->helper->debug('MembershipDeactivationAction: No existing LGL user found');
-            return;
+            $error_message = 'Unable to deactivate membership. Account not found in system. Please contact support.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
         
-        $lgl_id = $existing_user->id;
+        $lgl_id = is_array($existing_user) ? ($existing_user['id'] ?? null) : ($existing_user->id ?? null);
         $this->helper->debug('LGL USER EXISTS: ', $lgl_id);
         
         if (!$lgl_id) {
             $this->helper->debug('MembershipDeactivationAction: Invalid LGL ID');
-            return;
+            $error_message = 'Unable to deactivate membership. Invalid account ID. Please contact support.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
         
         // Get detailed user data with memberships
-        $user = $this->connection->getLglData('SINGLE_CONSTITUENT', $lgl_id);
+        $user = $this->connection->getConstituentData($lgl_id);
         
         if (!$user) {
             $this->helper->debug('MembershipDeactivationAction: Could not retrieve user details');
-            return;
+            $error_message = 'Unable to deactivate membership. Could not retrieve account details. Please contact support.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
         
         // Process membership deactivation

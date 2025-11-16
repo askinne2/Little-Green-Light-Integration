@@ -121,25 +121,44 @@ class EmailBlockingSettingsPage {
      * @return void
      */
     private function handleFormSubmissions(): void {
-        // Handle force blocking toggle
+        // Handle force blocking toggle and blocking level
         if (isset($_POST['save_email_blocking']) && check_admin_referer('lgl_email_blocking_settings')) {
             $force_blocking = isset($_POST['force_email_blocking']);
+            $blocking_level = sanitize_text_field($_POST['email_blocking_level'] ?? EmailBlocker::LEVEL_BLOCK_ALL);
+            
+            // Validate blocking level
+            $validLevels = [
+                EmailBlocker::LEVEL_BLOCK_ALL,
+                EmailBlocker::LEVEL_WOOCOMMERCE_ALLOWED,
+                EmailBlocker::LEVEL_CRON_ONLY
+            ];
+            if (!in_array($blocking_level, $validLevels, true)) {
+                $blocking_level = EmailBlocker::LEVEL_BLOCK_ALL;
+            }
             
             // Debug logging
-            $this->helper->debug('EmailBlockingSettingsPage: Saving force_email_blocking = ' . ($force_blocking ? 'true' : 'false'));
+            $this->helper->debug('EmailBlockingSettingsPage: Saving settings', [
+                'force_email_blocking' => $force_blocking,
+                'email_blocking_level' => $blocking_level
+            ]);
             
-            $result = $this->settingsManager->set('force_email_blocking', $force_blocking);
+            // Update both settings in a single call for efficiency
+            $this->settingsManager->update([
+                'force_email_blocking' => $force_blocking,
+                'email_blocking_level' => $blocking_level
+            ]);
             
-            // Debug logging
-            $this->helper->debug('EmailBlockingSettingsPage: Save result = ' . ($result ? 'success' : 'failed'));
+            $levelDescriptions = [
+                EmailBlocker::LEVEL_BLOCK_ALL => 'All emails',
+                EmailBlocker::LEVEL_WOOCOMMERCE_ALLOWED => 'Non-WooCommerce emails',
+                EmailBlocker::LEVEL_CRON_ONLY => 'WP Cron emails only',
+            ];
             
-            // Verify it was saved
-            $saved_value = $this->settingsManager->get('force_email_blocking');
-            $this->helper->debug('EmailBlockingSettingsPage: Saved value = ' . ($saved_value ? 'true' : 'false'));
-            
-            $message = $force_blocking 
-                ? 'Email blocking enabled. All outgoing emails will now be blocked.' 
-                : 'Manual override disabled. Email blocking will be determined by environment detection.';
+            $message = sprintf(
+                'Email blocking settings saved. Blocking level: %s. %s',
+                $levelDescriptions[$blocking_level] ?? 'Unknown',
+                $force_blocking ? 'Manual override enabled.' : 'Environment-based blocking active.'
+            );
             
             // Use WordPress admin notices API for persistent notices
             add_settings_error(
@@ -191,6 +210,16 @@ class EmailBlockingSettingsPage {
         // Determine notice class based on blocking status
         $notice_class = $status['is_actively_blocking'] ? 'notice-warning' : 'notice-info';
         $border_color = $status['is_actively_blocking'] ? '#d63638' : '#72aee6';
+        
+        $levelDescriptions = [
+            EmailBlocker::LEVEL_BLOCK_ALL => 'All emails',
+            EmailBlocker::LEVEL_WOOCOMMERCE_ALLOWED => 'Non-WooCommerce emails',
+            EmailBlocker::LEVEL_CRON_ONLY => 'WP Cron emails only',
+        ];
+        
+        $currentLevel = $status['blocking_level'] ?? EmailBlocker::LEVEL_BLOCK_ALL;
+        $levelDescription = $levelDescriptions[$currentLevel] ?? 'Unknown';
+        
         ?>
         <div id="lgl-email-status-notice" class="notice <?php echo $notice_class; ?>" style="border-left-color: <?php echo $border_color; ?>; border-left-width: 4px; display: block !important; visibility: visible !important; opacity: 1 !important;">
             <h3>Current Status</h3>
@@ -207,6 +236,13 @@ class EmailBlockingSettingsPage {
                         <?php else: ?>
                             <span style="color: #00a32a;">✓ Production</span>
                         <?php endif; ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Blocking Level</th>
+                    <td>
+                        <strong><?php echo esc_html($levelDescription); ?></strong>
+                        <span style="color: #666;">(<?php echo esc_html($currentLevel); ?>)</span>
                     </td>
                 </tr>
                 <tr>
@@ -233,7 +269,7 @@ class EmailBlockingSettingsPage {
                     <th><strong>Blocking Status</strong></th>
                     <td>
                         <?php if ($status['is_actively_blocking']): ?>
-                            <span style="color: #d63638; font-weight: bold;">🚫 ACTIVE - Emails are being blocked</span>
+                            <span style="color: #d63638; font-weight: bold;">🚫 ACTIVE - <?php echo esc_html($levelDescription); ?> are being blocked</span>
                         <?php else: ?>
                             <span style="color: #00a32a; font-weight: bold;">✓ INACTIVE - Emails are being sent normally</span>
                         <?php endif; ?>
@@ -313,6 +349,7 @@ class EmailBlockingSettingsPage {
      */
     private function renderSettingsForm(array $settings): void {
         $force_checked = !empty($settings['force_email_blocking']) ? 'checked="checked"' : '';
+        $blocking_level = $settings['email_blocking_level'] ?? EmailBlocker::LEVEL_BLOCK_ALL;
         ?>
         <div class="card" style="max-width: inherit;">
             <h2>Email Blocking Control</h2>
@@ -325,12 +362,32 @@ class EmailBlockingSettingsPage {
                         <td>
                             <label>
                                 <input type="checkbox" name="force_email_blocking" value="1" <?php echo $force_checked; ?>>
-                                <strong>Override environment detection and block all outgoing emails</strong>
+                                <strong>Override environment detection and block outgoing emails</strong>
                             </label>
                             <p class="description">
-                                When enabled, <strong>every email</strong> sent via <code>wp_mail()</code> will be blocked regardless of environment detection. 
-                                Use this for staging sites, production testing, or any time you need a hard stop on outgoing mail.
+                                When enabled, email blocking will be active regardless of environment detection. 
                                 Whitelisted addresses (including admin email) will still be allowed through.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Blocking Level</th>
+                        <td>
+                            <select name="email_blocking_level" id="email_blocking_level">
+                                <option value="<?php echo esc_attr(EmailBlocker::LEVEL_BLOCK_ALL); ?>" <?php selected($blocking_level, EmailBlocker::LEVEL_BLOCK_ALL); ?>>
+                                    Block All Emails
+                                </option>
+                                <option value="<?php echo esc_attr(EmailBlocker::LEVEL_WOOCOMMERCE_ALLOWED); ?>" <?php selected($blocking_level, EmailBlocker::LEVEL_WOOCOMMERCE_ALLOWED); ?>>
+                                    Allow WooCommerce Emails Only
+                                </option>
+                                <option value="<?php echo esc_attr(EmailBlocker::LEVEL_CRON_ONLY); ?>" <?php selected($blocking_level, EmailBlocker::LEVEL_CRON_ONLY); ?>>
+                                    Block WP Cron Emails Only
+                                </option>
+                            </select>
+                            <p class="description">
+                                <strong>Block All Emails:</strong> Blocks every email sent via <code>wp_mail()</code> (except whitelisted).<br>
+                                <strong>Allow WooCommerce Emails Only:</strong> Allows WooCommerce order/transaction emails to send, blocks all other emails. <em>Note: WP Cron emails are always blocked regardless of level.</em><br>
+                                <strong>Block WP Cron Emails Only:</strong> Only blocks emails sent from WP Cron jobs (scheduled tasks). All other emails send normally. <em>Note: This is the default behavior - cron emails are always blocked.</em>
                             </p>
                         </td>
                     </tr>
@@ -404,16 +461,20 @@ class EmailBlockingSettingsPage {
                             <th style="width: 150px;">Date/Time</th>
                             <th style="width: 200px;">To</th>
                             <th style="width: 250px;">Subject</th>
+                            <th style="width: 120px;">Type</th>
+                            <th style="width: 120px;">Level</th>
                             <th>Message Preview</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($blocked_emails as $email): ?>
                             <tr>
-                                <td><?php echo esc_html($email['timestamp']); ?></td>
-                                <td><?php echo esc_html(is_array($email['to']) ? implode(', ', $email['to']) : $email['to']); ?></td>
-                                <td><strong><?php echo esc_html($email['subject']); ?></strong></td>
-                                <td><?php echo esc_html($email['message_preview']); ?>...</td>
+                                <td><?php echo esc_html($email['timestamp'] ?? 'N/A'); ?></td>
+                                <td><?php echo esc_html(is_array($email['to']) ? implode(', ', $email['to']) : ($email['to'] ?? 'Unknown')); ?></td>
+                                <td><strong><?php echo esc_html($email['subject'] ?? 'No Subject'); ?></strong></td>
+                                <td><code><?php echo esc_html($email['email_type'] ?? 'unknown'); ?></code></td>
+                                <td><code><?php echo esc_html($email['blocking_level'] ?? 'unknown'); ?></code></td>
+                                <td><?php echo esc_html($email['message_preview'] ?? ''); ?><?php echo !empty($email['message_preview']) ? '...' : ''; ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

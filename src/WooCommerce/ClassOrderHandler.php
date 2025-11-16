@@ -13,6 +13,8 @@ namespace UpstateInternational\LGL\WooCommerce;
 
 use UpstateInternational\LGL\LGL\Helper;
 use UpstateInternational\LGL\LGL\WpUsers;
+use UpstateInternational\LGL\Core\ServiceContainer;
+use UpstateInternational\LGL\JetFormBuilder\Actions\ClassRegistrationAction;
 
 /**
  * ClassOrderHandler Class
@@ -140,17 +142,50 @@ class ClassOrderHandler {
     /**
      * Register class in LGL
      * 
+     * Uses the modern ClassRegistrationAction instead of legacy LGL_API.
+     * This ensures consistent behavior between form-based and WooCommerce-based class registrations.
+     * 
      * @param array $class_registration Class registration data
      * @return void
      */
     private function registerClassInLGL(array $class_registration): void {
-        // Use legacy LGL_API for now - this will be modernized in future phases
-        if (class_exists('LGL_API')) {
-            $lgl_api = \LGL_API::get_instance();
-            $lgl_api->lgl_add_class_registration($class_registration, null);
-            $this->helper->debug('ClassOrderHandler: Class registered in LGL', $class_registration['user_id']);
-        } else {
-            $this->helper->debug('ClassOrderHandler: LGL_API not available for class registration');
+        try {
+            // Get the modern ClassRegistrationAction from the service container
+            $container = ServiceContainer::getInstance();
+            
+            // Get action instance - container will auto-resolve dependencies
+            $action = new ClassRegistrationAction(
+                $container->get(\UpstateInternational\LGL\LGL\Connection::class),
+                $container->get(\UpstateInternational\LGL\LGL\Helper::class),
+                $container->get(\UpstateInternational\LGL\LGL\Payments::class)
+            );
+            
+            // Prepare request array matching JetFormBuilder format
+            // Ensure username is properly formatted (spaces replaced with %20)
+            $request = $class_registration;
+            if (isset($request['username'])) {
+                $request['username'] = str_replace(' ', '%20', $request['username']);
+            }
+            
+            // Call the action handler programmatically (null action_handler for non-form calls)
+            $action->handle($request, null);
+            
+            $this->helper->debug('ClassOrderHandler: Class registered using ClassRegistrationAction', $class_registration['user_id']);
+            
+        } catch (\Exception $e) {
+            $this->helper->debug('ClassOrderHandler: Error registering class', [
+                'user_id' => $class_registration['user_id'] ?? null,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            // Fallback to legacy method if modern action fails
+            if (class_exists('LGL_API')) {
+                $this->helper->debug('ClassOrderHandler: Falling back to legacy LGL_API method');
+                $lgl_api = \LGL_API::get_instance();
+                $lgl_api->lgl_add_class_registration($class_registration, null);
+            }
         }
     }
     

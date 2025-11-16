@@ -2,6 +2,10 @@
 /**
  * User Registration Action
  * 
+ * @deprecated 2.0.0 This action is deprecated. Use MembershipRegistrationService instead.
+ *                   Kept for backward compatibility with legacy JetFormBuilder forms (e.g., Form ID: 68820).
+ *                   New registrations should use WooCommerce checkout or MembershipRegistrationService directly.
+ * 
  * Handles user registration through JetFormBuilder forms.
  * Registers new users in LGL CRM and manages membership assignments.
  * 
@@ -54,6 +58,7 @@ class UserRegistrationAction implements JetFormActionInterface {
      * @return void
      */
     public function handle(array $request, $action_handler): void {
+        try {
         $this->helper->debug('🚀 UserRegistrationAction::handle() STARTED', [
             'timestamp' => current_time('mysql'),
             'request_keys' => array_keys($request),
@@ -63,7 +68,15 @@ class UserRegistrationAction implements JetFormActionInterface {
         // Validate request data
         if (!$this->validateRequest($request)) {
             $this->helper->debug('❌ UserRegistrationAction: Invalid request data', $request);
-            return;
+                $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
+                
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
         }
         
         $this->helper->debug('📋 UserRegistrationAction: Processing valid request', [
@@ -87,7 +100,6 @@ class UserRegistrationAction implements JetFormActionInterface {
             'method' => $method
         ]);
         
-        try {
             // Set payment method
             $this->helper->debug('💳 UserRegistrationAction: Setting payment method...');
             $this->setPaymentMethod($uid, $request);
@@ -98,7 +110,15 @@ class UserRegistrationAction implements JetFormActionInterface {
             
             if ($uid === 0) {
                 $this->helper->debug('❌ UserRegistrationAction: No User ID in Request - aborting');
-                return;
+                $error_message = 'User ID is missing. Please ensure you are logged in and try again.';
+                
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
             }
             
             // Handle family membership role assignment
@@ -147,15 +167,29 @@ class UserRegistrationAction implements JetFormActionInterface {
                 'DEBUG_CHECKPOINT' => 'handleExistingConstituent should have been called above'
             ]);
             
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $this->helper->debug('❌ UserRegistrationAction::handle() FAILED', [
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'user_id' => $uid,
+                'user_id' => $uid ?? null,
                 'trace' => $e->getTraceAsString()
             ]);
-            throw $e; // Re-throw to maintain error handling
+            
+            // Re-throw Action_Exception, convert others
+            if ($e instanceof \Jet_Form_Builder\Exceptions\Action_Exception || 
+                $e instanceof \JFB_Modules\Actions\V2\Action_Exception) {
+                throw $e;
+            }
+            
+            // Convert to Action_Exception if possible
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($e->getMessage());
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($e->getMessage());
+            } else {
+                throw $e;
+            }
         }
     }
     
@@ -277,21 +311,40 @@ class UserRegistrationAction implements JetFormActionInterface {
                 $this->helper->debug('❌ UserRegistrationAction: Failed to create constituent', [
                     'response' => $response
                 ]);
-                // Fallback to membership update
-                $this->updateMembership($request, $action_handler);
-                $this->connection->resetNewConstituentFlag();
+                $error_message = 'Failed to create your account. Please try again or contact support if the problem persists.';
+                
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
             }
             
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $this->helper->debug('❌ UserRegistrationAction: Exception creating constituent', [
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine()
             ]);
             
-            // Fallback to membership update
-            $this->updateMembership($request, $action_handler);
-            $this->connection->resetNewConstituentFlag();
+            // Re-throw Action_Exception, convert others
+            if ($e instanceof \Jet_Form_Builder\Exceptions\Action_Exception || 
+                $e instanceof \JFB_Modules\Actions\V2\Action_Exception) {
+                throw $e;
+            }
+            
+            // Convert to Action_Exception if possible
+            $error_message = 'Failed to create your account. Please try again or contact support.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
     }
     
@@ -322,8 +375,15 @@ class UserRegistrationAction implements JetFormActionInterface {
             || $httpCode >= 300
             || empty($response['data']['id'])
         ) {
-            $error = $response['error'] ?? 'Failed to create constituent';
-            throw new \RuntimeException($error);
+            $error_message = $response['error'] ?? 'Failed to create your account. Please try again or contact support if the problem persists.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
 
         $lgl_id = (string) $response['data']['id'];
@@ -509,7 +569,15 @@ class UserRegistrationAction implements JetFormActionInterface {
         // Get WordPress user data
         $user_info = get_userdata($uid);
         if (!$user_info) {
-            throw new Exception("User not found: {$uid}");
+            $error_message = "User account not found. Please try registering again.";
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
         
         // Extract names from request or user data
@@ -592,10 +660,12 @@ class UserRegistrationAction implements JetFormActionInterface {
                 }
             }
             
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $this->helper->debug('❌ UserRegistrationAction::addConstituentExtras() - Exception', [
                 'error' => $e->getMessage()
             ]);
+            // Don't throw here - let the main handle() method catch and convert
+            throw $e;
         }
     }
     

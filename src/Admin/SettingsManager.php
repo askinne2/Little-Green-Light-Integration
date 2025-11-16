@@ -865,6 +865,14 @@ class SettingsManager implements SettingsManagerInterface {
                 'label' => 'Force Block All Emails',
                 'description' => 'Override environment detection and block all outgoing emails'
             ],
+            'email_blocking_level' => [
+                'type' => 'string',
+                'default' => 'all',
+                'validation' => ['in:all,woocommerce_allowed,cron_only'],
+                'sanitize' => 'sanitize_text_field',
+                'label' => 'Email Blocking Level',
+                'description' => 'Level of email blocking: all, woocommerce_allowed, or cron_only'
+            ],
             'email_whitelist' => [
                 'type' => 'array',
                 'default' => [],

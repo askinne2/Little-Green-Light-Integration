@@ -68,10 +68,19 @@ class UserEditAction implements JetFormActionInterface {
      * @return void
      */
     public function handle(array $request, $action_handler): void {
+        try {
         // Validate request data
         if (!$this->validateRequest($request)) {
             $this->helper->debug('UserEditAction: Invalid request data', $request);
-            return;
+                $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
+                
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
         }
         
         $this->helper->debug('UserEditAction: Processing request', $request);
@@ -93,6 +102,29 @@ class UserEditAction implements JetFormActionInterface {
             }
         } else {
             $this->createNewUserFromEdit($uid, $request, $user_name, $user_email);
+            }
+            
+        } catch (\Exception $e) {
+            $this->helper->debug('UserEditAction: Error occurred', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            // Re-throw Action_Exception, convert others
+            if ($e instanceof \Jet_Form_Builder\Exceptions\Action_Exception || 
+                $e instanceof \JFB_Modules\Actions\V2\Action_Exception) {
+                throw $e;
+            }
+            
+            // Convert to Action_Exception if possible
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($e->getMessage());
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($e->getMessage());
+            } else {
+                throw $e;
+            }
         }
     }
     
@@ -111,7 +143,15 @@ class UserEditAction implements JetFormActionInterface {
         
         if (!$existing_contact_id) {
             $this->helper->debug('UserEditAction: No valid contact ID found');
-            return;
+            $error_message = 'Unable to update your profile. Contact ID not found. Please try again or contact support.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
         
         // Update constituent using Constituents service (handles update internally)

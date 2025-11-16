@@ -16,6 +16,7 @@ use UpstateInternational\LGL\LGL\Connection;
 use UpstateInternational\LGL\LGL\ApiSettings;
 use UpstateInternational\LGL\LGL\Payments;
 use UpstateInternational\LGL\Core\Plugin;
+use UpstateInternational\LGL\Email\EmailBlocker;
 
 /**
  * TestingHandler Class
@@ -243,6 +244,18 @@ class TestingHandler {
                 
             case 'full-suite':
                 echo $this->runFullTestSuite();
+                break;
+                
+            case 'email-blocking':
+                echo $this->runEmailBlockingTest();
+                break;
+                
+            case 'add_family_member':
+                echo $this->runAddFamilyMemberTest();
+                break;
+                
+            case 'remove_family_member':
+                echo $this->runRemoveFamilyMemberTest();
                 break;
                 
             default:
@@ -1593,6 +1606,478 @@ class TestingHandler {
                 'error' => $e->getMessage()
             ];
         }
+    }
+    
+    /**
+     * Run email blocking level test
+     * 
+     * Tests different email blocking levels by sending various types of emails
+     * and showing which ones get blocked/allowed
+     */
+    private function runEmailBlockingTest(): string {
+        ob_start();
+        
+        echo '<div class="notice notice-info"><p>🔄 Testing Email Blocking Levels...</p></div>';
+        
+        try {
+            // Get EmailBlocker instance
+            $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
+            $emailBlocker = $container->get('email.blocker');
+            $settingsManager = $container->get('admin.settings_manager');
+            
+            // Get current blocking level
+            $currentLevel = $emailBlocker->getBlockingLevel();
+            $isBlockingEnabled = $emailBlocker->isBlockingEnabled();
+            
+            $levelDescriptions = [
+                EmailBlocker::LEVEL_BLOCK_ALL => 'Block All Emails',
+                EmailBlocker::LEVEL_WOOCOMMERCE_ALLOWED => 'Allow WooCommerce Emails Only',
+                EmailBlocker::LEVEL_CRON_ONLY => 'Block WP Cron Emails Only',
+            ];
+            
+            echo '<div class="notice notice-info">';
+            echo '<p><strong>Current Blocking Configuration:</strong></p>';
+            echo '<ul>';
+            echo '<li><strong>Blocking Enabled:</strong> ' . ($isBlockingEnabled ? 'Yes' : 'No') . '</li>';
+            echo '<li><strong>Current Level:</strong> ' . ($levelDescriptions[$currentLevel] ?? $currentLevel) . ' (' . esc_html($currentLevel) . ')</li>';
+            echo '<li><strong>Force Blocking:</strong> ' . ($emailBlocker->isForceBlocking() ? 'Yes' : 'No') . '</li>';
+            echo '</ul>';
+            echo '</div>';
+            
+            if (!$isBlockingEnabled || $currentLevel === 'none') {
+                echo '<div class="notice notice-warning">';
+                echo '<p>⚠️ <strong>Email blocking is not currently enabled.</strong></p>';
+                echo '<p>Enable blocking in <a href="' . admin_url('admin.php?page=lgl-email-blocking') . '">Email Blocking Settings</a> to test blocking levels.</p>';
+                echo '</div>';
+                return ob_get_clean();
+            }
+            
+            // Use a test email address that's NOT whitelisted (so we can actually test blocking logic)
+            // We'll use a fake email address for testing purposes
+            $testEmailAddress = 'test-' . time() . '@example.com';
+            
+            echo '<div class="notice notice-info">';
+            echo '<p><strong>🧪 Testing Email Blocking Logic...</strong></p>';
+            echo '<p>Using test email: <code>' . esc_html($testEmailAddress) . '</code> (not whitelisted)</p>';
+            echo '<p><em>Note: This test evaluates blocking logic without actually sending emails. Admin email is automatically whitelisted, so we use a test address to verify the blocking rules work correctly.</em></p>';
+            echo '</div>';
+            
+            // Test different email types
+            $testEmails = [
+                [
+                    'name' => 'Regular WordPress Email',
+                    'to' => $testEmailAddress,
+                    'subject' => 'Test: Regular WordPress Email',
+                    'message' => 'This is a regular WordPress email sent via wp_mail().',
+                    'expected_type' => 'other',
+                    'expected_blocked' => $currentLevel === EmailBlocker::LEVEL_BLOCK_ALL || $currentLevel === EmailBlocker::LEVEL_WOOCOMMERCE_ALLOWED
+                ],
+                [
+                    'name' => 'WooCommerce Order Email',
+                    'to' => $testEmailAddress,
+                    'subject' => 'Your order #12345',
+                    'message' => 'Thank you for your order. Order confirmation details...',
+                    'headers' => ['Content-Type: text/html; charset=UTF-8', 'X-WC-Email: order_confirmation'],
+                    'expected_type' => 'woocommerce',
+                    'expected_blocked' => $currentLevel === EmailBlocker::LEVEL_BLOCK_ALL || $currentLevel === EmailBlocker::LEVEL_CRON_ONLY
+                ],
+                [
+                    'name' => 'WP Cron Email (Daily Summary)',
+                    'to' => $testEmailAddress,
+                    'subject' => 'Daily Order Summary - ' . date('M j, Y'),
+                    'message' => 'This is an automated daily order summary email sent via WP Cron.',
+                    'expected_type' => 'cron',
+                    // Cron emails should ALWAYS be blocked regardless of blocking level
+                    'expected_blocked' => true
+                ],
+                [
+                    'name' => 'WooCommerce Subscription Email',
+                    'to' => $testEmailAddress,
+                    'subject' => 'Subscription Renewal Notice',
+                    'message' => 'Your subscription will renew soon.',
+                    'headers' => ['Content-Type: text/html; charset=UTF-8', 'X-WC-Email: subscription_renewal'],
+                    'expected_type' => 'woocommerce',
+                    'expected_blocked' => $currentLevel === EmailBlocker::LEVEL_BLOCK_ALL || $currentLevel === EmailBlocker::LEVEL_CRON_ONLY
+                ],
+            ];
+            
+            $results = [];
+            foreach ($testEmails as $testEmail) {
+                // Build email args for testing (using non-whitelisted email)
+                $emailArgs = [
+                    'to' => $testEmail['to'],
+                    'subject' => $testEmail['subject'],
+                    'message' => $testEmail['message'],
+                    'headers' => $testEmail['headers'] ?? [],
+                ];
+                
+                // Use reflection to check blocking logic directly (bypassing whitelist for testing)
+                $reflection = new \ReflectionClass($emailBlocker);
+                $shouldBlockMethod = $reflection->getMethod('shouldBlockEmail');
+                $shouldBlockMethod->setAccessible(true);
+                $identifyMethod = $reflection->getMethod('identifyEmailType');
+                $identifyMethod->setAccessible(true);
+                
+                // Check what would happen (this bypasses whitelist since we're calling the method directly)
+                $wouldBeBlocked = $shouldBlockMethod->invoke($emailBlocker, $emailArgs, $currentLevel);
+                $detectedType = $identifyMethod->invoke($emailBlocker, $emailArgs);
+                
+                $results[] = [
+                    'name' => $testEmail['name'],
+                    'detected_type' => $detectedType,
+                    'would_be_blocked' => $wouldBeBlocked,
+                    'expected_blocked' => $testEmail['expected_blocked'],
+                    'match' => $wouldBeBlocked === $testEmail['expected_blocked'],
+                    'test_email' => $testEmailAddress
+                ];
+            }
+            
+            // Display results
+            echo '<div class="notice notice-success">';
+            echo '<h3>📊 Test Results</h3>';
+            echo '<table class="widefat striped" style="margin-top: 10px;">';
+            echo '<thead>';
+            echo '<tr>';
+            echo '<th>Email Type</th>';
+            echo '<th>Detected As</th>';
+            echo '<th>Would Be Blocked</th>';
+            echo '<th>Expected</th>';
+            echo '<th>Status</th>';
+            echo '</tr>';
+            echo '</thead>';
+            echo '<tbody>';
+            
+            foreach ($results as $result) {
+                $statusIcon = $result['match'] ? '✅' : '❌';
+                $statusColor = $result['match'] ? '#00a32a' : '#d63638';
+                $blockedText = $result['would_be_blocked'] ? 'Yes (Blocked)' : 'No (Allowed)';
+                $expectedText = $result['expected_blocked'] ? 'Yes (Blocked)' : 'No (Allowed)';
+                
+                echo '<tr>';
+                echo '<td><strong>' . esc_html($result['name']) . '</strong></td>';
+                echo '<td><code>' . esc_html($result['detected_type']) . '</code></td>';
+                echo '<td>' . esc_html($blockedText) . '</td>';
+                echo '<td>' . esc_html($expectedText) . '</td>';
+                echo '<td style="color: ' . $statusColor . '; font-weight: bold;">' . $statusIcon . ' ' . ($result['match'] ? 'PASS' : 'FAIL') . '</td>';
+                echo '</tr>';
+            }
+            
+            echo '</tbody>';
+            echo '</table>';
+            
+            // Summary
+            $passed = count(array_filter($results, fn($r) => $r['match']));
+            $total = count($results);
+            $percentage = round(($passed / $total) * 100);
+            
+            echo '<p style="margin-top: 15px;"><strong>Summary:</strong> ' . $passed . '/' . $total . ' tests passed (' . $percentage . '%)</p>';
+            
+            if ($passed === $total) {
+                echo '<p style="color: #00a32a; font-weight: bold;">✅ All tests passed! Email blocking is working correctly for level: ' . esc_html($levelDescriptions[$currentLevel] ?? $currentLevel) . '</p>';
+            } else {
+                echo '<p style="color: #d63638; font-weight: bold;">⚠️ Some tests failed. Review the results above and check your blocking level configuration.</p>';
+            }
+            
+            echo '</div>';
+            
+            // Show how to test other levels
+            echo '<div class="notice notice-info">';
+            echo '<h3>🔧 Testing Other Blocking Levels</h3>';
+            echo '<p>To test different blocking levels:</p>';
+            echo '<ol>';
+            echo '<li>Go to <a href="' . admin_url('admin.php?page=lgl-email-blocking') . '">Email Blocking Settings</a></li>';
+            echo '<li>Change the "Blocking Level" dropdown</li>';
+            echo '<li>Save settings</li>';
+            echo '<li>Run this test again to see how different levels affect email blocking</li>';
+            echo '</ol>';
+            echo '</div>';
+            
+        } catch (\Exception $e) {
+            echo '<div class="notice notice-error">';
+            echo '<p>❌ <strong>Email Blocking Test Failed:</strong></p>';
+            echo '<p>' . esc_html($e->getMessage()) . '</p>';
+            echo '<pre>' . esc_html($e->getTraceAsString()) . '</pre>';
+            echo '</div>';
+        }
+        
+        return ob_get_clean();
+    }
+    
+    /**
+     * Run add family member test
+     * 
+     * Adds a test family member with hardcoded test data:
+     * - First Name: Andy
+     * - Last Name: Skinner
+     * - Email: andrew+1@hispanicalliancesc.com
+     * - Parent User ID: 1214 (Andrew Skinner)
+     */
+    private function runAddFamilyMemberTest(): string {
+        ob_start();
+        
+        $testData = [
+            'first_name' => 'Andy',
+            'last_name' => 'Skinner',
+            'email' => 'andrew+1@hispanicalliancesc.com'
+        ];
+        
+        // Use test user 1214 as parent
+        $parent_user_id = 1214;
+        
+        // Verify parent user exists
+        $parent_user = get_user_by('ID', $parent_user_id);
+        if (!$parent_user) {
+            echo '<div class="notice notice-error">';
+            echo '<p>❌ <strong>Add Family Member Test Failed:</strong></p>';
+            echo '<p>Parent user ID ' . $parent_user_id . ' does not exist.</p>';
+            echo '</div>';
+            return ob_get_clean();
+        }
+        
+        echo '<div class="notice notice-info"><p>🔄 Testing Add Family Member...</p></div>';
+        echo '<div class="notice notice-info">';
+        echo '<p><strong>Test Data:</strong></p>';
+        echo '<ul>';
+        echo '<li><strong>Parent User ID:</strong> ' . $parent_user_id . '</li>';
+        echo '<li><strong>First Name:</strong> ' . esc_html($testData['first_name']) . '</li>';
+        echo '<li><strong>Last Name:</strong> ' . esc_html($testData['last_name']) . '</li>';
+        echo '<li><strong>Email:</strong> ' . esc_html($testData['email']) . '</li>';
+        echo '</ul>';
+        echo '</div>';
+        
+        try {
+            // Check if user already exists
+            if (email_exists($testData['email'])) {
+                $existing_user = get_user_by('email', $testData['email']);
+                echo '<div class="notice notice-warning">';
+                echo '<p>⚠️ <strong>User Already Exists:</strong></p>';
+                echo '<p>A user with email <code>' . esc_html($testData['email']) . '</code> already exists (User ID: ' . $existing_user->ID . ').</p>';
+                echo '<p>Please use "Remove Family Member" test first, or use a different email address.</p>';
+                echo '</div>';
+                return ob_get_clean();
+            }
+            
+            // Get services from container
+            $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
+            $connection = $container->get('lgl.connection');
+            $helper = $container->get('lgl.helper');
+            
+            // Create FamilyMemberAction instance
+            $familyMemberAction = new \UpstateInternational\LGL\JetFormBuilder\Actions\FamilyMemberAction($connection, $helper);
+            
+            // Build request array
+            $request = [
+                'parent_user_id' => $parent_user_id,
+                'first_name' => $testData['first_name'],
+                'last_name' => $testData['last_name'],
+                'email' => $testData['email']
+            ];
+            
+            // Create a mock action handler (minimal implementation)
+            $mockActionHandler = (object) [
+                'add_response' => function($message) {
+                    // Mock method - not used in our implementation
+                }
+            ];
+            
+            \lgl_log("🧪 Testing Add Family Member", [
+                'parent_user_id' => $parent_user_id,
+                'test_data' => $testData
+            ]);
+            
+            // Call the action handler
+            $familyMemberAction->handle($request, $mockActionHandler);
+            
+            // Check if user was created
+            $created_user = get_user_by('email', $testData['email']);
+            
+            if ($created_user) {
+                echo '<div class="notice notice-success">';
+                echo '<p>✅ <strong>Family Member Added Successfully!</strong></p>';
+                echo '<ul>';
+                echo '<li><strong>User ID:</strong> ' . $created_user->ID . '</li>';
+                echo '<li><strong>Email:</strong> ' . esc_html($created_user->user_email) . '</li>';
+                echo '<li><strong>Display Name:</strong> ' . esc_html($created_user->display_name) . '</li>';
+                echo '<li><strong>Role:</strong> ' . esc_html(implode(', ', $created_user->roles)) . '</li>';
+                
+                // Check LGL ID
+                $lgl_id = get_user_meta($created_user->ID, 'lgl_id', true);
+                if ($lgl_id) {
+                    echo '<li><strong>LGL ID:</strong> ' . esc_html($lgl_id) . '</li>';
+                }
+                
+                // Check relationship
+                if (function_exists('jet_engine')) {
+                    $relation = \jet_engine()->relations->get_active_relations(24);
+                    if ($relation) {
+                        $children = $relation->get_children($parent_user_id, 'ids');
+                        echo '<li><strong>Family Members (Total):</strong> ' . count($children) . '</li>';
+                    }
+                }
+                
+                echo '</ul>';
+                echo '</div>';
+            } else {
+                echo '<div class="notice notice-warning">';
+                echo '<p>⚠️ <strong>Action Completed, but User Not Found:</strong></p>';
+                echo '<p>The action completed without errors, but the user was not found. Check the logs for details.</p>';
+                echo '</div>';
+            }
+            
+        } catch (\Exception $e) {
+            echo '<div class="notice notice-error">';
+            echo '<p>❌ <strong>Add Family Member Test Failed:</strong></p>';
+            echo '<p>' . esc_html($e->getMessage()) . '</p>';
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                echo '<pre>' . esc_html($e->getTraceAsString()) . '</pre>';
+            }
+            echo '</div>';
+        }
+        
+        return ob_get_clean();
+    }
+    
+    /**
+     * Run remove family member test
+     * 
+     * Removes the test family member with email: andrew+1@hispanicalliancesc.com
+     * - Parent User ID: 1214 (Andrew Skinner)
+     */
+    private function runRemoveFamilyMemberTest(): string {
+        ob_start();
+        
+        $testEmail = 'andrew+1@hispanicalliancesc.com';
+        
+        // Use test user 1214 as parent
+        $parent_user_id = 1214;
+        
+        // Verify parent user exists
+        $parent_user = get_user_by('ID', $parent_user_id);
+        if (!$parent_user) {
+            echo '<div class="notice notice-error">';
+            echo '<p>❌ <strong>Remove Family Member Test Failed:</strong></p>';
+            echo '<p>Parent user ID ' . $parent_user_id . ' does not exist.</p>';
+            echo '</div>';
+            return ob_get_clean();
+        }
+        
+        echo '<div class="notice notice-info"><p>🔄 Testing Remove Family Member...</p></div>';
+        echo '<div class="notice notice-info">';
+        echo '<p><strong>Test Data:</strong></p>';
+        echo '<ul>';
+        echo '<li><strong>Parent User ID:</strong> ' . $parent_user_id . '</li>';
+        echo '<li><strong>Child Email:</strong> ' . esc_html($testEmail) . '</li>';
+        echo '</ul>';
+        echo '</div>';
+        
+        try {
+            // Find child user by email
+            $child_user = get_user_by('email', $testEmail);
+            
+            if (!$child_user) {
+                echo '<div class="notice notice-warning">';
+                echo '<p>⚠️ <strong>Family Member Not Found:</strong></p>';
+                echo '<p>No user found with email <code>' . esc_html($testEmail) . '</code>.</p>';
+                echo '<p>This family member may have already been removed, or was never added.</p>';
+                echo '</div>';
+                return ob_get_clean();
+            }
+            
+            $child_user_id = $child_user->ID;
+            
+            echo '<div class="notice notice-info">';
+            echo '<p>📋 <strong>Found Family Member:</strong></p>';
+            echo '<ul>';
+            echo '<li><strong>User ID:</strong> ' . $child_user_id . '</li>';
+            echo '<li><strong>Email:</strong> ' . esc_html($child_user->user_email) . '</li>';
+            echo '<li><strong>Display Name:</strong> ' . esc_html($child_user->display_name) . '</li>';
+            echo '</ul>';
+            echo '</div>';
+            
+            // Verify relationship exists
+            if (function_exists('jet_engine')) {
+                $relation = \jet_engine()->relations->get_active_relations(24);
+                if ($relation) {
+                    $children = $relation->get_children($parent_user_id, 'ids');
+                    if (!in_array($child_user_id, $children)) {
+                        echo '<div class="notice notice-warning">';
+                        echo '<p>⚠️ <strong>Relationship Not Found:</strong></p>';
+                        echo '<p>This user exists, but is not linked as a family member to the current user.</p>';
+                        echo '</div>';
+                        return ob_get_clean();
+                    }
+                }
+            }
+            
+            // Get services from container
+            $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
+            $connection = $container->get('lgl.connection');
+            $helper = $container->get('lgl.helper');
+            
+            // Create FamilyMemberDeactivationAction instance
+            $deactivationAction = new \UpstateInternational\LGL\JetFormBuilder\Actions\FamilyMemberDeactivationAction($connection, $helper);
+            
+            // Build request array (child_users can be array, JSON, or comma-separated)
+            $request = [
+                'parent_user_id' => $parent_user_id,
+                'child_users' => [$child_user_id] // Pass as array
+            ];
+            
+            // Create a mock action handler
+            $mockActionHandler = (object) [
+                'add_response' => function($message) {
+                    // Mock method - not used in our implementation
+                }
+            ];
+            
+            \lgl_log("🧪 Testing Remove Family Member", [
+                'parent_user_id' => $parent_user_id,
+                'child_user_id' => $child_user_id,
+                'child_email' => $testEmail
+            ]);
+            
+            // Call the action handler
+            $deactivationAction->handle($request, $mockActionHandler);
+            
+            // Verify user was deleted
+            $deleted_user = get_user_by('email', $testEmail);
+            
+            if (!$deleted_user) {
+                echo '<div class="notice notice-success">';
+                echo '<p>✅ <strong>Family Member Removed Successfully!</strong></p>';
+                echo '<ul>';
+                echo '<li><strong>User ID:</strong> ' . $child_user_id . ' (deleted)</li>';
+                echo '<li><strong>Email:</strong> ' . esc_html($testEmail) . '</li>';
+                
+                // Check remaining family members
+                if (function_exists('jet_engine')) {
+                    $relation = \jet_engine()->relations->get_active_relations(24);
+                    if ($relation) {
+                        $children = $relation->get_children($parent_user_id, 'ids');
+                        echo '<li><strong>Remaining Family Members:</strong> ' . count($children) . '</li>';
+                    }
+                }
+                
+                echo '</ul>';
+                echo '</div>';
+            } else {
+                echo '<div class="notice notice-warning">';
+                echo '<p>⚠️ <strong>Action Completed, but User Still Exists:</strong></p>';
+                echo '<p>The action completed without errors, but the user still exists. Check the logs for details.</p>';
+                echo '</div>';
+            }
+            
+        } catch (\Exception $e) {
+            echo '<div class="notice notice-error">';
+            echo '<p>❌ <strong>Remove Family Member Test Failed:</strong></p>';
+            echo '<p>' . esc_html($e->getMessage()) . '</p>';
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                echo '<pre>' . esc_html($e->getTraceAsString()) . '</pre>';
+            }
+            echo '</div>';
+        }
+        
+        return ob_get_clean();
     }
 }
 ?>

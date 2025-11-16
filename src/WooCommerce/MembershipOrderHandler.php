@@ -659,15 +659,18 @@ class MembershipOrderHandler {
             if ($product_id === $family_product_id || $product->get_sku() === $family_sku) {
                 $qty = (int) $item->get_quantity();
                 
-                // Update available slots
-                $current_slots = (int) get_user_meta($uid, 'user_available_family_slots', true);
-                $new_available = $current_slots + $qty;
-                update_user_meta($uid, 'user_available_family_slots', $new_available);
-                
                 // Track total purchased for reporting
                 $total_purchased = (int) get_user_meta($uid, 'user_total_family_slots_purchased', true);
                 $new_total = $total_purchased + $qty;
                 update_user_meta($uid, 'user_total_family_slots_purchased', $new_total);
+                
+                // Sync user_used_family_slots with actual JetEngine count (source of truth)
+                $this->helper->syncUsedFamilySlotsMeta($uid);
+                
+                // Recalculate available slots based on actual count: total_purchased - actual_used
+                $actual_used = $this->helper->getActualUsedFamilySlots($uid);
+                $new_available = $new_total - $actual_used;
+                update_user_meta($uid, 'user_available_family_slots', max(0, $new_available));
                 
                 // Assign ui_patron_owner role if not already assigned
                 // Note: Role slug is ui_patron_owner (display name: "UI Family Owner")
@@ -683,12 +686,16 @@ class MembershipOrderHandler {
                     }
                 }
                 
+                $actual_used = $this->helper->getActualUsedFamilySlots($uid);
+                
                 $this->helper->debug('MembershipOrderHandler: Added family slots', [
                     'user_id' => $uid,
                     'order_id' => $order->get_id(),
                     'purchased_qty' => $qty,
                     'new_available' => $new_available,
-                    'new_total_purchased' => $new_total
+                    'new_total_purchased' => $new_total,
+                    'actual_used_from_jetengine' => $actual_used,
+                    'note' => 'user_used_family_slots synced with JetEngine count'
                 ]);
             }
         }

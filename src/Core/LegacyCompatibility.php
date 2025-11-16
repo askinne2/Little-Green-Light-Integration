@@ -118,15 +118,17 @@ class LegacyCompatibility {
      * @return void
      */
     private static function maintainHookCompatibility(): void {
-        // Only register legacy hooks if modern architecture is not handling them
+        // Register legacy hooks on init (modern actions are registered via ActionRegistry)
         add_action('init', function() {
             // Check if modern architecture is active
             $modernActive = class_exists('\UpstateInternational\LGL\Core\Plugin');
             
             if (!$modernActive) {
-                // Fallback to legacy hook registrations
+                // Fallback to ALL legacy hook registrations
                 self::registerFallbackHooks();
             }
+            // Note: Modern actions (like ui_family_user_deactivation) are now registered via ActionRegistry
+            // Legacy hooks are only registered as fallback when modern architecture is not available
         }, 15);
     }
     

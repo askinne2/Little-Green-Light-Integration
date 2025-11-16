@@ -30,9 +30,9 @@ class ActionRegistry {
     private ContainerInterface $container;
     
     /**
-     * Registered actions
+     * Registered actions (action name => class name)
      * 
-     * @var array<string, JetFormActionInterface>
+     * @var array<string, string>
      */
     private array $actions = [];
     
@@ -184,11 +184,105 @@ class ActionRegistry {
      * @return void
      */
     private function registerWordPressHook(JetFormActionInterface $action): void {
-        $hookName = 'jet-form-builder/custom-action/' . $action->getName();
+        $actionHookName = 'jet-form-builder/custom-action/' . $action->getName();
+        $filterHookName = 'jet-form-builder/custom-filter/' . $action->getName();
         
+        // Register filter hook for validation (can return error messages)
+        add_filter(
+            $filterHookName,
+            function($result, $request, $action_handler) use ($action) {
+                try {
+                    // Validate before processing
+                    // Note: Specific error checks (like email existence) should be done
+                    // in the handle() method FIRST, not in the filter hook to avoid
+                    // race conditions where the action completes before filter runs
+                    if (!$action->validateRequest($request)) {
+                        // Use Action_Exception if available, otherwise return error message
+                        if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                            throw new \Jet_Form_Builder\Exceptions\Action_Exception('failed');
+                        } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                            throw new \JFB_Modules\Actions\V2\Action_Exception('failed');
+                        } else {
+                            // Fallback: return error message
+                            return new \WP_Error(
+                                'validation_failed',
+                                'Invalid request data. Please check all required fields are filled.'
+                            );
+                        }
+                    }
+                    
+                    return $result;
+                } catch (\Exception $e) {
+                    // Log the error
+                    try {
+                        $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
+                        $helper->debug('Filter validation exception', [
+                            'action' => $action->getName(),
+                            'error' => $e->getMessage(),
+                            'file' => $e->getFile(),
+                            'line' => $e->getLine()
+                        ]);
+                    } catch (\Exception $log_error) {
+                        // Silently fail if logging fails
+                    }
+                    
+                    // Re-throw Action_Exception so JetFormBuilder can handle it
+                    if ($e instanceof \Jet_Form_Builder\Exceptions\Action_Exception || 
+                        $e instanceof \JFB_Modules\Actions\V2\Action_Exception) {
+                        throw $e;
+                    }
+                    
+                    // For other exceptions, convert to Action_Exception if possible
+                    if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                        throw new \Jet_Form_Builder\Exceptions\Action_Exception($e->getMessage());
+                    } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                        throw new \JFB_Modules\Actions\V2\Action_Exception($e->getMessage());
+                    }
+                    
+                    return new \WP_Error('action_failed', $e->getMessage());
+                }
+            },
+            $action->getPriority(),
+            3 // $result, $request, $action_handler
+        );
+        
+        // Register action hook for actual processing
         add_action(
-            $hookName,
-            [$action, 'handle'],
+            $actionHookName,
+            function($request, $action_handler) use ($action) {
+                try {
+                    $action->handle($request, $action_handler);
+                } catch (\Exception $e) {
+                    // Log the error
+                    try {
+                        $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
+                        $helper->debug('Action exception caught', [
+                            'action' => $action->getName(),
+                            'error' => $e->getMessage(),
+                            'file' => $e->getFile(),
+                            'line' => $e->getLine()
+                        ]);
+                    } catch (\Exception $log_error) {
+                        // Silently fail if logging fails
+                    }
+                    
+                    // Use Action_Exception if available for proper error handling
+                    if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                        throw new \Jet_Form_Builder\Exceptions\Action_Exception($e->getMessage());
+                    } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                        throw new \JFB_Modules\Actions\V2\Action_Exception($e->getMessage());
+                    } else {
+                        // Fallback: use wp_die to show error message
+                        if (function_exists('wp_die')) {
+                            wp_die(
+                                esc_html($e->getMessage()),
+                                'Form Submission Error',
+                                ['response' => 400, 'back_link' => true]
+                            );
+                        }
+                    }
+                }
+            },
             $action->getPriority(),
             $action->getAcceptedArgs()
         );
@@ -205,7 +299,12 @@ class ActionRegistry {
             return null;
         }
         
-        return $this->getActionInstance($this->actions[$actionName]);
+        $actionClass = $this->actions[$actionName];
+        if (!is_string($actionClass)) {
+            return null;
+        }
+        
+        return $this->getActionInstance($actionClass);
     }
     
     /**
@@ -264,12 +363,13 @@ class ActionRegistry {
      */
     public function registerCoreActions(): void {
         $coreActions = [
-            \UpstateInternational\LGL\JetFormBuilder\Actions\UserRegistrationAction::class,
-            \UpstateInternational\LGL\JetFormBuilder\Actions\MembershipUpdateAction::class,
+            \UpstateInternational\LGL\JetFormBuilder\Actions\UserRegistrationAction::class, // @deprecated - kept for legacy form compatibility
+            \UpstateInternational\LGL\JetFormBuilder\Actions\MembershipUpdateAction::class, // @deprecated - use WooCommerce checkout instead
             \UpstateInternational\LGL\JetFormBuilder\Actions\MembershipRenewalAction::class,
-            \UpstateInternational\LGL\JetFormBuilder\Actions\ClassRegistrationAction::class,
+            \UpstateInternational\LGL\JetFormBuilder\Actions\ClassRegistrationAction::class, // @deprecated - CourseStorm handles new registrations externally
             \UpstateInternational\LGL\JetFormBuilder\Actions\EventRegistrationAction::class,
             \UpstateInternational\LGL\JetFormBuilder\Actions\FamilyMemberAction::class,
+            \UpstateInternational\LGL\JetFormBuilder\Actions\FamilyMemberDeactivationAction::class,
             \UpstateInternational\LGL\JetFormBuilder\Actions\UserEditAction::class,
             \UpstateInternational\LGL\JetFormBuilder\Actions\MembershipDeactivationAction::class,
         ];

@@ -428,6 +428,30 @@ class AdminMenuManager {
             ['wordpress_user_id' => $testUserId]
         );
         
+        // Email Blocking Test Card
+        $content .= $this->renderTestCard(
+            'email-blocking',
+            '📧 Email Blocking Test',
+            'Test different email blocking levels (all, woocommerce_allowed, cron_only)',
+            $nonce
+        );
+        
+        // Add Family Member Test Card
+        $content .= $this->renderTestCard(
+            'add_family_member',
+            '👨‍👩‍👧 Add Family Member',
+            'Add test family member: Andy Skinner (andrew+1@hispanicalliancesc.com)',
+            $nonce
+        );
+        
+        // Remove Family Member Test Card
+        $content .= $this->renderTestCard(
+            'remove_family_member',
+            '🗑️ Remove Family Member',
+            'Remove test family member: Andy Skinner (andrew+1@hispanicalliancesc.com)',
+            $nonce
+        );
+        
         $content .= '</div>';
         
         // Add note about test user
@@ -438,6 +462,7 @@ class AdminMenuManager {
         $content .= '<li>Membership Variation: <code>68386</code> (Individual - $75)</li>';
         $content .= '<li>Event Variation: <code>83556</code></li>';
         $content .= '<li>Class Product: <code>86825</code></li>';
+        $content .= '<li>Family Member Test: <code>Andy Skinner</code> (<code>andrew+1@hispanicalliancesc.com</code>)</li>';
         $content .= '<li>⚠️ Tests run against <strong>LIVE API</strong> - real data will be created/updated in LGL</li>';
         $content .= '</ul>';
         $content .= '</div>';

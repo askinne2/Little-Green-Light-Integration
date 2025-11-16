@@ -439,8 +439,9 @@ class Connection {
     }
     
     /**
-     * Create relationship between constituents
+     * Create relationship between constituents (LEGACY - use createConstituentRelationship instead)
      * 
+     * @deprecated Use createConstituentRelationship() for constituent relationships
      * @param array $relationship_data Relationship data
      * @return array API response
      */
@@ -449,13 +450,240 @@ class Connection {
     }
     
     /**
-     * Get relationships for constituent
+     * Get relationships for constituent (LEGACY - use getConstituentRelationships instead)
      * 
+     * @deprecated Use getConstituentRelationships() for constituent relationships
      * @param string $constituent_id LGL constituent ID
      * @return array API response
      */
     public function getRelationships(string $constituent_id): array {
         return $this->makeRequest("constituents/{$constituent_id}/relationships");
+    }
+    
+    /**
+     * Create constituent relationship in LGL
+     * 
+     * Creates a relationship between two constituents using the LGL constituent_relationships API.
+     * Relationship types: Parent, Child, Spouse/Partner, Mother, Father, Daughter, Son, Employer, Employee
+     * 
+     * @param int $constituent_id The constituent ID to create the relationship for
+     * @param array $relationship_data Relationship data:
+     *   - 'related_constituent_id' (int, required): The ID of the related constituent
+     *   - 'relationship_type_id' (int, required): ID of relationship type (use getRelationshipTypeId() to look up)
+     *   - 'notes' (string, optional): Additional notes about the relationship
+     * @return array API response with relationship ID on success
+     */
+    public function createConstituentRelationship(int $constituent_id, array $relationship_data): array {
+        $helper = Helper::getInstance();
+        $helper->debug('🔗 Connection: Creating constituent relationship', [
+            'constituent_id' => $constituent_id,
+            'relationship_data' => $relationship_data
+        ]);
+        
+        $response = $this->makeRequest(
+            "constituents/{$constituent_id}/constituent_relationships.json",
+            'POST',
+            $relationship_data,
+            false
+        );
+        
+        if ($response['success'] && isset($response['data'])) {
+            $relationship_id = is_object($response['data']) ? 
+                ($response['data']->id ?? null) : 
+                ($response['data']['id'] ?? null);
+            
+            $helper->debug('✅ Connection: Constituent relationship created', [
+                'constituent_id' => $constituent_id,
+                'relationship_id' => $relationship_id,
+                'relationship_type' => $relationship_data['relationship_type_name'] ?? 'unknown'
+            ]);
+        } else {
+            $helper->debug('❌ Connection: Failed to create constituent relationship', [
+                'constituent_id' => $constituent_id,
+                'response' => $response
+            ]);
+        }
+        
+        return $response;
+    }
+    
+    /**
+     * Get constituent relationships for a constituent
+     * 
+     * Retrieves all relationships for a given constituent from LGL.
+     * 
+     * @param int $constituent_id LGL constituent ID
+     * @return array API response with relationships data
+     */
+    public function getConstituentRelationships(int $constituent_id): array {
+        $helper = Helper::getInstance();
+        $helper->debug('🔍 Connection: Getting constituent relationships', [
+            'constituent_id' => $constituent_id
+        ]);
+        
+        $response = $this->makeRequest(
+            "constituents/{$constituent_id}/constituent_relationships.json",
+            'GET',
+            [],
+            false
+        );
+        
+        if ($response['success'] && isset($response['data'])) {
+            $relationships = is_array($response['data']) ? $response['data'] : [];
+            $helper->debug('✅ Connection: Retrieved constituent relationships', [
+                'constituent_id' => $constituent_id,
+                'count' => count($relationships)
+            ]);
+        }
+        
+        return $response;
+    }
+    
+    /**
+     * Delete constituent relationship from LGL
+     * 
+     * Deletes a specific constituent relationship by its relationship ID.
+     * 
+     * @param int $relationship_id LGL relationship ID
+     * @return array API response
+     */
+    public function deleteConstituentRelationship(int $relationship_id): array {
+        $helper = Helper::getInstance();
+        $helper->debug('🗑️ Connection: Deleting constituent relationship', [
+            'relationship_id' => $relationship_id
+        ]);
+        
+        $response = $this->makeRequest(
+            "constituent_relationships/{$relationship_id}.json",
+            'DELETE',
+            [],
+            false
+        );
+        
+        if ($response['success']) {
+            $helper->debug('✅ Connection: Constituent relationship deleted', [
+                'relationship_id' => $relationship_id
+            ]);
+        } else {
+            $helper->debug('❌ Connection: Failed to delete constituent relationship', [
+                'relationship_id' => $relationship_id,
+                'response' => $response
+            ]);
+        }
+        
+        return $response;
+    }
+    
+    /**
+     * Get relationship types from LGL API
+     * 
+     * Retrieves all available relationship types (Parent, Child, Spouse/Partner, etc.)
+     * Results are cached to avoid repeated API calls.
+     * 
+     * @return array API response with relationship types
+     */
+    public function getRelationshipTypes(): array {
+        $helper = Helper::getInstance();
+        
+        // Check cache first
+        $cache_key = 'lgl_relationship_types';
+        $cached = wp_cache_get($cache_key, 'lgl');
+        
+        if ($cached !== false) {
+            $helper->debug('🔍 Connection: Using cached relationship types');
+            return $cached;
+        }
+        
+        $helper->debug('🔍 Connection: Fetching relationship types from LGL API');
+        
+        $response = $this->makeRequest('relationship_types', 'GET', [], false);
+        
+        if ($response['success']) {
+            // Cache for 24 hours (relationship types don't change often)
+            wp_cache_set($cache_key, $response, 'lgl', DAY_IN_SECONDS);
+            $helper->debug('✅ Connection: Relationship types fetched and cached', [
+                'count' => count($response['data'] ?? [])
+            ]);
+        }
+        
+        return $response;
+    }
+    
+    /**
+     * Get relationship type ID by name
+     * 
+     * Looks up a relationship type ID by its name (e.g., "Parent" -> 123)
+     * 
+     * @param string $type_name Relationship type name (e.g., "Parent", "Child")
+     * @return int|null Relationship type ID or null if not found
+     */
+    public function getRelationshipTypeId(string $type_name): ?int {
+        $response = $this->getRelationshipTypes();
+        
+        if (!$response['success'] || empty($response['data'])) {
+            Helper::getInstance()->debug('❌ Connection: Failed to get relationship types', [
+                'response' => $response
+            ]);
+            return null;
+        }
+        
+        // Extract relationship types from response - handle LGL API format with 'items' array
+        $data = $response['data'];
+        $types = [];
+        
+        if (is_array($data)) {
+            // Check if it has an 'items' key (LGL API format)
+            if (isset($data['items']) && is_array($data['items'])) {
+                $types = $data['items'];
+            } elseif (!empty($data) && (isset($data[0]['id']) || (is_object($data[0]) && isset($data[0]->id)))) {
+                // Direct array of relationship types
+                $types = $data;
+            }
+        } elseif (is_object($data)) {
+            // Object with items property
+            if (isset($data->items) && is_array($data->items)) {
+                $types = $data->items;
+            } elseif (isset($data->id)) {
+                // Single relationship type object
+                $types = [$data];
+            }
+        }
+        
+        if (empty($types)) {
+            Helper::getInstance()->debug('❌ Connection: No relationship types found in response', [
+                'data_type' => gettype($data),
+                'data_keys' => is_array($data) ? array_keys($data) : (is_object($data) ? array_keys((array)$data) : 'not array/object'),
+                'response' => $response
+            ]);
+            return null;
+        }
+        
+        // Search for the relationship type by name
+        foreach ($types as $type) {
+            $name = is_object($type) ? ($type->name ?? null) : ($type['name'] ?? null);
+            $id = is_object($type) ? ($type->id ?? null) : ($type['id'] ?? null);
+            
+            if ($name && strcasecmp($name, $type_name) === 0 && $id) {
+                Helper::getInstance()->debug('✅ Connection: Found relationship type ID', [
+                    'type_name' => $type_name,
+                    'type_id' => $id
+                ]);
+                return (int) $id;
+            }
+        }
+        
+        // Log available types for debugging
+        $available_names = array_map(function($t) {
+            return is_object($t) ? ($t->name ?? null) : ($t['name'] ?? null);
+        }, $types);
+        
+        Helper::getInstance()->debug('⚠️ Connection: Relationship type not found', [
+            'type_name' => $type_name,
+            'available_types' => array_filter($available_names),
+            'total_types' => count($types)
+        ]);
+        
+        return null;
     }
     
     /**
@@ -585,7 +813,7 @@ class Connection {
             // Clean up the name (remove URL encoding)
             $clean_name = str_replace('%20', ' ', $name);
 
-            // Attempt direct email searches first (FAST - trust LGL's search results)
+            // Attempt direct email searches first (FAST - but verify exact email match)
             foreach ($emailCandidates as $emailCandidate) {
                 $response = $this->makeRequest('constituents', 'GET', ['email' => $emailCandidate], false);
                 
@@ -593,21 +821,57 @@ class Connection {
                     $constituents = $this->extractConstituentsFromResponse($response['data']);
                     
                     if (!empty($constituents)) {
-                        // Trust LGL's email search - if they returned it, it has this email
+                        // DON'T trust LGL's email search blindly - verify the exact email exists
+                        // LGL may return matches for base emails (e.g., andrew@example.com) 
+                        // when searching for tagged emails (e.g., andrew+1@example.com)
                         $first_match = $constituents[0];
                         $lgl_id = is_object($first_match) ? $first_match->id : $first_match['id'];
                         
-                        $helper->debug('✅ Email search found match (trusting LGL search)', [
-                            'lgl_id' => $lgl_id,
-                            'email' => $emailCandidate,
-                            'total_results' => count($constituents)
-                        ]);
+                        // Get the actual email addresses from this constituent
+                        $email_addresses = is_object($first_match) ? 
+                            ($first_match->email_addresses ?? []) : 
+                            ($first_match['email_addresses'] ?? []);
                         
-                        return [
-                            'id' => $lgl_id,
-                            'email' => $emailCandidate,
-                            'method' => 'email'
-                        ];
+                        // Verify this constituent actually has the exact email we're searching for
+                        $has_exact_email = false;
+                        foreach ($email_addresses as $email_record) {
+                            $address = is_object($email_record) ? 
+                                ($email_record->address ?? null) : 
+                                ($email_record['address'] ?? null);
+                                
+                            // Case-insensitive comparison for exact match (including + tags)
+                            if ($address && strcasecmp($address, $emailCandidate) === 0) {
+                                $has_exact_email = true;
+                                break;
+                            }
+                        }
+                        
+                        if ($has_exact_email) {
+                            $helper->debug('✅ Email search found match with exact email verification', [
+                                'lgl_id' => $lgl_id,
+                                'email' => $emailCandidate,
+                                'total_results' => count($constituents)
+                            ]);
+                            
+                            return [
+                                'id' => $lgl_id,
+                                'email' => $emailCandidate,
+                                'method' => 'email'
+                            ];
+                        } else {
+                            // LGL returned a match, but it doesn't have the exact email - continue searching
+                            $constituent_emails = array_map(function($e) {
+                                return is_object($e) ? ($e->address ?? null) : ($e['address'] ?? null);
+                            }, $email_addresses);
+                            
+                            $helper->debug('⚠️ LGL email search returned match but without exact email', [
+                                'lgl_id' => $lgl_id,
+                                'searched_email' => $emailCandidate,
+                                'constituent_emails' => array_filter($constituent_emails),
+                                'note' => 'Continuing search - this may be a base email match (e.g., andrew@example.com vs andrew+1@example.com)'
+                            ]);
+                            // Continue to next email candidate or fall back to name search
+                        }
                     }
                 }
             }

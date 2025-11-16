@@ -13,6 +13,8 @@ namespace UpstateInternational\LGL\WooCommerce;
 
 use UpstateInternational\LGL\LGL\Helper;
 use UpstateInternational\LGL\LGL\WpUsers;
+use UpstateInternational\LGL\Core\ServiceContainer;
+use UpstateInternational\LGL\JetFormBuilder\Actions\MembershipDeactivationAction;
 
 /**
  * SubscriptionHandler Class
@@ -139,18 +141,49 @@ class SubscriptionHandler {
     /**
      * Deactivate user membership in LGL
      * 
+     * Uses the modern MembershipDeactivationAction instead of legacy LGL_API.
+     * This ensures consistent behavior between form-based and subscription-based deactivations.
+     * 
      * @param int $user_id User ID
      * @return void
      */
     private function deactivateUserMembership(int $user_id): void {
-        // Use legacy LGL_API for now - this will be modernized in future phases
-        if (class_exists('LGL_API')) {
-            $lgl_api = \LGL_API::get_instance();
-            $request = ['user_id' => $user_id];
-            $lgl_api->lgl_deactivate_membership($request, null);
-            $this->helper->debug('SubscriptionHandler: Deactivated membership in LGL', $user_id);
-        } else {
-            $this->helper->debug('SubscriptionHandler: LGL_API not available for membership deactivation');
+        try {
+            // Get the modern MembershipDeactivationAction from the service container
+            $container = ServiceContainer::getInstance();
+            
+            // Get action instance - container will auto-resolve dependencies
+            $action = new MembershipDeactivationAction(
+                $container->get(\UpstateInternational\LGL\LGL\Connection::class),
+                $container->get(\UpstateInternational\LGL\LGL\Helper::class),
+                $container->get(\UpstateInternational\LGL\LGL\WpUsers::class)
+            );
+            
+            // Prepare request array matching JetFormBuilder format
+            $request = [
+                'user_id' => $user_id
+            ];
+            
+            // Call the action handler programmatically (null action_handler for non-form calls)
+            $action->handle($request, null);
+            
+            $this->helper->debug('SubscriptionHandler: Deactivated membership using MembershipDeactivationAction', $user_id);
+            
+        } catch (\Exception $e) {
+            $this->helper->debug('SubscriptionHandler: Error deactivating membership', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            // Fallback to legacy method if modern action fails
+            if (class_exists('LGL_API')) {
+                $this->helper->debug('SubscriptionHandler: Falling back to legacy LGL_API method');
+                $lgl_api = \LGL_API::get_instance();
+                $request = ['user_id' => $user_id];
+                $lgl_api->lgl_deactivate_membership($request, null);
+            }
         }
     }
     

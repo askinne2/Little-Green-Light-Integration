@@ -79,16 +79,33 @@ class MembershipRenewalAction implements JetFormActionInterface {
      * @return void
      */
     public function handle(array $request, $action_handler): void {
+        try {
         // Validate request data
         if (!$this->validateRequest($request)) {
             $this->helper->debug('MembershipRenewalAction: Invalid request data', $request);
-            return;
+                $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
+                
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
         }
         
         $post_id = $request['inserted_post_id'] ?? null;
         if (!$post_id) {
             $this->helper->debug('MembershipRenewalAction: No post_id provided');
-            return;
+                $error_message = 'Order ID is missing. Please try again or contact support.';
+                
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
         }
         
         $this->helper->debug('MembershipRenewalAction: Processing renewal', $request);
@@ -103,7 +120,15 @@ class MembershipRenewalAction implements JetFormActionInterface {
         
         if ($uid === 0) {
             $this->helper->debug('No User ID in Request, MembershipRenewalAction');
-            return;
+                $error_message = 'User ID is missing. Please ensure you are logged in and try again.';
+                
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
         }
         
         // Update renewal date
@@ -117,6 +142,29 @@ class MembershipRenewalAction implements JetFormActionInterface {
         
         // Process LGL membership renewal
         $this->processLGLMembershipRenewal($uid, $email, $order_id, $price, $date);
+            
+        } catch (\Exception $e) {
+            $this->helper->debug('MembershipRenewalAction: Error occurred', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            // Re-throw Action_Exception, convert others
+            if ($e instanceof \Jet_Form_Builder\Exceptions\Action_Exception || 
+                $e instanceof \JFB_Modules\Actions\V2\Action_Exception) {
+                throw $e;
+            }
+            
+            // Convert to Action_Exception if possible
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($e->getMessage());
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($e->getMessage());
+            } else {
+                throw $e;
+            }
+        }
     }
     
     /**
@@ -168,25 +216,49 @@ class MembershipRenewalAction implements JetFormActionInterface {
         string $date
     ): void {
         $user_lgl_id = get_user_meta($uid, 'lgl_id', true);
-        $existing_user = $this->connection->getLglData('SINGLE_CONSTITUENT', $user_lgl_id);
+        $existing_user = $this->connection->getConstituentData($user_lgl_id);
         
         if (!$existing_user) {
             $this->helper->debug('MembershipRenewalAction: No existing LGL user found');
-            return;
+            $error_message = 'Unable to renew membership. Your account was not found. Please contact support.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
         
-        $lgl_id = $existing_user->id;
+        $lgl_id = is_array($existing_user) ? ($existing_user['id'] ?? null) : ($existing_user->id ?? null);
         $this->helper->debug('LGL USER EXISTS: ', $lgl_id);
         
         if (!$lgl_id) {
-            return;
+            $error_message = 'Unable to renew membership. User ID not found. Please contact support.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
         
         // Get detailed user data
-        $user = $this->connection->getLglData('SINGLE_CONSTITUENT', $lgl_id);
+        $user = $this->connection->getConstituentData($lgl_id);
         if (!$user) {
             $this->helper->debug('MembershipRenewalAction: no user found by ID', $email);
-            return;
+            $error_message = 'Unable to renew membership. User account details not found. Please contact support.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
         
         // Deactivate existing memberships
@@ -251,9 +323,16 @@ class MembershipRenewalAction implements JetFormActionInterface {
      */
     private function addRenewalMembership($lgl_id, int $uid): void {
         $this->constituents->setMembership($uid);
-        $this->helper->debug('Renewal Membership_Data:', $this->constituents->getMembershipData());
+        $membership_data = $this->constituents->getMembershipData();
+        $this->helper->debug('Renewal Membership_Data:', $membership_data);
         
-        $this->connection->addLglObject($lgl_id, $this->constituents->getMembershipData(), 'memberships.json');
+        $result = $this->connection->addMembership($lgl_id, $membership_data);
+        
+        if (!empty($result['success'])) {
+            $this->helper->debug('Renewal membership added successfully', $result);
+        } else {
+            $this->helper->debug('Failed to add renewal membership', $result);
+        }
     }
     
     /**
@@ -268,12 +347,18 @@ class MembershipRenewalAction implements JetFormActionInterface {
     private function addRenewalPayment($lgl_id, $order_id, float $price, string $date): void {
         $payment_data = $this->payments->setupMembershipPayment($this, $order_id, $price, $date);
         
-        if ($payment_data) {
-            $payment_id = $this->connection->addLglObject($lgl_id, $payment_data, 'gifts.json');
+        if ($payment_data && isset($payment_data['success']) && $payment_data['success']) {
+            // Payment already added by setupMembershipPayment() - just log the result
+            $payment_id = $payment_data['id'] ?? null;
             
             if ($payment_id) {
                 $this->helper->debug('Renewal Payment ID: ', $payment_id);
+            } else {
+                $this->helper->debug('MembershipRenewalAction: Payment created but no ID returned', $payment_data);
             }
+        } else {
+            $error = $payment_data['error'] ?? 'Unknown error';
+            $this->helper->debug('MembershipRenewalAction: Failed to create payment', $error);
         }
     }
     

@@ -135,6 +135,16 @@ class Plugin {
             // Initialize utilities
             $this->container->get('utilities');
             
+            // Initialize JetEngine CCT API (critical for CCT registrations)
+            // Ensure class is loaded (fallback if autoloader not regenerated)
+            if (!class_exists('\UpstateInternational\LGL\JetEngine\CctApi')) {
+                $cct_api_file = LGL_PLUGIN_DIR . 'src/JetEngine/CctApi.php';
+                if (file_exists($cct_api_file)) {
+                    require_once $cct_api_file;
+                }
+            }
+            \UpstateInternational\LGL\JetEngine\CctApi::init();
+            
             // Initialize SettingsHandler (needed both admin and frontend for ApiSettings injection)
             $settingsHandler = $this->container->get('admin.settings_handler');
             $settingsHandler->initialize();
@@ -210,6 +220,10 @@ class Plugin {
         // Legacy shortcode support
         $this->hookManager->addAction('template_redirect', [$this, 'handleLegacyShortcodes'], 10);
         
+        // Initialize JetEngine relationship deletion hook for family slot syncing
+        $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
+        $helper->hookJetEngineRelationshipDeletion();
+        
         // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: All hooks initialized successfully via HookManager');
     }
     
@@ -221,14 +235,31 @@ class Plugin {
             $actionRegistry = new ActionRegistry($this->container);
             
             // Register all JetFormBuilder actions (WordPress hooks are registered automatically)
-            $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\UserRegistrationAction::class);
-            $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\MembershipUpdateAction::class);
-            $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\MembershipRenewalAction::class);
-            $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\ClassRegistrationAction::class);
-            $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\EventRegistrationAction::class);
-            $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\FamilyMemberAction::class);
-            $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\UserEditAction::class);
-            $actionRegistry->register(\UpstateInternational\LGL\JetFormBuilder\Actions\MembershipDeactivationAction::class);
+            $actions = [
+                \UpstateInternational\LGL\JetFormBuilder\Actions\UserRegistrationAction::class, // @deprecated
+                \UpstateInternational\LGL\JetFormBuilder\Actions\MembershipUpdateAction::class, // @deprecated - use WooCommerce checkout
+                \UpstateInternational\LGL\JetFormBuilder\Actions\MembershipRenewalAction::class,
+                \UpstateInternational\LGL\JetFormBuilder\Actions\ClassRegistrationAction::class, // @deprecated - CourseStorm handles new registrations
+                \UpstateInternational\LGL\JetFormBuilder\Actions\EventRegistrationAction::class,
+                \UpstateInternational\LGL\JetFormBuilder\Actions\FamilyMemberAction::class,
+                \UpstateInternational\LGL\JetFormBuilder\Actions\FamilyMemberDeactivationAction::class,
+                \UpstateInternational\LGL\JetFormBuilder\Actions\UserEditAction::class,
+                \UpstateInternational\LGL\JetFormBuilder\Actions\MembershipDeactivationAction::class,
+            ];
+            
+            foreach ($actions as $actionClass) {
+                // Force autoloader to check for class
+                if (!class_exists($actionClass, true)) {
+                    \UpstateInternational\LGL\LGL\Helper::getInstance()->debug("LGL Plugin: Action class '{$actionClass}' not found, skipping registration");
+                    continue;
+                }
+                
+                try {
+                    $actionRegistry->register($actionClass);
+                } catch (\Exception $e) {
+                    \UpstateInternational\LGL\LGL\Helper::getInstance()->debug("LGL Plugin: Error registering action '{$actionClass}': " . $e->getMessage());
+                }
+            }
             
             // Actions are automatically registered with WordPress when calling register()
             // \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Plugin: JetFormBuilder actions initialized successfully - ' . count($actionRegistry->getRegisteredActions()) . ' actions registered');

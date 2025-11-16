@@ -49,6 +49,11 @@ class DashboardWidgets {
             [static::class, 'renderNonprofitWidget']
         );
         
+        wp_add_dashboard_widget(
+            'lgl_sync_orders_ccts_widget',
+            'Sync Orders to CCTs',
+            [static::class, 'renderSyncOrdersCctsWidget']
+        );
         
         // Only add subscription widget if WooCommerce Subscriptions is active
         if (class_exists('WC_Subscriptions')) {
@@ -299,6 +304,102 @@ class DashboardWidgets {
         echo '</form>';
     }
     
+    
+    /**
+     * Render sync orders to CCTs widget
+     */
+    public static function renderSyncOrdersCctsWidget() {
+        if (!class_exists('WooCommerce')) {
+            echo '<div class="error"><p>WooCommerce is required for this widget.</p></div>';
+            return;
+        }
+        
+        try {
+            static::handleSyncWidgetFormSubmission();
+            static::renderSyncWidgetForm();
+        } catch (\Exception $e) {
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Sync Widget Error: ' . $e->getMessage());
+            echo '<div class="error"><p>Error loading widget. Please try again later.</p></div>';
+        }
+    }
+    
+    /**
+     * Handle sync widget form submission
+     */
+    private static function handleSyncWidgetFormSubmission() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return;
+        }
+        
+        // Handle sync orders
+        if (isset($_POST['sync_orders']) && wp_verify_nonce($_POST['_wpnonce'], 'lgl_sync_ccts')) {
+            $date_from = sanitize_text_field($_POST['date_from'] ?? '2024-12-17');
+            $date_to = sanitize_text_field($_POST['date_to'] ?? date('Y-m-d'));
+            
+            $wpUsers = \UpstateInternational\LGL\LGL\WpUsers::getInstance();
+            $result = $wpUsers->syncOrdersToCcts($date_from, $date_to);
+            
+            echo '<div class="updated"><p><strong>' . esc_html($result) . '</strong></p></div>';
+        }
+        
+        // Handle reset sync
+        if (isset($_POST['reset_sync']) && wp_verify_nonce($_POST['_wpnonce'], 'lgl_sync_ccts')) {
+            $wpUsers = \UpstateInternational\LGL\LGL\WpUsers::getInstance();
+            $result = $wpUsers->resetCctSyncStatus();
+            
+            echo '<div class="updated"><p><strong>' . esc_html($result) . '</strong></p></div>';
+        }
+    }
+    
+    /**
+     * Render sync widget form
+     */
+    private static function renderSyncWidgetForm() {
+        $default_from = '2024-12-17';
+        $default_to = date('Y-m-d');
+        
+        echo '<style>
+            .lgl-sync-widget { font-family: Arial, sans-serif; }
+            .lgl-sync-form-row { display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; align-items: center; }
+            .lgl-sync-form-field { flex: 1; min-width: 150px; }
+            .lgl-sync-buttons { display: flex; gap: 10px; margin-top: 15px; }
+            .lgl-sync-info { background: #e8f4f8; border-left: 4px solid #00797A; padding: 12px; margin: 15px 0; border-radius: 4px; font-size: 13px; }
+        </style>';
+        
+        echo '<div class="lgl-sync-widget">';
+        echo '<div class="lgl-sync-info">';
+        echo '<p style="margin: 0 0 8px 0;"><strong>📋 What this does:</strong></p>';
+        echo '<ul style="margin: 0; padding-left: 20px;">';
+        echo '<li>Syncs completed orders to JetEngine CCTs</li>';
+        echo '<li>Creates event registration records for event orders</li>';
+        echo '<li>Creates class registration records for language class orders</li>';
+        echo '<li>Skips orders that have already been synced</li>';
+        echo '</ul>';
+        echo '</div>';
+        
+        echo '<form method="POST" action="">';
+        wp_nonce_field('lgl_sync_ccts', '_wpnonce');
+        
+        echo '<div class="lgl-sync-form-row">';
+        echo '<div class="lgl-sync-form-field">';
+        echo '<label for="date_from"><strong>From Date:</strong></label><br>';
+        echo '<input type="date" id="date_from" name="date_from" value="' . esc_attr($default_from) . '" style="width: 100%;">';
+        echo '</div>';
+        
+        echo '<div class="lgl-sync-form-field">';
+        echo '<label for="date_to"><strong>To Date:</strong></label><br>';
+        echo '<input type="date" id="date_to" name="date_to" value="' . esc_attr($default_to) . '" style="width: 100%;">';
+        echo '</div>';
+        echo '</div>';
+        
+        echo '<div class="lgl-sync-buttons">';
+        submit_button('Sync Orders', 'primary', 'sync_orders', false);
+        submit_button('Reset Sync Status', 'secondary', 'reset_sync', false);
+        echo '</div>';
+        
+        echo '</form>';
+        echo '</div>';
+    }
     
     /**
      * Render subscription renewal status widget

@@ -2,6 +2,10 @@
 /**
  * Class Registration Action
  * 
+ * @deprecated 2.0.0 This action is deprecated. CourseStorm now handles all new language class registrations externally.
+ *                   Legacy WooCommerce language class processing is maintained for backward compatibility only.
+ *                   Kept for backward compatibility with legacy JetFormBuilder forms and internal WooCommerce processing.
+ * 
  * Handles class registration through JetFormBuilder forms.
  * Registers users for language classes and processes payments in LGL CRM.
  * 
@@ -17,6 +21,9 @@ use UpstateInternational\LGL\LGL\Payments;
 
 /**
  * ClassRegistrationAction Class
+ * 
+ * @deprecated 2.0.0 CourseStorm handles new language class registrations externally.
+ *                   This class is kept for backward compatibility only.
  * 
  * Handles language class registration and payment processing
  */
@@ -68,10 +75,19 @@ class ClassRegistrationAction implements JetFormActionInterface {
      * @return void
      */
     public function handle(array $request, $action_handler): void {
+        try {
         // Validate request data
         if (!$this->validateRequest($request)) {
             $this->helper->debug('ClassRegistrationAction: Invalid request data', $request);
-            return;
+                $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
+                
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
         }
         
         $this->helper->debug('ClassRegistrationAction: Processing request', $request);
@@ -87,19 +103,58 @@ class ClassRegistrationAction implements JetFormActionInterface {
         
         if ($uid === 0 || empty($username)) {
             $this->helper->debug('No User ID or username in Request, ClassRegistrationAction');
-            return;
+                $error_message = 'User ID or username is missing. Please ensure you are logged in and try again.';
+                
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
         }
         
         // Get user email
         $user_data = get_userdata($uid);
         if (!$user_data) {
             $this->helper->debug('ClassRegistrationAction: User not found', $uid);
-            return;
+                $error_message = 'User account not found. Please try again or contact support.';
+                
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
         }
         $email = $user_data->data->user_email;
         
         // Process class registration
         $this->processClassRegistration($uid, $username, $email, $class_name, $order_id, $price, $date, $lgl_fund_id);
+            
+        } catch (\Exception $e) {
+            $this->helper->debug('ClassRegistrationAction: Error occurred', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            // Re-throw Action_Exception, convert others
+            if ($e instanceof \Jet_Form_Builder\Exceptions\Action_Exception || 
+                $e instanceof \JFB_Modules\Actions\V2\Action_Exception) {
+                throw $e;
+            }
+            
+            // Convert to Action_Exception if possible
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($e->getMessage());
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($e->getMessage());
+            } else {
+                throw $e;
+            }
+        }
     }
     
     /**
@@ -127,19 +182,35 @@ class ClassRegistrationAction implements JetFormActionInterface {
     ): void {
         // Retrieve current user LGL ID
         $user_lgl_id = get_user_meta($uid, 'lgl_id', true);
-        $existing_user = $this->connection->getLglData('SINGLE_CONSTITUENT', $user_lgl_id);
+        $existing_user = $this->connection->getConstituentData($user_lgl_id);
         
         if (!$existing_user) {
             $this->helper->debug('ClassRegistrationAction: No existing LGL user found for class registration', $username);
-            return;
+            $error_message = 'Unable to register for class. Your account was not found. Please contact support.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
         
-        $lgl_id = $existing_user->id;
+        $lgl_id = is_array($existing_user) ? ($existing_user['id'] ?? null) : ($existing_user->id ?? null);
         $this->helper->debug('LGL USER EXISTS: ', $lgl_id);
         
         if (!$lgl_id) {
             $this->helper->debug('Cannot find user with name, ClassRegistrationAction', $username);
-            return;
+            $error_message = 'Unable to register for class. User ID not found. Please contact support.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+            } else {
+                throw new \RuntimeException($error_message);
+            }
         }
         
         // Setup class payment (fund ID determined internally by payment method)
@@ -154,17 +225,18 @@ class ClassRegistrationAction implements JetFormActionInterface {
         
         $this->helper->debug('Class payment data: ', $payment_data);
         
-        if ($payment_data) {
-            // Add payment to LGL
-            $payment_id = $this->connection->addLglObject($lgl_id, $payment_data, 'gifts.json');
+        if ($payment_data && isset($payment_data['success']) && $payment_data['success']) {
+            // Payment already added by setupClassPayment() - just log the result
+            $payment_id = $payment_data['id'] ?? null;
             
             if ($payment_id) {
                 $this->helper->debug('Class Payment ID: ', $payment_id);
             } else {
-                $this->helper->debug('ClassRegistrationAction: Failed to create payment');
+                $this->helper->debug('ClassRegistrationAction: Payment created but no ID returned', $payment_data);
             }
         } else {
-            $this->helper->debug('ClassRegistrationAction: Failed to setup payment data');
+            $error = $payment_data['error'] ?? 'Unknown error';
+            $this->helper->debug('ClassRegistrationAction: Failed to create payment', $error);
         }
     }
     

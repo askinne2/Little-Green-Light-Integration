@@ -21,8 +21,16 @@ use UpstateInternational\LGL\LGL\Helper;
  * Email Blocker Class
  * 
  * Manages email blocking based on environment detection and user settings
+ * Supports tiered blocking levels: all, woocommerce_allowed, cron_only
  */
 class EmailBlocker {
+    
+    /**
+     * Blocking levels
+     */
+    const LEVEL_BLOCK_ALL = 'all';
+    const LEVEL_WOOCOMMERCE_ALLOWED = 'woocommerce_allowed';
+    const LEVEL_CRON_ONLY = 'cron_only';
     
     /**
      * Development domains and indicators
@@ -75,15 +83,41 @@ class EmailBlocker {
      * Initialize email blocker
      */
     public function init(): void {
-        if ($this->isBlockingEnabled()) {
+        $blockingLevel = $this->getBlockingLevel();
+        
+        // Only initialize if blocking is enabled (not 'none' or empty)
+        if ($blockingLevel && $blockingLevel !== 'none') {
             add_filter('wp_mail', [$this, 'blockEmails'], 999);
             add_action('admin_notices', [$this, 'showEmailBlockingNotice']);
             
             $mode = $this->isForceBlocking() ? 'MANUAL OVERRIDE ENABLED' : 'Development environment detected';
-            $this->helper->debug('LGL Email Blocker: ACTIVE - ' . $mode);
+            $this->helper->debug('LGL Email Blocker: ACTIVE - ' . $mode . ' (Level: ' . $blockingLevel . ')');
         } else {
-            $this->helper->debug('LGL Email Blocker: INACTIVE - Manual override disabled and environment not flagged');
+            $this->helper->debug('LGL Email Blocker: INACTIVE - Blocking disabled');
         }
+    }
+    
+    /**
+     * Get current blocking level
+     * 
+     * @return string Blocking level
+     */
+    public function getBlockingLevel(): string {
+        // Check if blocking is explicitly disabled
+        if (!$this->isBlockingEnabled()) {
+            return 'none';
+        }
+        
+        // Get blocking level from settings, default to 'all' for backward compatibility
+        $level = $this->settingsManager->get('email_blocking_level', self::LEVEL_BLOCK_ALL);
+        
+        // Validate level
+        $validLevels = [self::LEVEL_BLOCK_ALL, self::LEVEL_WOOCOMMERCE_ALLOWED, self::LEVEL_CRON_ONLY];
+        if (!in_array($level, $validLevels, true)) {
+            return self::LEVEL_BLOCK_ALL;
+        }
+        
+        return $level;
     }
     
     /**
@@ -173,17 +207,44 @@ class EmailBlocker {
             $this->helper->debug(sprintf(
                 'LGL Email Blocker: ALLOWED (whitelisted) - To: %s | Subject: %s',
                 $to,
-                $subject,
-                $message
+                $subject
+            ));
+            return $args; // Allow email to send
+        }
+        
+        // Get blocking level and determine if this email should be blocked
+        $blockingLevel = $this->getBlockingLevel();
+        $emailType = $this->identifyEmailType($args);
+        $shouldBlock = $this->shouldBlockEmail($args, $blockingLevel);
+        
+        // Debug: Log detection details
+        $this->helper->debug(sprintf(
+            'LGL Email Blocker: Evaluation - To: %s | Subject: %s | Detected Type: %s | Level: %s | Should Block: %s',
+            $to,
+            $subject,
+            $emailType,
+            $blockingLevel,
+            $shouldBlock ? 'YES' : 'NO'
+        ));
+        
+        if (!$shouldBlock) {
+            $this->helper->debug(sprintf(
+                'LGL Email Blocker: ALLOWED (level: %s, type: %s) - To: %s | Subject: %s',
+                $blockingLevel,
+                $emailType,
+                $to,
+                $subject
             ));
             return $args; // Allow email to send
         }
         
         // Log the blocked email attempt
         $this->helper->debug(sprintf(
-            'LGL Email Blocker: BLOCKED email - To: %s | Subject: %s | Environment: %s | Mode: %s',
+            'LGL Email Blocker: BLOCKED email - To: %s | Subject: %s | Type: %s | Level: %s | Environment: %s | Mode: %s',
             $to,
             $subject,
+            $emailType,
+            $blockingLevel,
             $this->getEnvironmentInfo(),
             $this->isForceBlocking() ? 'manual_override' : 'environment'
         ));
@@ -194,9 +255,237 @@ class EmailBlocker {
             'subject' => $args['subject'] ?? 'No Subject',
             'message_preview' => substr(strip_tags($args['message'] ?? ''), 0, 200),
             'headers' => $args['headers'] ?? [],
+            'email_type' => $emailType,
+            'blocking_level' => $blockingLevel,
         ]);
         
         // Return false to prevent email sending
+        return false;
+    }
+    
+    /**
+     * Determine if an email should be blocked based on blocking level
+     * 
+     * @param array $args Email arguments
+     * @param string $blockingLevel Current blocking level
+     * @return bool True if email should be blocked
+     */
+    private function shouldBlockEmail(array $args, string $blockingLevel): bool {
+        // CRITICAL: Always block cron emails regardless of blocking level
+        // (User requirement: "I never want to send is any WP Cron related emails")
+        if ($this->isCronEmail($args)) {
+            return true;
+        }
+        
+        switch ($blockingLevel) {
+            case self::LEVEL_BLOCK_ALL:
+                // Block everything (cron already handled above)
+                return true;
+                
+            case self::LEVEL_WOOCOMMERCE_ALLOWED:
+                // Allow WooCommerce emails, block everything else (cron already handled above)
+                return !$this->isWooCommerceEmail($args);
+                
+            case self::LEVEL_CRON_ONLY:
+                // Only block cron-related emails (already handled above, so this shouldn't be reached)
+                // But keep for completeness - if we get here, it's not a cron email, so allow it
+                return false;
+                
+            default:
+                // Default to blocking all for safety
+                return true;
+        }
+    }
+    
+    /**
+     * Identify the type of email
+     * 
+     * @param array $args Email arguments
+     * @return string Email type identifier
+     */
+    private function identifyEmailType(array $args): string {
+        if ($this->isCronEmail($args)) {
+            return 'cron';
+        }
+        
+        if ($this->isWooCommerceEmail($args)) {
+            return 'woocommerce';
+        }
+        
+        return 'other';
+    }
+    
+    /**
+     * Check if email is from WP Cron
+     * 
+     * @param array $args Email arguments
+     * @return bool True if email is from cron
+     */
+    private function isCronEmail(array $args): bool {
+        // Check if we're in a cron context
+        if (function_exists('wp_doing_cron') && wp_doing_cron()) {
+            return true;
+        }
+        
+        if (defined('DOING_CRON') && DOING_CRON) {
+            return true;
+        }
+        
+        // Check backtrace for cron-related hooks
+        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 20);
+        foreach ($backtrace as $frame) {
+            // Check for cron hook names
+            if (isset($frame['function'])) {
+                $function = $frame['function'];
+                // Common cron hook patterns
+                if (strpos($function, 'cron') !== false || 
+                    strpos($function, 'schedule') !== false ||
+                    strpos($function, 'wp_schedule') !== false) {
+                    return true;
+                }
+            }
+            
+            // Check for scheduled hook names in action/hook context
+            if (isset($frame['args'][0]) && is_string($frame['args'][0])) {
+                $hook = $frame['args'][0];
+                // Check for known cron hooks
+                $cronHooks = [
+                    'lgl_send_daily_order_summary',
+                    'woocommerce_scheduled_subscription_payment',
+                    'woocommerce_scheduled_subscription_trial_end',
+                    'woocommerce_scheduled_subscription_end_of_prepaid_term',
+                    'woocommerce_scheduled_subscription_expiration',
+                    'woocommerce_scheduled_subscription_payment_retry',
+                ];
+                
+                foreach ($cronHooks as $cronHook) {
+                    if (strpos($hook, $cronHook) !== false) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        // Check subject/content for cron-related indicators
+        $subject = strtolower($args['subject'] ?? '');
+        $message = strtolower($args['message'] ?? '');
+        
+        $cronIndicators = [
+            'daily order summary',
+            'scheduled',
+            'automated',
+            'cron',
+            'wp-cron',
+        ];
+        
+        foreach ($cronIndicators as $indicator) {
+            if (strpos($subject, $indicator) !== false || strpos($message, $indicator) !== false) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if email is from WooCommerce
+     * 
+     * @param array $args Email arguments
+     * @return bool True if email is from WooCommerce
+     */
+    private function isWooCommerceEmail(array $args): bool {
+        // WooCommerce must be active
+        if (!class_exists('WooCommerce') || !function_exists('WC')) {
+            return false;
+        }
+        
+        // Check headers first (most reliable indicator)
+        $headers = $args['headers'] ?? [];
+        if (is_array($headers)) {
+            foreach ($headers as $header) {
+                if (is_string($header)) {
+                    $headerLower = strtolower($header);
+                    // Check for WooCommerce-specific headers
+                    if (strpos($headerLower, 'x-wc-email') !== false ||
+                        strpos($headerLower, 'woocommerce') !== false ||
+                        strpos($headerLower, 'wc-') !== false ||
+                        preg_match('/x-wc-[a-z-]+:/i', $header)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        // Check backtrace for WooCommerce email classes
+        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 20);
+        foreach ($backtrace as $frame) {
+            // Check for WooCommerce email classes
+            if (isset($frame['class'])) {
+                $class = $frame['class'];
+                if (strpos($class, 'WC_Email') !== false || 
+                    strpos($class, 'WooCommerce') !== false) {
+                    return true;
+                }
+            }
+            
+            // Check for WooCommerce email hooks
+            if (isset($frame['function'])) {
+                $function = $frame['function'];
+                if (strpos($function, 'woocommerce_email') !== false ||
+                    strpos($function, 'wc_email') !== false) {
+                    return true;
+                }
+            }
+        }
+        
+        // Check subject for WooCommerce order patterns (but exclude cron emails)
+        $subject = strtolower($args['subject'] ?? '');
+        
+        // First check if it's a cron email - if so, don't treat as WooCommerce
+        if ($this->isCronEmail($args)) {
+            return false;
+        }
+        
+        // WooCommerce-specific subject patterns
+        $wooPatterns = [
+            'your order',
+            'order confirmation',
+            'order #',
+            'invoice for order',
+            'receipt for order',
+            'subscription renewal',
+            'subscription payment',
+            'membership confirmation',
+            'membership renewal',
+        ];
+        
+        foreach ($wooPatterns as $pattern) {
+            if (strpos($subject, $pattern) !== false) {
+                return true;
+            }
+        }
+        
+        // More general patterns (but only if not cron)
+        $generalPatterns = [
+            'order',
+            'invoice',
+            'receipt',
+            'subscription',
+            'membership',
+        ];
+        
+        foreach ($generalPatterns as $pattern) {
+            if (strpos($subject, $pattern) !== false) {
+                // Additional context checks
+                $message = strtolower($args['message'] ?? '');
+                if (strpos($message, 'woocommerce') !== false ||
+                    strpos($message, 'order number') !== false ||
+                    strpos($message, 'order total') !== false) {
+                    return true;
+                }
+            }
+        }
+        
         return false;
     }
     
@@ -256,13 +545,22 @@ class EmailBlocker {
         $blocked_count = $this->operationalData->getBlockedEmailsCount();
         $this->helper->debug('EmailBlocker: Blocked count = ' . $blocked_count);
         
+        $blockingLevel = $this->getBlockingLevel();
+        $levelDescriptions = [
+            self::LEVEL_BLOCK_ALL => 'All emails',
+            self::LEVEL_WOOCOMMERCE_ALLOWED => 'Non-WooCommerce emails',
+            self::LEVEL_CRON_ONLY => 'WP Cron emails only',
+        ];
+        
+        $levelDescription = $levelDescriptions[$blockingLevel] ?? 'Emails';
+        
         // Make notice persistent (not dismissible) since this is a critical warning
         // Add unique ID and inline styles to prevent dismissal
         ?>
         <div id="lgl-email-blocker-notice" class="notice notice-warning" style="border-left-color: #d63638; border-left-width: 4px; display: block !important; visibility: visible !important; opacity: 1 !important;">
             <p><strong>🚫 LGL Email Blocker Active</strong></p>
             <p>
-                All outgoing emails are being blocked. 
+                Blocking: <strong><?php echo esc_html($levelDescription); ?></strong>
                 (<?php echo $blocked_count; ?> blocked since activation) 
                 <?php if ($this->isForceBlocking()): ?>
                     <span style="color:#d63638;"><strong>Manual override is enabled.</strong></span> 
@@ -341,6 +639,7 @@ class EmailBlocker {
             'total_blocked' => $this->operationalData->getBlockedEmailsCount(),
             'is_blocking' => $this->isBlockingEnabled(),
             'is_forced' => $this->isForceBlocking(),
+            'blocking_level' => $this->getBlockingLevel(),
             'environment' => $this->getEnvironmentInfo(),
             'recent_blocks' => array_slice(array_reverse($this->operationalData->getBlockedEmails()), 0, 5)
         ];
@@ -357,6 +656,7 @@ class EmailBlocker {
             'is_temporarily_disabled' => $this->operationalData->isEmailBlockingPaused(),
             'is_actively_blocking' => $this->isBlockingEnabled() && !$this->operationalData->isEmailBlockingPaused(),
             'is_force_blocking' => $this->isForceBlocking(),
+            'blocking_level' => $this->getBlockingLevel(),
             'environment_info' => $this->getEnvironmentInfo()
         ];
     }

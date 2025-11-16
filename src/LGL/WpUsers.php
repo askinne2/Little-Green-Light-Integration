@@ -71,10 +71,45 @@ class WpUsers {
         // Register cron jobs
         $this->registerCronJobs();
         
+        // Register shortcodes
+        $this->registerShortcodes();
+        
         // Register dashboard widgets
         // add_action('wp_dashboard_setup', [$this, 'registerSyncDashboardWidget']);
         
         // Helper::getInstance()->debug('LGL WP Users: Initialized successfully');
+    }
+    
+    /**
+     * Register shortcodes
+     * 
+     * @return void
+     */
+    private function registerShortcodes(): void {
+        add_shortcode('lgl_check_memberships', [$this, 'handleCheckMembershipsShortcode']);
+    }
+    
+    /**
+     * Handle [lgl_check_memberships] shortcode
+     * 
+     * Legacy shortcode for checking and deleting inactive members.
+     * 
+     * @param array $atts Shortcode attributes
+     * @return string Output (empty for this shortcode)
+     */
+    public function handleCheckMembershipsShortcode(array $atts = []): string {
+        // This shortcode triggers user deletion check
+        // It's kept for backward compatibility but functionality is handled via cron
+        Helper::getInstance()->debug('lgl_check_memberships shortcode called');
+        
+        // Optionally trigger manual check if requested
+        if (isset($atts['trigger']) && $atts['trigger'] === 'true') {
+            if (current_user_can('manage_options')) {
+                $this->runMonthlyUserCleanup();
+            }
+        }
+        
+        return ''; // No output for this shortcode
     }
     
     /**
@@ -103,6 +138,101 @@ class WpUsers {
         // Register cron actions
         add_action(static::MONTHLY_UPDATE_HOOK, [$this, 'runMonthlyUpdate']);
         add_action(static::USER_DELETION_HOOK, [$this, 'userDeletion']);
+        
+        // Register legacy monthly cleanup hook (matches legacy LGL_API::UI_DELETE_MEMBERS)
+        add_action('ui_members_monthly_hook', [$this, 'runMonthlyUserCleanup']);
+    }
+    
+    /**
+     * Run monthly user cleanup (legacy compatibility)
+     * 
+     * Matches legacy LGL_WP_Users::run_monthly_update() behavior.
+     * Runs on the 4th day of even-numbered months.
+     * 
+     * @return void
+     */
+    public function runMonthlyUserCleanup(): void {
+        // Check if it's the 4th day of an even-numbered month (matches legacy logic)
+        if (date('j') === '4' && date('n') % 2 === 0) {
+            Helper::getInstance()->debug('-----RUNNING INACTIVE USER MONTHLY UPDATE ------');
+            
+            // Check if deletion is enabled (matches legacy DELETE_MEMBERS constant)
+            $delete_members = defined('DELETE_MEMBERS') ? DELETE_MEMBERS : false;
+            
+            if ($delete_members) {
+                $this->deleteInactiveUsers();
+            } else {
+                Helper::getInstance()->debug('User deletion is disabled (DELETE_MEMBERS = false)');
+            }
+        }
+    }
+    
+    /**
+     * Delete inactive users (matches legacy user_deletion behavior)
+     * 
+     * @return void
+     */
+    private function deleteInactiveUsers(): void {
+        require_once(ABSPATH . 'wp-admin/includes/user.php');
+        
+        $blogusers = get_users([
+            'role__in' => ['ui_inactive_member']
+        ]);
+        
+        if (!$blogusers) {
+            Helper::getInstance()->debug('no inactive users found');
+            return;
+        }
+        
+        foreach ($blogusers as $user) {
+            $user_id = $user->ID;
+            
+            // Handle family member deletion first
+            $this->handleFamilyMemberDeletion($user_id);
+            
+            // Get user posts
+            $user_posts = get_posts([
+                'author' => $user_id,
+                'posts_per_page' => -1
+            ]);
+            
+            Helper::getInstance()->debug('Deleting User: ' . $user_id);
+            
+            // Delete each post
+            foreach ($user_posts as $post) {
+                wp_delete_post($post->ID, true); // Bypass trash
+            }
+            
+            // Delete the user
+            wp_delete_user($user_id);
+        }
+    }
+    
+    /**
+     * Handle family member deletion (matches legacy family_member_deletion behavior)
+     * 
+     * @param int $user_id WordPress user ID
+     * @return void
+     */
+    private function handleFamilyMemberDeletion(int $user_id): void {
+        // Get user role
+        $user = get_userdata($user_id);
+        if (!$user) {
+            return;
+        }
+        
+        $current_role = $user->roles[0] ?? '';
+        Helper::getInstance()->debug('Current User: ' . $user_id . ' Current Role: ' . $current_role);
+        
+        // If the user is 'ui_patron_owner', handle child deactivation
+        if ($current_role === 'ui_patron_owner') {
+            // Get child relations (this would need RelationsManager)
+            // For now, just log that we're handling it
+            Helper::getInstance()->debug('Handling child relations for patron owner: ' . $user_id);
+            
+            // TODO: Implement child relation handling via RelationsManager
+            // This would deactivate child users before deleting the parent
+        }
     }
     
     /**
@@ -318,23 +448,79 @@ class WpUsers {
                 $parent_id = $attendee['parent_id'] ?? 0;
                 $variation_name = $attendee['variation_name'] ?? '';
                 
-                // JetEngine CCT data (without _ID means create new)
+                // Get product/order item object
+                $product_item = $attendee['product'] ?? null;
+                $product_obj = null;
+                
+                // Check if it's an order item (WC_Order_Item_Product) or product (WC_Product)
+                if ($product_item) {
+                    // Check if it's an order item by checking for order item methods
+                    if (method_exists($product_item, 'get_total')) {
+                        // It's a WC_Order_Item_Product - get the actual product object
+                        $item_product_id = $product_item->get_variation_id() ?: $product_item->get_product_id();
+                        $product_obj = \wc_get_product($item_product_id);
+                    } else {
+                        // It's already a WC_Product
+                        $product_obj = $product_item;
+                    }
+                } elseif ($product_id) {
+                    // No product object provided, get it from product_id
+                    $product_obj = \wc_get_product($product_id);
+                }
+                
+                // Get event name from product
+                $event_name = '';
+                if ($product_obj) {
+                    $event_name = $product_obj->get_name();
+                } elseif ($product_item && method_exists($product_item, 'get_name')) {
+                    // Fallback to order item name
+                    $event_name = $product_item->get_name();
+                }
+                
+                // Get event datetime from parent product meta
+                $event_datetime = '';
+                if ($parent_id) {
+                    $event_datetime = \get_post_meta($parent_id, '_ui_event_start_datetime', true);
+                    // Convert timestamp to datetime-local format if needed
+                    if (!empty($event_datetime) && is_numeric($event_datetime)) {
+                        $event_datetime = date('Y-m-d\TH:i', $event_datetime);
+                    }
+                }
+                
+                // Get event price from order item, variation, or product
+                $event_price = '';
+                if ($product_item && method_exists($product_item, 'get_total')) {
+                    // It's an order item - use get_total() for the line item total
+                    $event_price = $product_item->get_total();
+                } elseif ($product_id && function_exists('get_variation_price')) {
+                    // Use helper function for variation price
+                    $event_price = \get_variation_price($product_id);
+                } elseif ($product_obj) {
+                    // Use product object price
+                    $event_price = $product_obj->get_price();
+                }
+                
+                // Get order date for created_at
+                $order_date = $order->get_date_created();
+                $created_at = $order_date ? $order_date->format('Y-m-d H:i:s') : current_time('mysql');
+                
+                // JetEngine CCT data mapped to correct field names
                 $registration_data = [
-                    'order_id' => $order->get_id(),
-                    'attendee_name' => $attendee_name,
-                    'attendee_email' => $attendee_email,
-                    'attendee_phone' => $attendee_phone,
-                    'event_product_id' => $product_id,
-                    'event_parent_id' => $parent_id,
-                    'event_name' => $variation_name,
-                    'registration_date' => current_time('mysql'),
-                    'registration_status' => 'confirmed'
+                    'user_id' => $order->get_customer_id(),
+                    'user_name' => $attendee_name,
+                    'user_email' => $attendee_email,
+                    'user_phone' => $order->get_billing_phone() ?: $attendee_phone,
+                    'event_name' => $event_name,
+                    'event_option' => $variation_name,
+                    'event_datetime' => $event_datetime,
+                    'event_price' => $event_price,
+                    'event_associated_order' => $order->get_id(),
                 ];
                 
                 \lgl_log('WpUsers: Creating event registration CCT via JetEngine API', [
                     'cct_slug' => '_ui_event_registrations',
-                    'attendee_name' => $attendee_name,
-                    'attendee_email' => $attendee_email,
+                    'user_name' => $attendee_name,
+                    'user_email' => $attendee_email,
                     'product_id' => $product_id,
                     'order_id' => $order->get_id()
                 ]);
@@ -469,6 +655,220 @@ class WpUsers {
     }
     
     /**
+     * Sync orders to CCTs (Event and Class Registrations)
+     * 
+     * Syncs completed WooCommerce orders to JetEngine CCTs for events and language classes.
+     * Skips orders that have already been synced.
+     * 
+     * @param string|null $date_from Start date (Y-m-d format) or null for default
+     * @param string|null $date_to End date (Y-m-d format) or null for current date
+     * @return string Sync result message
+     */
+    public function syncOrdersToCcts(?string $date_from = null, ?string $date_to = null): string {
+        if (!function_exists('wc_get_orders')) {
+            return 'WooCommerce is required for order syncing.';
+        }
+        
+        // Set default date range if not provided
+        $date_from = $date_from ?: '2024-12-17'; // Last known sync date
+        $date_to = $date_to ?: date('Y-m-d'); // Current date
+        
+        // Query WooCommerce orders
+        $args = [
+            'status' => 'completed', // Only completed orders
+            'date_created' => $date_from . '...' . $date_to,
+            'limit' => -1 // Retrieve all orders in the range
+        ];
+        
+        $orders = \wc_get_orders($args);
+        
+        if (empty($orders)) {
+            return 'No orders found to sync.';
+        }
+        
+        $event_orders_synced = [];
+        $language_orders_synced = [];
+        $skipped_orders = [];
+        
+        foreach ($orders as $order) {
+            // Skip refunds
+            if (is_a($order, 'WC_Order_Refund')) {
+                Helper::getInstance()->debug('Skipping refund order: ' . $order->get_id());
+                continue;
+            }
+            
+            $order_id = $order->get_id();
+            
+            // Check if a CCT for this order_id already exists
+            if (function_exists('jet_cct_api_query')) {
+                $existing_event_ccts = \jet_cct_api_query('_ui_event_registrations', [
+                    [
+                        'field' => 'event_associated_order',
+                        'operator' => '=',
+                        'value' => $order_id,
+                    ],
+                ]);
+                
+                if (!empty($existing_event_ccts)) {
+                    Helper::getInstance()->debug('CCT already exists for Order ID: ' . $order_id);
+                    $skipped_orders[] = $order_id;
+                    continue; // Skip this order
+                }
+            }
+            
+            // Check if order has already been synced (additional layer of safety)
+            if ($order->get_meta('_cct_synced')) {
+                Helper::getInstance()->debug('Order already synced: ' . $order_id);
+                $skipped_orders[] = $order_id;
+                continue; // Skip already-synced orders
+            }
+            
+            $attendees = [];
+            $attendee_index = 0;
+            $has_events = false;
+            $has_classes = false;
+            
+            $uid = $order->get_customer_id();
+            $order_meta = [
+                'languages' => $order->get_meta('_order_languages_spoken'),
+                'country' => $order->get_meta('_order_country_of_origin'),
+                'referral' => $order->get_meta('_order_referral_source'),
+                'reason' => $order->get_meta('_order_reason_for_membership'),
+                'about' => $order->get_meta('_order_tell_us_about_yourself'),
+            ];
+            
+            // Iterate through each product in the order
+            foreach ($order->get_items() as $product_item) {
+                $product_name = $product_item->get_name();
+                $quantity = $product_item->get_quantity();
+                $product_id = $product_item->get_variation_id() ?: $product_item->get_product_id();
+                $parent_id = $product_item->get_variation_id() ? $product_item->get_product_id() : $product_id;
+                
+                Helper::getInstance()->debug('Sync: Processing product', [
+                    'product_name' => $product_name,
+                    'quantity' => $quantity,
+                    'product_id' => $product_id,
+                    'parent_id' => $parent_id
+                ]);
+                
+                if (has_term('language-class', 'product_cat', $parent_id)) {
+                    // Sync Language Class Registration
+                    $has_classes = true;
+                    $cct_result = $this->createClassRegistrationCct($order, $product_id, $order_meta);
+                    
+                    if ($cct_result['success']) {
+                        $language_orders_synced[] = $order_id;
+                        Helper::getInstance()->debug('Sync: Class CCT created', [
+                            'order_id' => $order_id,
+                            'item_id' => $cct_result['item_id'] ?? 'N/A'
+                        ]);
+                    }
+                    
+                } elseif (has_term('events', 'product_cat', $parent_id)) {
+                    // Sync Event Registration
+                    $has_events = true;
+                    
+                    // Collect attendees for this event
+                    for ($j = 0; $j < $quantity; $j++) {
+                        $suffix = $attendee_index === 0 ? '' : '_' . $attendee_index;
+                        $attendee_name = $order->get_meta('attendee_name' . $suffix);
+                        $attendee_email = $order->get_meta('attendee_email' . $suffix);
+                        
+                        if (empty($attendee_name) || empty($attendee_email)) {
+                            // Use order billing info if attendee info not found
+                            $attendee_name = $order->get_billing_first_name() . ' ' . $order->get_billing_last_name();
+                            $attendee_email = $order->get_billing_email();
+                        }
+                        
+                        if (!empty($attendee_name) && !empty($attendee_email)) {
+                            $attendee = [
+                                'attendee_name' => $attendee_name,
+                                'attendee_email' => $attendee_email,
+                                'attendee_phone' => $order->get_billing_phone(),
+                                'product' => $product_item,
+                                'product_id' => $product_id,
+                                'parent_id' => $parent_id,
+                                'variation_name' => function_exists('get_variation_name') ? get_variation_name($product_id) : '',
+                            ];
+                            $attendees[] = $attendee;
+                            $attendee_index++;
+                        }
+                    }
+                }
+            }
+            
+            // Create event registration CCTs if we have attendees
+            if ($has_events && !empty($attendees)) {
+                $cct_result = $this->createEventRegistrationCct($order, $attendees);
+                
+                if ($cct_result['success']) {
+                    $event_orders_synced[] = $order_id;
+                    Helper::getInstance()->debug('Sync: Event CCTs created', [
+                        'order_id' => $order_id,
+                        'created_count' => $cct_result['created_count'] ?? 0
+                    ]);
+                }
+            }
+            
+            // Mark the order as synced if we processed events or classes
+            if ($has_events || $has_classes) {
+                $order->update_meta_data('_cct_synced', true);
+                $order->save();
+            }
+        }
+        
+        // Build result message
+        $output = [];
+        if (!empty($event_orders_synced)) {
+            $output[] = count($event_orders_synced) . ' event order(s) synced successfully';
+        }
+        if (!empty($language_orders_synced)) {
+            $output[] = count($language_orders_synced) . ' language class order(s) synced successfully';
+        }
+        if (!empty($skipped_orders)) {
+            $output[] = count($skipped_orders) . ' order(s) skipped (already synced)';
+        }
+        if (empty($output)) {
+            $output[] = 'No orders needed syncing in the selected date range';
+        }
+        
+        return implode('. ', $output) . '.';
+    }
+    
+    /**
+     * Reset CCT sync status for all orders
+     * 
+     * Removes the _cct_synced meta flag from all orders, allowing them to be re-synced.
+     * 
+     * @return string Result message
+     */
+    public function resetCctSyncStatus(): string {
+        if (!function_exists('wc_get_orders')) {
+            return 'WooCommerce is required.';
+        }
+        
+        $args = [
+            'limit' => -1, // Retrieve all orders
+        ];
+        
+        $orders = \wc_get_orders($args);
+        
+        if (empty($orders)) {
+            return 'No orders found to reset.';
+        }
+        
+        $reset_count = 0;
+        foreach ($orders as $order) {
+            // Reset the '_cct_synced' meta field
+            $order->update_meta_data('_cct_synced', false);
+            $order->save();
+            $reset_count++;
+        }
+        
+        return $reset_count . ' order(s) reset successfully. They can now be re-synced.';
+    }
+    
+    /**
      * Register sync dashboard widget
      */
     public function registerSyncDashboardWidget(): void {
@@ -533,46 +933,30 @@ class WpUsers {
     /**
      * Update user meta from order
      * 
+     * Matches legacy LGL_WP_Users::update_user_data() behavior exactly.
+     * 
      * @param int $user_id WordPress user ID
      * @param \WC_Order $order WooCommerce order
      * @param array $order_meta Order metadata
      */
     private function updateUserMetaFromOrder(int $user_id, \WC_Order $order, array $order_meta): void {
-        // Update basic user info
-        $user_updates = [
-            'user_email' => $order->get_billing_email(),
-            'first_name' => $order->get_billing_first_name(),
-            'last_name' => $order->get_billing_last_name()
-        ];
+        Helper::getInstance()->debug('UPDATING USER META FOR: ', $user_id);
         
-        wp_update_user(array_merge(['ID' => $user_id], $user_updates));
+        // Update billing/contact info from order (matches legacy exactly)
+        update_user_meta($user_id, 'user-phone', $order->get_billing_phone());
+        update_user_meta($user_id, 'user-company', $order->get_billing_company());
+        update_user_meta($user_id, 'user-address-1', $order->get_billing_address_1());
+        update_user_meta($user_id, 'user-address-2', $order->get_billing_address_2());
+        update_user_meta($user_id, 'user-city', $order->get_billing_city());
+        update_user_meta($user_id, 'user-state', $order->get_billing_state());
+        update_user_meta($user_id, 'user-postal-code', $order->get_billing_postcode());
         
-        // Update user meta
-        $meta_mappings = [
-            'user_phone' => $order->get_billing_phone(),
-            'user_company' => $order->get_billing_company(),
-            'user-address-1' => $order->get_billing_address_1(),
-            'user-address-2' => $order->get_billing_address_2(),
-            'user-city' => $order->get_billing_city(),
-            'user-state' => $order->get_billing_state(),
-            'user-postal-code' => $order->get_billing_postcode(),
-            'user-country-of-origin' => $order->get_billing_country(),
-            'last_order_id' => $order->get_id(),
-            'last_order_date' => $order->get_date_created()->date('Y-m-d H:i:s')
-        ];
-        
-        foreach ($meta_mappings as $meta_key => $value) {
-            if (!empty($value)) {
-                update_user_meta($user_id, $meta_key, $value);
-            }
-        }
-        
-        // Update from additional order meta
-        foreach ($order_meta as $key => $value) {
-            if (strpos($key, 'user-') === 0 && !empty($value)) {
-                update_user_meta($user_id, $key, $value);
-            }
-        }
+        // Update order-specific meta fields (matches legacy exactly)
+        update_user_meta($user_id, 'user-languages', isset($order_meta['languages']) ? $order_meta['languages'] : '');
+        update_user_meta($user_id, 'user-country-of-origin', isset($order_meta['country']) ? $order_meta['country'] : '');
+        update_user_meta($user_id, 'user-referral', isset($order_meta['referral']) ? $order_meta['referral'] : '');
+        update_user_meta($user_id, 'user-reason-for-membership', isset($order_meta['reason']) ? $order_meta['reason'] : '');
+        update_user_meta($user_id, 'about-me', isset($order_meta['about']) ? $order_meta['about'] : '');
     }
     
     /**

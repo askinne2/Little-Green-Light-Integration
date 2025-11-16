@@ -18,7 +18,7 @@ define('DELETE_MEMBERS', false);
 
 define('USERS_FILE_PATH', plugin_dir_path( __FILE__ ));
 require_once USERS_FILE_PATH . '../lgl-api.php';
-require_once USERS_FILE_PATH . '/jet-engine-cct-api.php'; // REMOVED: File deleted in Phase 1 cleanup, JetEngine integration now in src/JetFormBuilder/
+require_once USERS_FILE_PATH . '/jet-engine-cct-api.php'; // CRITICAL: Required for CCT registrations - migrated to src/JetEngine/CctApi.php but kept here for compatibility
 
 require_once WP_PLUGIN_DIR . '/jet-engine/jet-engine.php';
 require_once WP_PLUGIN_DIR . '/jet-engine/includes/components/relations/relation.php';
@@ -78,35 +78,147 @@ if (!class_exists("LGL_WP_Users")) {
         
         function ui_family_user_deactivation($request, $action_handler) {
             
-            $this->lgl->helper->debug('User Deactivation Request: ', $request);
-            if ( ! $request['parent_user_id'] || ! $request['child_users']) {
+            // CRITICAL: Debug at the very start to confirm function is being called
+            $this->lgl->helper->debug('🔴 ui_family_user_deactivation: FUNCTION CALLED', [
+                'request_keys' => array_keys($request),
+                'request_data' => $request,
+                'is_user_logged_in' => is_user_logged_in(),
+                'current_user_id' => get_current_user_id()
+            ]);
+            
+            // Validate required fields
+            if (empty($request['parent_user_id'])) {
+                $this->lgl->helper->debug('ui_family_user_deactivation: Missing parent_user_id');
                 return;
             }
-            // Check if the user is logged in
             
-            if (is_user_logged_in()) {
-                $user_id = $request['parent_user_id'];
-                $children_ids = $request['child_users'];
+            if (empty($request['child_users'])) {
+                $this->lgl->helper->debug('ui_family_user_deactivation: Missing child_users');
+                return;
+            }
+            
+            $user_id = (int) $request['parent_user_id'];
+            $children_ids = $request['child_users'];
+            
+            // Handle child_users if it's a JSON string (from JetFormBuilder)
+            if (is_string($children_ids)) {
+                $decoded = json_decode($children_ids, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $children_ids = $decoded;
+                } else {
+                    // If not JSON, try to parse as comma-separated or single value
+                    $children_ids = array_filter(array_map('trim', explode(',', $children_ids)));
+                }
+            }
+            
+            // Ensure it's an array
+            if (!is_array($children_ids)) {
+                $children_ids = [$children_ids];
+            }
+            
+            // Convert all to integers
+            $children_ids = array_map('intval', array_filter($children_ids));
+            
+            if (empty($children_ids)) {
+                $this->lgl->helper->debug('ui_family_user_deactivation: No valid child user IDs to remove');
+                return;
+            }
+            
+            $this->lgl->helper->debug('ui_family_user_deactivation: Processing removal', [
+                'parent_user_id' => $user_id,
+                'child_users' => $children_ids
+            ]);
+            
+            // Check if the user is logged in
+            if (!is_user_logged_in()) {
+                $this->lgl->helper->debug('ui_family_user_deactivation: User not logged in');
+                return;
+            }
+            
+            // Verify parent user exists and has correct role
+            $user = get_user_by('ID', $user_id);
+            if (!$user) {
+                $this->lgl->helper->debug('ui_family_user_deactivation: Parent user not found', ['user_id' => $user_id]);
+                return;
+            }
+            
+            $current_role = $user->roles;
+            $this->lgl->helper->debug('ui_family_user_deactivation: Current User Role', [
+                'user_id' => $user_id,
+                'roles' => $current_role
+            ]);
+            
+            // Check if the user has the correct role
+            if (!in_array('ui_patron_owner', $current_role)) {
+                $this->lgl->helper->debug('ui_family_user_deactivation: User does not have ui_patron_owner role');
+                return;
+            }
+            
+            // Initialize relation object
+            $this->relation = jet_engine()->relations->get_active_relations(24);
+            if (!$this->relation) {
+                $this->lgl->helper->debug('ui_family_user_deactivation: Could not get JetEngine relation 24');
+                return;
+            }
+            
+            // Get actual child relations to verify they exist
+            $actual_child_relations = $this->ui_get_child_relations($user_id);
+            $this->lgl->helper->debug('ui_family_user_deactivation: Actual child relations', [
+                'parent_id' => $user_id,
+                'actual_children' => $actual_child_relations,
+                'requested_children' => $children_ids
+            ]);
+            
+            // Remove only the selected children
+            $removed_count = 0;
+            foreach ($children_ids as $child_id) {
+                $child_id = (int) $child_id;
                 
-                $user = get_user_by('ID', $user_id);
-                $current_role = $user->roles;
-                $this->lgl->helper->debug('Current User: ' . $user_id . ' Current Role: ',  $current_role);
-                
-                // Check if the user has one of the roles to deactivate
-                
-                if (in_array('ui_patron_owner', $current_role)) {
-                    
-                    $child_relations = $this->ui_get_child_relations($user_id);
-                    $this->lgl->helper->debug('Child relations: ', $child_relations);
-                    
-                    foreach ($child_relations as $child_id) {
-                        $this->lgl->helper->debug('Removing Child: ' . $child_id);
-                        
-                        $this->ui_deactivate_user($child_id, true);
-                        $this->ui_remove_relation($this->relation, $user_id, $child_id);
-                    }
+                // Verify this child actually belongs to this parent
+                if (!in_array($child_id, $actual_child_relations)) {
+                    $this->lgl->helper->debug('ui_family_user_deactivation: Child does not belong to parent', [
+                        'child_id' => $child_id,
+                        'parent_id' => $user_id
+                    ]);
+                    continue;
                 }
                 
+                $this->lgl->helper->debug('ui_family_user_deactivation: Removing Child', [
+                    'child_id' => $child_id,
+                    'parent_id' => $user_id
+                ]);
+                
+                // Deactivate/delete the child user
+                $this->ui_deactivate_user($child_id, true);
+                
+                // Remove the relationship
+                $this->ui_remove_relation($this->relation, $user_id, $child_id);
+                // Note: ui_remove_relation() now handles slot syncing internally
+                
+                $removed_count++;
+            }
+            
+            $this->lgl->helper->debug('ui_family_user_deactivation: Removed children count', [
+                'removed_count' => $removed_count,
+                'requested_count' => count($children_ids)
+            ]);
+            
+            // Final sync after all removals (belt and suspenders)
+            if ($this->lgl && $this->lgl->helper) {
+                $this->lgl->helper->syncUsedFamilySlotsMeta($user_id);
+                
+                $total_purchased = (int) get_user_meta($user_id, 'user_total_family_slots_purchased', true);
+                $actual_used = $this->lgl->helper->getActualUsedFamilySlots($user_id);
+                $new_available = $total_purchased - $actual_used;
+                update_user_meta($user_id, 'user_available_family_slots', max(0, $new_available));
+                
+                $this->lgl->helper->debug('ui_family_user_deactivation: Final family slots sync after deactivation', [
+                    'parent_id' => $user_id,
+                    'total_purchased' => $total_purchased,
+                    'actual_used' => $actual_used,
+                    'new_available' => $new_available,
+                    'removed_count' => $removed_count
+                ]);
             }
         }
         
@@ -135,6 +247,24 @@ if (!class_exists("LGL_WP_Users")) {
                             
                             $this->ui_deactivate_user($child_id);
                             $this->ui_remove_relation($this->relation, $uid, $child_id);
+                            // Note: ui_remove_relation() now handles slot syncing internally
+                        }
+                        
+                        // Final sync after all removals
+                        if ($this->lgl && $this->lgl->helper) {
+                            $this->lgl->helper->syncUsedFamilySlotsMeta($uid);
+                            
+                            $total_purchased = (int) get_user_meta($uid, 'user_total_family_slots_purchased', true);
+                            $actual_used = $this->lgl->helper->getActualUsedFamilySlots($uid);
+                            $new_available = $total_purchased - $actual_used;
+                            update_user_meta($uid, 'user_available_family_slots', max(0, $new_available));
+                            
+                            $this->lgl->helper->debug('Final family slots sync after user deactivation', [
+                                'parent_id' => $uid,
+                                'total_purchased' => $total_purchased,
+                                'actual_used' => $actual_used,
+                                'new_available' => $new_available
+                            ]);
                         }
                     }
                     
@@ -163,6 +293,24 @@ if (!class_exists("LGL_WP_Users")) {
                             
                             $this->ui_deactivate_user($child_id);
                             $this->ui_remove_relation($this->relation, $uid, $child_id);
+                            // Note: ui_remove_relation() now handles slot syncing internally
+                        }
+                        
+                        // Final sync after all removals
+                        if ($this->lgl && $this->lgl->helper) {
+                            $this->lgl->helper->syncUsedFamilySlotsMeta($uid);
+                            
+                            $total_purchased = (int) get_user_meta($uid, 'user_total_family_slots_purchased', true);
+                            $actual_used = $this->lgl->helper->getActualUsedFamilySlots($uid);
+                            $new_available = $total_purchased - $actual_used;
+                            update_user_meta($uid, 'user_available_family_slots', max(0, $new_available));
+                            
+                            $this->lgl->helper->debug('Final family slots sync after cron deactivation', [
+                                'parent_id' => $uid,
+                                'total_purchased' => $total_purchased,
+                                'actual_used' => $actual_used,
+                                'new_available' => $new_available
+                            ]);
                         }
                     }
                     
@@ -264,6 +412,7 @@ if (!class_exists("LGL_WP_Users")) {
                     $this->lgl->helper->debug('Deleting Child: ' . $child_id);
                     
                     $this->ui_remove_relation($this->relation, $user_id, $child_id);
+                    // Note: ui_remove_relation() now handles slot syncing internally
                     
                     $user_posts = get_posts(array('author' => $child_id, 'posts_per_page' => -1));
                     
@@ -275,6 +424,23 @@ if (!class_exists("LGL_WP_Users")) {
                     // Delete the user
                     require_once(ABSPATH.'wp-admin/includes/user.php');
                     wp_delete_user($child_id);
+                }
+                
+                // Final sync after all deletions
+                if ($this->lgl && $this->lgl->helper) {
+                    $this->lgl->helper->syncUsedFamilySlotsMeta($user_id);
+                    
+                    $total_purchased = (int) get_user_meta($user_id, 'user_total_family_slots_purchased', true);
+                    $actual_used = $this->lgl->helper->getActualUsedFamilySlots($user_id);
+                    $new_available = $total_purchased - $actual_used;
+                    update_user_meta($user_id, 'user_available_family_slots', max(0, $new_available));
+                    
+                    $this->lgl->helper->debug('Final family slots sync after member deletion', [
+                        'parent_id' => $user_id,
+                        'total_purchased' => $total_purchased,
+                        'actual_used' => $actual_used,
+                        'new_available' => $new_available
+                    ]);
                 }
             }
             
@@ -298,7 +464,24 @@ if (!class_exists("LGL_WP_Users")) {
             $this->lgl->helper->debug('Removing User: ' . $child_id . ' from ' . $parent_id);
             $this->relation->delete_rows( $parent_id, $child_id, true );
             
-            
+            // Sync family slots after relationship removal
+            if ($this->lgl && $this->lgl->helper) {
+                $this->lgl->helper->syncUsedFamilySlotsMeta($parent_id);
+                
+                // Recalculate available slots: total_purchased - actual_used
+                $total_purchased = (int) get_user_meta($parent_id, 'user_total_family_slots_purchased', true);
+                $actual_used = $this->lgl->helper->getActualUsedFamilySlots($parent_id);
+                $new_available = $total_purchased - $actual_used;
+                update_user_meta($parent_id, 'user_available_family_slots', max(0, $new_available));
+                
+                $this->lgl->helper->debug('Family slots synced after relationship removal', [
+                    'parent_id' => $parent_id,
+                    'child_id' => $child_id,
+                    'total_purchased' => $total_purchased,
+                    'actual_used' => $actual_used,
+                    'new_available' => $new_available
+                ]);
+            }
         }        
         
         // Function to get the most recently created user ID

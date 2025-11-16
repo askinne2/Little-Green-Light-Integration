@@ -1,1418 +1,209 @@
-[2025-11-14 21:10:42] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:10:42] [debug] Membership cron jobs scheduled successfully
-[2025-11-14 21:10:42] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:10:42] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:10:43] [debug] Membership cron jobs scheduled successfully
-[2025-11-14 21:10:46] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:10:46] [debug] UserEditAction: Processing request Array
+[2025-11-16 04:37:23] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-16 04:37:24] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-16 04:37:24] [debug] 🧪 Testing Remove Family Member Array
 (
-    [user_id] => 1214
-    [user_firstname] => Andrew
-    [user_lastname] => Skinner
-    [user_company] => 21 ads media
-    [user_email] => andrew@hispanicalliancesc.com
-    [user_phone] => 8653120285
-    [user-address-1] => 57 Blake SKREEETs
-    [user-address-2] => 
-    [user-city] => Greenville
-    [user-state] => 
-    [user-postal-code] => 29605
-    [what_is_your_country_of_origin] => United States
-    [user-languages] => English, Spanish
-    [user-referral] => 
-    [user-reason-for-membership] => 
-    [about-me] => 
-    [user_photo_upload] => 88313
-    [__form_id] => 68813
-    [__refer] => https://ui-hybrid.local/account/edit-account/
-    [__is_ajax] => 
+    [parent_user_id] => 1214
+    [child_user_id] => 1953
+    [child_email] => andrew+1@hispanicalliancesc.com
 )
 
-[2025-11-14 21:10:46] [debug] 🔍 Connection::getConstituentData() Array
+[2025-11-16 04:37:24] [debug] FamilyMemberDeactivationAction: FUNCTION CALLED Array
 (
-    [lgl_id] => 947052
-)
-
-[2025-11-14 21:10:47] [debug] ✅ Constituent data retrieved successfully
-[2025-11-14 21:10:47] [debug] LGL USER EXISTS:  947052
-[2025-11-14 21:10:47] [debug] LGL Constituents: Name set Array
-(
-    [first_name] => Andrew
-    [last_name] => Skinner
-)
-
-[2025-11-14 21:10:47] [debug] LGL Constituents: Email set andrew@hispanicalliancesc.com
-[2025-11-14 21:10:47] [debug] LGL Constituents: Phone set 8653120285
-[2025-11-14 21:10:47] [debug] LGL Constituents: 🔍 setAddress: Checking user meta Array
-(
-    [user_id] => 1214
-    [street1] => 57 Blake SKREEETs
-    [city] => Greenville
-    [has_street1] => 1
-    [has_city] => 1
-)
-
-[2025-11-14 21:10:47] [debug] LGL Constituents: ✅ Address set and added to array Array
-(
-    [street] => 57 Blake SKREEETs
-    [city] => Greenville
-    [address_data_count] => 1
-    [address_entry] => Array
+    [request_keys] => Array
         (
-            [street] => 57 Blake SKREEETs
-            [street_address_type_id] => 1
-            [street_type_name] => Home
-            [city] => Greenville
-            [state] => 
-            [postal_code] => 29605
-            [country] => United States
-            [is_preferred] => 1
-            [not_current] => 
+            [0] => parent_user_id
+            [1] => child_users
+        )
+
+    [is_user_logged_in] => 1
+    [current_user_id] => 1
+)
+
+[2025-11-16 04:37:24] [debug] FamilyMemberDeactivationAction: Processing removal Array
+(
+    [parent_id] => 1214
+    [child_users] => Array
+        (
+            [0] => 1953
         )
 
 )
 
-[2025-11-14 21:10:47] [debug] LGL Constituents: 🎯 setMembership() CALLED! Array
+[2025-11-16 04:37:24] [debug] FamilyMemberDeactivationAction: Actual child relations Array
 (
-    [user_id] => 1214
-)
-
-[2025-11-14 21:10:47] [debug] LGL Constituents: 🔍 Looking up membership level config Array
-(
-    [membership_type] => Individual
-    [user_id] => 1214
-)
-
-[2025-11-14 21:10:47] [debug] 🔍 ApiSettings::getMembershipLevels() called
-[2025-11-14 21:10:47] [debug] 🔍 ApiSettings: settingsHandler is SET
-[2025-11-14 21:10:47] [debug] 🔍 ApiSettings::getMembershipLevels() called, raw result: Array
-(
-    [0] => Array
+    [parent_id] => 1214
+    [actual_children] => Array
         (
-            [level_name] => General
-            [level_slug] => general
-            [lgl_membership_level_id] => 387
+            [0] => 1953
+            [1] => 1331
         )
 
-    [1] => Array
+    [requested_children] => Array
         (
-            [level_name] => Friend
-            [level_slug] => friend
-            [lgl_membership_level_id] => 392
-        )
-
-    [2] => Array
-        (
-            [level_name] => Patron Indiv
-            [level_slug] => patron-indiv
-            [lgl_membership_level_id] => 397
-        )
-
-    [3] => Array
-        (
-            [level_name] => Patron Family
-            [level_slug] => patron-family
-            [lgl_membership_level_id] => 402
-        )
-
-    [4] => Array
-        (
-            [level_name] => Family
-            [level_slug] => family
-            [lgl_membership_level_id] => 407
-        )
-
-    [5] => Array
-        (
-            [level_name] => Individual
-            [level_slug] => individual
-            [lgl_membership_level_id] => 412
-        )
-
-    [6] => Array
-        (
-            [level_name] => Daily Plan
-            [level_slug] => daily-plan
-            [lgl_membership_level_id] => 417
+            [0] => 1953
         )
 
 )
 
-[2025-11-14 21:10:47] [debug] 🔍 ApiSettings::getMembershipLevels() returning: Array
+[2025-11-16 04:37:24] [debug] FamilyMemberDeactivationAction: Removing Child Array
 (
-    [0] => Array
-        (
-            [level_name] => General
-            [level_slug] => general
-            [lgl_membership_level_id] => 387
-        )
+    [child_id] => 1953
+    [parent_id] => 1214
+)
 
-    [1] => Array
-        (
-            [level_name] => Friend
-            [level_slug] => friend
-            [lgl_membership_level_id] => 392
-        )
+[2025-11-16 04:37:24] [debug] 🗑️ Connection: Deleting constituent relationship Array
+(
+    [relationship_id] => 7
+)
 
-    [2] => Array
-        (
-            [level_name] => Patron Indiv
-            [level_slug] => patron-indiv
-            [lgl_membership_level_id] => 397
-        )
+[2025-11-16 04:37:24] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-16 04:37:24] [debug] ✅ Connection: Constituent relationship deleted Array
+(
+    [relationship_id] => 7
+)
 
-    [3] => Array
-        (
-            [level_name] => Patron Family
-            [level_slug] => patron-family
-            [lgl_membership_level_id] => 402
-        )
+[2025-11-16 04:37:24] [debug] FamilyMemberDeactivationAction: Deleted Child->Parent relationship Array
+(
+    [child_uid] => 1953
+    [child_lgl_id] => 947082
+    [relationship_id] => 7
+    [direction] => Child->Parent
+)
 
-    [4] => Array
-        (
-            [level_name] => Family
-            [level_slug] => family
-            [lgl_membership_level_id] => 407
-        )
+[2025-11-16 04:37:24] [debug] 🗑️ Connection: Deleting constituent relationship Array
+(
+    [relationship_id] => 12
+)
 
-    [5] => Array
+[2025-11-16 04:37:25] [debug] ❌ Connection: Failed to delete constituent relationship Array
+(
+    [relationship_id] => 12
+    [response] => Array
         (
-            [level_name] => Individual
-            [level_slug] => individual
-            [lgl_membership_level_id] => 412
-        )
-
-    [6] => Array
-        (
-            [level_name] => Daily Plan
-            [level_slug] => daily-plan
-            [lgl_membership_level_id] => 417
+            [success] => 
+            [error] => HTTP 404: {"api_version":"1.0","error":"Not Found","description":"Item with id '12' not found"}
+            [http_code] => 404
+            [data] => 
         )
 
 )
 
-[2025-11-14 21:10:47] [debug] LGL Constituents: 🔍 Membership level config from user meta Array
+[2025-11-16 04:37:25] [debug] 🔍 Connection: Getting constituent relationships Array
 (
-    [membership_level_id] => 412
-    [found] => YES
+    [constituent_id] => 947082
 )
 
-[2025-11-14 21:10:47] [debug] LGL Constituents: 📋 Final level config Array
+[2025-11-16 04:37:25] [debug] ✅ Connection: Retrieved constituent relationships Array
 (
-    [level_name] => Individual
-    [level_slug] => individual
-    [lgl_membership_level_id] => 412
+    [constituent_id] => 947082
+    [count] => 7
 )
 
-[2025-11-14 21:10:47] [debug] LGL Constituents: Modern Membership Data Created Array
+[2025-11-16 04:37:25] [debug] 🔍 Connection: Getting constituent relationships Array
 (
-    [user_id] => 1214
-    [membership_type] => Individual
-    [level_config] => Array
+    [constituent_id] => 947052
+)
+
+[2025-11-16 04:37:25] [debug] ✅ Connection: Retrieved constituent relationships Array
+(
+    [constituent_id] => 947052
+    [count] => 7
+)
+
+[2025-11-16 04:37:25] [debug] FamilyMemberDeactivationAction: Relationship deletion summary Array
+(
+    [child_uid] => 1953
+    [child_lgl_id] => 947082
+    [parent_lgl_id] => 947052
+    [relationships_deleted] => 1
+    [expected] => 2
+)
+
+[2025-11-16 04:37:25] [debug] FamilyMemberDeactivationAction: User deleted Array
+(
+    [user_id] => 1953
+    [posts_deleted] => 0
+)
+
+[2025-11-16 04:37:25] [debug] Helper: Queried actual family slots from JetEngine Array
+(
+    [parent_uid] => 1214
+    [actual_count] => 1
+    [children_ids] => Array
         (
-            [level_name] => Individual
-            [level_slug] => individual
-            [lgl_membership_level_id] => 412
-        )
-
-    [membership_data] => Array
-        (
-            [membership_level_id] => 412
-            [membership_level_name] => Individual
-            [date_start] => 2025-11-10
-            [finish_date] => 2026-11-10
-            [note] => Membership created via Modern LGL API on 2025-11-15
-        )
-
-)
-
-[2025-11-14 21:10:47] [debug] LGL Constituents: Final Membership Data Set Array
-(
-    [membership_level_id] => 412
-    [membership_level_name] => Individual
-    [date_start] => 2025-11-10
-    [finish_date] => 2026-11-10
-    [note] => Membership created via Modern LGL API on 2025-11-15
-)
-
-[2025-11-14 21:10:47] [debug] LGL Constituents: All data set for user 1214
-[2025-11-14 21:10:47] [debug] LGL Constituents: Constituent updated successfully Array
-(
-    [success] => 1
-    [http_code] => 200
-    [data] => Array
-        (
-            [api_version] => 1.0
-            [id] => 947052
-            [external_constituent_id] => 
-            [is_org] => 
-            [constituent_contact_type_id] => 1247
-            [constituent_contact_type_name] => Primary
-            [prefix] => 
-            [first_name] => Andrew
-            [middle_name] => 
-            [last_name] => Skinner
-            [suffix] => 
-            [spouse_name] => 
-            [org_name] => 
-            [job_title] => 
-            [addressee] => Andrew Skinner
-            [salutation] => Andrew
-            [sort_name] => Skinner, Andrew
-            [constituent_interest_level_id] => 
-            [constituent_interest_level_name] => 
-            [constituent_rating_id] => 
-            [constituent_rating_name] => 
-            [is_deceased] => 
-            [deceased_date] => 
-            [annual_report_name] => Andrew Skinner
-            [birthday] => 
-            [gender] => 
-            [maiden_name] => 
-            [nick_name] => 
-            [spouse_nick_name] => 
-            [date_added] => 2025-11-15
-            [alt_salutation] => Andrew
-            [alt_addressee] => Andrew Skinner
-            [honorary_name] => Andrew Skinner
-            [assistant_name] => 
-            [marital_status_id] => 
-            [marital_status_name] => 
-            [is_anon] => 
-            [created_at] => 2025-11-15T01:59:00Z
-            [updated_at] => 2025-11-15T02:10:47Z
-            [class_affiliations] => Array
-                (
-                )
-
-            [relationships] => Array
-                (
-                )
-
-            [street_addresses] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 840307
-                            [street] => 57 Blake Street
-                            [city] => Greenville
-                            [state] => 
-                            [country] => United States
-                            [postal_code] => 29605
-                            [county] => 
-                            [street_address_type_id] => 1
-                            [street_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [seasonal_from] => 01-01
-                            [seasonal_to] => 12-31
-                            [seasonal] => 
-                            [lat] => 
-                            [lng] => 
-                            [zip5] => 29605
-                            [verified] => 
-                            [verified_on] => 
-                            [created_at] => 2025-11-15T02:02:54Z
-                            [updated_at] => 2025-11-15T02:02:54Z
-                        )
-
-                )
-
-            [phone_numbers] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 481892
-                            [number] => 8653120285
-                            [phone_number_type_id] => 1
-                            [phone_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [normalized_number] => 8653120285
-                            [created_at] => 2025-11-15T01:59:02Z
-                            [updated_at] => 2025-11-15T01:59:02Z
-                        )
-
-                )
-
-            [email_addresses] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 278917
-                            [address] => andrew@hispanicalliancesc.com
-                            [email_address_type_id] => 1
-                            [email_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [created_at] => 2025-11-15T01:59:01Z
-                            [updated_at] => 2025-11-15T01:59:01Z
-                        )
-
-                )
-
-            [web_addresses] => Array
-                (
-                )
-
-            [categories] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 1287
-                            [item_type] => Constituent
-                            [name] => Giving Status
-                            [key] => giving_status
-                            [facet_type] => list
-                            [ordinal] => 100
-                            [removable] => 
-                            [editable] => 
-                            [display_format] => compact
-                            [keywords] => Array
-                                (
-                                    [0] => Array
-                                        (
-                                            [id] => 12797
-                                            [category_id] => 1287
-                                            [name] => Non Donor
-                                            [description] => 
-                                            [short_code] => non_donor
-                                            [ordinal] => 4
-                                            [removable] => 
-                                            [can_change] => 1
-                                            [can_select] => 1
-                                            [created_at] => 2023-02-25T00:56:33Z
-                                            [updated_at] => 2023-02-25T00:56:33Z
-                                        )
-
-                                )
-
-                        )
-
-                )
-
-            [groups] => Array
-                (
-                )
-
-            [memberships] => Array
-                (
-                )
-
-            [custom_attrs] => Array
-                (
-                )
-
-        )
-
-    [raw_response] => {"api_version":"1.0","id":947052,"external_constituent_id":null,"is_org":false,"constituent_contact_type_id":1247,"constituent_contact_type_name":"Primary","prefix":null,"first_name":"Andrew","middle_name":null,"last_name":"Skinner","suffix":null,"spouse_name":null,"org_name":null,"job_title":null,"addressee":"Andrew Skinner","salutation":"Andrew","sort_name":"Skinner, Andrew","constituent_interest_level_id":null,"constituent_interest_level_name":null,"constituent_rating_id":null,"constituent_rating_name":null,"is_deceased":false,"deceased_date":null,"annual_report_name":"Andrew Skinner","birthday":null,"gender":null,"maiden_name":null,"nick_name":null,"spouse_nick_name":null,"date_added":"2025-11-15","alt_salutation":"Andrew","alt_addressee":"Andrew Skinner","honorary_name":"Andrew Skinner","assistant_name":null,"marital_status_id":null,"marital_status_name":null,"is_anon":false,"created_at":"2025-11-15T01:59:00Z","updated_at":"2025-11-15T02:10:47Z","class_affiliations":[],"relationships":[],"street_addresses":[{"id":840307,"street":"57 Blake Street","city":"Greenville","state":"","country":"United States","postal_code":"29605","county":null,"street_address_type_id":1,"street_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":null,"lat":null,"lng":null,"zip5":"29605","verified":false,"verified_on":null,"created_at":"2025-11-15T02:02:54Z","updated_at":"2025-11-15T02:02:54Z"}],"phone_numbers":[{"id":481892,"number":"8653120285","phone_number_type_id":1,"phone_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"normalized_number":"8653120285","created_at":"2025-11-15T01:59:02Z","updated_at":"2025-11-15T01:59:02Z"}],"email_addresses":[{"id":278917,"address":"andrew@hispanicalliancesc.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2025-11-15T01:59:01Z","updated_at":"2025-11-15T01:59:01Z"}],"web_addresses":[],"categories":[{"id":1287,"item_type":"Constituent","name":"Giving Status","key":"giving_status","facet_type":"list","ordinal":100,"removable":false,"editable":false,"display_format":"compact","keywords":[{"id":12797,"category_id":1287,"name":"Non Donor","description":null,"short_code":"non_donor","ordinal":4,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"}]}],"groups":[],"memberships":[],"custom_attrs":[]}
-)
-
-[2025-11-14 21:10:47] [debug] LGL Cache: DELETED key constituent_947052
-[2025-11-14 21:10:47] [debug] LGL Cache: SET key constituent_947052 (TTL: 3600s)
-[2025-11-14 21:10:47] [debug] 🔄 updateOrAddEmailAddress: Checking existing emails Array
-(
-    [lgl_id] => 947052
-    [email] => andrew@hispanicalliancesc.com
-)
-
-[2025-11-14 21:10:48] [debug] 🔍 getConstituentEmails: Raw response format Array
-(
-    [lgl_id] => 947052
-    [data_type] => array
-    [is_array] => 1
-    [has_items] => 1
-    [first_item_has_address] => 
-    [data_keys] => Array
-        (
-            [0] => api_version
-            [1] => items_count
-            [2] => total_items
-            [3] => limit
-            [4] => offset
-            [5] => item_type
-            [6] => items
+            [0] => 1331
         )
 
 )
 
-[2025-11-14 21:10:48] [debug] 🔍 getConstituentEmails: Items array format Array
+[2025-11-16 04:37:25] [debug] Helper: Synced user_used_family_slots meta Array
 (
-    [count] => 1
+    [parent_uid] => 1214
+    [synced_count] => 1
 )
 
-[2025-11-14 21:10:48] [debug] ✅ updateOrAddEmailAddress: Email unchanged, skipping Array
+[2025-11-16 04:37:25] [debug] Helper: Queried actual family slots from JetEngine Array
 (
-    [email] => andrew@hispanicalliancesc.com
-)
-
-[2025-11-14 21:10:48] [debug] ✅ syncContactInfo: Email unchanged Array
-(
-    [lgl_id] => 947052
-    [email] => andrew@hispanicalliancesc.com
-)
-
-[2025-11-14 21:10:48] [debug] 🔄 updateOrAddPhoneNumber: Checking existing phones Array
-(
-    [lgl_id] => 947052
-    [phone] => 8653120285
-)
-
-[2025-11-14 21:10:48] [debug] 🔍 getConstituentPhones: Items array format Array
-(
-    [count] => 1
-)
-
-[2025-11-14 21:10:48] [debug] ✅ updateOrAddPhoneNumber: Phone unchanged, skipping Array
-(
-    [phone] => 8653120285
-)
-
-[2025-11-14 21:10:48] [debug] ✅ syncContactInfo: Phone unchanged Array
-(
-    [lgl_id] => 947052
-    [phone] => 8653120285
-)
-
-[2025-11-14 21:10:48] [debug] LGL Constituents: 🔍 getAddressData: Returning address data Array
-(
-    [count] => 1
-    [data] => Array
+    [parent_uid] => 1214
+    [actual_count] => 1
+    [children_ids] => Array
         (
-            [0] => Array
-                (
-                    [street] => 57 Blake SKREEETs
-                    [street_address_type_id] => 1
-                    [street_type_name] => Home
-                    [city] => Greenville
-                    [state] => 
-                    [postal_code] => 29605
-                    [country] => United States
-                    [is_preferred] => 1
-                    [not_current] => 
-                )
-
+            [0] => 1331
         )
 
 )
 
-[2025-11-14 21:10:48] [debug] 🔄 updateOrAddStreetAddress: Checking existing addresses Array
+[2025-11-16 04:37:25] [debug] FamilyMemberDeactivationAction: Relationship removed and slots synced Array
 (
-    [lgl_id] => 947052
-    [street] => 57 Blake SKREEETs
-    [city] => Greenville
+    [parent_id] => 1214
+    [child_id] => 1953
+    [total_purchased] => 4
+    [actual_used] => 1
+    [new_available] => 3
 )
 
-[2025-11-14 21:10:48] [debug] 🔍 getConstituentAddresses: Items array format Array
+[2025-11-16 04:37:25] [debug] FamilyMemberDeactivationAction: Removed children count Array
 (
-    [count] => 1
+    [removed_count] => 1
+    [requested_count] => 1
 )
 
-[2025-11-14 21:10:48] [debug] 🔄 updateOrAddStreetAddress: Updating existing address (replacing preferred/first) Array
+[2025-11-16 04:37:25] [debug] Helper: Queried actual family slots from JetEngine Array
 (
-    [address_id] => 840307
-    [old_street] => 57 Blake Street
-    [new_street] => 57 Blake SKREEETs
-    [address_data] => Array
+    [parent_uid] => 1214
+    [actual_count] => 1
+    [children_ids] => Array
         (
-            [street] => 57 Blake SKREEETs
-            [street_address_type_id] => 1
-            [street_type_name] => Home
-            [city] => Greenville
-            [state] => 
-            [postal_code] => 29605
-            [country] => United States
-            [is_preferred] => 1
-            [not_current] => 
+            [0] => 1331
         )
 
 )
 
-[2025-11-14 21:10:48] [debug] 🔧 updateStreetAddress: Making PUT request Array
+[2025-11-16 04:37:25] [debug] Helper: Synced user_used_family_slots meta Array
 (
-    [endpoint] => constituents/947052/street_addresses/840307
-    [address_id] => 840307
-    [address_data] => Array
-        (
-            [street] => 57 Blake SKREEETs
-            [street_address_type_id] => 1
-            [street_type_name] => Home
-            [city] => Greenville
-            [state] => 
-            [postal_code] => 29605
-            [country] => United States
-            [is_preferred] => 1
-            [not_current] => 
-        )
+    [parent_uid] => 1214
+    [synced_count] => 1
+)
 
-    [update_payload] => Array
+[2025-11-16 04:37:25] [debug] Helper: Queried actual family slots from JetEngine Array
+(
+    [parent_uid] => 1214
+    [actual_count] => 1
+    [children_ids] => Array
         (
-            [street] => 57 Blake SKREEETs
-            [street_address_type_id] => 1
-            [street_type_name] => Home
-            [city] => Greenville
-            [state] => 
-            [postal_code] => 29605
-            [country] => United States
-            [is_preferred] => 1
-            [not_current] => 
-            [id] => 840307
+            [0] => 1331
         )
 
 )
 
-[2025-11-14 21:10:49] [debug] 📥 updateStreetAddress: Raw API response Array
+[2025-11-16 04:37:25] [debug] FamilyMemberDeactivationAction: Final family slots sync Array
 (
-    [endpoint] => constituents/947052/street_addresses/840307
-    [success] => 
-    [http_code] => 404
-    [error] => HTTP 404: {"status":404,"error":"Not Found"}
-    [response_data] => 
-    [raw_response] => 
+    [parent_id] => 1214
+    [total_purchased] => 4
+    [actual_used] => 1
+    [new_available] => 3
 )
 
-[2025-11-14 21:10:49] [debug] 📥 updateOrAddStreetAddress: Update API response Array
-(
-    [address_id] => 840307
-    [success] => 
-    [http_code] => 404
-    [error] => HTTP 404: {"status":404,"error":"Not Found"}
-    [response_data] => 
-)
-
-[2025-11-14 21:10:49] [debug] ❌ updateOrAddStreetAddress: Update failed, will try adding instead Array
-(
-    [error] => HTTP 404: {"status":404,"error":"Not Found"}
-)
-
-[2025-11-14 21:10:49] [debug] 🔍 RAW JSON PAYLOAD: {"street":"57 Blake SKREEETs","street_address_type_id":1,"street_type_name":"Home","city":"Greenville","state":"","postal_code":"29605","country":"United States","is_preferred":true,"not_current":false}
-[2025-11-14 21:10:49] [debug] ➕ syncContactInfo: Address added Array
-(
-    [lgl_id] => 947052
-    [street] => 57 Blake SKREEETs
-)
-
-[2025-11-14 21:10:49] [debug] UPDATED CONTACT 947052
-[2025-11-14 21:10:53] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:10:53] [debug] Membership cron jobs scheduled successfully
-[2025-11-14 21:10:53] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:10:54] [debug] 🔍 SubscriptionRenewalManager: displayManualRenewalStatus() called Array
-(
-    [user_id] => 1214
-    [show_all] => no
-)
-
-[2025-11-14 21:10:54] [debug] 📊 WC Subscriptions check Array
-(
-    [user_id] => 1214
-    [subscription_count] => 10
-    [has_subscriptions] => 1
-)
-
-[2025-11-14 21:10:54] [debug] 🔍 Checking for one-time membership (priority check) Array
-(
-    [user_id] => 1214
-)
-
-[2025-11-14 21:10:54] [debug] 🔍 Getting one-time membership status Array
-(
-    [user_id] => 1214
-)
-
-[2025-11-14 21:10:54] [debug] 📊 User meta values Array
-(
-    [user_id] => 1214
-    [subscription_status] => one-time
-    [renewal_timestamp] => 1794319118
-    [start_timestamp] => 1762765118
-    [membership_level] => Individual
-    [renewal_date_formatted] => 2026-11-10 13:58:38
-    [start_date_formatted] => 2025-11-10 08:58:38
-)
-
-[2025-11-14 21:10:54] [debug] ⏰ Membership expiration check Array
-(
-    [user_id] => 1214
-    [now] => 2025-11-14 21:10:54
-    [renewal_date] => 2026-11-10 13:58:38
-    [is_active] => 1
-    [seconds_remaining] => 31164464
-)
-
-[2025-11-14 21:10:54] [debug] 📅 Days remaining calculated Array
-(
-    [user_id] => 1214
-    [days_remaining] => 361
-)
-
-[2025-11-14 21:10:54] [debug] 🔍 Getting last membership product name Array
-(
-    [user_id] => 1214
-)
-
-[2025-11-14 21:10:54] [debug] 📦 Orders found Array
-(
-    [user_id] => 1214
-    [order_count] => 54
-)
-
-[2025-11-14 21:10:54] [debug] 🔍 Checking order Array
-(
-    [order_id] => 89984
-    [order_date] => 2025-11-14 20:41:52
-)
-
-[2025-11-14 21:10:54] [debug] 🏷️ Checking product Array
-(
-    [product_id] => 86825
-    [product_name] => Spanish A0 Regular: Mondays
-    [has_membership_category] => 
-)
-
-[2025-11-14 21:10:54] [debug] 🔍 Checking order Array
-(
-    [order_id] => 89983
-    [order_date] => 2025-11-14 20:40:42
-)
-
-[2025-11-14 21:10:54] [debug] 🏷️ Checking product Array
-(
-    [product_id] => 83556
-    [product_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures<span> - </span>UI Member Ham
-    [has_membership_category] => 
-)
-
-[2025-11-14 21:10:54] [debug] 🔍 Checking order Array
-(
-    [order_id] => 89982
-    [order_date] => 2025-11-14 20:33:08
-)
-
-[2025-11-14 21:10:54] [debug] 🏷️ Checking product Array
-(
-    [product_id] => 83556
-    [product_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures<span> - </span>UI Member Ham
-    [has_membership_category] => 
-)
-
-[2025-11-14 21:10:54] [debug] 🔍 Checking order Array
-(
-    [order_id] => 89981
-    [order_date] => 2025-11-14 20:31:11
-)
-
-[2025-11-14 21:10:54] [debug] 🏷️ Checking product Array
-(
-    [product_id] => 83556
-    [product_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures<span> - </span>UI Member Ham
-    [has_membership_category] => 
-)
-
-[2025-11-14 21:10:54] [debug] 🔍 Checking order Array
-(
-    [order_id] => 89935
-    [order_date] => 2025-11-10 08:58:27
-)
-
-[2025-11-14 21:10:54] [debug] 🏷️ Checking product Array
-(
-    [product_id] => 89889
-    [product_name] => Family Member
-    [has_membership_category] => 1
-)
-
-[2025-11-14 21:10:54] [debug] ✅ Found membership product Array
-(
-    [product_name] => Family Member
-    [order_id] => 89935
-)
-
-[2025-11-14 21:10:54] [debug] 🎫 Product name retrieved Array
-(
-    [user_id] => 1214
-    [product_name] => Family Member
-)
-
-[2025-11-14 21:10:54] [debug] ✅ One-time membership status compiled Array
-(
-    [user_id] => 1214
-    [status_data] => Array
-        (
-            [user_id] => 1214
-            [membership_level] => Individual
-            [product_name] => Family Member
-            [start_date] => November 10, 2025
-            [renewal_date] => November 10, 2026
-            [days_remaining] => 361
-            [is_active] => 1
-            [status] => active
-        )
-
-)
-
-[2025-11-14 21:10:54] [debug] 📋 One-time membership status result Array
-(
-    [user_id] => 1214
-    [status_found] => 1
-    [status_data] => Array
-        (
-            [user_id] => 1214
-            [membership_level] => Individual
-            [product_name] => Family Member
-            [start_date] => November 10, 2025
-            [renewal_date] => November 10, 2026
-            [days_remaining] => 361
-            [is_active] => 1
-            [status] => active
-        )
-
-)
-
-[2025-11-14 21:10:54] [debug] ✅ One-time membership found - displaying it (hiding any WC subscriptions) Array
-(
-    [user_id] => 1214
-    [membership_level] => Individual
-    [days_remaining] => 361
-    [wc_subscriptions_hidden] => 10
-)
-
-[2025-11-14 21:11:52] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:11:52] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:13:53] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:13:53] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:13:53] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:14:19] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:14:19] [debug] Membership cron jobs scheduled successfully
-[2025-11-14 21:14:19] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:14:19] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:14:20] [debug] Membership cron jobs scheduled successfully
-[2025-11-14 21:14:22] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:14:22] [debug] UserEditAction: Processing request Array
-(
-    [user_id] => 1214
-    [user_firstname] => Andrew
-    [user_lastname] => Skinner
-    [user_company] => 21 ads media
-    [user_email] => andrew@hispanicalliancesc.com
-    [user_phone] => 8653120285
-    [user-address-1] => 57 Blake SKREEETs
-    [user-address-2] => 
-    [user-city] => Greenville
-    [user-state] => 
-    [user-postal-code] => 29605
-    [what_is_your_country_of_origin] => United States
-    [user-languages] => English, Spanish
-    [user-referral] => 
-    [user-reason-for-membership] => 
-    [about-me] => 
-    [user_photo_upload] => 88313
-    [__form_id] => 68813
-    [__refer] => https://ui-hybrid.local/account/edit-account/
-    [__is_ajax] => 
-)
-
-[2025-11-14 21:14:22] [debug] 🔍 Connection::getConstituentData() Array
-(
-    [lgl_id] => 947052
-)
-
-[2025-11-14 21:14:23] [debug] ✅ Constituent data retrieved successfully
-[2025-11-14 21:14:23] [debug] LGL USER EXISTS:  947052
-[2025-11-14 21:14:23] [debug] LGL Constituents: Name set Array
-(
-    [first_name] => Andrew
-    [last_name] => Skinner
-)
-
-[2025-11-14 21:14:23] [debug] LGL Constituents: Email set andrew@hispanicalliancesc.com
-[2025-11-14 21:14:23] [debug] LGL Constituents: Phone set 8653120285
-[2025-11-14 21:14:23] [debug] LGL Constituents: 🔍 setAddress: Checking user meta Array
-(
-    [user_id] => 1214
-    [street1] => 57 Blake SKREEETs
-    [city] => Greenville
-    [has_street1] => 1
-    [has_city] => 1
-)
-
-[2025-11-14 21:14:23] [debug] LGL Constituents: ✅ Address set and added to array Array
-(
-    [street] => 57 Blake SKREEETs
-    [city] => Greenville
-    [address_data_count] => 1
-    [address_entry] => Array
-        (
-            [street] => 57 Blake SKREEETs
-            [street_address_type_id] => 1
-            [street_type_name] => Home
-            [city] => Greenville
-            [state] => 
-            [postal_code] => 29605
-            [county] => 
-            [country] => United States
-            [seasonal_from] => 01-01
-            [seasonal_to] => 12-31
-            [seasonal] => 
-            [is_preferred] => 1
-            [not_current] => 
-        )
-
-)
-
-[2025-11-14 21:14:23] [debug] LGL Constituents: 🎯 setMembership() CALLED! Array
-(
-    [user_id] => 1214
-)
-
-[2025-11-14 21:14:23] [debug] LGL Constituents: 🔍 Looking up membership level config Array
-(
-    [membership_type] => Individual
-    [user_id] => 1214
-)
-
-[2025-11-14 21:14:23] [debug] 🔍 ApiSettings::getMembershipLevels() called
-[2025-11-14 21:14:23] [debug] 🔍 ApiSettings: settingsHandler is SET
-[2025-11-14 21:14:23] [debug] 🔍 ApiSettings::getMembershipLevels() called, raw result: Array
-(
-    [0] => Array
-        (
-            [level_name] => General
-            [level_slug] => general
-            [lgl_membership_level_id] => 387
-        )
-
-    [1] => Array
-        (
-            [level_name] => Friend
-            [level_slug] => friend
-            [lgl_membership_level_id] => 392
-        )
-
-    [2] => Array
-        (
-            [level_name] => Patron Indiv
-            [level_slug] => patron-indiv
-            [lgl_membership_level_id] => 397
-        )
-
-    [3] => Array
-        (
-            [level_name] => Patron Family
-            [level_slug] => patron-family
-            [lgl_membership_level_id] => 402
-        )
-
-    [4] => Array
-        (
-            [level_name] => Family
-            [level_slug] => family
-            [lgl_membership_level_id] => 407
-        )
-
-    [5] => Array
-        (
-            [level_name] => Individual
-            [level_slug] => individual
-            [lgl_membership_level_id] => 412
-        )
-
-    [6] => Array
-        (
-            [level_name] => Daily Plan
-            [level_slug] => daily-plan
-            [lgl_membership_level_id] => 417
-        )
-
-)
-
-[2025-11-14 21:14:23] [debug] 🔍 ApiSettings::getMembershipLevels() returning: Array
-(
-    [0] => Array
-        (
-            [level_name] => General
-            [level_slug] => general
-            [lgl_membership_level_id] => 387
-        )
-
-    [1] => Array
-        (
-            [level_name] => Friend
-            [level_slug] => friend
-            [lgl_membership_level_id] => 392
-        )
-
-    [2] => Array
-        (
-            [level_name] => Patron Indiv
-            [level_slug] => patron-indiv
-            [lgl_membership_level_id] => 397
-        )
-
-    [3] => Array
-        (
-            [level_name] => Patron Family
-            [level_slug] => patron-family
-            [lgl_membership_level_id] => 402
-        )
-
-    [4] => Array
-        (
-            [level_name] => Family
-            [level_slug] => family
-            [lgl_membership_level_id] => 407
-        )
-
-    [5] => Array
-        (
-            [level_name] => Individual
-            [level_slug] => individual
-            [lgl_membership_level_id] => 412
-        )
-
-    [6] => Array
-        (
-            [level_name] => Daily Plan
-            [level_slug] => daily-plan
-            [lgl_membership_level_id] => 417
-        )
-
-)
-
-[2025-11-14 21:14:23] [debug] LGL Constituents: 🔍 Membership level config from user meta Array
-(
-    [membership_level_id] => 412
-    [found] => YES
-)
-
-[2025-11-14 21:14:23] [debug] LGL Constituents: 📋 Final level config Array
-(
-    [level_name] => Individual
-    [level_slug] => individual
-    [lgl_membership_level_id] => 412
-)
-
-[2025-11-14 21:14:23] [debug] LGL Constituents: Modern Membership Data Created Array
-(
-    [user_id] => 1214
-    [membership_type] => Individual
-    [level_config] => Array
-        (
-            [level_name] => Individual
-            [level_slug] => individual
-            [lgl_membership_level_id] => 412
-        )
-
-    [membership_data] => Array
-        (
-            [membership_level_id] => 412
-            [membership_level_name] => Individual
-            [date_start] => 2025-11-10
-            [finish_date] => 2026-11-10
-            [note] => Membership created via Modern LGL API on 2025-11-15
-        )
-
-)
-
-[2025-11-14 21:14:23] [debug] LGL Constituents: Final Membership Data Set Array
-(
-    [membership_level_id] => 412
-    [membership_level_name] => Individual
-    [date_start] => 2025-11-10
-    [finish_date] => 2026-11-10
-    [note] => Membership created via Modern LGL API on 2025-11-15
-)
-
-[2025-11-14 21:14:23] [debug] LGL Constituents: All data set for user 1214
-[2025-11-14 21:14:23] [debug] 🔧 buildUpdateData: Including email addresses Array
-(
-    [count] => 1
-    [emails] => Array
-        (
-            [0] => andrew@hispanicalliancesc.com
-        )
-
-)
-
-[2025-11-14 21:14:23] [debug] 🔧 buildUpdateData: Including phone numbers Array
-(
-    [count] => 1
-    [phones] => Array
-        (
-            [0] => 8653120285
-        )
-
-)
-
-[2025-11-14 21:14:23] [debug] 🔧 buildUpdateData: Including street addresses Array
-(
-    [count] => 1
-    [addresses] => Array
-        (
-            [0] => 57 Blake SKREEETs
-        )
-
-)
-
-[2025-11-14 21:14:23] [debug] LGL Constituents: Constituent updated successfully Array
-(
-    [success] => 1
-    [http_code] => 200
-    [data] => Array
-        (
-            [api_version] => 1.0
-            [id] => 947052
-            [external_constituent_id] => 
-            [is_org] => 
-            [constituent_contact_type_id] => 1247
-            [constituent_contact_type_name] => Primary
-            [prefix] => 
-            [first_name] => Andrew
-            [middle_name] => 
-            [last_name] => Skinner
-            [suffix] => 
-            [spouse_name] => 
-            [org_name] => 
-            [job_title] => 
-            [addressee] => Andrew Skinner
-            [salutation] => Andrew
-            [sort_name] => Skinner, Andrew
-            [constituent_interest_level_id] => 
-            [constituent_interest_level_name] => 
-            [constituent_rating_id] => 
-            [constituent_rating_name] => 
-            [is_deceased] => 
-            [deceased_date] => 
-            [annual_report_name] => Andrew Skinner
-            [birthday] => 
-            [gender] => 
-            [maiden_name] => 
-            [nick_name] => 
-            [spouse_nick_name] => 
-            [date_added] => 2025-11-15
-            [alt_salutation] => Andrew
-            [alt_addressee] => Andrew Skinner
-            [honorary_name] => Andrew Skinner
-            [assistant_name] => 
-            [marital_status_id] => 
-            [marital_status_name] => 
-            [is_anon] => 
-            [created_at] => 2025-11-15T01:59:00Z
-            [updated_at] => 2025-11-15T02:14:23Z
-            [class_affiliations] => Array
-                (
-                )
-
-            [relationships] => Array
-                (
-                )
-
-            [street_addresses] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 840317
-                            [street] => 57 Blake SKREEETs
-                            [city] => Greenville
-                            [state] => 
-                            [country] => United States
-                            [postal_code] => 29605
-                            [county] => 
-                            [street_address_type_id] => 1
-                            [street_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [seasonal_from] => 01-01
-                            [seasonal_to] => 12-31
-                            [seasonal] => 
-                            [lat] => 
-                            [lng] => 
-                            [zip5] => 29605
-                            [verified] => 
-                            [verified_on] => 
-                            [created_at] => 2025-11-15T02:14:23Z
-                            [updated_at] => 2025-11-15T02:14:23Z
-                        )
-
-                )
-
-            [phone_numbers] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 481897
-                            [number] => 8653120285
-                            [phone_number_type_id] => 1
-                            [phone_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [normalized_number] => 8653120285
-                            [created_at] => 2025-11-15T02:14:23Z
-                            [updated_at] => 2025-11-15T02:14:23Z
-                        )
-
-                )
-
-            [email_addresses] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 278922
-                            [address] => andrew@hispanicalliancesc.com
-                            [email_address_type_id] => 1
-                            [email_type_name] => Home
-                            [is_preferred] => 1
-                            [not_current] => 
-                            [parent_id] => 
-                            [created_at] => 2025-11-15T02:14:23Z
-                            [updated_at] => 2025-11-15T02:14:23Z
-                        )
-
-                )
-
-            [web_addresses] => Array
-                (
-                )
-
-            [categories] => Array
-                (
-                    [0] => Array
-                        (
-                            [id] => 1287
-                            [item_type] => Constituent
-                            [name] => Giving Status
-                            [key] => giving_status
-                            [facet_type] => list
-                            [ordinal] => 100
-                            [removable] => 
-                            [editable] => 
-                            [display_format] => compact
-                            [keywords] => Array
-                                (
-                                    [0] => Array
-                                        (
-                                            [id] => 12797
-                                            [category_id] => 1287
-                                            [name] => Non Donor
-                                            [description] => 
-                                            [short_code] => non_donor
-                                            [ordinal] => 4
-                                            [removable] => 
-                                            [can_change] => 1
-                                            [can_select] => 1
-                                            [created_at] => 2023-02-25T00:56:33Z
-                                            [updated_at] => 2023-02-25T00:56:33Z
-                                        )
-
-                                )
-
-                        )
-
-                )
-
-            [groups] => Array
-                (
-                )
-
-            [memberships] => Array
-                (
-                )
-
-            [custom_attrs] => Array
-                (
-                )
-
-        )
-
-    [raw_response] => {"api_version":"1.0","id":947052,"external_constituent_id":null,"is_org":false,"constituent_contact_type_id":1247,"constituent_contact_type_name":"Primary","prefix":null,"first_name":"Andrew","middle_name":null,"last_name":"Skinner","suffix":null,"spouse_name":null,"org_name":null,"job_title":null,"addressee":"Andrew Skinner","salutation":"Andrew","sort_name":"Skinner, Andrew","constituent_interest_level_id":null,"constituent_interest_level_name":null,"constituent_rating_id":null,"constituent_rating_name":null,"is_deceased":false,"deceased_date":null,"annual_report_name":"Andrew Skinner","birthday":null,"gender":null,"maiden_name":null,"nick_name":null,"spouse_nick_name":null,"date_added":"2025-11-15","alt_salutation":"Andrew","alt_addressee":"Andrew Skinner","honorary_name":"Andrew Skinner","assistant_name":null,"marital_status_id":null,"marital_status_name":null,"is_anon":false,"created_at":"2025-11-15T01:59:00Z","updated_at":"2025-11-15T02:14:23Z","class_affiliations":[],"relationships":[],"street_addresses":[{"id":840317,"street":"57 Blake SKREEETs","city":"Greenville","state":"","country":"United States","postal_code":"29605","county":"","street_address_type_id":1,"street_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":false,"lat":null,"lng":null,"zip5":"29605","verified":false,"verified_on":null,"created_at":"2025-11-15T02:14:23Z","updated_at":"2025-11-15T02:14:23Z"}],"phone_numbers":[{"id":481897,"number":"8653120285","phone_number_type_id":1,"phone_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"normalized_number":"8653120285","created_at":"2025-11-15T02:14:23Z","updated_at":"2025-11-15T02:14:23Z"}],"email_addresses":[{"id":278922,"address":"andrew@hispanicalliancesc.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2025-11-15T02:14:23Z","updated_at":"2025-11-15T02:14:23Z"}],"web_addresses":[],"categories":[{"id":1287,"item_type":"Constituent","name":"Giving Status","key":"giving_status","facet_type":"list","ordinal":100,"removable":false,"editable":false,"display_format":"compact","keywords":[{"id":12797,"category_id":1287,"name":"Non Donor","description":null,"short_code":"non_donor","ordinal":4,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"}]}],"groups":[],"memberships":[],"custom_attrs":[]}
-)
-
-[2025-11-14 21:14:23] [debug] LGL Cache: DELETED key constituent_947052
-[2025-11-14 21:14:23] [debug] LGL Cache: SET key constituent_947052 (TTL: 3600s)
-[2025-11-14 21:14:23] [debug] UPDATED CONTACT 947052
-[2025-11-14 21:14:27] [debug] LGL Email Blocker: ACTIVE - Development environment detected
-[2025-11-14 21:14:28] [debug] Membership cron jobs scheduled successfully
-[2025-11-14 21:14:28] [debug] 🔍 SubscriptionRenewalManager: displayManualRenewalStatus() called Array
-(
-    [user_id] => 1214
-    [show_all] => no
-)
-
-[2025-11-14 21:14:28] [debug] 📊 WC Subscriptions check Array
-(
-    [user_id] => 1214
-    [subscription_count] => 10
-    [has_subscriptions] => 1
-)
-
-[2025-11-14 21:14:28] [debug] 🔍 Checking for one-time membership (priority check) Array
-(
-    [user_id] => 1214
-)
-
-[2025-11-14 21:14:28] [debug] 🔍 Getting one-time membership status Array
-(
-    [user_id] => 1214
-)
-
-[2025-11-14 21:14:28] [debug] 📊 User meta values Array
-(
-    [user_id] => 1214
-    [subscription_status] => one-time
-    [renewal_timestamp] => 1794319118
-    [start_timestamp] => 1762765118
-    [membership_level] => Individual
-    [renewal_date_formatted] => 2026-11-10 13:58:38
-    [start_date_formatted] => 2025-11-10 08:58:38
-)
-
-[2025-11-14 21:14:28] [debug] ⏰ Membership expiration check Array
-(
-    [user_id] => 1214
-    [now] => 2025-11-14 21:14:28
-    [renewal_date] => 2026-11-10 13:58:38
-    [is_active] => 1
-    [seconds_remaining] => 31164250
-)
-
-[2025-11-14 21:14:28] [debug] 📅 Days remaining calculated Array
-(
-    [user_id] => 1214
-    [days_remaining] => 361
-)
-
-[2025-11-14 21:14:28] [debug] 🔍 Getting last membership product name Array
-(
-    [user_id] => 1214
-)
-
-[2025-11-14 21:14:28] [debug] 📦 Orders found Array
-(
-    [user_id] => 1214
-    [order_count] => 54
-)
-
-[2025-11-14 21:14:28] [debug] 🔍 Checking order Array
-(
-    [order_id] => 89984
-    [order_date] => 2025-11-14 20:41:52
-)
-
-[2025-11-14 21:14:28] [debug] 🏷️ Checking product Array
-(
-    [product_id] => 86825
-    [product_name] => Spanish A0 Regular: Mondays
-    [has_membership_category] => 
-)
-
-[2025-11-14 21:14:28] [debug] 🔍 Checking order Array
-(
-    [order_id] => 89983
-    [order_date] => 2025-11-14 20:40:42
-)
-
-[2025-11-14 21:14:28] [debug] 🏷️ Checking product Array
-(
-    [product_id] => 83556
-    [product_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures<span> - </span>UI Member Ham
-    [has_membership_category] => 
-)
-
-[2025-11-14 21:14:28] [debug] 🔍 Checking order Array
-(
-    [order_id] => 89982
-    [order_date] => 2025-11-14 20:33:08
-)
-
-[2025-11-14 21:14:28] [debug] 🏷️ Checking product Array
-(
-    [product_id] => 83556
-    [product_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures<span> - </span>UI Member Ham
-    [has_membership_category] => 
-)
-
-[2025-11-14 21:14:28] [debug] 🔍 Checking order Array
-(
-    [order_id] => 89981
-    [order_date] => 2025-11-14 20:31:11
-)
-
-[2025-11-14 21:14:28] [debug] 🏷️ Checking product Array
-(
-    [product_id] => 83556
-    [product_name] => Africa's Economic Renaissance:Breaking Barriers, Building Futures<span> - </span>UI Member Ham
-    [has_membership_category] => 
-)
-
-[2025-11-14 21:14:28] [debug] 🔍 Checking order Array
-(
-    [order_id] => 89935
-    [order_date] => 2025-11-10 08:58:27
-)
-
-[2025-11-14 21:14:28] [debug] 🏷️ Checking product Array
-(
-    [product_id] => 89889
-    [product_name] => Family Member
-    [has_membership_category] => 1
-)
-
-[2025-11-14 21:14:28] [debug] ✅ Found membership product Array
-(
-    [product_name] => Family Member
-    [order_id] => 89935
-)
-
-[2025-11-14 21:14:28] [debug] 🎫 Product name retrieved Array
-(
-    [user_id] => 1214
-    [product_name] => Family Member
-)
-
-[2025-11-14 21:14:28] [debug] ✅ One-time membership status compiled Array
-(
-    [user_id] => 1214
-    [status_data] => Array
-        (
-            [user_id] => 1214
-            [membership_level] => Individual
-            [product_name] => Family Member
-            [start_date] => November 10, 2025
-            [renewal_date] => November 10, 2026
-            [days_remaining] => 361
-            [is_active] => 1
-            [status] => active
-        )
-
-)
-
-[2025-11-14 21:14:28] [debug] 📋 One-time membership status result Array
-(
-    [user_id] => 1214
-    [status_found] => 1
-    [status_data] => Array
-        (
-            [user_id] => 1214
-            [membership_level] => Individual
-            [product_name] => Family Member
-            [start_date] => November 10, 2025
-            [renewal_date] => November 10, 2026
-            [days_remaining] => 361
-            [is_active] => 1
-            [status] => active
-        )
-
-)
-
-[2025-11-14 21:14:28] [debug] ✅ One-time membership found - displaying it (hiding any WC subscriptions) Array
-(
-    [user_id] => 1214
-    [membership_level] => Individual
-    [days_remaining] => 361
-    [wc_subscriptions_hidden] => 10
-)
-
+[2025-11-16 04:38:07] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-16 04:38:07] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-16 04:38:07] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)

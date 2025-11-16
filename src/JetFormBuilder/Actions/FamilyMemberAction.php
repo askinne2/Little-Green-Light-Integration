@@ -13,6 +13,7 @@ namespace UpstateInternational\LGL\JetFormBuilder\Actions;
 
 use UpstateInternational\LGL\LGL\Connection;
 use UpstateInternational\LGL\LGL\Helper;
+use UpstateInternational\LGL\Memberships\MembershipRegistrationService;
 
 /**
  * FamilyMemberAction Class
@@ -36,6 +37,13 @@ class FamilyMemberAction implements JetFormActionInterface {
     private Helper $helper;
     
     /**
+     * Membership Registration Service
+     * 
+     * @var MembershipRegistrationService
+     */
+    private MembershipRegistrationService $registrationService;
+    
+    /**
      * Constructor
      * 
      * @param Connection $connection LGL connection service
@@ -44,6 +52,20 @@ class FamilyMemberAction implements JetFormActionInterface {
     public function __construct(Connection $connection, Helper $helper) {
         $this->connection = $connection;
         $this->helper = $helper;
+        
+        // Get MembershipRegistrationService from container
+        $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
+        if ($container->has('memberships.registration_service')) {
+            $this->registrationService = $container->get('memberships.registration_service');
+        } else {
+            // Fallback: instantiate directly if container doesn't have it
+            $this->registrationService = new MembershipRegistrationService(
+                $this->connection,
+                $this->helper,
+                \UpstateInternational\LGL\LGL\Constituents::getInstance(),
+                \UpstateInternational\LGL\LGL\Payments::getInstance()
+            );
+        }
     }
     
     /**
@@ -54,47 +76,106 @@ class FamilyMemberAction implements JetFormActionInterface {
      * @return void
      */
     public function handle(array $request, $action_handler): void {
-        // Validate request data (Security Layer 1 & 2: Form access + Slot validation)
-        if (!$this->validateRequest($request, $action_handler)) {
-            $this->helper->debug('FamilyMemberAction: Invalid request data');
-            return;
-        }
-        
+        try {
+            // SECURITY LAYER 0: Check if email already exists FIRST (before any processing)
+            if (!empty($request['email'])) {
+                $email = sanitize_email($request['email']);
+                if (email_exists($email)) {
+                    $existing_user = get_user_by('email', $email);
+                    
+                    $this->helper->debug('FamilyMemberAction: User already exists (checked first)', [
+                        'email' => $email,
+                        'existing_user_id' => $existing_user->ID
+                    ]);
+                    
+                    // Use Action_Exception for proper JetFormBuilder error handling
+                    $error_message = sprintf(
+                        'A user with the email address %s already exists. Please use a different email address or remove the existing family member first.',
+                        $email
+                    );
+                    
+                    if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                        throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                    } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                        throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                    } else {
+                        throw new \RuntimeException($error_message);
+                    }
+                }
+            }
+            
+            // SECURITY LAYER 1: Check parent has available slots BEFORE any processing
+            // This must be checked here, not in validateRequest(), because validateRequest()
+            // may be called by the filter hook AFTER the action has already consumed slots
+            if (!empty($request['parent_user_id'])) {
+                $parent_uid = (int) $request['parent_user_id'];
+                $available_slots = $this->helper->getAvailableFamilySlots($parent_uid);
+                
+                if ($available_slots <= 0) {
+                    $this->helper->debug('FamilyMemberAction: No available family slots (checked in handle)', [
+                        'parent_uid' => $parent_uid,
+                        'available_slots' => $available_slots,
+                        'total_purchased' => (int) get_user_meta($parent_uid, 'user_total_family_slots_purchased', true),
+                        'actual_used' => $this->helper->getActualUsedFamilySlots($parent_uid)
+                    ]);
+                    
+                    $error_message = 'You do not have any available family member slots. Please purchase additional slots before adding family members.';
+                    
+                    if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                        throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                    } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                        throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                    } else {
+                        throw new \RuntimeException($error_message);
+                    }
+                }
+            }
+            
+            // Validate request data (Security Layer 2: Form field validation)
+            if (!$this->validateRequest($request, $action_handler)) {
+                $this->helper->debug('FamilyMemberAction: Invalid request data');
+                $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
+                
+                // Use Action_Exception for proper JetFormBuilder error handling
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
+            }
+            
         $parent_uid = (int) $request['parent_user_id'];
-        $email = sanitize_email($request['email']);
-        $first_name = sanitize_text_field($request['first_name']);
-        $last_name = sanitize_text_field($request['last_name']);
-        
-        $this->helper->debug('FamilyMemberAction: Processing direct creation request', [
-            'parent_uid' => $parent_uid,
-            'email' => $email,
-            'first_name' => $first_name,
-            'last_name' => $last_name
-        ]);
-        
-        // Security Layer 3: Check if user already exists (prevent duplicates)
-        if (email_exists($email)) {
-            $existing_user = get_user_by('email', $email);
+            $email = sanitize_email($request['email']);
+            $first_name = sanitize_text_field($request['first_name']);
+            $last_name = sanitize_text_field($request['last_name']);
             
-            $this->helper->debug('FamilyMemberAction: User already exists', [
+            $this->helper->debug('FamilyMemberAction: Processing direct creation request', [
+                'parent_uid' => $parent_uid,
                 'email' => $email,
-                'existing_user_id' => $existing_user->ID
+                'first_name' => $first_name,
+                'last_name' => $last_name
             ]);
             
-            // Exit gracefully - user already exists
-            return;
-        }
-        
-        // Create new WordPress user
-        $child_uid = $this->createFamilyMemberUser($first_name, $last_name, $email);
-        
-        if (is_wp_error($child_uid)) {
-            $this->helper->debug('FamilyMemberAction: User creation failed', [
-                'error' => $child_uid->get_error_message()
-            ]);
+            // Create new WordPress user
+            $child_uid = $this->createFamilyMemberUser($first_name, $last_name, $email);
             
-            return;
-        }
+            if (is_wp_error($child_uid)) {
+                $error_message = sprintf('Failed to create family member account: %s', $child_uid->get_error_message());
+                $this->helper->debug('FamilyMemberAction: User creation failed', [
+                    'error' => $error_message
+                ]);
+                
+                // Use Action_Exception for proper JetFormBuilder error handling
+                if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                    throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                    throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                } else {
+                    throw new \RuntimeException($error_message);
+                }
+            }
         
         // Get parent membership info
         $parent_membership_info = $this->getParentMembershipInfo($parent_uid);
@@ -120,11 +201,22 @@ class FamilyMemberAction implements JetFormActionInterface {
         // Send welcome email with password reset link
         $this->sendWelcomeEmail($child_uid, $email, $first_name);
         
-        $this->helper->debug('FamilyMemberAction: Successfully created family member', [
-            'child_uid' => $child_uid,
-            'parent_uid' => $parent_uid,
-            'email' => $email
-        ]);
+            $this->helper->debug('FamilyMemberAction: Successfully created family member', [
+                'child_uid' => $child_uid,
+                'parent_uid' => $parent_uid,
+                'email' => $email
+            ]);
+            
+        } catch (\Exception $e) {
+            $this->helper->debug('FamilyMemberAction: Error occurred', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            // Re-throw exception so JetFormBuilder can handle it
+            throw $e;
+        }
     }
     
     /**
@@ -173,7 +265,7 @@ class FamilyMemberAction implements JetFormActionInterface {
     }
     
     /**
-     * Register family member via UserRegistrationAction
+     * Register family member via MembershipRegistrationService
      * 
      * @param array $child_request Child request data
      * @param mixed $action_handler Action handler
@@ -181,17 +273,61 @@ class FamilyMemberAction implements JetFormActionInterface {
      * @return void
      */
     private function registerFamilyMember(array $child_request, $action_handler, int $parent_uid): void {
-        $this->helper->debug('FamilyMemberAction: Registering in LGL with modern UserRegistrationAction', [
+        $this->helper->debug('FamilyMemberAction: Registering in LGL with MembershipRegistrationService', [
             'child_uid' => $child_request['user_id'] ?? 'N/A',
             'parent_uid' => $parent_uid,
             'membership_type' => $child_request['ui-membership-type'] ?? 'N/A'
         ]);
         
-        // Use modern UserRegistrationAction instead of legacy LGL_API code
-        $registration_action = new UserRegistrationAction($this->connection, $this->helper);
-        $registration_action->handle($child_request, $action_handler);
+        // Build context array for MembershipRegistrationService
+        $context = [
+            'user_id' => (int) ($child_request['user_id'] ?? 0),
+            'search_name' => ($child_request['user_firstname'] ?? '') . '%20' . ($child_request['user_lastname'] ?? ''),
+            'emails' => !empty($child_request['user_email']) ? [strtolower($child_request['user_email'])] : [],
+            'email' => $child_request['user_email'] ?? '',
+            'order_id' => 0, // Family members don't have orders
+            'price' => 0, // Family members don't pay
+            'membership_level' => $child_request['ui-membership-type'] ?? '',
+            'membership_level_id' => null,
+            'payment_type' => null,
+            'is_family_member' => true, // CRITICAL: This prevents payment creation
+            'request' => $child_request,
+            'order' => null
+        ];
         
-        $this->helper->debug('FamilyMemberAction: LGL registration completed');
+        try {
+            $result = $this->registrationService->register($context);
+            
+            $this->helper->debug('FamilyMemberAction: LGL registration completed', [
+                'lgl_id' => $result['lgl_id'] ?? null,
+                'created' => $result['created'] ?? false,
+                'match_method' => $result['match_method'] ?? null,
+                'status' => $result['status'] ?? 'unknown'
+            ]);
+            
+            // Create LGL constituent relationship (Parent/Child) after successful registration
+            if (!empty($result['lgl_id'])) {
+                $child_lgl_id = (int) $result['lgl_id'];
+                $this->createLGLRelationship($parent_uid, $child_request['user_id'], $child_lgl_id);
+            }
+        } catch (\Exception $e) {
+            $this->helper->debug('FamilyMemberAction: LGL registration failed', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            // Re-throw as Action_Exception for proper form error handling
+            $error_message = 'Failed to register family member in LGL. Please try again or contact support.';
+            
+            if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+            } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+        } else {
+                throw new \RuntimeException($error_message);
+            }
+        }
     }
     
     /**
@@ -253,18 +389,9 @@ class FamilyMemberAction implements JetFormActionInterface {
             return false;
         }
         
-        // SECURITY LAYER 2: Check parent has available slots
-        $parent_uid = (int) $request['parent_user_id'];
-        $available_slots = (int) get_user_meta($parent_uid, 'user_available_family_slots', true);
-        
-        if ($available_slots <= 0) {
-            $this->helper->debug('FamilyMemberAction: No available family slots', [
-                'parent_uid' => $parent_uid,
-                'available_slots' => $available_slots
-            ]);
-            
-            return false;
-        }
+        // NOTE: Slot availability check is done in handle() method FIRST, not here.
+        // This is because validateRequest() may be called by the filter hook AFTER
+        // the action has already consumed slots, causing false negatives.
         
         return true;
     }
@@ -390,21 +517,29 @@ class FamilyMemberAction implements JetFormActionInterface {
     /**
      * Consume one family slot (Security Layer 5 - economic rate limiting)
      * 
+     * Note: We don't manually increment user_used_family_slots anymore.
+     * Instead, we sync it with the actual JetEngine relationship count.
+     * Available slots are recalculated based on: total_purchased - actual_used
+     * 
      * @param int $parent_uid Parent user ID
      * @return void
      */
     private function consumeFamilySlot(int $parent_uid): void {
-        $current_slots = (int) get_user_meta($parent_uid, 'user_available_family_slots', true);
-        $new_slots = max(0, $current_slots - 1);
-        update_user_meta($parent_uid, 'user_available_family_slots', $new_slots);
+        // Sync user_used_family_slots with actual JetEngine count (source of truth)
+        $this->helper->syncUsedFamilySlotsMeta($parent_uid);
         
-        $used_slots = (int) get_user_meta($parent_uid, 'user_used_family_slots', true);
-        update_user_meta($parent_uid, 'user_used_family_slots', $used_slots + 1);
+        // Recalculate available slots based on actual count: total_purchased - actual_used
+        $total_purchased = (int) get_user_meta($parent_uid, 'user_total_family_slots_purchased', true);
+        $actual_used = $this->helper->getActualUsedFamilySlots($parent_uid);
+        $new_available = $total_purchased - $actual_used;
+        update_user_meta($parent_uid, 'user_available_family_slots', max(0, $new_available));
         
         $this->helper->debug('FamilyMemberAction: Consumed family slot', [
             'parent_uid' => $parent_uid,
-            'remaining_slots' => $new_slots,
-            'total_used' => $used_slots + 1
+            'remaining_slots' => $new_available,
+            'total_purchased' => $total_purchased,
+            'actual_used_from_jetengine' => $actual_used,
+            'note' => 'user_used_family_slots synced with JetEngine count, available slots recalculated'
         ]);
     }
     
@@ -440,6 +575,122 @@ class FamilyMemberAction implements JetFormActionInterface {
             'ui-membership-type' => $parent_membership_info['membership_type'],
             'method' => 'family_member', // Flag to prevent payment object creation
         ];
+    }
+    
+    /**
+     * Create LGL constituent relationships (Parent/Child - both directions)
+     * 
+     * Creates bidirectional Parent/Child relationships in LGL CRM:
+     * 1. Child -> Parent (relationship type: "Parent")
+     * 2. Parent -> Child (relationship type: "Child")
+     * 
+     * Stores relationship IDs in WordPress user meta for easy deletion later.
+     * 
+     * WordPress User Meta Fields:
+     *   - 'lgl_family_relationship_id': Stores Child->Parent relationship ID (on child user)
+     *   - 'lgl_family_relationship_parent_id': Stores Parent->Child relationship ID (on child user, for parent's reference)
+     * 
+     * @param int $parent_uid Parent WordPress user ID
+     * @param int $child_uid Child WordPress user ID
+     * @param int $child_lgl_id Child LGL constituent ID
+     * @return void
+     */
+    private function createLGLRelationship(int $parent_uid, int $child_uid, int $child_lgl_id): void {
+        $parent_lgl_id = get_user_meta($parent_uid, 'lgl_id', true);
+        
+        if (!$parent_lgl_id) {
+            $this->helper->debug('FamilyMemberAction: Parent LGL ID not found, skipping relationship creation', [
+                'parent_uid' => $parent_uid
+            ]);
+            return;
+        }
+        
+        // Look up relationship type IDs
+        $parent_type_id = $this->connection->getRelationshipTypeId('Parent');
+        $child_type_id = $this->connection->getRelationshipTypeId('Child');
+        
+        if (!$parent_type_id || !$child_type_id) {
+            $this->helper->debug('FamilyMemberAction: Could not find relationship type IDs, skipping relationship creation', [
+                'child_lgl_id' => $child_lgl_id,
+                'parent_lgl_id' => $parent_lgl_id,
+                'parent_type_id' => $parent_type_id,
+                'child_type_id' => $child_type_id
+            ]);
+            return; // Don't create relationships if we can't find the types
+        }
+        
+        // Create relationship from child's perspective: Child -> Parent
+        try {
+            $child_to_parent_data = [
+                'related_constituent_id' => (int) $parent_lgl_id,
+                'relationship_type_id' => $parent_type_id
+            ];
+            
+            $response = $this->connection->createConstituentRelationship($child_lgl_id, $child_to_parent_data);
+            
+            if ($response['success'] && isset($response['data'])) {
+                $relationship_id = is_object($response['data']) ? 
+                    ($response['data']->id ?? null) : 
+                    ($response['data']['id'] ?? null);
+                
+                if ($relationship_id) {
+                    // Store Child->Parent relationship ID on child user
+                    update_user_meta($child_uid, 'lgl_family_relationship_id', (int) $relationship_id);
+                    
+                    $this->helper->debug('FamilyMemberAction: Created Child->Parent LGL relationship', [
+                        'child_lgl_id' => $child_lgl_id,
+                        'parent_lgl_id' => $parent_lgl_id,
+                        'relationship_id' => $relationship_id,
+                        'relationship_type_id' => $parent_type_id,
+                        'relationship_type_name' => 'Parent',
+                        'direction' => 'Child->Parent'
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            $this->helper->debug('FamilyMemberAction: Exception creating Child->Parent relationship', [
+                'error' => $e->getMessage(),
+                'child_lgl_id' => $child_lgl_id,
+                'parent_lgl_id' => $parent_lgl_id
+            ]);
+        }
+        
+        // Create reciprocal relationship from parent's perspective: Parent -> Child
+        try {
+            $parent_to_child_data = [
+                'related_constituent_id' => (int) $child_lgl_id,
+                'relationship_type_id' => $child_type_id
+            ];
+            
+            $response = $this->connection->createConstituentRelationship($parent_lgl_id, $parent_to_child_data);
+            
+            if ($response['success'] && isset($response['data'])) {
+                $relationship_id = is_object($response['data']) ? 
+                    ($response['data']->id ?? null) : 
+                    ($response['data']['id'] ?? null);
+                
+                if ($relationship_id) {
+                    // Store Parent->Child relationship ID on child user (for reference during deletion)
+                    update_user_meta($child_uid, 'lgl_family_relationship_parent_id', (int) $relationship_id);
+                    
+                    $this->helper->debug('FamilyMemberAction: Created Parent->Child LGL relationship', [
+                        'child_lgl_id' => $child_lgl_id,
+                        'parent_lgl_id' => $parent_lgl_id,
+                        'relationship_id' => $relationship_id,
+                        'relationship_type_id' => $child_type_id,
+                        'relationship_type_name' => 'Child',
+                        'direction' => 'Parent->Child'
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            $this->helper->debug('FamilyMemberAction: Exception creating Parent->Child relationship', [
+                'error' => $e->getMessage(),
+                'child_lgl_id' => $child_lgl_id,
+                'parent_lgl_id' => $parent_lgl_id
+            ]);
+            // Don't throw - relationship creation failure shouldn't prevent family member creation
+        }
     }
     
     /**

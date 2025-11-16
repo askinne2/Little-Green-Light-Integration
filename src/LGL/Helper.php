@@ -645,6 +645,119 @@ class Helper {
         
         return true;
     }
+    
+    /**
+     * Get actual number of family members for a user (from JetEngine relationships)
+     * 
+     * Queries JetEngine relation ID 24 to get the real count of connected family members.
+     * This is the source of truth - not the user_used_family_slots meta field.
+     * 
+     * @param int $parent_uid Parent user ID
+     * @return int Number of actual family member relationships
+     */
+    public function getActualUsedFamilySlots(int $parent_uid): int {
+        if (!function_exists('jet_engine')) {
+            $this->debug('Helper: JetEngine not available, cannot query family relationships');
+            return 0;
+        }
+        
+        try {
+            $relation = \jet_engine()->relations->get_active_relations(24);
+            if (!$relation) {
+                $this->debug('Helper: Could not get JetEngine relation 24');
+                return 0;
+            }
+            
+            $children = $relation->get_children($parent_uid, 'ids');
+            $count = is_array($children) ? count($children) : 0;
+            
+            $this->debug('Helper: Queried actual family slots from JetEngine', [
+                'parent_uid' => $parent_uid,
+                'actual_count' => $count,
+                'children_ids' => $children
+            ]);
+            
+            return $count;
+            
+        } catch (\Exception $e) {
+            $this->debug('Helper: Error querying JetEngine relationships', [
+                'error' => $e->getMessage(),
+                'parent_uid' => $parent_uid
+            ]);
+            return 0;
+        }
+    }
+    
+    /**
+     * Get available family slots for a user
+     * 
+     * Calculates: total_purchased - actual_used_from_jetengine
+     * 
+     * @param int $parent_uid Parent user ID
+     * @return int Available slots (can be negative if data is inconsistent)
+     */
+    public function getAvailableFamilySlots(int $parent_uid): int {
+        $total_purchased = (int) get_user_meta($parent_uid, 'user_total_family_slots_purchased', true);
+        $actual_used = $this->getActualUsedFamilySlots($parent_uid);
+        
+        $available = $total_purchased - $actual_used;
+        
+        $this->debug('Helper: Calculated available family slots', [
+            'parent_uid' => $parent_uid,
+            'total_purchased' => $total_purchased,
+            'actual_used' => $actual_used,
+            'available' => $available
+        ]);
+        
+        return $available;
+    }
+    
+    /**
+     * Sync user_used_family_slots meta with actual JetEngine count
+     * 
+     * Updates the meta field to match reality (for backwards compatibility)
+     * 
+     * @param int $parent_uid Parent user ID
+     * @return void
+     */
+    public function syncUsedFamilySlotsMeta(int $parent_uid): void {
+        $actual_count = $this->getActualUsedFamilySlots($parent_uid);
+        update_user_meta($parent_uid, 'user_used_family_slots', $actual_count);
+        
+        $this->debug('Helper: Synced user_used_family_slots meta', [
+            'parent_uid' => $parent_uid,
+            'synced_count' => $actual_count
+        ]);
+    }
+    
+    /**
+     * Hook into JetEngine relationship deletion to auto-sync slots
+     * 
+     * This ensures slots are synced even if relationships are deleted outside the plugin
+     * 
+     * @return void
+     */
+    public function hookJetEngineRelationshipDeletion(): void {
+        // Hook into JetEngine's relationship deletion
+        add_action('jet-engine/relations/after-delete', function($relation_id, $parent_id, $child_id) {
+            if ($relation_id == 24) { // Family relationship ID
+                $this->syncUsedFamilySlotsMeta($parent_id);
+                
+                $total_purchased = (int) get_user_meta($parent_id, 'user_total_family_slots_purchased', true);
+                $actual_used = $this->getActualUsedFamilySlots($parent_id);
+                $new_available = $total_purchased - $actual_used;
+                update_user_meta($parent_id, 'user_available_family_slots', max(0, $new_available));
+                
+                $this->debug('Helper: Auto-synced slots after JetEngine relationship deletion', [
+                    'parent_id' => $parent_id,
+                    'child_id' => $child_id,
+                    'total_purchased' => $total_purchased,
+                    'actual_used' => $actual_used,
+                    'new_available' => $new_available
+                ]);
+            }
+        }, 10, 3);
+    }
 }
 
 // Maintain backward compatibility

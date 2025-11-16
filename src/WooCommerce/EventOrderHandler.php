@@ -11,6 +11,8 @@
 
 namespace UpstateInternational\LGL\WooCommerce;
 
+use UpstateInternational\LGL\Core\ServiceContainer;
+use UpstateInternational\LGL\JetFormBuilder\Actions\EventRegistrationAction;
 use UpstateInternational\LGL\LGL\Helper;
 use UpstateInternational\LGL\LGL\WpUsers;
 
@@ -130,17 +132,53 @@ class EventOrderHandler {
     /**
      * Register event in LGL
      * 
+     * Uses the modern EventRegistrationAction instead of legacy LGL_API.
+     * This ensures consistent behavior between form-based and WooCommerce-based event registrations.
+     * 
      * @param array $event_registration Event registration data
      * @return void
      */
     private function registerEventInLGL(array $event_registration): void {
-        // Use legacy LGL_API for now - this will be modernized in future phases
-        if (class_exists('LGL_API')) {
-            $lgl_api = \LGL_API::get_instance();
-            $lgl_api->lgl_add_event_registration($event_registration, null);
+        try {
+            // Get the modern EventRegistrationAction from the service container
+            $container = ServiceContainer::getInstance();
+            
+            // Get action instance - container will auto-resolve dependencies
+            $action = new EventRegistrationAction(
+                $container->get(\UpstateInternational\LGL\LGL\Connection::class),
+                $container->get(\UpstateInternational\LGL\LGL\Helper::class),
+                $container->get(\UpstateInternational\LGL\LGL\Payments::class)
+            );
+            
+            // Prepare request array matching JetFormBuilder format
+            // Ensure username is properly formatted (spaces replaced with %20)
+            $request = $event_registration;
+            if (isset($request['username'])) {
+                $request['username'] = str_replace(' ', '%20', $request['username']);
+            }
+            
+            // Ensure event_id is set (EventRegistrationAction supports both event_id and class_id)
+            if (!isset($request['event_id']) && isset($request['class_id'])) {
+                $request['event_id'] = $request['class_id'];
+            }
+            
+            // Ensure price is set correctly (EventRegistrationAction expects event_price)
+            if (!isset($request['event_price']) && isset($request['class_price'])) {
+                $request['event_price'] = $request['class_price'];
+            }
+            
+            // Handle the event registration (this will create payment via setupEventPayment)
+            $action->handle($request, null);
+            
             $this->helper->debug('EventOrderHandler: Event registered in LGL', $event_registration['user_id']);
-        } else {
-            $this->helper->debug('EventOrderHandler: LGL_API not available for event registration');
+            
+        } catch (\Exception $e) {
+            $this->helper->debug('EventOrderHandler: Error registering event in LGL', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            // Don't throw - allow order to complete even if LGL registration fails
         }
     }
     
