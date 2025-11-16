@@ -13,6 +13,7 @@ namespace UpstateInternational\LGL\Memberships;
 
 use UpstateInternational\LGL\LGL\Helper;
 use UpstateInternational\LGL\Admin\SettingsManager;
+use UpstateInternational\LGL\Email\WC_Membership_Renewal_Email;
 
 /**
  * MembershipNotificationMailer Class
@@ -84,9 +85,10 @@ class MembershipNotificationMailer {
      * @param string $recipient_email Recipient email address
      * @param string $first_name Recipient first name
      * @param int $days_until_renewal Days until renewal (negative if overdue)
+     * @param array $additional_data Additional data (optional)
      * @return bool Success status
      */
-    public function sendRenewalNotification(string $recipient_email, string $first_name, int $days_until_renewal): bool {
+    public function sendRenewalNotification(string $recipient_email, string $first_name, int $days_until_renewal, array $additional_data = []): bool {
         if (empty($recipient_email) || !is_email($recipient_email)) {
             $this->helper->debug('Invalid email address: ' . $recipient_email);
             return false;
@@ -96,20 +98,37 @@ class MembershipNotificationMailer {
             $first_name = 'Member';
         }
         
-        $subject = $this->getSubjectLine($first_name, $days_until_renewal);
-        $content = $this->getEmailContent($days_until_renewal);
-        
-        $this->helper->debug("Sending renewal email to {$recipient_email}: {$subject}");
+        $this->helper->debug("Sending renewal email to {$recipient_email} for {$days_until_renewal} days");
         
         try {
-            $sent = wp_mail($recipient_email, $subject, $content, $this->emailHeaders);
-            
-            if ($sent) {
-                $this->helper->debug('Email sent successfully');
+            // Use WooCommerce email class if available
+            if (class_exists('WC_Email') && class_exists('\UpstateInternational\LGL\Email\WC_Membership_Renewal_Email')) {
+                $wc_email = new WC_Membership_Renewal_Email();
+                
+                // Set settings manager if available
+                if ($this->settingsManager) {
+                    $wc_email->setSettingsManager($this->settingsManager);
+                }
+                
+                // Trigger the email
+                $wc_email->trigger($recipient_email, $first_name, $days_until_renewal, $additional_data);
+                
+                $this->helper->debug('Email sent successfully via WC_Email');
                 return true;
             } else {
-                $this->helper->debug('Failed to send email via wp_mail');
-                return false;
+                // Fallback to wp_mail if WooCommerce not available
+                $subject = $this->getSubjectLine($first_name, $days_until_renewal);
+                $content = $this->getEmailContent($days_until_renewal);
+                
+                $sent = wp_mail($recipient_email, $subject, $content, $this->emailHeaders);
+                
+                if ($sent) {
+                    $this->helper->debug('Email sent successfully via wp_mail (fallback)');
+                    return true;
+                } else {
+                    $this->helper->debug('Failed to send email via wp_mail');
+                    return false;
+                }
             }
             
         } catch (\Exception $e) {
@@ -391,7 +410,7 @@ class MembershipNotificationMailer {
     }
     
     /**
-     * Get settings manager instance (for testing)
+     * Get settings manager instance (for testing and WC_Email integration)
      * 
      * @return SettingsManager|null
      */

@@ -122,20 +122,27 @@ class DashboardWidgets {
      * Send order summary email
      */
     private static function sendOrderSummaryEmail($start_date, $end_date, $recipient, $orders) {
-        $subject = sprintf(
-            'Order Summary: %s to %s',
-            $start_date->format('M j, Y'),
-            $end_date->format('M j, Y')
-        );
-        
-        $message = static::buildEmailContent($orders, $start_date, $end_date);
-        
-        $headers = [
-            'Content-Type: text/html; charset=UTF-8',
-            'From: ' . get_bloginfo('name') . ' <' . get_option('admin_email') . '>'
-        ];
-        
-        wp_mail($recipient, $subject, $message, $headers);
+        // Use WooCommerce email class if available
+        if (class_exists('WC_Email') && class_exists('\UpstateInternational\LGL\Email\WC_Daily_Order_Summary_Email')) {
+            $wc_email = new \UpstateInternational\LGL\Email\WC_Daily_Order_Summary_Email();
+            $wc_email->trigger($orders, $start_date, $end_date, $recipient);
+        } else {
+            // Fallback to wp_mail if WooCommerce not available
+            $subject = sprintf(
+                'Order Summary: %s to %s',
+                $start_date->format('M j, Y'),
+                $end_date->format('M j, Y')
+            );
+            
+            $message = static::buildEmailContent($orders, $start_date, $end_date);
+            
+            $headers = [
+                'Content-Type: text/html; charset=UTF-8',
+                'From: ' . get_bloginfo('name') . ' <' . get_option('admin_email') . '>'
+            ];
+            
+            wp_mail($recipient, $subject, $message, $headers);
+        }
     }
     
     /**

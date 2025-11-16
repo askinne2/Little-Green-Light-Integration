@@ -180,6 +180,9 @@ class Plugin {
                 
                 $this->container->get('woocommerce.order_processor');
                 $this->container->get('woocommerce.subscription_handler');
+                
+                // Register custom WooCommerce email classes
+                $this->registerWooCommerceEmails();
             }
             
             // Initialize JetFormBuilder actions
@@ -541,6 +544,31 @@ class Plugin {
      */
     public function getHookManager(): HookManager {
         return $this->hookManager;
+    }
+    
+    /**
+     * Register custom WooCommerce email classes
+     * 
+     * @return void
+     */
+    private function registerWooCommerceEmails(): void {
+        // Register email classes with WooCommerce
+        add_filter('woocommerce_email_classes', function($emails) {
+            // Only register if classes exist
+            if (class_exists('\UpstateInternational\LGL\Email\WC_Membership_Renewal_Email')) {
+                $emails['WC_Membership_Renewal_Email'] = new \UpstateInternational\LGL\Email\WC_Membership_Renewal_Email();
+            }
+            
+            if (class_exists('\UpstateInternational\LGL\Email\WC_Daily_Order_Summary_Email')) {
+                $emails['WC_Daily_Order_Summary_Email'] = new \UpstateInternational\LGL\Email\WC_Daily_Order_Summary_Email();
+            }
+            
+            if (class_exists('\UpstateInternational\LGL\Email\WC_Family_Member_Welcome_Email')) {
+                $emails['WC_Family_Member_Welcome_Email'] = new \UpstateInternational\LGL\Email\WC_Family_Member_Welcome_Email();
+            }
+            
+            return $emails;
+        });
     }
     
     /**

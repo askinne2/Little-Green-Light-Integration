@@ -13,6 +13,7 @@ namespace UpstateInternational\LGL\Email;
 
 use UpstateInternational\LGL\Core\CacheManager;
 use UpstateInternational\LGL\Core\Utilities;
+use UpstateInternational\LGL\Email\WC_Daily_Order_Summary_Email;
 
 /**
  * Daily Email Manager Class
@@ -94,26 +95,34 @@ class DailyEmailManager {
                 return;
             }
             
-            $subject = sprintf(
-                'Daily Order Summary - %s',
-                $start_datetime->format('M j, Y')
-            );
-            
-            $email_content = static::buildEmailContent($orders, $start_datetime, $end_datetime);
-            
-            $headers = [
-                'Content-Type: text/html; charset=UTF-8',
-                'From: ' . get_bloginfo('name') . ' <' . get_option('admin_email') . '>'
-            ];
-            
-            // Send to each recipient
-            foreach ($recipients as $recipient) {
-                if (is_email($recipient)) {
-                    $sent = wp_mail($recipient, $subject, $email_content, $headers);
-                    if ($sent) {
-                        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email: Successfully sent to ' . $recipient);
-                    } else {
-                        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email: Failed to send to ' . $recipient);
+            // Use WooCommerce email class if available
+            if (class_exists('WC_Email') && class_exists('\UpstateInternational\LGL\Email\WC_Daily_Order_Summary_Email')) {
+                $wc_email = new WC_Daily_Order_Summary_Email();
+                $wc_email->trigger($orders, $start_datetime, $end_datetime, $recipients);
+                \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email: Sent via WC_Email');
+            } else {
+                // Fallback to wp_mail if WooCommerce not available
+                $subject = sprintf(
+                    'Daily Order Summary - %s',
+                    $start_datetime->format('M j, Y')
+                );
+                
+                $email_content = static::buildEmailContent($orders, $start_datetime, $end_datetime);
+                
+                $headers = [
+                    'Content-Type: text/html; charset=UTF-8',
+                    'From: ' . get_bloginfo('name') . ' <' . get_option('admin_email') . '>'
+                ];
+                
+                // Send to each recipient
+                foreach ($recipients as $recipient) {
+                    if (is_email($recipient)) {
+                        $sent = wp_mail($recipient, $subject, $email_content, $headers);
+                        if ($sent) {
+                            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email: Successfully sent to ' . $recipient);
+                        } else {
+                            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email: Failed to send to ' . $recipient);
+                        }
                     }
                 }
             }

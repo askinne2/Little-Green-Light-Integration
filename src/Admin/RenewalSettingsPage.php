@@ -82,6 +82,9 @@ class RenewalSettingsPage {
     public function render(): void {
         $settings = $this->settingsManager->getAll();
         $wc_active = $this->strategyManager->isWcSubscriptionsActive();
+        
+        // Get statistics (read-only, doesn't send emails - just counts members)
+        // This is safe to call on every page load as it only audits/counts
         $stats = $this->strategyManager->getRenewalStatistics();
         
         ?>

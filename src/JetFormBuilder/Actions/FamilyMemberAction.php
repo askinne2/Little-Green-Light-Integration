@@ -714,35 +714,50 @@ class FamilyMemberAction implements JetFormActionInterface {
         $user = get_userdata($child_uid);
         $reset_url = network_site_url("wp-login.php?action=rp&key=$reset_key&login=" . rawurlencode($user->user_login), 'login');
         
-        // Load email template
-        $template_path = LGL_PLUGIN_DIR . 'form-emails/family-member-welcome.html';
-        $email_content = file_get_contents($template_path);
-        
-        if ($email_content === false) {
-            $this->helper->debug('FamilyMemberAction: Email template not found', [
-                'template_path' => $template_path
-            ]);
-            return;
+        try {
+            // Use WooCommerce email class if available
+            if (class_exists('WC_Email') && class_exists('\UpstateInternational\LGL\Email\WC_Family_Member_Welcome_Email')) {
+                $wc_email = new \UpstateInternational\LGL\Email\WC_Family_Member_Welcome_Email();
+                $wc_email->trigger($email, $first_name, $reset_url);
+                
+                $this->helper->debug('FamilyMemberAction: Welcome email sent via WC_Email', [
+                    'email' => $email,
+                    'user_id' => $child_uid
+                ]);
+            } else {
+                // Fallback to wp_mail if WooCommerce not available
+                $template_path = LGL_PLUGIN_DIR . 'form-emails/family-member-welcome.html';
+                $email_content = file_get_contents($template_path);
+                
+                if ($email_content === false) {
+                    $this->helper->debug('FamilyMemberAction: Email template not found', [
+                        'template_path' => $template_path
+                    ]);
+                    return;
+                }
+                
+                // Replace placeholders
+                $replacements = [
+                    '%user_firstname%' => $first_name,
+                    '%password_reset_url%' => $reset_url,
+                    '%site_url%' => home_url()
+                ];
+                
+                $email_content = str_replace(array_keys($replacements), array_values($replacements), $email_content);
+                
+                $headers = ['Content-Type: text/html; charset=UTF-8'];
+                $subject = 'Welcome to Upstate International - Set Your Password';
+                
+                $mail_sent = wp_mail($email, $subject, $email_content, $headers);
+                
+                $this->helper->debug('FamilyMemberAction: Welcome email sent via wp_mail (fallback)', [
+                    'email' => $email,
+                    'user_id' => $child_uid,
+                    'mail_sent' => $mail_sent
+                ]);
+            }
+        } catch (\Exception $e) {
+            $this->helper->debug('FamilyMemberAction: Email sending exception: ' . $e->getMessage());
         }
-        
-        // Replace placeholders
-        $replacements = [
-            '%user_firstname%' => $first_name,
-            '%password_reset_url%' => $reset_url,
-            '%site_url%' => home_url()
-        ];
-        
-        $email_content = str_replace(array_keys($replacements), array_values($replacements), $email_content);
-        
-        $headers = ['Content-Type: text/html; charset=UTF-8'];
-        $subject = 'Welcome to Upstate International - Set Your Password';
-        
-        $mail_sent = wp_mail($email, $subject, $email_content, $headers);
-        
-        $this->helper->debug('FamilyMemberAction: Welcome email sent', [
-            'email' => $email,
-            'user_id' => $child_uid,
-            'mail_sent' => $mail_sent
-        ]);
     }
 }
