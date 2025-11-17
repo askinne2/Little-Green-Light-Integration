@@ -14,6 +14,7 @@ namespace UpstateInternational\LGL\JetFormBuilder\Actions;
 use UpstateInternational\LGL\LGL\Connection;
 use UpstateInternational\LGL\LGL\Helper;
 use UpstateInternational\LGL\LGL\WpUsers;
+use UpstateInternational\LGL\JetFormBuilder\AsyncJetFormProcessor;
 
 /**
  * MembershipDeactivationAction Class
@@ -44,20 +45,40 @@ class MembershipDeactivationAction implements JetFormActionInterface {
     private WpUsers $wpUsers;
     
     /**
+     * Async processor for LGL API calls
+     * 
+     * @var AsyncJetFormProcessor|null
+     */
+    private ?AsyncJetFormProcessor $asyncProcessor = null;
+    
+    /**
      * Constructor
      * 
      * @param Connection $connection LGL connection service
      * @param Helper $helper LGL helper service
      * @param WpUsers $wpUsers LGL WP Users service
+     * @param AsyncJetFormProcessor|null $asyncProcessor Async processor (optional)
      */
     public function __construct(
         Connection $connection,
         Helper $helper,
-        WpUsers $wpUsers
+        WpUsers $wpUsers,
+        ?AsyncJetFormProcessor $asyncProcessor = null
     ) {
         $this->connection = $connection;
         $this->helper = $helper;
         $this->wpUsers = $wpUsers;
+        $this->asyncProcessor = $asyncProcessor;
+    }
+    
+    /**
+     * Set async processor (for dependency injection)
+     * 
+     * @param AsyncJetFormProcessor $asyncProcessor Async processor
+     * @return void
+     */
+    public function setAsyncProcessor(AsyncJetFormProcessor $asyncProcessor): void {
+        $this->asyncProcessor = $asyncProcessor;
     }
     
     /**
@@ -100,11 +121,44 @@ class MembershipDeactivationAction implements JetFormActionInterface {
                 }
         }
         
-        // Process membership deactivation in LGL
-        $this->deactivateLGLMembership($uid);
-        
-        // Process WordPress user deactivation
+        // Process WordPress user deactivation (synchronous - WordPress operation)
         $this->deactivateWordPressUser($uid);
+        
+        // Use async processing if available (speeds up form submission)
+        if ($this->asyncProcessor) {
+            $this->helper->debug('⏰ MembershipDeactivationAction: Scheduling async LGL processing', [
+                'user_id' => $uid
+            ]);
+            
+            try {
+                $user_lgl_id = get_user_meta($uid, 'lgl_id', true);
+                $context = [
+                    'lgl_id' => $user_lgl_id
+                ];
+                
+                $this->asyncProcessor->scheduleAsyncProcessing('membership_deactivation', $uid, $context);
+                
+                $this->helper->debug('✅ MembershipDeactivationAction: Async LGL processing scheduled', [
+                    'user_id' => $uid,
+                    'note' => 'LGL API calls will be processed in background via WP Cron'
+                ]);
+            } catch (\Exception $e) {
+                $this->helper->debug('⚠️ MembershipDeactivationAction: Async scheduling failed, falling back to sync', [
+                    'error' => $e->getMessage(),
+                    'user_id' => $uid
+                ]);
+                
+                // Fallback to synchronous processing if async fails
+                $this->deactivateLGLMembership($uid);
+            }
+        } else {
+            // Fallback: synchronous processing if async processor not available
+            $this->helper->debug('⚠️ MembershipDeactivationAction: Async processor not available, using sync', [
+                'user_id' => $uid
+            ]);
+            
+            $this->deactivateLGLMembership($uid);
+        }
             
         } catch (\Exception $e) {
             $this->helper->debug('MembershipDeactivationAction: Error occurred', [

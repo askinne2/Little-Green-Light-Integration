@@ -242,9 +242,19 @@ class WpUsers {
      */
     public function runMonthlyUpdate(): string {
         try {
+            // Get users with LGL ID (canonical field: lgl_id, with legacy fallback)
             $users = get_users([
-                'meta_key' => 'lgl_constituent_id',
-                'meta_compare' => 'EXISTS'
+                'meta_query' => [
+                    'relation' => 'OR',
+                    [
+                        'key' => 'lgl_id',
+                        'compare' => 'EXISTS'
+                    ],
+                    [
+                        'key' => 'lgl_constituent_id',
+                        'compare' => 'EXISTS'
+                    ]
+                ]
             ]);
             
             $updated_count = 0;
@@ -278,6 +288,102 @@ class WpUsers {
             Helper::getInstance()->debug('LGL WP Users: Monthly update failed: ' . $e->getMessage());
             return 'Monthly update failed: ' . $e->getMessage();
         }
+    }
+    
+    /**
+     * Migrate legacy LGL ID meta fields to canonical lgl_id
+     * 
+     * Copies lgl_constituent_id and lgl_user_id to lgl_id for users missing the canonical field.
+     * This is a one-time migration that can be run manually or via WP-CLI.
+     * 
+     * @param bool $dry_run If true, only reports what would be migrated without making changes
+     * @return array Migration results
+     */
+    public function migrateLglIdMetaFields(bool $dry_run = false): array {
+        $helper = Helper::getInstance();
+        $results = [
+            'processed' => 0,
+            'migrated' => 0,
+            'skipped' => 0,
+            'errors' => [],
+            'details' => []
+        ];
+        
+        $helper->debug('LGL WP Users: Starting LGL ID meta field migration', ['dry_run' => $dry_run]);
+        
+        // Get all users with legacy fields but missing canonical field
+        $users = get_users([
+            'meta_query' => [
+                'relation' => 'AND',
+                [
+                    'key' => 'lgl_id',
+                    'compare' => 'NOT EXISTS'
+                ],
+                [
+                    'relation' => 'OR',
+                    [
+                        'key' => 'lgl_constituent_id',
+                        'compare' => 'EXISTS'
+                    ],
+                    [
+                        'key' => 'lgl_user_id',
+                        'compare' => 'EXISTS'
+                    ]
+                ]
+            ],
+            'number' => -1 // Get all users
+        ]);
+        
+        $helper->debug('LGL WP Users: Found users with legacy LGL ID fields', ['count' => count($users)]);
+        
+        foreach ($users as $user) {
+            $results['processed']++;
+            
+            try {
+                // Check legacy fields in priority order
+                $legacy_id = null;
+                $legacy_field = null;
+                
+                $lgl_constituent_id = get_user_meta($user->ID, 'lgl_constituent_id', true);
+                if (!empty($lgl_constituent_id)) {
+                    $legacy_id = $lgl_constituent_id;
+                    $legacy_field = 'lgl_constituent_id';
+                } else {
+                    $lgl_user_id = get_user_meta($user->ID, 'lgl_user_id', true);
+                    if (!empty($lgl_user_id)) {
+                        $legacy_id = $lgl_user_id;
+                        $legacy_field = 'lgl_user_id';
+                    }
+                }
+                
+                if (!$legacy_id) {
+                    $results['skipped']++;
+                    continue;
+                }
+                
+                if (!$dry_run) {
+                    // Migrate to canonical field
+                    update_user_meta($user->ID, 'lgl_id', $legacy_id);
+                    $results['migrated']++;
+                    $results['details'][] = "User {$user->ID}: Migrated {$legacy_field} ({$legacy_id}) → lgl_id";
+                } else {
+                    $results['details'][] = "User {$user->ID}: Would migrate {$legacy_field} ({$legacy_id}) → lgl_id";
+                }
+                
+            } catch (\Exception $e) {
+                $results['errors'][] = [
+                    'user_id' => $user->ID,
+                    'error' => $e->getMessage()
+                ];
+                $helper->debug('LGL WP Users: Migration error for user', [
+                    'user_id' => $user->ID,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+        
+        $helper->debug('LGL WP Users: LGL ID migration completed', $results);
+        return $results;
     }
     
     /**
@@ -337,9 +443,16 @@ class WpUsers {
      * @param \WC_Order $order WooCommerce order
      * @param array $order_meta Order metadata
      * @param bool $skip_membership_sync Skip membership sync (for non-membership orders)
+     * @param bool $skip_lgl_sync_completely Skip all LGL sync (for immediate processing - LGL sync happens async)
      * @return array Update result
      */
-    public function updateUserData(array $request, \WC_Order $order, array $order_meta, bool $skip_membership_sync = false): array {
+    public function updateUserData(
+        array $request, 
+        \WC_Order $order, 
+        array $order_meta, 
+        bool $skip_membership_sync = false,
+        bool $skip_lgl_sync_completely = false
+    ): array {
         try {
             $user_id = $order->get_customer_id();
             if (!$user_id) {
@@ -352,8 +465,12 @@ class WpUsers {
             // Update subscription info if applicable
             $this->updateUserSubscriptionInfo($user_id, $order->get_id());
             
-            // Sync with LGL (skip membership updates for non-membership orders)
-            $sync_result = $this->syncUserWithLgl($user_id, $skip_membership_sync);
+            // Only sync with LGL if not skipping completely (for immediate processing)
+            // When skip_lgl_sync_completely=true, LGL sync happens separately in async processing
+            $sync_result = null;
+            if (!$skip_lgl_sync_completely) {
+                $sync_result = $this->syncUserWithLgl($user_id, $skip_membership_sync);
+            }
             
             return [
                 'success' => true,
@@ -994,8 +1111,8 @@ class WpUsers {
      */
     private function processUserDeletion(int $user_id): array {
         try {
-            // Get LGL ID before deletion
-            $lgl_id = get_user_meta($user_id, 'lgl_constituent_id', true);
+            // Get LGL ID before deletion (canonical field: lgl_id)
+            $lgl_id = get_user_meta($user_id, 'lgl_id', true);
             
             // Mark constituent as inactive in LGL instead of deleting
             if ($lgl_id) {
@@ -1113,4 +1230,83 @@ if (!function_exists('lgl_wp_users')) {
     function lgl_wp_users(): WpUsers {
         return WpUsers::getInstance();
     }
+}
+
+// Register WP-CLI command for LGL ID migration
+if (defined('WP_CLI') && WP_CLI) {
+    /**
+     * Migrate legacy LGL ID meta fields to canonical lgl_id
+     * 
+     * ## OPTIONS
+     * 
+     * [--dry-run]
+     * : Preview changes without saving to database.
+     * 
+     * ## EXAMPLES
+     * 
+     *     # Preview migration (dry run)
+     *     wp lgl migrate-lgl-id --dry-run
+     * 
+     *     # Run actual migration
+     *     wp lgl migrate-lgl-id
+     * 
+     * @param array $args Positional arguments.
+     * @param array $assoc_args Associative arguments.
+     * @return void
+     */
+    \WP_CLI::add_command('lgl migrate-lgl-id', function($args, $assoc_args) {
+        $dry_run = isset($assoc_args['dry-run']);
+        
+        \WP_CLI::log('Starting LGL ID meta field migration...');
+        \WP_CLI::log($dry_run ? 'Mode: DRY RUN (no changes will be made)' : 'Mode: LIVE RUN (changes will be saved)');
+        \WP_CLI::log('');
+        
+        // Debug: Check how many users have each field
+        $total_users = count_users();
+        $users_with_lgl_id = get_users(['meta_key' => 'lgl_id', 'meta_compare' => 'EXISTS', 'number' => -1, 'count_total' => false]);
+        $users_with_constituent_id = get_users(['meta_key' => 'lgl_constituent_id', 'meta_compare' => 'EXISTS', 'number' => -1, 'count_total' => false]);
+        $users_with_user_id = get_users(['meta_key' => 'lgl_user_id', 'meta_compare' => 'EXISTS', 'number' => -1, 'count_total' => false]);
+        
+        \WP_CLI::log(sprintf('Total users: %d', $total_users['total_users']));
+        \WP_CLI::log(sprintf('Users with lgl_id: %d', count($users_with_lgl_id)));
+        \WP_CLI::log(sprintf('Users with lgl_constituent_id: %d', count($users_with_constituent_id)));
+        \WP_CLI::log(sprintf('Users with lgl_user_id: %d', count($users_with_user_id)));
+        \WP_CLI::log('');
+        
+        $wpUsers = WpUsers::getInstance();
+        $results = $wpUsers->migrateLglIdMetaFields($dry_run);
+        
+        \WP_CLI::log(sprintf('Processed: %d users', $results['processed']));
+        \WP_CLI::log(sprintf('Migrated: %d users', $results['migrated']));
+        \WP_CLI::log(sprintf('Skipped: %d users', $results['skipped']));
+        
+        if (!empty($results['errors'])) {
+            \WP_CLI::warning(sprintf('Errors: %d', count($results['errors'])));
+            foreach ($results['errors'] as $error) {
+                \WP_CLI::warning(sprintf('  User %d: %s', $error['user_id'], $error['error']));
+            }
+        }
+        
+        if (!empty($results['details']) && count($results['details']) <= 50) {
+            \WP_CLI::log('');
+            \WP_CLI::log('Migration details:');
+            foreach ($results['details'] as $detail) {
+                \WP_CLI::log('  ' . $detail);
+            }
+        } elseif (!empty($results['details'])) {
+            \WP_CLI::log('');
+            \WP_CLI::log(sprintf('Showing first 50 of %d migration details:', count($results['details'])));
+            foreach (array_slice($results['details'], 0, 50) as $detail) {
+                \WP_CLI::log('  ' . $detail);
+            }
+            \WP_CLI::log(sprintf('  ... and %d more', count($results['details']) - 50));
+        }
+        
+        \WP_CLI::log('');
+        if ($dry_run) {
+            \WP_CLI::success('Dry run completed. Run without --dry-run to perform actual migration.');
+        } else {
+            \WP_CLI::success('Migration completed successfully!');
+        }
+    });
 }

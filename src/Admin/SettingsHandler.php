@@ -353,9 +353,9 @@ class SettingsHandler {
             return;
         }
         
-        // Get API credentials from form or use saved settings
-        $api_url = $_POST['api_url'] ?? null;
-        $api_key = $_POST['api_key'] ?? null;
+        // Get API credentials from form or use saved settings (sanitized)
+        $api_url = \UpstateInternational\LGL\Core\Utilities::getSanitizedPost('api_url', 'url', null);
+        $api_key = \UpstateInternational\LGL\Core\Utilities::getSanitizedPost('api_key', 'text', null);
         
         // Try to delegate to SettingsManager
         $manager = $this->getSettingsManager();

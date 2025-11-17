@@ -52,33 +52,102 @@ class MembershipRegistrationService {
             throw new \InvalidArgumentException('Membership registration requires a valid user_id.');
         }
 
-        if ($membershipLevelId) {
-            \update_user_meta($userId, 'lgl_membership_level_id', (int) $membershipLevelId);
-        }
-
-        $match = $this->connection->searchByName($searchName, !empty($emails) ? $emails : $email);
-        $matchMethod = $match['method'] ?? null;
-        $matchedEmail = $match['email'] ?? null;
-        $lglId = $match['id'] ?? null;
+        // STEP 1: Check user meta for existing LGL ID first (highest priority)
+        $lglId = $this->constituents->getUserLglId($userId);
+        $matchMethod = null;
+        $matchedEmail = null;
         $created = false;
 
+        if ($lglId) {
+            $this->helper->debug('🔍 MembershipRegistrationService: Found LGL ID in user meta', [
+                'user_id' => $userId,
+                'lgl_id' => $lglId,
+                'meta_key' => 'lgl_constituent_id or lgl_id'
+            ]);
+            
+            // Verify the constituent exists in LGL
+            $verification = $this->connection->getConstituent((string) $lglId);
+            if (!empty($verification['success']) && !empty($verification['data'])) {
+                $this->helper->debug('✅ MembershipRegistrationService: LGL ID verified in LGL', [
+                    'lgl_id' => $lglId,
+                    'constituent_name' => ($verification['data']['first_name'] ?? '') . ' ' . ($verification['data']['last_name'] ?? '')
+                ]);
+                $matchMethod = 'user_meta';
+                // Get email from verified constituent for logging
+                $email_addresses = $verification['data']['email_addresses'] ?? [];
+                if (!empty($email_addresses) && is_array($email_addresses)) {
+                    $first_email = reset($email_addresses);
+                    $matchedEmail = is_array($first_email) ? ($first_email['address'] ?? null) : ($first_email->address ?? null);
+                }
+            } else {
+                $this->helper->debug('⚠️ MembershipRegistrationService: LGL ID in user meta not found in LGL, will search', [
+                    'lgl_id' => $lglId,
+                    'user_id' => $userId
+                ]);
+                // LGL ID in meta doesn't exist in LGL - clear it and search
+                delete_user_meta($userId, 'lgl_constituent_id');
+                delete_user_meta($userId, 'lgl_id');
+                delete_user_meta($userId, 'lgl_user_id');
+                $lglId = null;
+            }
+        }
+
+        // STEP 2: If no LGL ID found in user meta, search by email (then name)
         if (!$lglId) {
+            $this->helper->debug('🔍 MembershipRegistrationService: No LGL ID in user meta, searching by email/name', [
+                'user_id' => $userId,
+                'email' => $email,
+                'search_name' => $searchName
+            ]);
+            
+            $match = $this->connection->searchByName($searchName, !empty($emails) ? $emails : $email);
+            $matchMethod = $match['method'] ?? null;
+            $matchedEmail = $match['email'] ?? null;
+            $lglId = $match['id'] ?? null;
+        }
+
+        // STEP 3: Create or update constituent
+        if (!$lglId) {
+            $this->helper->debug('➕ MembershipRegistrationService: No existing constituent found, creating new one', [
+                'user_id' => $userId
+            ]);
             $this->ensureUserProfileHasNames($userId, $request, $order);
-            $lglId = $this->createConstituent($userId, $request);
+            $lglId = $this->createConstituent($userId, $request, $isFamilyMember);
             $created = true;
         } else {
+            $this->helper->debug('🔄 MembershipRegistrationService: Existing constituent found, updating', [
+                'user_id' => $userId,
+                'lgl_id' => $lglId,
+                'match_method' => $matchMethod
+            ]);
             $this->ensureUserProfileHasNames($userId, $request, $order);
-            $this->updateConstituent($userId, (string) $lglId, $request);
+            $this->updateConstituent($userId, (string) $lglId, $request, $isFamilyMember);
+        }
+
+        // Store membership level ID if provided (but skip for family member products)
+        if ($membershipLevelId && !$isFamilyMember) {
+            \update_user_meta($userId, 'lgl_membership_level_id', (int) $membershipLevelId);
         }
 
         $constituentVerification = $this->connection->getConstituent((string) $lglId);
 
+        // Save LGL ID to user meta (canonical field: lgl_id)
         \update_user_meta($userId, 'lgl_id', $lglId);
-        \update_user_meta($userId, 'user-membership-type', $membershipLevel);
+        
+        // Only update membership type if NOT a family member product (family member = slot purchase only)
+        if (!$isFamilyMember) {
+            \update_user_meta($userId, 'user-membership-type', $membershipLevel);
+        } else {
+            $this->helper->debug('ℹ️ MembershipRegistrationService: Skipping membership type update for family member product', [
+                'user_id' => $userId,
+                'product_type' => 'Family Member (slot purchase)'
+            ]);
+        }
 
         $paymentId = null;
         $paymentVerification = null;
-        if ($orderId > 0 && $price > 0 && !$isFamilyMember) {
+        // Create payment for all orders (including family member products)
+        if ($orderId > 0 && $price > 0) {
             $paymentId = $this->createPayment((string) $lglId, $orderId, $price, $paymentType ?? 'online');
             if ($paymentId) {
                 $paymentVerification = $this->connection->getPayment((string) $paymentId);
@@ -154,7 +223,7 @@ class MembershipRegistrationService {
         }
     }
 
-    private function createConstituent(int $userId, array $request = []): string {
+    private function createConstituent(int $userId, array $request = [], bool $skipMembership = false): string {
         $this->constituents->setData($userId);
         if (!empty($request['user_firstname']) || !empty($request['user_lastname'])) {
             $this->constituents->setName(
@@ -171,7 +240,8 @@ class MembershipRegistrationService {
         
         // STEP 1: Create constituent with ONLY personal data (matching legacy pattern)
         $this->helper->debug('🚀 MembershipRegistrationService: About to create constituent (Step 1/4)', [
-            'user_id' => $userId
+            'user_id' => $userId,
+            'skip_membership' => $skipMembership
         ]);
         
         // Constituents::createConstituent() both builds AND sends the payload
@@ -207,7 +277,8 @@ class MembershipRegistrationService {
         ]);
 
         // STEP 2-5: Add email, phone, address, and membership separately (matching legacy lgl_add_object pattern)
-        $this->addConstituentDetails($lglId, $userId);
+        // Skip membership for family member products (slot purchases only)
+        $this->addConstituentDetails($lglId, $userId, $skipMembership);
 
         return $lglId;
     }
@@ -217,8 +288,9 @@ class MembershipRegistrationService {
      * 
      * @param string $lglId LGL constituent ID
      * @param int $userId WordPress user ID
+     * @param bool $skipMembership Skip membership creation/update (for family member slot purchases)
      */
-    private function addConstituentDetails(string $lglId, int $userId): void {
+    private function addConstituentDetails(string $lglId, int $userId, bool $skipMembership = false): void {
         // STEP 2: Add email address
         $emailData = $this->constituents->getEmailData();
         if (!empty($emailData)) {
@@ -279,20 +351,27 @@ class MembershipRegistrationService {
             ]);
         }
         
-        // STEP 5A: CRITICAL - Deactivate old active memberships BEFORE adding new one
-        $this->deactivateOldMemberships($lglId);
-        
-        // STEP 5B: Add new membership
-        $membershipData = $this->constituents->getMembershipData();
-        if (!empty($membershipData)) {
-            $response = $this->connection->addMembership($lglId, $membershipData);
-            $this->helper->debug('✅ MembershipRegistrationService: New membership added (Step 5/5)', [
-                'lgl_id' => $lglId,
-                'success' => $response['success'] ?? false,
-                'response' => $response
-            ]);
+        // STEP 5A: CRITICAL - Deactivate old active memberships BEFORE adding new one (skip for family member products)
+        if (!$skipMembership) {
+            $this->deactivateOldMemberships($lglId);
+            
+            // STEP 5B: Add new membership
+            $membershipData = $this->constituents->getMembershipData();
+            if (!empty($membershipData)) {
+                $response = $this->connection->addMembership($lglId, $membershipData);
+                $this->helper->debug('✅ MembershipRegistrationService: New membership added (Step 5/5)', [
+                    'lgl_id' => $lglId,
+                    'success' => $response['success'] ?? false,
+                    'response' => $response
+                ]);
+            } else {
+                $this->helper->debug('⚠️ MembershipRegistrationService: No membership data to add (Step 5/5)');
+            }
         } else {
-            $this->helper->debug('⚠️ MembershipRegistrationService: No membership data to add (Step 5/5)');
+            $this->helper->debug('ℹ️ MembershipRegistrationService: Skipping membership creation/update (family member slot purchase)', [
+                'lgl_id' => $lglId,
+                'user_id' => $userId
+            ]);
         }
     }
     
@@ -384,7 +463,7 @@ class MembershipRegistrationService {
         }
     }
 
-    private function updateConstituent(int $userId, string $lglId, array $request = []): void {
+    private function updateConstituent(int $userId, string $lglId, array $request = [], bool $skipMembership = false): void {
         $this->constituents->setData($userId);
         if (!empty($request['user_firstname']) || !empty($request['user_lastname'])) {
             $this->constituents->setName(
@@ -404,12 +483,14 @@ class MembershipRegistrationService {
         $response = $this->connection->updateConstituent($lglId, $payload);
         $this->helper->debug('✅ MembershipRegistrationService: Constituent updated (Step 1/5)', [
             'lgl_id' => $lglId,
-            'http_code' => $response['http_code'] ?? null
+            'http_code' => $response['http_code'] ?? null,
+            'skip_membership' => $skipMembership
         ]);
         
         // STEP 2-5: Update email, phone, address, and membership separately (matching legacy pattern)
         // Note: For updates, we typically only add NEW data, not replace existing
-        $this->addConstituentDetails($lglId, $userId);
+        // Skip membership for family member products (slot purchases only)
+        $this->addConstituentDetails($lglId, $userId, $skipMembership);
     }
 
     private function createPayment(string $lglId, int $orderId, float $amount, string $paymentType): ?int {

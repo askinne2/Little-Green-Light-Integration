@@ -59,6 +59,103 @@ class ClassOrderHandler {
      * @param mixed $product Product item
      * @return void
      */
+    /**
+     * Process class order (immediate tasks only)
+     * 
+     * @param int $uid User ID
+     * @param \WC_Order $order WooCommerce order
+     * @param array $order_meta Order metadata
+     * @param mixed $product Product item
+     * @return void
+     */
+    public function processOrderImmediate(
+        int $uid,
+        \WC_Order $order,
+        array $order_meta,
+        $product
+    ): void {
+        $product_name = $product->get_name();
+        $product_id = $product->get_product_id();
+        
+        $this->helper->debug('⚡ ClassOrderHandler::processOrderImmediate() STARTED', [
+            'user_id' => $uid,
+            'order_id' => $order->get_id(),
+            'product_name' => $product_name,
+            'product_id' => $product_id,
+            'mode' => 'immediate_only'
+        ]);
+        
+        // Build class registration data (fund ID determined internally by payment method)
+        $class_registration = $this->buildClassRegistration($uid, $order, $order_meta, $product);
+        
+        // Update user data (skip ALL LGL sync - LGL sync happens separately in async processing)
+        $this->wpUsers->updateUserData($class_registration, $order, $order_meta, true, true);
+        
+        // Create JetEngine CCT for class registration
+        $cct_result = $this->wpUsers->createClassRegistrationCct($order, $product_id, $order_meta);
+        
+        if ($cct_result['success']) {
+            $this->helper->debug('ClassOrderHandler: Class CCT created', [
+                'item_id' => $cct_result['item_id'],
+                'class_name' => $cct_result['class_name']
+            ]);
+        } else {
+            $this->helper->debug('ClassOrderHandler: Failed to create class CCT', [
+                'error' => $cct_result['error']
+            ]);
+        }
+        
+        // Complete the order
+        $order->update_status('completed');
+        
+        $this->helper->debug('✅ ClassOrderHandler::processOrderImmediate() COMPLETED', $order->get_id());
+    }
+    
+    /**
+     * Process class order (LGL sync only)
+     * 
+     * @param int $uid User ID
+     * @param \WC_Order $order WooCommerce order
+     * @param array $order_meta Order metadata
+     * @param mixed $product Product item
+     * @return void
+     */
+    public function processOrderLglSync(
+        int $uid,
+        \WC_Order $order,
+        array $order_meta,
+        $product
+    ): void {
+        $product_name = $product->get_name();
+        $product_id = $product->get_product_id();
+        
+        $this->helper->debug('🔄 ClassOrderHandler::processOrderLglSync() STARTED', [
+            'user_id' => $uid,
+            'order_id' => $order->get_id(),
+            'product_name' => $product_name,
+            'product_id' => $product_id,
+            'mode' => 'lgl_sync_only'
+        ]);
+        
+        // Build class registration data (fund ID determined internally by payment method)
+        $class_registration = $this->buildClassRegistration($uid, $order, $order_meta, $product);
+        
+        // Register class in LGL (API calls only)
+        $this->registerClassInLGL($class_registration);
+        
+        $this->helper->debug('✅ ClassOrderHandler::processOrderLglSync() COMPLETED', $order->get_id());
+    }
+    
+    /**
+     * Process class order (legacy - full sync)
+     * 
+     * @deprecated Use processOrderImmediate() + processOrderLglSync() instead
+     * @param int $uid User ID
+     * @param \WC_Order $order WooCommerce order
+     * @param array $order_meta Order metadata
+     * @param mixed $product Product item
+     * @return void
+     */
     public function processOrder(
         int $uid,
         \WC_Order $order,
@@ -68,7 +165,7 @@ class ClassOrderHandler {
         $product_name = $product->get_name();
         $product_id = $product->get_product_id();
         
-        $this->helper->debug('ClassOrderHandler: Processing class order', [
+        $this->helper->debug('ClassOrderHandler: Processing class order (LEGACY)', [
             'user_id' => $uid,
             'order_id' => $order->get_id(),
             'product_name' => $product_name,
@@ -78,8 +175,8 @@ class ClassOrderHandler {
         // Build class registration data (fund ID determined internally by payment method)
         $class_registration = $this->buildClassRegistration($uid, $order, $order_meta, $product);
         
-        // Update user data (skip membership sync - only sync billing/contact info)
-        $this->wpUsers->updateUserData($class_registration, $order, $order_meta, true);
+        // Update user data (skip ALL LGL sync - LGL sync happens separately in async processing)
+        $this->wpUsers->updateUserData($class_registration, $order, $order_meta, true, true);
         
         // Create JetEngine CCT for class registration
         $cct_result = $this->wpUsers->createClassRegistrationCct($order, $product_id, $order_meta);

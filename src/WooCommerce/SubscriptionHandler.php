@@ -61,23 +61,34 @@ class SubscriptionHandler {
     /**
      * Handle subscription status update
      * 
-     * @param int $subscription_id Subscription ID
-     * @param string $old_status Previous subscription status
+     * WooCommerce hook passes: (WC_Subscription $subscription, string $new_status, string $old_status)
+     * 
+     * @param \WC_Subscription|int $subscription Subscription object or ID
      * @param string $new_status New subscription status
+     * @param string $old_status Previous subscription status
      * @return void
      */
-    public function handleStatusUpdate(int $subscription_id, string $old_status, string $new_status): void {
+    public function handleStatusUpdate($subscription, string $new_status, string $old_status): void {
         if (!function_exists('wcs_get_subscription')) {
             $this->helper->debug('SubscriptionHandler: WooCommerce Subscriptions not available');
             return;
         }
         
-        $subscription = wcs_get_subscription($subscription_id);
-        if (!$subscription) {
-            $this->helper->debug('SubscriptionHandler: Subscription not found', $subscription_id);
+        // Handle both WC_Subscription object and subscription ID
+        if (is_a($subscription, 'WC_Subscription')) {
+            $subscription_obj = $subscription;
+        } elseif (is_numeric($subscription)) {
+            $subscription_obj = wcs_get_subscription((int) $subscription);
+            if (!$subscription_obj) {
+                $this->helper->debug('SubscriptionHandler: Subscription not found', $subscription);
+                return;
+            }
+        } else {
+            $this->helper->debug('SubscriptionHandler: Invalid subscription parameter', ['type' => gettype($subscription)]);
             return;
         }
         
+        $subscription_id = $subscription_obj->get_id();
         $this->helper->debug('SubscriptionHandler: Processing status update', [
             'subscription_id' => $subscription_id,
             'old_status' => $old_status,
@@ -86,32 +97,46 @@ class SubscriptionHandler {
         
         // Check if subscription is being cancelled
         if ($this->isCancellationStatus($new_status)) {
-            $this->processCancellation($subscription);
+            $this->processCancellation($subscription_obj);
         }
     }
     
     /**
      * Handle subscription cancellation
      * 
-     * @param int $subscription_id Subscription ID
+     * WooCommerce passes WC_Subscription object, not subscription ID
+     * 
+     * @param \WC_Subscription|int $subscription Subscription object or ID
      * @return void
      */
-    public function handleCancellation(int $subscription_id): void {
+    public function handleCancellation($subscription): void {
         if (!function_exists('wcs_get_subscription')) {
             $this->helper->debug('SubscriptionHandler: WooCommerce Subscriptions not available');
             return;
         }
         
-        $subscription = wcs_get_subscription($subscription_id);
-        if (!$subscription) {
-            $this->helper->debug('SubscriptionHandler: Subscription not found', $subscription_id);
+        // Handle both WC_Subscription object and subscription ID
+        if (is_a($subscription, 'WC_Subscription')) {
+            $subscription_obj = $subscription;
+        } elseif (is_numeric($subscription)) {
+            $subscription_obj = wcs_get_subscription((int) $subscription);
+            if (!$subscription_obj) {
+                $this->helper->debug('SubscriptionHandler: Subscription not found', $subscription);
+                return;
+            }
+        } else {
+            $this->helper->debug('SubscriptionHandler: Invalid subscription parameter', ['type' => gettype($subscription)]);
             return;
         }
         
-        $user_id = $subscription->get_customer_id();
-        $this->helper->debug('SubscriptionHandler: Cancelling subscription for user', $user_id);
+        $user_id = $subscription_obj->get_customer_id();
+        $subscription_id = $subscription_obj->get_id();
+        $this->helper->debug('SubscriptionHandler: Cancelling subscription for user', [
+            'user_id' => $user_id,
+            'subscription_id' => $subscription_id
+        ]);
         
-        $this->processCancellation($subscription);
+        $this->processCancellation($subscription_obj);
     }
     
     /**

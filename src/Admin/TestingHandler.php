@@ -242,10 +242,6 @@ class TestingHandler {
                 echo $this->runArchitectureTest();
                 break;
                 
-            case 'full-suite':
-                echo $this->runFullTestSuite();
-                break;
-                
             case 'email-blocking':
                 echo $this->runEmailBlockingTest();
                 break;
@@ -513,28 +509,6 @@ class TestingHandler {
     }
     
     /**
-     * Run full test suite
-     */
-    private function runFullTestSuite(): string {
-        ob_start();
-        
-        echo '<div class="notice notice-info"><p>🔄 Running complete test suite...</p></div>';
-        
-        // Run multiple tests
-        echo $this->runConnectionTest();
-        echo $this->runSearchTest();
-        echo $this->runServiceContainerTest();
-        echo $this->runArchitectureTest();
-        
-        echo '<div class="notice notice-success">';
-        echo '<p>✅ <strong>Complete Test Suite Finished!</strong></p>';
-        echo '<p>Review all test results above. For detailed flow testing, use the individual test shortcodes.</p>';
-        echo '</div>';
-        
-        return ob_get_clean();
-    }
-    
-    /**
      * Handle price mapping test
      */
     public function handlePriceMappingTest(): void {
@@ -616,7 +590,7 @@ class TestingHandler {
     private function runAddConstituentTest(): string {
         ob_start();
         
-        $userId = isset($_POST['wordpress_user_id']) ? intval($_POST['wordpress_user_id']) : 1214;
+        $userId = isset($_POST['wordpress_user_id']) ? intval($_POST['wordpress_user_id']) : 1955;
         
         echo '<div class="notice notice-info"><p>🔄 Testing Add Constituent for User ID: ' . $userId . '...</p></div>';
         
@@ -741,7 +715,7 @@ class TestingHandler {
     private function runUpdateConstituentTest(): string {
         ob_start();
         
-        $userId = isset($_POST['wordpress_user_id']) ? intval($_POST['wordpress_user_id']) : 1214;
+        $userId = isset($_POST['wordpress_user_id']) ? intval($_POST['wordpress_user_id']) : 1955;
         
         echo '<div class="notice notice-info"><p>🔄 Testing Update Constituent for User ID: ' . $userId . '...</p></div>';
         
@@ -855,7 +829,7 @@ class TestingHandler {
     private function runAddMembershipTest(): string {
         ob_start();
         
-        $userId = isset($_POST['wordpress_user_id']) ? intval($_POST['wordpress_user_id']) : 1214;
+        $userId = isset($_POST['wordpress_user_id']) ? intval($_POST['wordpress_user_id']) : 1955;
         $variationId = isset($_POST['variation_product_id']) ? intval($_POST['variation_product_id']) : 68386;
         
         \lgl_log("🔄 Starting Add Membership test", ['user_id' => $userId, 'variation_id' => $variationId]);
@@ -869,12 +843,13 @@ class TestingHandler {
                 throw new \Exception('User not found: ' . $userId);
             }
             
-            // Get LGL ID (try both meta keys for compatibility)
-            $lglId = get_user_meta($userId, 'lgl_constituent_id', true);
-            $metaKeyUsed = 'lgl_constituent_id';
+            // Get LGL ID (canonical field: lgl_id, with legacy fallback)
+            $lglId = get_user_meta($userId, 'lgl_id', true);
+            $metaKeyUsed = 'lgl_id';
             if (!$lglId) {
-                $lglId = get_user_meta($userId, 'lgl_id', true);
-                $metaKeyUsed = 'lgl_id';
+                // Legacy fallback for backward compatibility
+                $lglId = get_user_meta($userId, 'lgl_constituent_id', true);
+                $metaKeyUsed = $lglId ? 'lgl_constituent_id (legacy)' : 'none';
             }
             
             \lgl_log("🔍 Retrieved LGL ID from user meta", ['user_id' => $userId, 'lgl_id' => $lglId, 'meta_key_used' => $lglId ? $metaKeyUsed : 'none']);
@@ -981,7 +956,7 @@ class TestingHandler {
     private function runUpdateMembershipTest(): string {
         ob_start();
         
-        $userId = isset($_POST['wordpress_user_id']) ? intval($_POST['wordpress_user_id']) : 1214;
+        $userId = isset($_POST['wordpress_user_id']) ? intval($_POST['wordpress_user_id']) : 1955;
         $variationId = isset($_POST['variation_product_id']) ? intval($_POST['variation_product_id']) : 68386;
         
         echo '<div class="notice notice-info"><p>🔄 Testing Update Membership for User ID: ' . $userId . '...</p></div>';
@@ -993,12 +968,13 @@ class TestingHandler {
                 throw new \Exception('User not found: ' . $userId);
             }
             
-            // Get LGL ID (try both meta keys for compatibility)
-            $lglId = get_user_meta($userId, 'lgl_constituent_id', true);
-            $metaKeyUsed = 'lgl_constituent_id';
+            // Get LGL ID (canonical field: lgl_id, with legacy fallback)
+            $lglId = get_user_meta($userId, 'lgl_id', true);
+            $metaKeyUsed = 'lgl_id';
             if (!$lglId) {
-                $lglId = get_user_meta($userId, 'lgl_id', true);
-                $metaKeyUsed = 'lgl_id';
+                // Legacy fallback for backward compatibility
+                $lglId = get_user_meta($userId, 'lgl_constituent_id', true);
+                $metaKeyUsed = $lglId ? 'lgl_constituent_id (legacy)' : 'none';
             }
             
             if (!$lglId) {
@@ -1153,7 +1129,7 @@ class TestingHandler {
     private function runEventRegistrationTest(): string {
         ob_start();
         
-        $userId = isset($_POST['wordpress_user_id']) ? intval($_POST['wordpress_user_id']) : 1214;
+        $userId = isset($_POST['wordpress_user_id']) ? intval($_POST['wordpress_user_id']) : 1955;
         $variationId = isset($_POST['variation_product_id']) ? intval($_POST['variation_product_id']) : 83556;
         
         echo '<div class="notice notice-info"><p>🔄 Testing Event Registration for User ID: ' . $userId . ', Event Variation: ' . $variationId . '...</p></div>';
@@ -1165,8 +1141,8 @@ class TestingHandler {
                 throw new \Exception('User not found: ' . $userId);
             }
             
-            // Get LGL ID for user
-            $lglId = get_user_meta($userId, 'lgl_constituent_id', true) ?: get_user_meta($userId, 'lgl_id', true);
+            // Get LGL ID for user (canonical field: lgl_id, with legacy fallback)
+            $lglId = get_user_meta($userId, 'lgl_id', true) ?: get_user_meta($userId, 'lgl_constituent_id', true);
             if (!$lglId) {
                 throw new \Exception('User does not have an LGL ID. Run "Add Constituent" test first.');
             }
@@ -1253,7 +1229,7 @@ class TestingHandler {
     private function runClassRegistrationTest(): string {
         ob_start();
         
-        $userId = isset($_POST['wordpress_user_id']) ? intval($_POST['wordpress_user_id']) : 1214;
+        $userId = isset($_POST['wordpress_user_id']) ? intval($_POST['wordpress_user_id']) : 1955;
         $classProductId = isset($_POST['class_product_id']) ? intval($_POST['class_product_id']) : 86825;
         
         echo '<div class="notice notice-info"><p>🔄 Testing Class Registration for User ID: ' . $userId . ', Class Product: ' . $classProductId . '...</p></div>';
@@ -1265,8 +1241,8 @@ class TestingHandler {
                 throw new \Exception('User not found: ' . $userId);
             }
             
-            // Get LGL ID for user
-            $lglId = get_user_meta($userId, 'lgl_constituent_id', true) ?: get_user_meta($userId, 'lgl_id', true);
+            // Get LGL ID for user (canonical field: lgl_id, with legacy fallback)
+            $lglId = get_user_meta($userId, 'lgl_id', true) ?: get_user_meta($userId, 'lgl_constituent_id', true);
             if (!$lglId) {
                 throw new \Exception('User does not have an LGL ID. Run "Add Constituent" test first.');
             }
@@ -1810,7 +1786,7 @@ class TestingHandler {
      * - First Name: Andy
      * - Last Name: Skinner
      * - Email: andrew+1@hispanicalliancesc.com
-     * - Parent User ID: 1214 (Andrew Skinner)
+     * - Parent User ID: 1955
      */
     private function runAddFamilyMemberTest(): string {
         ob_start();
@@ -1821,8 +1797,8 @@ class TestingHandler {
             'email' => 'andrew+1@hispanicalliancesc.com'
         ];
         
-        // Use test user 1214 as parent
-        $parent_user_id = 1214;
+        // Use test user 1955 as parent
+        $parent_user_id = 1955;
         
         // Verify parent user exists
         $parent_user = get_user_by('ID', $parent_user_id);
@@ -1941,15 +1917,15 @@ class TestingHandler {
      * Run remove family member test
      * 
      * Removes the test family member with email: andrew+1@hispanicalliancesc.com
-     * - Parent User ID: 1214 (Andrew Skinner)
+     * - Parent User ID: 1955
      */
     private function runRemoveFamilyMemberTest(): string {
         ob_start();
         
         $testEmail = 'andrew+1@hispanicalliancesc.com';
         
-        // Use test user 1214 as parent
-        $parent_user_id = 1214;
+        // Use test user 1955 as parent
+        $parent_user_id = 1955;
         
         // Verify parent user exists
         $parent_user = get_user_by('ID', $parent_user_id);
@@ -2078,6 +2054,286 @@ class TestingHandler {
         }
         
         return ob_get_clean();
+    }
+    
+    /**
+     * Format error message with enhanced details
+     * 
+     * @param string $test_name Test name
+     * @param \Exception $e Exception object
+     * @param array $context Additional context
+     * @return string Formatted error message
+     */
+    private function formatErrorMessage(string $test_name, \Exception $e, array $context = []): string {
+        $html = '<div class="notice notice-error">';
+        $html .= '<h3>❌ ' . esc_html($test_name) . ' Failed</h3>';
+        $html .= '<p><strong>Error:</strong> ' . esc_html($e->getMessage()) . '</p>';
+        
+        if (!empty($context)) {
+            $html .= '<h4>Test Context:</h4><ul>';
+            foreach ($context as $key => $value) {
+                if (is_array($value) || is_object($value)) {
+                    $value = json_encode($value, JSON_PRETTY_PRINT);
+                }
+                $html .= '<li><strong>' . esc_html($key) . ':</strong> <code>' . esc_html($value) . '</code></li>';
+            }
+            $html .= '</ul>';
+        }
+        
+        $html .= '<h4>Troubleshooting Steps:</h4>';
+        $html .= '<ol>';
+        $html .= '<li>Check debug log: <code>src/logs/lgl-api.log</code></li>';
+        $html .= '<li>Verify API credentials in settings</li>';
+        $html .= '<li>Test API connection using connection test</li>';
+        $html .= '<li>Review error message above for specific issue</li>';
+        $html .= '</ol>';
+        
+        if (defined('WP_DEBUG') && WP_DEBUG && $this->apiSettings->isDebugMode()) {
+            $html .= '<details>';
+            $html .= '<summary><strong>Stack Trace (Debug Mode)</strong></summary>';
+            $html .= '<pre style="background: #f5f5f5; padding: 10px; overflow: auto; max-height: 300px;">';
+            $html .= esc_html($e->getTraceAsString());
+            $html .= '</pre>';
+            $html .= '</details>';
+        }
+        
+        $html .= '</div>';
+        
+        return $html;
+    }
+    
+    /**
+     * Format success message with test summary
+     * 
+     * @param string $test_name Test name
+     * @param array $results Test results
+     * @return string Formatted success message
+     */
+    private function formatSuccessMessage(string $test_name, array $results): string {
+        $html = '<div class="notice notice-success">';
+        $html .= '<h3>✅ ' . esc_html($test_name) . ' Passed</h3>';
+        
+        if (!empty($results)) {
+            $html .= '<table class="widefat"><tbody>';
+            foreach ($results as $key => $value) {
+                if (is_array($value) || is_object($value)) {
+                    $value = '<pre>' . esc_html(json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) . '</pre>';
+                } else {
+                    $value = esc_html($value);
+                }
+                $html .= '<tr>';
+                $html .= '<td style="width: 30%; font-weight: bold;">' . esc_html($key) . '</td>';
+                $html .= '<td>' . $value . '</td>';
+                $html .= '</tr>';
+            }
+            $html .= '</tbody></table>';
+        }
+        
+        $html .= '</div>';
+        
+        return $html;
+    }
+    
+    /**
+     * Get test summary statistics
+     * 
+     * @return array Test summary
+     */
+    public function getTestSummary(): array {
+        $summary = [
+            'last_test_run' => get_option('lgl_last_test_run', 'Never'),
+            'total_tests_run' => get_option('lgl_total_tests_run', 0),
+            'last_test_result' => get_option('lgl_last_test_result', 'N/A'),
+            'test_pass_rate' => $this->calculateTestPassRate(),
+            'api_status' => $this->getApiStatus(),
+            'rate_limiter_status' => $this->getRateLimiterStatus(),
+            'cache_status' => $this->getCacheStatus()
+        ];
+        
+        return $summary;
+    }
+    
+    /**
+     * Calculate test pass rate
+     * 
+     * @return float Pass rate percentage
+     */
+    private function calculateTestPassRate(): float {
+        $total = get_option('lgl_total_tests_run', 0);
+        $passed = get_option('lgl_tests_passed', 0);
+        
+        if ($total === 0) {
+            return 0.0;
+        }
+        
+        return round(($passed / $total) * 100, 1);
+    }
+    
+    /**
+     * Get API status
+     * 
+     * @return string API status
+     */
+    private function getApiStatus(): string {
+        try {
+            $response = $this->connection->makeRequest('/constituents.json?limit=1', 'GET', []);
+            
+            if (isset($response['items'])) {
+                return 'Connected';
+            }
+            
+            return 'Error: ' . ($response['error'] ?? 'Unknown error');
+            
+        } catch (\Exception $e) {
+            return 'Error: ' . $e->getMessage();
+        }
+    }
+    
+    /**
+     * Get rate limiter status
+     * 
+     * @return array Rate limiter status
+     */
+    private function getRateLimiterStatus(): array {
+        try {
+            $rateLimiter = \UpstateInternational\LGL\LGL\RateLimiter::getInstance();
+            return $rateLimiter->getStatus();
+        } catch (\Exception $e) {
+            return ['error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Get cache status
+     * 
+     * @return array Cache status
+     */
+    private function getCacheStatus(): array {
+        try {
+            $cacheManager = \UpstateInternational\LGL\Core\CacheManager::class;
+            
+            if (method_exists($cacheManager, 'getStats')) {
+                return $cacheManager::getStats();
+            }
+            
+            return ['message' => 'Cache statistics not available'];
+            
+        } catch (\Exception $e) {
+            return ['error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Update test statistics
+     * 
+     * @param bool $passed Whether test passed
+     * @return void
+     */
+    private function updateTestStats(bool $passed): void {
+        $total = get_option('lgl_total_tests_run', 0);
+        $passed_count = get_option('lgl_tests_passed', 0);
+        
+        update_option('lgl_total_tests_run', $total + 1);
+        
+        if ($passed) {
+            update_option('lgl_tests_passed', $passed_count + 1);
+            update_option('lgl_last_test_result', 'PASS');
+        } else {
+            update_option('lgl_last_test_result', 'FAIL');
+        }
+        
+        update_option('lgl_last_test_run', current_time('mysql'));
+    }
+    
+    /**
+     * Run batch tests (multiple tests in sequence)
+     * 
+     * @param array $test_types Array of test type strings
+     * @return array Batch results
+     */
+    public function runBatchTests(array $test_types): array {
+        $results = [];
+        $total = count($test_types);
+        $passed = 0;
+        
+        foreach ($test_types as $test_type) {
+            $start_time = microtime(true);
+            
+            try {
+                ob_start();
+                
+                switch ($test_type) {
+                    case 'connection':
+                        $output = $this->runConnectionTest();
+                        break;
+                    case 'add_constituent':
+                        $output = $this->runAddConstituentTest();
+                        break;
+                    case 'add_membership':
+                        $output = $this->runAddMembershipTest();
+                        break;
+                    default:
+                        $output = '<div class="notice notice-error"><p>Unknown test: ' . $test_type . '</p></div>';
+                }
+                
+                $output .= ob_get_clean();
+                
+                $success = strpos($output, 'notice-success') !== false;
+                
+                if ($success) {
+                    $passed++;
+                }
+                
+                $results[] = [
+                    'test' => $test_type,
+                    'status' => $success ? 'PASS' : 'FAIL',
+                    'duration' => round(microtime(true) - $start_time, 2) . 's',
+                    'output' => $output
+                ];
+                
+            } catch (\Exception $e) {
+                $results[] = [
+                    'test' => $test_type,
+                    'status' => 'ERROR',
+                    'duration' => round(microtime(true) - $start_time, 2) . 's',
+                    'error' => $e->getMessage()
+                ];
+            }
+        }
+        
+        return [
+            'total' => $total,
+            'passed' => $passed,
+            'failed' => $total - $passed,
+            'pass_rate' => round(($passed / $total) * 100, 1) . '%',
+            'results' => $results
+        ];
+    }
+    
+    /**
+     * Log test execution
+     * 
+     * @param string $test_name Test name
+     * @param bool $success Success status
+     * @param array $details Test details
+     * @return void
+     */
+    private function logTestExecution(string $test_name, bool $success, array $details = []): void {
+        $log_entry = [
+            'timestamp' => current_time('mysql'),
+            'test' => $test_name,
+            'status' => $success ? 'PASS' : 'FAIL',
+            'user_id' => get_current_user_id(),
+            'details' => $details
+        ];
+        
+        $this->helper->debug('LGL Test Execution: ' . json_encode($log_entry));
+        
+        // Store in test history (keep last 100 entries)
+        $history = get_option('lgl_test_history', []);
+        array_unshift($history, $log_entry);
+        $history = array_slice($history, 0, 100);
+        update_option('lgl_test_history', $history);
     }
 }
 ?>

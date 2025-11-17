@@ -353,7 +353,7 @@ class AdminMenuManager {
      */
     public function renderTesting(): void {
         $nonce = wp_create_nonce('lgl_admin_nonce');
-        $testUserId = 1214; // Default test user
+        $testUserId = 1955; // Default test user
         
         $content = '<div class="lgl-testing-grid">';
         
@@ -419,15 +419,6 @@ class AdminMenuManager {
             ['wordpress_user_id' => $testUserId, 'class_product_id' => 86825]
         );
         
-        // Full Suite Test Card
-        $content .= $this->renderTestCard(
-            'full_suite',
-            '🚀 Full Test Suite',
-            'Run all tests sequentially',
-            $nonce,
-            ['wordpress_user_id' => $testUserId]
-        );
-        
         // Email Blocking Test Card
         $content .= $this->renderTestCard(
             'email-blocking',
@@ -458,7 +449,7 @@ class AdminMenuManager {
         $content .= '<div class="lgl-testing-note">';
         $content .= '<p><strong>ℹ️ Test Configuration:</strong></p>';
         $content .= '<ul>';
-        $content .= '<li>Default Test User: <code>' . $testUserId . '</code> (Andrew Skinner)</li>';
+        $content .= '<li>Default Test User: <code>' . $testUserId . '</code></li>';
         $content .= '<li>Membership Variation: <code>68386</code> (Individual - $75)</li>';
         $content .= '<li>Event Variation: <code>83556</code></li>';
         $content .= '<li>Class Product: <code>86825</code></li>';

@@ -17,6 +17,7 @@ namespace UpstateInternational\LGL\JetFormBuilder\Actions;
 
 use UpstateInternational\LGL\LGL\Connection;
 use UpstateInternational\LGL\LGL\Helper;
+use UpstateInternational\LGL\JetFormBuilder\AsyncJetFormProcessor;
 
 /**
  * UserRegistrationAction Class
@@ -40,14 +41,37 @@ class UserRegistrationAction implements JetFormActionInterface {
     private Helper $helper;
     
     /**
+     * Async processor for LGL API calls
+     * 
+     * @var AsyncJetFormProcessor|null
+     */
+    private ?AsyncJetFormProcessor $asyncProcessor = null;
+    
+    /**
      * Constructor
      * 
      * @param Connection $connection LGL connection service
      * @param Helper $helper LGL helper service
+     * @param AsyncJetFormProcessor|null $asyncProcessor Async processor (optional)
      */
-    public function __construct(Connection $connection, Helper $helper) {
+    public function __construct(
+        Connection $connection,
+        Helper $helper,
+        ?AsyncJetFormProcessor $asyncProcessor = null
+    ) {
         $this->connection = $connection;
         $this->helper = $helper;
+        $this->asyncProcessor = $asyncProcessor;
+    }
+    
+    /**
+     * Set async processor (for dependency injection)
+     * 
+     * @param AsyncJetFormProcessor $asyncProcessor Async processor
+     * @return void
+     */
+    public function setAsyncProcessor(AsyncJetFormProcessor $asyncProcessor): void {
+        $this->asyncProcessor = $asyncProcessor;
     }
     
     /**
@@ -121,50 +145,55 @@ class UserRegistrationAction implements JetFormActionInterface {
                 }
             }
             
-            // Handle family membership role assignment
+            // Handle family membership role assignment (synchronous - WordPress operation)
             if (!$method) {
                 $this->helper->debug('🏷️ UserRegistrationAction: Assigning membership role...');
                 $this->assignMembershipRole($uid, $membership_level);
             }
             
-            // Search for existing LGL contact
-            $this->helper->debug('🔍 UserRegistrationAction: Searching for existing LGL contact...');
-            $emails = $this->collectCandidateEmails($uid, $request);
-            $match = $this->connection->searchByName($username, $emails);
-            $lgl_id = $match['id'] ?? null;
-
-            $this->helper->debug('🔍 UserRegistrationAction: LGL search result', [
-                'lgl_id' => $lgl_id,
-                'found_existing' => $lgl_id ? 'YES' : 'NO',
-                'match_method' => $match['method'] ?? null,
-                'matched_email' => $match['email'] ?? null
-            ]);
-
-            // Follow Logic Model: Always add membership and payment objects regardless of user existence
-            if (!$lgl_id) {
-                // CREATE LGL USER [Constituents::createConstituent()]
-                $this->helper->debug('➕ UserRegistrationAction: Creating new LGL constituent...');
-                $lgl_id = $this->createConstituent($uid, $request);
-                update_user_meta($uid, 'lgl_id', $lgl_id);
+            // Use async processing if available (speeds up form submission)
+            if ($this->asyncProcessor) {
+                $this->helper->debug('⏰ UserRegistrationAction: Scheduling async LGL processing', [
+                    'user_id' => $uid,
+                    'method' => $method
+                ]);
+                
+                try {
+                    $emails = $this->collectCandidateEmails($uid, $request);
+                    $context = [
+                        'request' => $request,
+                        'username' => $username,
+                        'emails' => $emails,
+                        'skip_payment' => (bool) $method // Skip payment for family members
+                    ];
+                    
+                    $this->asyncProcessor->scheduleAsyncProcessing('user_registration', $uid, $context);
+                    
+                    $this->helper->debug('✅ UserRegistrationAction: Async LGL processing scheduled', [
+                        'user_id' => $uid,
+                        'note' => 'LGL API calls will be processed in background via WP Cron'
+                    ]);
+                } catch (\Exception $e) {
+                    $this->helper->debug('⚠️ UserRegistrationAction: Async scheduling failed, falling back to sync', [
+                        'error' => $e->getMessage(),
+                        'user_id' => $uid
+                    ]);
+                    
+                    // Fallback to synchronous processing if async fails
+                    $this->processRegistrationSync($uid, $request, $username, $method);
+                }
             } else {
-                // UPDATE LGL USER [Constituents::updateConstituent()]
-                $this->helper->debug('🔄 UserRegistrationAction: Updating existing LGL constituent...');
-                $this->updateConstituent($uid, $lgl_id, $request);
-            }
-            
-            // ADD LGL PAYMENT OBJECT [Payments::createGift()] - ONLY FOR PAID REGISTRATIONS
-            // Skip payment object creation for family members (they don't pay, parent already paid)
-            if (!$method) {
-                $this->helper->debug('💳 UserRegistrationAction: Adding payment object...');
-                $this->addPaymentObject($uid, $lgl_id, $request);
-            } else {
-                $this->helper->debug('⏭️ UserRegistrationAction: Skipping payment object (family member registration)');
+                // Fallback: synchronous processing if async processor not available
+                $this->helper->debug('⚠️ UserRegistrationAction: Async processor not available, using sync', [
+                    'user_id' => $uid
+                ]);
+                
+                $this->processRegistrationSync($uid, $request, $username, $method);
             }
             
             $this->helper->debug('✅ UserRegistrationAction::handle() COMPLETED SUCCESSFULLY', [
                 'user_id' => $uid,
-                'lgl_id' => $lgl_id,
-                'DEBUG_CHECKPOINT' => 'handleExistingConstituent should have been called above'
+                'note' => 'LGL sync scheduled or completed'
             ]);
             
         } catch (\Exception $e) {
@@ -358,6 +387,51 @@ class UserRegistrationAction implements JetFormActionInterface {
      * @param mixed $method Method flag
      * @return void
      */
+    /**
+     * Process registration synchronously (fallback method)
+     * 
+     * @param int $uid WordPress user ID
+     * @param array $request Form data
+     * @param string $username Username for search
+     * @param mixed $method Method flag for family members
+     * @return void
+     */
+    private function processRegistrationSync(int $uid, array $request, string $username, $method): void {
+        // Search for existing LGL contact
+        $this->helper->debug('🔍 UserRegistrationAction: Searching for existing LGL contact...');
+        $emails = $this->collectCandidateEmails($uid, $request);
+        $match = $this->connection->searchByName($username, $emails);
+        $lgl_id = $match['id'] ?? null;
+
+        $this->helper->debug('🔍 UserRegistrationAction: LGL search result', [
+            'lgl_id' => $lgl_id,
+            'found_existing' => $lgl_id ? 'YES' : 'NO',
+            'match_method' => $match['method'] ?? null,
+            'matched_email' => $match['email'] ?? null
+        ]);
+
+        // Follow Logic Model: Always add membership and payment objects regardless of user existence
+        if (!$lgl_id) {
+            // CREATE LGL USER [Constituents::createConstituent()]
+            $this->helper->debug('➕ UserRegistrationAction: Creating new LGL constituent...');
+            $lgl_id = $this->createConstituent($uid, $request);
+            update_user_meta($uid, 'lgl_id', $lgl_id);
+        } else {
+            // UPDATE LGL USER [Constituents::updateConstituent()]
+            $this->helper->debug('🔄 UserRegistrationAction: Updating existing LGL constituent...');
+            $this->updateConstituent($uid, $lgl_id, $request);
+        }
+        
+        // ADD LGL PAYMENT OBJECT [Payments::createGift()] - ONLY FOR PAID REGISTRATIONS
+        // Skip payment object creation for family members (they don't pay, parent already paid)
+        if (!$method) {
+            $this->helper->debug('💳 UserRegistrationAction: Adding payment object...');
+            $this->addPaymentObject($uid, $lgl_id, $request);
+        } else {
+            $this->helper->debug('⏭️ UserRegistrationAction: Skipping payment object (family member registration)');
+        }
+    }
+    
     /**
      * Create LGL constituent (Logic Model: Constituents::createConstituent())
      */

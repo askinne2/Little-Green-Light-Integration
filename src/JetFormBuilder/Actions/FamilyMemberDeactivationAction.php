@@ -13,6 +13,7 @@ namespace UpstateInternational\LGL\JetFormBuilder\Actions;
 
 use UpstateInternational\LGL\LGL\Connection;
 use UpstateInternational\LGL\LGL\Helper;
+use UpstateInternational\LGL\JetFormBuilder\AsyncFamilyMemberProcessor;
 
 /**
  * FamilyMemberDeactivationAction Class
@@ -36,6 +37,13 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
     private Helper $helper;
     
     /**
+     * Async Family Member Processor
+     * 
+     * @var AsyncFamilyMemberProcessor|null
+     */
+    private ?AsyncFamilyMemberProcessor $asyncProcessor = null;
+    
+    /**
      * Constructor
      * 
      * @param Connection $connection LGL connection service
@@ -44,6 +52,12 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
     public function __construct(Connection $connection, Helper $helper) {
         $this->connection = $connection;
         $this->helper = $helper;
+        
+        // Get AsyncFamilyMemberProcessor from container (optional - async processing)
+        $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
+        if ($container->has('jetformbuilder.async_family_processor')) {
+            $this->asyncProcessor = $container->get('jetformbuilder.async_family_processor');
+        }
     }
     
     /**
@@ -246,11 +260,11 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
                 'parent_id' => $parent_id
             ]);
             
-            // Delete LGL constituent relationships (both directions) BEFORE deleting the user
-            // This ensures we can still access the relationship IDs from user meta
+            // Schedule async LGL relationship deletion (non-blocking)
+            // WordPress operations (user deletion, JetEngine relationship) happen immediately
             $this->deleteLGLRelationship($child_id, $parent_id);
             
-            // Deactivate/delete the child user
+            // Deactivate/delete the child user (synchronous - critical operation)
             $this->deactivateUser($child_id);
             
             // Remove the JetEngine relationship
@@ -408,21 +422,78 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
     /**
      * Delete LGL constituent relationships (both directions)
      * 
-     * Deletes both Parent/Child relationships in LGL CRM:
-     * 1. Child -> Parent relationship (from child's perspective)
-     * 2. Parent -> Child relationship (from parent's perspective)
-     * 
-     * First tries to use stored relationship IDs from user meta, then falls back to API queries.
+     * Uses async processing to speed up form submission. Collects relationship IDs
+     * and schedules them for background deletion via WP Cron.
      * 
      * WordPress User Meta Fields:
      *   - 'lgl_family_relationship_id': Child->Parent relationship ID
      *   - 'lgl_family_relationship_parent_id': Parent->Child relationship ID
      * 
      * @param int $child_uid Child WordPress user ID
-     * @param int $parent_uid Parent WordPress user ID (optional, for querying parent relationships)
+     * @param int $parent_uid Parent WordPress user ID
      * @return void
      */
     private function deleteLGLRelationship(int $child_uid, int $parent_uid = 0): void {
+        // Collect relationship IDs before deletion (needed for async processing)
+        $child_to_parent_id = get_user_meta($child_uid, 'lgl_family_relationship_id', true);
+        $parent_to_child_id = get_user_meta($child_uid, 'lgl_family_relationship_parent_id', true);
+        
+        $relationship_ids = [
+            'child_to_parent' => $child_to_parent_id ? (int) $child_to_parent_id : null,
+            'parent_to_child' => $parent_to_child_id ? (int) $parent_to_child_id : null
+        ];
+        
+        $this->helper->debug('FamilyMemberDeactivationAction: Preparing LGL relationship deletion (async)', [
+            'child_uid' => $child_uid,
+            'parent_uid' => $parent_uid,
+            'relationship_ids' => $relationship_ids,
+            'async_enabled' => $this->asyncProcessor !== null
+        ]);
+        
+        // Use async processing if available (speeds up form submission)
+        if ($this->asyncProcessor && ($relationship_ids['child_to_parent'] || $relationship_ids['parent_to_child'])) {
+            $this->helper->debug('⏰ FamilyMemberDeactivationAction: Scheduling async LGL relationship deletion', [
+                'child_uid' => $child_uid,
+                'parent_uid' => $parent_uid
+            ]);
+            
+            try {
+                $this->asyncProcessor->scheduleAsyncDeactivation($child_uid, $parent_uid, $relationship_ids);
+                
+                $this->helper->debug('✅ FamilyMemberDeactivationAction: Async LGL relationship deletion scheduled', [
+                    'child_uid' => $child_uid,
+                    'note' => 'LGL relationship deletion will be processed in background via WP Cron'
+                ]);
+            } catch (\Exception $e) {
+                $this->helper->debug('⚠️ FamilyMemberDeactivationAction: Async scheduling failed, falling back to sync', [
+                    'error' => $e->getMessage(),
+                    'child_uid' => $child_uid
+                ]);
+                
+                // Fallback to synchronous processing if async fails
+                $this->deleteLGLRelationshipSync($child_uid, $parent_uid, $relationship_ids);
+            }
+        } else {
+            // Fallback: synchronous processing if async processor not available or no relationship IDs
+            $this->helper->debug('⚠️ FamilyMemberDeactivationAction: Async processor not available or no relationship IDs, using sync', [
+                'child_uid' => $child_uid,
+                'has_async_processor' => $this->asyncProcessor !== null,
+                'has_relationship_ids' => !empty($relationship_ids['child_to_parent']) || !empty($relationship_ids['parent_to_child'])
+            ]);
+            
+            $this->deleteLGLRelationshipSync($child_uid, $parent_uid, $relationship_ids);
+        }
+    }
+    
+    /**
+     * Delete LGL relationships synchronously (fallback method)
+     * 
+     * @param int $child_uid Child WordPress user ID
+     * @param int $parent_uid Parent WordPress user ID
+     * @param array $relationship_ids Relationship IDs to delete
+     * @return void
+     */
+    private function deleteLGLRelationshipSync(int $child_uid, int $parent_uid, array $relationship_ids): void {
         $child_lgl_id = get_user_meta($child_uid, 'lgl_id', true);
         $parent_lgl_id = $parent_uid ? get_user_meta($parent_uid, 'lgl_id', true) : null;
         
@@ -435,54 +506,46 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
         
         $deleted_count = 0;
         
-        // Delete Child -> Parent relationship (stored on child user)
-        $child_to_parent_id = get_user_meta($child_uid, 'lgl_family_relationship_id', true);
-        
-        if ($child_to_parent_id) {
+        // Delete Child -> Parent relationship
+        if (!empty($relationship_ids['child_to_parent'])) {
             try {
-                $response = $this->connection->deleteConstituentRelationship((int) $child_to_parent_id);
+                $response = $this->connection->deleteConstituentRelationship((int) $relationship_ids['child_to_parent']);
                 
                 if ($response['success']) {
                     delete_user_meta($child_uid, 'lgl_family_relationship_id');
                     $deleted_count++;
                     
-                    $this->helper->debug('FamilyMemberDeactivationAction: Deleted Child->Parent relationship', [
+                    $this->helper->debug('FamilyMemberDeactivationAction: Deleted Child->Parent relationship (sync)', [
                         'child_uid' => $child_uid,
-                        'child_lgl_id' => $child_lgl_id,
-                        'relationship_id' => $child_to_parent_id,
-                        'direction' => 'Child->Parent'
+                        'relationship_id' => $relationship_ids['child_to_parent']
                     ]);
                 }
             } catch (\Exception $e) {
                 $this->helper->debug('FamilyMemberDeactivationAction: Exception deleting Child->Parent relationship', [
                     'error' => $e->getMessage(),
-                    'relationship_id' => $child_to_parent_id
+                    'relationship_id' => $relationship_ids['child_to_parent']
                 ]);
             }
         }
         
-        // Delete Parent -> Child relationship (stored on child user for reference)
-        $parent_to_child_id = get_user_meta($child_uid, 'lgl_family_relationship_parent_id', true);
-        
-        if ($parent_to_child_id) {
+        // Delete Parent -> Child relationship
+        if (!empty($relationship_ids['parent_to_child'])) {
             try {
-                $response = $this->connection->deleteConstituentRelationship((int) $parent_to_child_id);
+                $response = $this->connection->deleteConstituentRelationship((int) $relationship_ids['parent_to_child']);
                 
                 if ($response['success']) {
                     delete_user_meta($child_uid, 'lgl_family_relationship_parent_id');
                     $deleted_count++;
                     
-                    $this->helper->debug('FamilyMemberDeactivationAction: Deleted Parent->Child relationship', [
+                    $this->helper->debug('FamilyMemberDeactivationAction: Deleted Parent->Child relationship (sync)', [
                         'child_uid' => $child_uid,
-                        'parent_lgl_id' => $parent_lgl_id,
-                        'relationship_id' => $parent_to_child_id,
-                        'direction' => 'Parent->Child'
+                        'relationship_id' => $relationship_ids['parent_to_child']
                     ]);
                 }
             } catch (\Exception $e) {
                 $this->helper->debug('FamilyMemberDeactivationAction: Exception deleting Parent->Child relationship', [
                     'error' => $e->getMessage(),
-                    'relationship_id' => $parent_to_child_id
+                    'relationship_id' => $relationship_ids['parent_to_child']
                 ]);
             }
         }
@@ -502,29 +565,22 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
                             ($rel->relationship_type_name ?? null) : 
                             ($rel['relationship_type_name'] ?? null);
                         
-                        // Match Parent relationship (case-insensitive)
                         if ($rel_id && $rel_type && stripos($rel_type, 'Parent') !== false) {
                             $delete_response = $this->connection->deleteConstituentRelationship((int) $rel_id);
                             
                             if ($delete_response['success']) {
                                 $deleted_count++;
-                                $this->helper->debug('FamilyMemberDeactivationAction: Deleted Child->Parent relationship via API query', [
-                                    'child_lgl_id' => $child_lgl_id,
-                                    'relationship_id' => $rel_id,
-                                    'relationship_type' => $rel_type
-                                ]);
                             }
                         }
                     }
                 }
             } catch (\Exception $e) {
                 $this->helper->debug('FamilyMemberDeactivationAction: Exception querying child relationships', [
-                    'error' => $e->getMessage(),
-                    'child_lgl_id' => $child_lgl_id
+                    'error' => $e->getMessage()
                 ]);
             }
             
-            // Query parent's relationships to find any remaining Child relationships
+            // Query parent's relationships
             if ($parent_lgl_id) {
                 try {
                     $parent_relationships = $this->connection->getConstituentRelationships((int) $parent_lgl_id);
@@ -541,36 +597,26 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
                                 ($rel->related_constituent_id ?? null) : 
                                 ($rel['related_constituent_id'] ?? null);
                             
-                            // Match Child relationship pointing to this child
                             if ($rel_id && $rel_type && stripos($rel_type, 'Child') !== false && 
                                 $related_id && (int)$related_id === (int)$child_lgl_id) {
                                 $delete_response = $this->connection->deleteConstituentRelationship((int) $rel_id);
                                 
                                 if ($delete_response['success']) {
                                     $deleted_count++;
-                                    $this->helper->debug('FamilyMemberDeactivationAction: Deleted Parent->Child relationship via API query', [
-                                        'parent_lgl_id' => $parent_lgl_id,
-                                        'child_lgl_id' => $child_lgl_id,
-                                        'relationship_id' => $rel_id,
-                                        'relationship_type' => $rel_type
-                                    ]);
                                 }
                             }
                         }
                     }
                 } catch (\Exception $e) {
                     $this->helper->debug('FamilyMemberDeactivationAction: Exception querying parent relationships', [
-                        'error' => $e->getMessage(),
-                        'parent_lgl_id' => $parent_lgl_id
+                        'error' => $e->getMessage()
                     ]);
                 }
             }
         }
         
-        $this->helper->debug('FamilyMemberDeactivationAction: Relationship deletion summary', [
+        $this->helper->debug('FamilyMemberDeactivationAction: Relationship deletion summary (sync)', [
             'child_uid' => $child_uid,
-            'child_lgl_id' => $child_lgl_id,
-            'parent_lgl_id' => $parent_lgl_id,
             'relationships_deleted' => $deleted_count,
             'expected' => 2
         ]);

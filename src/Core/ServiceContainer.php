@@ -422,14 +422,30 @@ class ServiceContainer implements ContainerInterface {
         
         // Register WooCommerce services (with explicit dependency injection)
         $this->register('woocommerce.subscription_renewal', \UpstateInternational\LGL\WooCommerce\SubscriptionRenewalManager::class);
+        
+        // Register AsyncOrderProcessor first (without OrderProcessor to avoid circular dependency)
+        $this->register('woocommerce.async_processor', function($container) {
+            return new \UpstateInternational\LGL\WooCommerce\AsyncOrderProcessor(
+                $container->get('lgl.helper')
+            );
+        });
+        
+        // Register OrderProcessor (with AsyncOrderProcessor injection)
         $this->register('woocommerce.order_processor', function($container) {
-            return new \UpstateInternational\LGL\WooCommerce\OrderProcessor(
+            $orderProcessor = new \UpstateInternational\LGL\WooCommerce\OrderProcessor(
                 $container->get('lgl.helper'),
                 $container->get('lgl.wp_users'),
                 $container->get('woocommerce.membership_handler'),
                 $container->get('woocommerce.class_handler'),
-                $container->get('woocommerce.event_handler')
+                $container->get('woocommerce.event_handler'),
+                $container->get('woocommerce.async_processor')
             );
+            
+            // Wire OrderProcessor back to AsyncOrderProcessor (resolve circular dependency)
+            $asyncProcessor = $container->get('woocommerce.async_processor');
+            $asyncProcessor->setOrderProcessor($orderProcessor);
+            
+            return $orderProcessor;
         });
         $this->register('woocommerce.subscription_handler', function($container) {
             return new \UpstateInternational\LGL\WooCommerce\SubscriptionHandler(
@@ -479,28 +495,50 @@ class ServiceContainer implements ContainerInterface {
             );
         });
         
+        // Register Async Family Member Processor
+        $this->register('jetformbuilder.async_family_processor', function($container) {
+            return new \UpstateInternational\LGL\JetFormBuilder\AsyncFamilyMemberProcessor(
+                $container->get('lgl.helper'),
+                $container->get('lgl.connection')
+            );
+        });
+        
+        // Register Async JetForm Processor (for all JetFormBuilder actions)
+        $this->register('jetformbuilder.async_processor', function($container) {
+            return new \UpstateInternational\LGL\JetFormBuilder\AsyncJetFormProcessor(
+                $container->get('lgl.helper'),
+                $container->get('lgl.connection'),
+                $container->get('lgl.constituents')
+            );
+        });
+        // Also register with class name for ActionRegistry auto-injection
+        $this->register(\UpstateInternational\LGL\JetFormBuilder\AsyncJetFormProcessor::class, function($container) {
+            return $container->get('jetformbuilder.async_processor');
+        });
+        
         // Register JetFormBuilder action services
+        // Note: Actions can also be auto-injected by ActionRegistry if not explicitly registered here
         $this->register('jetformbuilder.user_registration_action', function($container) {
             return new \UpstateInternational\LGL\JetFormBuilder\Actions\UserRegistrationAction(
                 $container->get('lgl.connection'),
                 $container->get('lgl.helper'),
-                $container->get('lgl.wp_users'),
-                $container->get('lgl.payments'),
-                $container->get('lgl.relations_manager')
+                $container->get('jetformbuilder.async_processor')
             );
         });
         $this->register('jetformbuilder.class_registration_action', function($container) {
             return new \UpstateInternational\LGL\JetFormBuilder\Actions\ClassRegistrationAction(
                 $container->get('lgl.connection'),
                 $container->get('lgl.helper'),
-                $container->get('lgl.payments')
+                $container->get('lgl.payments'),
+                $container->get('jetformbuilder.async_processor')
             );
         });
         $this->register('jetformbuilder.event_registration_action', function($container) {
             return new \UpstateInternational\LGL\JetFormBuilder\Actions\EventRegistrationAction(
                 $container->get('lgl.connection'),
                 $container->get('lgl.helper'),
-                $container->get('lgl.payments')
+                $container->get('lgl.payments'),
+                $container->get('jetformbuilder.async_processor')
             );
         });
         

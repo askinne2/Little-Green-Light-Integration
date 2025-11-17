@@ -145,9 +145,8 @@ class Utilities {
                 // Validate user exists
                 $user = get_user_by('id', $customer_id);
                 if ($user) {
-                    // Get user meta with fallbacks
-                    $lgl_id = get_user_meta($customer_id, 'lgl_constituent_id', true) ?: 
-                             get_user_meta($customer_id, 'lgl_id', true) ?: 'N/A';
+                    // Get user meta (canonical field: lgl_id)
+                    $lgl_id = get_user_meta($customer_id, 'lgl_id', true) ?: 'N/A';
                     
                     $membership_type = get_user_meta($customer_id, 'user-membership-type', true) ?: 'N/A';
                     $subscription_status = get_user_meta($customer_id, 'user-subscription-status', true) ?: 'N/A';
@@ -302,6 +301,138 @@ class Utilities {
     public static function generateCacheKey($base_key, $params = []) {
         $key_data = array_merge([$base_key], $params);
         return 'lgl_' . md5(serialize($key_data));
+    }
+    
+    /**
+     * Safely get and sanitize $_POST data
+     * 
+     * @param string $key POST data key
+     * @param string $sanitize_type Type of sanitization (text, url, email, int, float, bool, array)
+     * @param mixed $default Default value if key not set
+     * @return mixed Sanitized value or default
+     */
+    public static function getSanitizedPost($key, $sanitize_type = 'text', $default = null) {
+        if (!isset($_POST[$key])) {
+            return $default;
+        }
+        
+        $value = $_POST[$key];
+        
+        switch ($sanitize_type) {
+            case 'url':
+                return sanitize_url($value);
+                
+            case 'email':
+                return sanitize_email($value);
+                
+            case 'int':
+                return absint($value);
+                
+            case 'float':
+                return floatval($value);
+                
+            case 'bool':
+                return (bool) $value;
+                
+            case 'array':
+                return is_array($value) ? array_map('sanitize_text_field', $value) : $default;
+                
+            case 'textarea':
+                return sanitize_textarea_field($value);
+                
+            case 'key':
+                return sanitize_key($value);
+                
+            case 'text':
+            default:
+                return sanitize_text_field($value);
+        }
+    }
+    
+    /**
+     * Safely get and sanitize $_GET data
+     * 
+     * @param string $key GET data key
+     * @param string $sanitize_type Type of sanitization (text, url, email, int, float, bool, array)
+     * @param mixed $default Default value if key not set
+     * @return mixed Sanitized value or default
+     */
+    public static function getSanitizedGet($key, $sanitize_type = 'text', $default = null) {
+        if (!isset($_GET[$key])) {
+            return $default;
+        }
+        
+        $value = $_GET[$key];
+        
+        switch ($sanitize_type) {
+            case 'url':
+                return sanitize_url($value);
+                
+            case 'email':
+                return sanitize_email($value);
+                
+            case 'int':
+                return absint($value);
+                
+            case 'float':
+                return floatval($value);
+                
+            case 'bool':
+                return (bool) $value;
+                
+            case 'array':
+                return is_array($value) ? array_map('sanitize_text_field', $value) : $default;
+                
+            case 'key':
+                return sanitize_key($value);
+                
+            case 'text':
+            default:
+                return sanitize_text_field($value);
+        }
+    }
+    
+    /**
+     * Safely get and sanitize $_REQUEST data
+     * 
+     * @param string $key REQUEST data key
+     * @param string $sanitize_type Type of sanitization (text, url, email, int, float, bool, array)
+     * @param mixed $default Default value if key not set
+     * @return mixed Sanitized value or default
+     */
+    public static function getSanitizedRequest($key, $sanitize_type = 'text', $default = null) {
+        if (!isset($_REQUEST[$key])) {
+            return $default;
+        }
+        
+        $value = $_REQUEST[$key];
+        
+        switch ($sanitize_type) {
+            case 'url':
+                return sanitize_url($value);
+                
+            case 'email':
+                return sanitize_email($value);
+                
+            case 'int':
+                return absint($value);
+                
+            case 'float':
+                return floatval($value);
+                
+            case 'bool':
+                return (bool) $value;
+                
+            case 'array':
+                return is_array($value) ? array_map('sanitize_text_field', $value) : $default;
+                
+            case 'key':
+                return sanitize_key($value);
+                
+            case 'text':
+            default:
+                return sanitize_text_field($value);
+        }
     }
     
     /**

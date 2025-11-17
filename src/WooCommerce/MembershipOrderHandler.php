@@ -84,10 +84,148 @@ class MembershipOrderHandler {
     }
     
     /**
-     * Process membership order
+     * Process membership order (immediate tasks only)
      * 
-     * Handles membership orders from WooCommerce and registers them in LGL
+     * Handles WordPress operations without LGL API calls
      * 
+     * @param int $uid User ID
+     * @param \WC_Order $order WooCommerce order
+     * @param array $order_meta Order metadata
+     * @param mixed $product Product item
+     * @param string $membership_level Membership level/product name
+     * @return void
+     */
+    public function processOrderImmediate(
+        int $uid,
+        \WC_Order $order,
+        array $order_meta,
+        $product,
+        string $membership_level
+    ): void {
+        $this->helper->debug('⚡ MembershipOrderHandler::processOrderImmediate() STARTED', [
+            'user_id' => $uid,
+            'order_id' => $order->get_id(),
+            'membership_level' => $membership_level,
+            'mode' => 'immediate_only'
+        ]);
+        
+        try {
+            // Resolve membership configuration
+            $membership_config = $this->resolveMembershipConfig($product, $membership_level, (float) $product->get_total());
+            $actual_membership_level = $membership_config['membership_name'] ?? $membership_level;
+            $membership_level_id = $membership_config['membership_level_id'] ?? null;
+            
+            // Update user role based on membership type
+            $this->updateUserRole($uid, $actual_membership_level);
+            
+            // Process family slot purchases (token-based system)
+            $this->processFamilySlots($order, $uid);
+            
+            // Prepare registration request
+            $request = $this->buildRegistrationRequest(
+                $uid,
+                $order,
+                $order_meta,
+                $actual_membership_level,
+                $membership_level_id
+            );
+            
+            // Process user data updates (save to WordPress only - skip LGL sync)
+            $this->processUserDataUpdates($uid, $order, $order_meta, $request);
+            
+            // Complete the order
+            $order->update_status('completed');
+            
+            // Set renewal date for one-time purchases
+            $this->setRenewalDateForOneTimePurchase($uid, $actual_membership_level);
+            
+            $this->helper->debug('✅ MembershipOrderHandler::processOrderImmediate() COMPLETED', [
+                'order_id' => $order->get_id(),
+                'user_id' => $uid,
+                'final_membership_level' => $actual_membership_level
+            ]);
+            
+        } catch (Exception $e) {
+            $this->helper->debug('❌ MembershipOrderHandler::processOrderImmediate() FAILED', [
+                'error' => $e->getMessage(),
+                'order_id' => $order->get_id(),
+                'user_id' => $uid
+            ]);
+            throw $e;
+        }
+    }
+    
+    /**
+     * Process membership order (LGL sync only)
+     * 
+     * Handles LGL API calls for background processing
+     * 
+     * @param int $uid User ID
+     * @param \WC_Order $order WooCommerce order
+     * @param array $order_meta Order metadata
+     * @param mixed $product Product item
+     * @param string $membership_level Membership level/product name
+     * @return void
+     */
+    public function processOrderLglSync(
+        int $uid,
+        \WC_Order $order,
+        array $order_meta,
+        $product,
+        string $membership_level
+    ): void {
+        $this->helper->debug('🔄 MembershipOrderHandler::processOrderLglSync() STARTED', [
+            'user_id' => $uid,
+            'order_id' => $order->get_id(),
+            'membership_level' => $membership_level,
+            'mode' => 'lgl_sync_only'
+        ]);
+        
+        try {
+            // Resolve membership configuration
+            $membership_config = $this->resolveMembershipConfig($product, $membership_level, (float) $product->get_total());
+            $actual_membership_level = $membership_config['membership_name'] ?? $membership_level;
+            $membership_level_id = $membership_config['membership_level_id'] ?? null;
+            
+            // Prepare registration request
+            $request = $this->buildRegistrationRequest(
+                $uid,
+                $order,
+                $order_meta,
+                $actual_membership_level,
+                $membership_level_id
+            );
+            
+            // Register user in LGL (API calls only)
+            $registrationResult = $this->registerUserInLGL(
+                $uid,
+                $order,
+                $request,
+                $membership_config
+            );
+            
+            $this->helper->debug('✅ MembershipOrderHandler::processOrderLglSync() COMPLETED', [
+                'order_id' => $order->get_id(),
+                'user_id' => $uid,
+                'lgl_id' => $registrationResult['lgl_id'] ?? null,
+                'match_method' => $registrationResult['match_method'] ?? null,
+                'payment_id' => $registrationResult['payment_id'] ?? null
+            ]);
+            
+        } catch (Exception $e) {
+            $this->helper->debug('❌ MembershipOrderHandler::processOrderLglSync() FAILED', [
+                'error' => $e->getMessage(),
+                'order_id' => $order->get_id(),
+                'user_id' => $uid
+            ]);
+            throw $e;
+        }
+    }
+    
+    /**
+     * Process membership order (legacy - full sync)
+     * 
+     * @deprecated Use processOrderImmediate() + processOrderLglSync() instead
      * @param int $uid User ID
      * @param \WC_Order $order WooCommerce order
      * @param array $order_meta Order metadata
@@ -405,25 +543,17 @@ class MembershipOrderHandler {
         array $order_meta,
         array $request
     ): void {
-        // Update user first/last name from order billing info
-        if (!empty($request['user_firstname'])) {
-            update_user_meta($uid, 'first_name', sanitize_text_field($request['user_firstname']));
-        }
-        if (!empty($request['user_lastname'])) {
-            update_user_meta($uid, 'last_name', sanitize_text_field($request['user_lastname']));
-        }
+        // Use WpUsers::updateUserData() to save ALL billing address fields to user meta
+        // This ensures address data from checkout is properly saved for guest checkouts
+        // Skip ALL LGL sync during immediate processing - LGL sync happens separately in async processing via registerUserInLGL()
+        $this->wpUsers->updateUserData($request, $order, $order_meta, true, true);
         
-        // Update subscription information (if WooCommerce Subscriptions is active)
-        if (method_exists($this->wpUsers, 'updateUserSubscriptionInfo')) {
-            $this->wpUsers->updateUserSubscriptionInfo($uid, $order->get_id());
-        }
+        $this->helper->debug('MembershipOrderHandler: User data updated (WordPress only, LGL sync happens separately)', $uid);
 
         // Store membership level ID for MembershipRegistrationService to use
         if (!empty($request['lgl_membership_level_id'])) {
             update_user_meta($uid, 'lgl_membership_level_id', (int) $request['lgl_membership_level_id']);
         }
-        
-        $this->helper->debug('MembershipOrderHandler: User data updated (WordPress only, LGL sync happens separately)', $uid);
     }
     
     /**

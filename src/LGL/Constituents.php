@@ -617,10 +617,10 @@ class Constituents {
                 // Create new constituent
                 $result = $this->createConstituent();
                 
-                // Save LGL ID to user meta if creation was successful
+                // Save LGL ID to user meta if creation was successful (canonical field: lgl_id)
                 if ($result['success'] && isset($result['data']['id'])) {
                     $lgl_id = $result['data']['id'];
-                    update_user_meta($user_id, 'lgl_constituent_id', $lgl_id);
+                    update_user_meta($user_id, 'lgl_id', $lgl_id);
                     
                     // Add contact info for new constituent
                     $this->syncContactInfo($lgl_id);
@@ -888,17 +888,34 @@ class Constituents {
     }
     
     /**
-     * Get user's LGL ID
+     * Get LGL ID from user meta
+     * 
+     * Checks canonical field first (lgl_id), then falls back to legacy fields for backward compatibility.
+     * During migration, legacy fields (lgl_constituent_id, lgl_user_id) are checked but not preferred.
      * 
      * @param int $user_id WordPress user ID
-     * @return string|null LGL ID or null
+     * @return string|null LGL constituent ID or null if not found
      */
-    private function getUserLglId(int $user_id): ?string {
-        $lgl_meta_keys = ['lgl_constituent_id', 'lgl_id', 'lgl_user_id'];
+    public function getUserLglId(int $user_id): ?string {
+        // Canonical field: lgl_id (primary)
+        $lgl_id = get_user_meta($user_id, 'lgl_id', true);
+        if (!empty($lgl_id)) {
+            return $lgl_id;
+        }
         
-        foreach ($lgl_meta_keys as $meta_key) {
+        // Legacy fields: backward compatibility during migration
+        // These will be migrated to lgl_id and eventually removed
+        $legacy_meta_keys = ['lgl_constituent_id', 'lgl_user_id'];
+        foreach ($legacy_meta_keys as $meta_key) {
             $lgl_id = get_user_meta($user_id, $meta_key, true);
             if (!empty($lgl_id)) {
+                // Migrate legacy field to canonical field
+                update_user_meta($user_id, 'lgl_id', $lgl_id);
+                $this->debug('Migrated legacy meta field to canonical lgl_id', [
+                    'user_id' => $user_id,
+                    'legacy_field' => $meta_key,
+                    'lgl_id' => $lgl_id
+                ]);
                 return $lgl_id;
             }
         }

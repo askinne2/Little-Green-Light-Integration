@@ -20,6 +20,7 @@ use UpstateInternational\LGL\LGL\Connection;
 use UpstateInternational\LGL\LGL\Helper;
 use UpstateInternational\LGL\LGL\Constituents;
 use UpstateInternational\LGL\LGL\Payments;
+use UpstateInternational\LGL\JetFormBuilder\AsyncJetFormProcessor;
 
 /**
  * MembershipUpdateAction Class
@@ -60,23 +61,43 @@ class MembershipUpdateAction implements JetFormActionInterface {
     private Payments $payments;
     
     /**
+     * Async processor for LGL API calls
+     * 
+     * @var AsyncJetFormProcessor|null
+     */
+    private ?AsyncJetFormProcessor $asyncProcessor = null;
+    
+    /**
      * Constructor
      * 
      * @param Connection $connection LGL connection service
      * @param Helper $helper LGL helper service
      * @param Constituents $constituents LGL constituents service
      * @param Payments $payments LGL payments service
+     * @param AsyncJetFormProcessor|null $asyncProcessor Async processor (optional)
      */
     public function __construct(
         Connection $connection,
         Helper $helper,
         Constituents $constituents,
-        Payments $payments
+        Payments $payments,
+        ?AsyncJetFormProcessor $asyncProcessor = null
     ) {
         $this->connection = $connection;
         $this->helper = $helper;
         $this->constituents = $constituents;
         $this->payments = $payments;
+        $this->asyncProcessor = $asyncProcessor;
+    }
+    
+    /**
+     * Set async processor (for dependency injection)
+     * 
+     * @param AsyncJetFormProcessor $asyncProcessor Async processor
+     * @return void
+     */
+    public function setAsyncProcessor(AsyncJetFormProcessor $asyncProcessor): void {
+        $this->asyncProcessor = $asyncProcessor;
     }
     
     /**
@@ -140,17 +161,55 @@ class MembershipUpdateAction implements JetFormActionInterface {
         }
         $email = $user_data->data->user_email;
         
-        // Update user meta
+        // Update user meta (synchronous - WordPress operation)
         $this->updateUserMeta($uid, $membership_level);
         
-        // Handle role changes
+        // Handle role changes (synchronous - WordPress operation)
         $this->updateUserRole($uid, $membership_level);
         
-        // Fix membership radio (legacy helper function)
+        // Fix membership radio (legacy helper function) (synchronous - WordPress operation)
         $this->helper->fixMembershipRadio($uid, $membership_level);
         
-        // Process LGL membership update
-        $this->processLGLMembershipUpdate($uid, $membership_level, $order_id, $price, $date, $request);
+        // Use async processing if available (speeds up form submission)
+        if ($this->asyncProcessor) {
+            $this->helper->debug('⏰ MembershipUpdateAction: Scheduling async LGL processing', [
+                'user_id' => $uid,
+                'membership_level' => $membership_level
+            ]);
+            
+            try {
+                $user_lgl_id = get_user_meta($uid, 'lgl_id', true);
+                $context = [
+                    'lgl_id' => $user_lgl_id,
+                    'order_id' => $order_id,
+                    'price' => $price,
+                    'date' => $date,
+                    'request' => $request
+                ];
+                
+                $this->asyncProcessor->scheduleAsyncProcessing('membership_update', $uid, $context);
+                
+                $this->helper->debug('✅ MembershipUpdateAction: Async LGL processing scheduled', [
+                    'user_id' => $uid,
+                    'note' => 'LGL API calls will be processed in background via WP Cron'
+                ]);
+            } catch (\Exception $e) {
+                $this->helper->debug('⚠️ MembershipUpdateAction: Async scheduling failed, falling back to sync', [
+                    'error' => $e->getMessage(),
+                    'user_id' => $uid
+                ]);
+                
+                // Fallback to synchronous processing if async fails
+                $this->processLGLMembershipUpdate($uid, $membership_level, $order_id, $price, $date, $request);
+            }
+        } else {
+            // Fallback: synchronous processing if async processor not available
+            $this->helper->debug('⚠️ MembershipUpdateAction: Async processor not available, using sync', [
+                'user_id' => $uid
+            ]);
+            
+            $this->processLGLMembershipUpdate($uid, $membership_level, $order_id, $price, $date, $request);
+        }
             
         } catch (\Exception $e) {
             $this->helper->debug('MembershipUpdateAction: Error occurred', [

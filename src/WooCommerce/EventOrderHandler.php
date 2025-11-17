@@ -59,6 +59,97 @@ class EventOrderHandler {
      * @param mixed $product Product item
      * @return void
      */
+    /**
+     * Process event order (immediate tasks only)
+     * 
+     * @param int $uid User ID
+     * @param \WC_Order $order WooCommerce order
+     * @param array $order_meta Order metadata
+     * @param mixed $product Product item
+     * @return void
+     */
+    public function processOrderImmediate(
+        int $uid,
+        \WC_Order $order,
+        array $order_meta,
+        $product
+    ): void {
+        $product_name = $product->get_name();
+        $quantity = $product->get_quantity();
+        $product_id = $product->get_variation_id() ?: $product->get_product_id();
+        $parent_id = $product->get_variation_id() ? $product->get_product_id() : $product_id;
+        
+        $this->helper->debug('⚡ EventOrderHandler::processOrderImmediate() STARTED', [
+            'user_id' => $uid,
+            'order_id' => $order->get_id(),
+            'product_name' => $product_name,
+            'product_id' => $product_id,
+            'parent_id' => $parent_id,
+            'quantity' => $quantity,
+            'mode' => 'immediate_only'
+        ]);
+        
+        // Build event registration data (fund ID determined internally by payment method)
+        $event_registration = $this->buildEventRegistration($uid, $order, $order_meta, $product);
+        
+        // Update user data (skip ALL LGL sync - LGL sync happens separately in async processing)
+        $this->wpUsers->updateUserData($event_registration, $order, $order_meta, true, true);
+        
+        // Complete the order
+        $order->update_status('completed');
+        
+        $this->helper->debug('✅ EventOrderHandler::processOrderImmediate() COMPLETED', $order->get_id());
+    }
+    
+    /**
+     * Process event order (LGL sync only)
+     * 
+     * @param int $uid User ID
+     * @param \WC_Order $order WooCommerce order
+     * @param array $order_meta Order metadata
+     * @param mixed $product Product item
+     * @return void
+     */
+    public function processOrderLglSync(
+        int $uid,
+        \WC_Order $order,
+        array $order_meta,
+        $product
+    ): void {
+        $product_name = $product->get_name();
+        $quantity = $product->get_quantity();
+        $product_id = $product->get_variation_id() ?: $product->get_product_id();
+        $parent_id = $product->get_variation_id() ? $product->get_product_id() : $product_id;
+        
+        $this->helper->debug('🔄 EventOrderHandler::processOrderLglSync() STARTED', [
+            'user_id' => $uid,
+            'order_id' => $order->get_id(),
+            'product_name' => $product_name,
+            'product_id' => $product_id,
+            'parent_id' => $parent_id,
+            'quantity' => $quantity,
+            'mode' => 'lgl_sync_only'
+        ]);
+        
+        // Build event registration data (fund ID determined internally by payment method)
+        $event_registration = $this->buildEventRegistration($uid, $order, $order_meta, $product);
+        
+        // Register event in LGL (API calls only)
+        $this->registerEventInLGL($event_registration);
+        
+        $this->helper->debug('✅ EventOrderHandler::processOrderLglSync() COMPLETED', $order->get_id());
+    }
+    
+    /**
+     * Process event order (legacy - full sync)
+     * 
+     * @deprecated Use processOrderImmediate() + processOrderLglSync() instead
+     * @param int $uid User ID
+     * @param \WC_Order $order WooCommerce order
+     * @param array $order_meta Order metadata
+     * @param mixed $product Product item
+     * @return void
+     */
     public function processOrder(
         int $uid,
         \WC_Order $order,
@@ -70,7 +161,7 @@ class EventOrderHandler {
         $product_id = $product->get_variation_id() ?: $product->get_product_id();
         $parent_id = $product->get_variation_id() ? $product->get_product_id() : $product_id;
         
-        $this->helper->debug('EventOrderHandler: Processing event order', [
+        $this->helper->debug('EventOrderHandler: Processing event order (LEGACY)', [
             'user_id' => $uid,
             'order_id' => $order->get_id(),
             'product_name' => $product_name,
@@ -82,8 +173,8 @@ class EventOrderHandler {
         // Build event registration data (fund ID determined internally by payment method)
         $event_registration = $this->buildEventRegistration($uid, $order, $order_meta, $product);
         
-        // Update user data (skip membership sync - only sync billing/contact info)
-        $this->wpUsers->updateUserData($event_registration, $order, $order_meta, true);
+        // Update user data (skip ALL LGL sync - LGL sync happens separately in async processing)
+        $this->wpUsers->updateUserData($event_registration, $order, $order_meta, true, true);
         
         // Register event in LGL
         $this->registerEventInLGL($event_registration);

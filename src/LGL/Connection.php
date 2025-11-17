@@ -146,6 +146,21 @@ class Connection {
                 }
             }
             
+            // Rate limiting: Check if we can make a request
+            $rateLimiter = RateLimiter::getInstance();
+            
+            if (!$rateLimiter->canMakeRequest()) {
+                Helper::getInstance()->debug('LGL Connection: Rate limit reached, waiting for availability...');
+                
+                // Wait for rate limit window to reset
+                if (!$rateLimiter->waitForAvailability()) {
+                    return $this->createErrorResponse('Rate limit exceeded. Please try again later.');
+                }
+            }
+            
+            // Rate limiting: Wait minimum delay between requests
+            $rateLimiter->waitIfNeeded();
+            
             // Build request URI
             $this->requestUri = $this->buildRequestUri($endpoint);
             
@@ -158,6 +173,9 @@ class Connection {
             // Make HTTP request
             $response = $this->executeHttpRequest($method, $request_args);
             
+            // Record request for rate limiting (after successful request)
+            $rateLimiter->recordRequest();
+            
             // Process response
             $processed_response = $this->processResponse($response);
             
@@ -168,6 +186,12 @@ class Connection {
             
             // Log response for debugging
             $this->logResponse($endpoint, $processed_response);
+            
+            // Log rate limiter status
+            $status = $rateLimiter->getStatus();
+            if ($status['is_near_limit'] || $status['is_at_limit']) {
+                Helper::getInstance()->debug('LGL Connection: ' . $rateLimiter->getStatusMessage());
+            }
             
             return $processed_response;
             
@@ -821,57 +845,70 @@ class Connection {
                     $constituents = $this->extractConstituentsFromResponse($response['data']);
                     
                     if (!empty($constituents)) {
-                        // DON'T trust LGL's email search blindly - verify the exact email exists
-                        // LGL may return matches for base emails (e.g., andrew@example.com) 
-                        // when searching for tagged emails (e.g., andrew+1@example.com)
-                        $first_match = $constituents[0];
-                        $lgl_id = is_object($first_match) ? $first_match->id : $first_match['id'];
+                        // Limit to first 10 results to avoid excessive API calls
+                        // If there are many results, it's likely a base email match, not exact
+                        $max_results = min(10, count($constituents));
+                        $results_to_check = array_slice($constituents, 0, $max_results);
                         
-                        // Get the actual email addresses from this constituent
-                        $email_addresses = is_object($first_match) ? 
-                            ($first_match->email_addresses ?? []) : 
-                            ($first_match['email_addresses'] ?? []);
-                        
-                        // Verify this constituent actually has the exact email we're searching for
-                        $has_exact_email = false;
-                        foreach ($email_addresses as $email_record) {
-                            $address = is_object($email_record) ? 
-                                ($email_record->address ?? null) : 
-                                ($email_record['address'] ?? null);
-                                
-                            // Case-insensitive comparison for exact match (including + tags)
-                            if ($address && strcasecmp($address, $emailCandidate) === 0) {
-                                $has_exact_email = true;
-                                break;
+                        // LGL returned matches for this email - check results to find one with exact email
+                        foreach ($results_to_check as $match) {
+                            $lgl_id = is_object($match) ? $match->id : $match['id'];
+                            
+                            // Get the actual email addresses from this constituent
+                            $email_addresses = is_object($match) ? 
+                                ($match->email_addresses ?? []) : 
+                                ($match['email_addresses'] ?? []);
+                            
+                            // If email_addresses not in response, fetch full constituent to verify
+                            if (empty($email_addresses)) {
+                                $full_constituent = $this->getConstituent((string) $lgl_id);
+                                if (!empty($full_constituent['success']) && !empty($full_constituent['data'])) {
+                                    $full_data = $full_constituent['data'];
+                                    $email_addresses = is_object($full_data) ? 
+                                        ($full_data->email_addresses ?? []) : 
+                                        ($full_data['email_addresses'] ?? []);
+                                }
+                            }
+                            
+                            // Verify this constituent actually has the exact email we're searching for
+                            foreach ($email_addresses as $email_record) {
+                                $address = is_object($email_record) ? 
+                                    ($email_record->address ?? null) : 
+                                    ($email_record['address'] ?? null);
+                                    
+                                // Case-insensitive comparison for exact match (including + tags)
+                                if ($address && strcasecmp($address, $emailCandidate) === 0) {
+                                    $helper->debug('✅ Email search found match with exact email verification', [
+                                        'lgl_id' => $lgl_id,
+                                        'email' => $emailCandidate,
+                                        'checked_count' => array_search($match, $results_to_check) + 1,
+                                        'total_results' => count($constituents),
+                                        'checked_limit' => $max_results
+                                    ]);
+                                    
+                                    return [
+                                        'id' => $lgl_id,
+                                        'email' => $emailCandidate,
+                                        'method' => 'email'
+                                    ];
+                                }
                             }
                         }
                         
-                        if ($has_exact_email) {
-                            $helper->debug('✅ Email search found match with exact email verification', [
-                                'lgl_id' => $lgl_id,
-                                'email' => $emailCandidate,
-                                'total_results' => count($constituents)
-                            ]);
-                            
-                            return [
-                                'id' => $lgl_id,
-                                'email' => $emailCandidate,
-                                'method' => 'email'
-                            ];
-                        } else {
-                            // LGL returned a match, but it doesn't have the exact email - continue searching
-                            $constituent_emails = array_map(function($e) {
-                                return is_object($e) ? ($e->address ?? null) : ($e['address'] ?? null);
-                            }, $email_addresses);
-                            
-                            $helper->debug('⚠️ LGL email search returned match but without exact email', [
-                                'lgl_id' => $lgl_id,
-                                'searched_email' => $emailCandidate,
-                                'constituent_emails' => array_filter($constituent_emails),
-                                'note' => 'Continuing search - this may be a base email match (e.g., andrew@example.com vs andrew+1@example.com)'
-                            ]);
-                            // Continue to next email candidate or fall back to name search
-                        }
+                        // Checked results but none had exact email - log and continue
+                        $first_match = $constituents[0];
+                        $first_lgl_id = is_object($first_match) ? $first_match->id : $first_match['id'];
+                        $total_count = count($constituents);
+                        $helper->debug('⚠️ LGL email search returned matches but none had exact email', [
+                            'first_lgl_id' => $first_lgl_id,
+                            'searched_email' => $emailCandidate,
+                            'total_results' => $total_count,
+                            'checked_limit' => $max_results,
+                            'note' => $total_count > $max_results ? 
+                                "Limited to first {$max_results} results (total: {$total_count})" :
+                                'Continuing search - this may be a base email match (e.g., andrew@example.com vs andrew+1@example.com)'
+                        ]);
+                        // Continue to next email candidate or fall back to name search
                     }
                 }
             }
@@ -885,41 +922,59 @@ class Connection {
                 $constituents = $this->extractConstituentsFromResponse($response['data']);
                 
                 if (!empty($constituents)) {
-                    // If we have email candidates, verify the first match has one of them
+                    // If we have email candidates, verify ALL matches to find one with matching email
                     if (!empty($emailCandidates)) {
-                        $first_match = $constituents[0];
-                        
-                        // Check if email_addresses are included in the response
-                        $email_addresses = is_object($first_match) ? 
-                            ($first_match->email_addresses ?? null) : 
-                            ($first_match['email_addresses'] ?? null);
+                        // Check all constituents returned by name search
+                        foreach ($constituents as $match) {
+                            $lgl_id = is_object($match) ? $match->id : $match['id'];
                             
-                        if (!empty($email_addresses) && is_array($email_addresses)) {
-                            // Check if any of the candidate emails match
-                            foreach ($email_addresses as $email_record) {
-                                $address = is_object($email_record) ? 
-                                    ($email_record->address ?? null) : 
-                                    ($email_record['address'] ?? null);
-                                    
-                                foreach ($emailCandidates as $emailCandidate) {
-                                    if ($address && strcasecmp($address, $emailCandidate) === 0) {
-                                        $lgl_id = is_object($first_match) ? $first_match->id : $first_match['id'];
-                                        $helper->debug('✅ Name search found match with email verification', [
-                                            'lgl_id' => $lgl_id,
-                                            'email' => $emailCandidate
-                                        ]);
-                                        return [
-                                            'id' => $lgl_id,
-                                            'email' => $emailCandidate,
-                                            'method' => 'name'
-                                        ];
+                            // Check if email_addresses are included in the response
+                            $email_addresses = is_object($match) ? 
+                                ($match->email_addresses ?? null) : 
+                                ($match['email_addresses'] ?? null);
+                            
+                            // If email_addresses not in response, fetch full constituent to verify
+                            if (empty($email_addresses) || !is_array($email_addresses)) {
+                                $full_constituent = $this->getConstituent((string) $lgl_id);
+                                if (!empty($full_constituent['success']) && !empty($full_constituent['data'])) {
+                                    $full_data = $full_constituent['data'];
+                                    $email_addresses = is_object($full_data) ? 
+                                        ($full_data->email_addresses ?? []) : 
+                                        ($full_data['email_addresses'] ?? []);
+                                }
+                            }
+                                
+                            if (!empty($email_addresses) && is_array($email_addresses)) {
+                                // Check if any of the candidate emails match
+                                foreach ($email_addresses as $email_record) {
+                                    $address = is_object($email_record) ? 
+                                        ($email_record->address ?? null) : 
+                                        ($email_record['address'] ?? null);
+                                        
+                                    foreach ($emailCandidates as $emailCandidate) {
+                                        if ($address && strcasecmp($address, $emailCandidate) === 0) {
+                                            $helper->debug('✅ Name search found match with email verification', [
+                                                'lgl_id' => $lgl_id,
+                                                'email' => $emailCandidate,
+                                                'checked_count' => array_search($match, $constituents) + 1,
+                                                'total_results' => count($constituents)
+                                            ]);
+                                            return [
+                                                'id' => $lgl_id,
+                                                'email' => $emailCandidate,
+                                                'method' => 'name'
+                                            ];
+                                        }
                                     }
                                 }
                             }
                         }
                         
-                        // Email addresses not in response or didn't match - skip this result
-                        $helper->debug('⚠️ Name search found results but email verification failed');
+                        // No matches found after checking all constituents
+                        $helper->debug('⚠️ Name search found results but email verification failed for all matches', [
+                            'total_results' => count($constituents),
+                            'searched_emails' => $emailCandidates
+                        ]);
                     } else {
                         // No email candidates provided, just return first match by name
                         $first_match = $constituents[0];
@@ -949,6 +1004,7 @@ class Connection {
 
     /**
      * Normalize email input into array
+     * Also extracts base email for tagged emails (e.g., user+tag@example.com -> user@example.com)
      *
      * @param string|array $emails
      * @return array<int, string>
@@ -960,10 +1016,27 @@ class Connection {
         } elseif (is_string($emails) && !empty($emails)) {
             $list = [$emails];
         }
-        $normalized = array_filter(array_map(function($email) {
+        $normalized = [];
+        foreach ($list as $email) {
             $email = trim((string) $email);
-            return $email !== '' ? strtolower($email) : null;
-        }, $list));
+            if ($email === '') {
+                continue;
+            }
+            $email_lower = strtolower($email);
+            $normalized[] = $email_lower;
+            
+            // If email has a + tag (e.g., user+tag@example.com), also add base email
+            if (strpos($email_lower, '+') !== false && strpos($email_lower, '@') !== false) {
+                $parts = explode('@', $email_lower);
+                if (count($parts) === 2) {
+                    $local = explode('+', $parts[0])[0]; // Get part before +
+                    $base_email = $local . '@' . $parts[1];
+                    if ($base_email !== $email_lower) {
+                        $normalized[] = $base_email;
+                    }
+                }
+            }
+        }
         return array_values(array_unique($normalized));
     }
 

@@ -14,6 +14,7 @@ namespace UpstateInternational\LGL\JetFormBuilder\Actions;
 use UpstateInternational\LGL\LGL\Connection;
 use UpstateInternational\LGL\LGL\Helper;
 use UpstateInternational\LGL\LGL\Payments;
+use UpstateInternational\LGL\JetFormBuilder\AsyncJetFormProcessor;
 
 /**
  * EventRegistrationAction Class
@@ -44,20 +45,40 @@ class EventRegistrationAction implements JetFormActionInterface {
     private Payments $payments;
     
     /**
+     * Async processor for LGL API calls
+     * 
+     * @var AsyncJetFormProcessor|null
+     */
+    private ?AsyncJetFormProcessor $asyncProcessor = null;
+    
+    /**
      * Constructor
      * 
      * @param Connection $connection LGL connection service
      * @param Helper $helper LGL helper service
      * @param Payments $payments LGL payments service
+     * @param AsyncJetFormProcessor|null $asyncProcessor Async processor (optional)
      */
     public function __construct(
         Connection $connection,
         Helper $helper,
-        Payments $payments
+        Payments $payments,
+        ?AsyncJetFormProcessor $asyncProcessor = null
     ) {
         $this->connection = $connection;
         $this->helper = $helper;
         $this->payments = $payments;
+        $this->asyncProcessor = $asyncProcessor;
+    }
+    
+    /**
+     * Set async processor (for dependency injection)
+     * 
+     * @param AsyncJetFormProcessor $asyncProcessor Async processor
+     * @return void
+     */
+    public function setAsyncProcessor(AsyncJetFormProcessor $asyncProcessor): void {
+        $this->asyncProcessor = $asyncProcessor;
     }
     
     /**
@@ -123,8 +144,47 @@ class EventRegistrationAction implements JetFormActionInterface {
         }
         $email = $user_data->data->user_email;
         
-        // Process event registration
-        $this->processEventRegistration($uid, $username, $email, $event_name, $order_id, $price, $date, $lgl_fund_id);
+        // Use async processing if available (speeds up form submission)
+        if ($this->asyncProcessor) {
+            $this->helper->debug('⏰ EventRegistrationAction: Scheduling async LGL processing', [
+                'user_id' => $uid,
+                'event_name' => $event_name
+            ]);
+            
+            try {
+                $user_lgl_id = get_user_meta($uid, 'lgl_id', true);
+                $context = [
+                    'lgl_id' => $user_lgl_id,
+                    'event_name' => $event_name,
+                    'order_id' => $order_id,
+                    'price' => $price,
+                    'date' => $date,
+                    'lgl_fund_id' => $lgl_fund_id
+                ];
+                
+                $this->asyncProcessor->scheduleAsyncProcessing('event_registration', $uid, $context);
+                
+                $this->helper->debug('✅ EventRegistrationAction: Async LGL processing scheduled', [
+                    'user_id' => $uid,
+                    'note' => 'LGL API calls will be processed in background via WP Cron'
+                ]);
+            } catch (\Exception $e) {
+                $this->helper->debug('⚠️ EventRegistrationAction: Async scheduling failed, falling back to sync', [
+                    'error' => $e->getMessage(),
+                    'user_id' => $uid
+                ]);
+                
+                // Fallback to synchronous processing if async fails
+                $this->processEventRegistration($uid, $username, $email, $event_name, $order_id, $price, $date, $lgl_fund_id);
+            }
+        } else {
+            // Fallback: synchronous processing if async processor not available
+            $this->helper->debug('⚠️ EventRegistrationAction: Async processor not available, using sync', [
+                'user_id' => $uid
+            ]);
+            
+            $this->processEventRegistration($uid, $username, $email, $event_name, $order_id, $price, $date, $lgl_fund_id);
+        }
             
         } catch (\Exception $e) {
             $this->helper->debug('EventRegistrationAction: Error occurred', [

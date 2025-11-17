@@ -14,6 +14,7 @@ namespace UpstateInternational\LGL\JetFormBuilder\Actions;
 use UpstateInternational\LGL\LGL\Connection;
 use UpstateInternational\LGL\LGL\Helper;
 use UpstateInternational\LGL\Memberships\MembershipRegistrationService;
+use UpstateInternational\LGL\JetFormBuilder\AsyncFamilyMemberProcessor;
 
 /**
  * FamilyMemberAction Class
@@ -44,6 +45,13 @@ class FamilyMemberAction implements JetFormActionInterface {
     private MembershipRegistrationService $registrationService;
     
     /**
+     * Async Family Member Processor
+     * 
+     * @var AsyncFamilyMemberProcessor|null
+     */
+    private ?AsyncFamilyMemberProcessor $asyncProcessor = null;
+    
+    /**
      * Constructor
      * 
      * @param Connection $connection LGL connection service
@@ -65,6 +73,11 @@ class FamilyMemberAction implements JetFormActionInterface {
                 \UpstateInternational\LGL\LGL\Constituents::getInstance(),
                 \UpstateInternational\LGL\LGL\Payments::getInstance()
             );
+        }
+        
+        // Get AsyncFamilyMemberProcessor from container (optional - async processing)
+        if ($container->has('jetformbuilder.async_family_processor')) {
+            $this->asyncProcessor = $container->get('jetformbuilder.async_family_processor');
         }
     }
     
@@ -189,7 +202,9 @@ class FamilyMemberAction implements JetFormActionInterface {
         // Security Layer 5: Consume one family slot (economic rate limiting)
         $this->consumeFamilySlot($parent_uid);
         
-        // Register in LGL CRM (must happen before role assignment as legacy code may modify roles)
+        // Register in LGL CRM (async processing - non-blocking)
+        // Immediate tasks (WordPress user, JetEngine relationship) are done synchronously
+        // LGL API calls are queued for async processing to speed up form submission
         $child_request = $this->buildChildRequestForLGL($child_uid, $first_name, $last_name, $email, $parent_membership_info);
         $this->registerFamilyMember($child_request, $action_handler, $parent_uid);
         
@@ -265,23 +280,30 @@ class FamilyMemberAction implements JetFormActionInterface {
     }
     
     /**
-     * Register family member via MembershipRegistrationService
+     * Register family member in LGL CRM
+     * 
+     * Uses async processing to speed up form submission. Immediate tasks (WordPress user,
+     * JetEngine relationship) are done synchronously, but LGL API calls are queued for
+     * background processing via WP Cron.
      * 
      * @param array $child_request Child request data
-     * @param mixed $action_handler Action handler
+     * @param mixed $action_handler JetFormBuilder action handler
      * @param int $parent_uid Parent user ID
      * @return void
      */
     private function registerFamilyMember(array $child_request, $action_handler, int $parent_uid): void {
-        $this->helper->debug('FamilyMemberAction: Registering in LGL with MembershipRegistrationService', [
-            'child_uid' => $child_request['user_id'] ?? 'N/A',
+        $child_uid = (int) ($child_request['user_id'] ?? 0);
+        
+        $this->helper->debug('FamilyMemberAction: Preparing LGL registration (async)', [
+            'child_uid' => $child_uid,
             'parent_uid' => $parent_uid,
-            'membership_type' => $child_request['ui-membership-type'] ?? 'N/A'
+            'membership_type' => $child_request['ui-membership-type'] ?? 'N/A',
+            'async_enabled' => $this->asyncProcessor !== null
         ]);
         
         // Build context array for MembershipRegistrationService
         $context = [
-            'user_id' => (int) ($child_request['user_id'] ?? 0),
+            'user_id' => $child_uid,
             'search_name' => ($child_request['user_firstname'] ?? '') . '%20' . ($child_request['user_lastname'] ?? ''),
             'emails' => !empty($child_request['user_email']) ? [strtolower($child_request['user_email'])] : [],
             'email' => $child_request['user_email'] ?? '',
@@ -295,10 +317,52 @@ class FamilyMemberAction implements JetFormActionInterface {
             'order' => null
         ];
         
+        // Use async processing if available (speeds up form submission)
+        if ($this->asyncProcessor) {
+            $this->helper->debug('⏰ FamilyMemberAction: Scheduling async LGL processing', [
+                'child_uid' => $child_uid,
+                'parent_uid' => $parent_uid
+            ]);
+            
+            try {
+                $this->asyncProcessor->scheduleAsyncProcessing($child_uid, $parent_uid, $context);
+                
+                $this->helper->debug('✅ FamilyMemberAction: Async LGL processing scheduled', [
+                    'child_uid' => $child_uid,
+                    'note' => 'LGL API calls will be processed in background via WP Cron'
+                ]);
+            } catch (\Exception $e) {
+                $this->helper->debug('⚠️ FamilyMemberAction: Async scheduling failed, falling back to sync', [
+                    'error' => $e->getMessage(),
+                    'child_uid' => $child_uid
+                ]);
+                
+                // Fallback to synchronous processing if async fails
+                $this->registerFamilyMemberSync($context, $parent_uid, $child_uid);
+            }
+        } else {
+            // Fallback: synchronous processing if async processor not available
+            $this->helper->debug('⚠️ FamilyMemberAction: Async processor not available, using sync', [
+                'child_uid' => $child_uid
+            ]);
+            
+            $this->registerFamilyMemberSync($context, $parent_uid, $child_uid);
+        }
+    }
+    
+    /**
+     * Register family member synchronously (fallback method)
+     * 
+     * @param array $context Context data for MembershipRegistrationService
+     * @param int $parent_uid Parent user ID
+     * @param int $child_uid Child user ID
+     * @return void
+     */
+    private function registerFamilyMemberSync(array $context, int $parent_uid, int $child_uid): void {
         try {
             $result = $this->registrationService->register($context);
             
-            $this->helper->debug('FamilyMemberAction: LGL registration completed', [
+            $this->helper->debug('FamilyMemberAction: LGL registration completed (sync)', [
                 'lgl_id' => $result['lgl_id'] ?? null,
                 'created' => $result['created'] ?? false,
                 'match_method' => $result['match_method'] ?? null,
@@ -308,7 +372,7 @@ class FamilyMemberAction implements JetFormActionInterface {
             // Create LGL constituent relationship (Parent/Child) after successful registration
             if (!empty($result['lgl_id'])) {
                 $child_lgl_id = (int) $result['lgl_id'];
-                $this->createLGLRelationship($parent_uid, $child_request['user_id'], $child_lgl_id);
+                $this->createLGLRelationship($parent_uid, $child_uid, $child_lgl_id);
             }
         } catch (\Exception $e) {
             $this->helper->debug('FamilyMemberAction: LGL registration failed', [
@@ -324,7 +388,7 @@ class FamilyMemberAction implements JetFormActionInterface {
                 throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
             } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
                 throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
-        } else {
+            } else {
                 throw new \RuntimeException($error_message);
             }
         }

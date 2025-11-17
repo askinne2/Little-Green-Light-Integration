@@ -14,6 +14,7 @@ namespace UpstateInternational\LGL\JetFormBuilder\Actions;
 use UpstateInternational\LGL\LGL\Connection;
 use UpstateInternational\LGL\LGL\Helper;
 use UpstateInternational\LGL\LGL\Constituents;
+use UpstateInternational\LGL\JetFormBuilder\AsyncJetFormProcessor;
 
 /**
  * UserEditAction Class
@@ -44,20 +45,40 @@ class UserEditAction implements JetFormActionInterface {
     private Constituents $constituents;
     
     /**
+     * Async processor for LGL API calls
+     * 
+     * @var AsyncJetFormProcessor|null
+     */
+    private ?AsyncJetFormProcessor $asyncProcessor = null;
+    
+    /**
      * Constructor
      * 
      * @param Connection $connection LGL connection service
      * @param Helper $helper LGL helper service
      * @param Constituents $constituents LGL constituents service
+     * @param AsyncJetFormProcessor|null $asyncProcessor Async processor (optional)
      */
     public function __construct(
         Connection $connection,
         Helper $helper,
-        Constituents $constituents
+        Constituents $constituents,
+        ?AsyncJetFormProcessor $asyncProcessor = null
     ) {
         $this->connection = $connection;
         $this->helper = $helper;
         $this->constituents = $constituents;
+        $this->asyncProcessor = $asyncProcessor;
+    }
+    
+    /**
+     * Set async processor (for dependency injection)
+     * 
+     * @param AsyncJetFormProcessor $asyncProcessor Async processor
+     * @return void
+     */
+    public function setAsyncProcessor(AsyncJetFormProcessor $asyncProcessor): void {
+        $this->asyncProcessor = $asyncProcessor;
     }
     
     /**
@@ -154,15 +175,66 @@ class UserEditAction implements JetFormActionInterface {
             }
         }
         
+        // For profile edits, skip membership updates unless explicitly provided in form
+        // Profile edits should only update contact info (name, email, phone, address)
+        $skip_membership = !isset($request['user-membership-type']) && !isset($request['membership_level']);
+        
+        // Use async processing if available (speeds up form submission)
+        if ($this->asyncProcessor) {
+            $this->helper->debug('⏰ UserEditAction: Scheduling async LGL processing', [
+                'user_id' => $uid,
+                'skip_membership' => $skip_membership
+            ]);
+            
+            try {
+                $context = [
+                    'request' => $request,
+                    'skip_membership' => $skip_membership
+                ];
+                
+                $this->asyncProcessor->scheduleAsyncProcessing('user_edit', $uid, $context);
+                
+                $this->helper->debug('✅ UserEditAction: Async LGL processing scheduled', [
+                    'user_id' => $uid,
+                    'note' => 'LGL API calls will be processed in background via WP Cron'
+                ]);
+            } catch (\Exception $e) {
+                $this->helper->debug('⚠️ UserEditAction: Async scheduling failed, falling back to sync', [
+                    'error' => $e->getMessage(),
+                    'user_id' => $uid
+                ]);
+                
+                // Fallback to synchronous processing if async fails
+                $this->updateConstituentSync($uid, $request, $skip_membership);
+            }
+        } else {
+            // Fallback: synchronous processing if async processor not available
+            $this->helper->debug('⚠️ UserEditAction: Async processor not available, using sync', [
+                'user_id' => $uid
+            ]);
+            
+            $this->updateConstituentSync($uid, $request, $skip_membership);
+        }
+    }
+    
+    /**
+     * Update constituent synchronously (fallback method)
+     * 
+     * @param int $uid WordPress user ID
+     * @param array $request Form data
+     * @param bool $skip_membership Skip membership updates
+     * @return void
+     */
+    private function updateConstituentSync(int $uid, array $request, bool $skip_membership): void {
         // Update constituent using Constituents service (handles update internally)
-        $result = $this->constituents->setDataAndUpdate($uid, $request);
+        $result = $this->constituents->setDataAndUpdate($uid, $request, $skip_membership);
         
         if ($result && isset($result['success']) && $result['success']) {
-            $this->helper->debug('UPDATED CONTACT', $existing_contact_id);
+            $this->helper->debug('UPDATED CONTACT (sync)', $uid);
         } else {
             $error = $result['error'] ?? 'Unknown error';
-            $this->helper->debug('FAILED TO UPDATE contact', [
-                'contact_id' => $existing_contact_id,
+            $this->helper->debug('FAILED TO UPDATE contact (sync)', [
+                'user_id' => $uid,
                 'error' => $error
             ]);
         }

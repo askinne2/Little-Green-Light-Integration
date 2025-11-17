@@ -333,8 +333,9 @@ class HookManager {
         // See Plugin.php initializeJetFormBuilderActions() method
         
         // WooCommerce hooks
+        // Only process on payment complete to prevent duplicate processing
+        // woocommerce_new_order hook removed to prevent duplicate constituent creation
         $this->addAction('woocommerce_payment_complete', 'woocommerce.order_processor@processCompletedOrder', 10, 1);
-        $this->addAction('woocommerce_new_order', 'woocommerce.order_processor@processCompletedOrder', 10, 1);
         $this->addAction('woocommerce_subscription_status_cancelled', 'woocommerce.subscription_handler@handleCancellation', 10, 1);
         $this->addAction('woocommerce_subscription_status_updated', 'woocommerce.subscription_handler@handleStatusUpdate', 10, 3);
         $this->addAction('woocommerce_email_before_order_table', 'email.order_customizer@customizeEmailContent', 10, 4);

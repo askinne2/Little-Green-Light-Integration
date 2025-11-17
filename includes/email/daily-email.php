@@ -261,7 +261,7 @@ class LGL_Daily_Email_Manager {
         if (!$order) return null;
         
         $user_id = $order->get_user_id();
-        $lgl_id = $user_id ? get_user_meta($user_id, 'lgl_constituent_id', true) : '';
+        $lgl_id = $user_id ? get_user_meta($user_id, 'lgl_id', true) : '';
         
         return [
             'order_id' => $order->get_id(),
