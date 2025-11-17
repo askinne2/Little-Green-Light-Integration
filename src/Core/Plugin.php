@@ -549,26 +549,50 @@ class Plugin {
     /**
      * Register custom WooCommerce email classes
      * 
+     * Registers custom email classes with WooCommerce so they appear in
+     * WooCommerce > Settings > Emails and can be customized via Kadence Email Designer.
+     * 
      * @return void
      */
     private function registerWooCommerceEmails(): void {
         // Register email classes with WooCommerce
+        // Priority 20 ensures WooCommerce is fully loaded
         add_filter('woocommerce_email_classes', function($emails) {
-            // Only register if classes exist
-            if (class_exists('\UpstateInternational\LGL\Email\WC_Membership_Renewal_Email')) {
-                $emails['WC_Membership_Renewal_Email'] = new \UpstateInternational\LGL\Email\WC_Membership_Renewal_Email();
+            // Only register if classes exist and WooCommerce is available
+            if (!class_exists('WC_Email')) {
+                return $emails;
             }
             
+            // Register Membership Renewal Email
+            if (class_exists('\UpstateInternational\LGL\Email\WC_Membership_Renewal_Email')) {
+                $email_instance = new \UpstateInternational\LGL\Email\WC_Membership_Renewal_Email();
+                
+                // Inject SettingsManager if available (for WooCommerce admin settings)
+                try {
+                    $settingsManager = $this->container->get('admin.settings_manager');
+                    if ($settingsManager) {
+                        $email_instance->setSettingsManager($settingsManager);
+                    }
+                } catch (\Exception $e) {
+                    // SettingsManager not available, continue without it
+                    \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('SettingsManager not available for WC_Membership_Renewal_Email registration');
+                }
+                
+                $emails['WC_Membership_Renewal_Email'] = $email_instance;
+            }
+            
+            // Register Daily Order Summary Email
             if (class_exists('\UpstateInternational\LGL\Email\WC_Daily_Order_Summary_Email')) {
                 $emails['WC_Daily_Order_Summary_Email'] = new \UpstateInternational\LGL\Email\WC_Daily_Order_Summary_Email();
             }
             
+            // Register Family Member Welcome Email
             if (class_exists('\UpstateInternational\LGL\Email\WC_Family_Member_Welcome_Email')) {
                 $emails['WC_Family_Member_Welcome_Email'] = new \UpstateInternational\LGL\Email\WC_Family_Member_Welcome_Email();
             }
             
             return $emails;
-        });
+        }, 20);
     }
     
     /**

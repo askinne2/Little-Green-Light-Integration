@@ -157,8 +157,8 @@ class AdminMenuManager {
         if ($this->renewalSettingsPage) {
             add_submenu_page(
                 self::MAIN_MENU_SLUG,
-                'Renewal Settings',
-                'Renewal Settings',
+                'Renewal Emails',
+                'Renewal Emails',
                 'manage_options',
                 'lgl-renewal-settings',
                 [$this->renewalSettingsPage, 'render']
@@ -169,8 +169,8 @@ class AdminMenuManager {
         if ($this->testingToolsPage) {
             add_submenu_page(
                 self::MAIN_MENU_SLUG,
-                'Rewnewal Testing Tools',
-                'Rewnewal Testing Tools',
+                'Rewnewal Testing',
+                'Rewnewal Testing',
                 'manage_options',
                 'lgl-test-renewals',
                 [$this->testingToolsPage, 'render']

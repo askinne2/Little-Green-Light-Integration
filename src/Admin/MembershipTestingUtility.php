@@ -571,12 +571,13 @@ class MembershipTestingUtility {
         
         // Generate email content
         $subject = $mailer->getSubjectLine($first_name, $interval);
-        $content = $mailer->getEmailContent(
-            $first_name,
-            $last_name,
-            $renewal_date_formatted,
-            $interval,
-            $membership_level
+        $content = $mailer->getEmailContent((int) $interval);
+        
+        // Replace template variables with actual values
+        $content = str_replace(
+            ['{first_name}', '{last_name}', '{renewal_date}', '{days_until_renewal}', '{membership_level}'],
+            [$first_name, $last_name, $renewal_date_formatted, $interval, $membership_level],
+            $content
         );
         
         ob_start();
@@ -672,7 +673,7 @@ class MembershipTestingUtility {
         );
         
         $subject = '[TEST] ' . $mailer->getSubjectLine($first_name, $interval);
-        $content = $mailer->getEmailContent($interval);
+        $content = $mailer->getEmailContent((int) $interval);
         
         // Replace template variables with actual values
         $content = str_replace(
