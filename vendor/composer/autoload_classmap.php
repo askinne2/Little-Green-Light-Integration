@@ -1089,6 +1089,7 @@ return array(
     'UpstateInternational\\LGL\\Admin\\MembershipMigrationUtility' => $baseDir . '/src/Admin/MembershipMigrationUtility.php',
     'UpstateInternational\\LGL\\Admin\\MembershipTestingUtility' => $baseDir . '/src/Admin/MembershipTestingUtility.php',
     'UpstateInternational\\LGL\\Admin\\OperationalDataManager' => $baseDir . '/src/Admin/OperationalDataManager.php',
+    'UpstateInternational\\LGL\\Admin\\OrderEmailSettingsPage' => $baseDir . '/src/Admin/OrderEmailSettingsPage.php',
     'UpstateInternational\\LGL\\Admin\\RenewalSettingsPage' => $baseDir . '/src/Admin/RenewalSettingsPage.php',
     'UpstateInternational\\LGL\\Admin\\SettingsHandler' => $baseDir . '/src/Admin/SettingsHandler.php',
     'UpstateInternational\\LGL\\Admin\\SettingsManager' => $baseDir . '/src/Admin/SettingsManager.php',

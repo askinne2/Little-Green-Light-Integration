@@ -204,9 +204,13 @@ class Constituents {
         $sanitized_phone = $this->sanitizePhone($phone);
         
         if (!empty($sanitized_phone)) {
+            // Normalize phone for comparison (remove all non-digits to match Connection::normalizePhoneNumber)
+            $normalized_for_comparison = preg_replace('/\D/', '', $sanitized_phone);
+            
             // Check if this phone is already added (prevent duplicates)
             foreach ($this->phoneData as $existing_phone) {
-                if ($existing_phone['number'] === $sanitized_phone) {
+                $existing_normalized = preg_replace('/\D/', '', $existing_phone['number'] ?? '');
+                if ($existing_normalized === $normalized_for_comparison) {
                     $this->debug('Phone already set, skipping duplicate', $sanitized_phone);
                     return;
                 }
@@ -354,10 +358,14 @@ class Constituents {
             $level_config = $this->lgl->getMembershipLevel($membership_type);
         }
         
-        // If no config found by name, try to find by price (WooCommerce integration)
+        // Note: Price-based lookup removed - rely on _ui_lgl_sync_id on products instead
+        // If no config found, log warning but continue (will fail gracefully at API call)
         if (!$level_config || empty($level_config['lgl_membership_level_id'])) {
-            $this->debug('⚠️ No level config found by name, trying price-based lookup');
-            $level_config = $this->findMembershipLevelByPrice($user_id);
+            $this->debug('⚠️ No level config found by ID or name', [
+                'membership_type' => $membership_type,
+                'membership_level_id_meta' => $membership_level_id_meta,
+                'note' => 'Ensure product has _ui_lgl_sync_id set or membership_type matches configured level slug'
+            ]);
         }
         
         $this->debug('📋 Final level config', $level_config);
@@ -402,94 +410,6 @@ class Constituents {
         
         $this->debug('Final Membership Data Set', $membership_data);
     }
-    
-    /**
-     * Find membership level configuration by price (for WooCommerce integration)
-     * 
-     * @param int $user_id WordPress user ID
-     * @return array|null Membership level configuration
-     */
-    private function findMembershipLevelByPrice(int $user_id): ?array {
-        // Get the most recent order for this user to find the price
-        if (!function_exists('wc_get_orders')) {
-            return null;
-        }
-        
-        $orders = wc_get_orders([
-            'customer_id' => $user_id,
-            'status' => ['completed', 'processing', 'on-hold'],
-            'limit' => 1,
-            'orderby' => 'date',
-            'order' => 'DESC'
-        ]);
-        
-        if (empty($orders)) {
-            $this->debug('⚠️ No recent orders found for user', $user_id);
-            return null;
-        }
-        
-        $order = $orders[0];
-        $order_total = (float) $order->get_total();
-        
-        $this->debug('🛒 Found recent order', [
-            'order_id' => $order->get_id(),
-            'total' => $order_total
-        ]);
-        
-        // Get membership levels from settings
-        $membership_levels = $this->lgl->getMembershipLevels();
-        
-        $this->debug('🔍 Constituents: Retrieved membership levels from ApiSettings', [
-            'count' => count($membership_levels),
-            'levels' => $membership_levels
-        ]);
-        
-        if (empty($membership_levels)) {
-            $this->debug('⚠️ No membership levels configured in settings');
-            return null;
-        }
-        
-        // Find matching level by price
-        foreach ($membership_levels as $level) {
-            $level_price = (float) ($level['price'] ?? 0);
-            $price_difference = abs($level_price - $order_total);
-            
-            // Allow for tax/fee differences up to 10% of the base price
-            $tolerance = max(5.00, $level_price * 0.10); // At least $5 or 10% of price
-            
-            $this->debug('🔍 Checking price match', [
-                'level_name' => $level['level_name'] ?? 'Unknown',
-                'level_price' => $level_price,
-                'order_total' => $order_total,
-                'difference' => $price_difference,
-                'tolerance' => $tolerance,
-                'matches' => $price_difference <= $tolerance
-            ]);
-            
-            if ($price_difference <= $tolerance) {
-                $this->debug('✅ Found matching membership level by price', [
-                    'level' => $level,
-                    'order_total' => $order_total,
-                    'level_price' => $level_price,
-                    'difference' => $price_difference
-                ]);
-                return $level;
-            }
-        }
-        
-        $this->debug('❌ No membership level found matching price', [
-            'order_total' => $order_total,
-            'available_levels' => array_map(function($level) {
-                return [
-                    'name' => $level['level_name'] ?? 'Unknown',
-                    'price' => $level['price'] ?? 0
-                ];
-            }, $membership_levels)
-        ]);
-        
-        return null;
-    }
-    
     /**
      * Set all constituent data from user ID
      * 
@@ -649,10 +569,21 @@ class Constituents {
         $connection = Connection::getInstance();
         $helper = Helper::getInstance();
         
-        // Sync email addresses
+        // Sync email addresses (deduplicate before syncing)
         $emailData = $this->getEmailData();
         if (!empty($emailData)) {
+            // Deduplicate emails by address (case-insensitive)
+            $seen_emails = [];
+            $unique_emails = [];
             foreach ($emailData as $email) {
+                $email_address = strtolower(trim($email['address'] ?? ''));
+                if (!empty($email_address) && !isset($seen_emails[$email_address])) {
+                    $seen_emails[$email_address] = true;
+                    $unique_emails[] = $email;
+                }
+            }
+            
+            foreach ($unique_emails as $email) {
                 $response = $connection->updateOrAddEmailAddress($lgl_id, $email);
                 if (isset($response['updated']) && $response['updated']) {
                     $helper->debug('🔄 syncContactInfo: Email updated', [
@@ -673,10 +604,21 @@ class Constituents {
             }
         }
         
-        // Sync phone numbers
+        // Sync phone numbers (deduplicate before syncing)
         $phoneData = $this->getPhoneData();
         if (!empty($phoneData)) {
+            // Deduplicate phones by normalized number (digits only)
+            $seen_phones = [];
+            $unique_phones = [];
             foreach ($phoneData as $phone) {
+                $phone_number = preg_replace('/\D/', '', $phone['number'] ?? '');
+                if (!empty($phone_number) && !isset($seen_phones[$phone_number])) {
+                    $seen_phones[$phone_number] = true;
+                    $unique_phones[] = $phone;
+                }
+            }
+            
+            foreach ($unique_phones as $phone) {
                 $response = $connection->updateOrAddPhoneNumber($lgl_id, $phone);
                 if (isset($response['updated']) && $response['updated']) {
                     $helper->debug('🔄 syncContactInfo: Phone updated', [
@@ -791,13 +733,26 @@ class Constituents {
         try {
             $connection = Connection::getInstance();
             
-            // Use legacy pattern: include contact info in update payload with remove_previous flags
+            // Build update data WITHOUT contact info (emails/phones/addresses)
+            // Contact info is synced separately using updateOrAdd methods to preserve existing records
             $constituent_data = $this->buildUpdateData();
+            
+            // Remove contact info from main update payload - we'll sync it separately
+            unset($constituent_data['email_addresses']);
+            unset($constituent_data['phone_numbers']);
+            unset($constituent_data['street_addresses']);
+            unset($constituent_data['remove_previous_email_addresses']);
+            unset($constituent_data['remove_previous_phone_numbers']);
+            unset($constituent_data['remove_previous_street_addresses']);
+            unset($constituent_data['remove_previous_web_addresses']);
             
             $result = $connection->updateConstituent($lgl_id, $constituent_data);
             
             if ($result['success']) {
                 $this->debug('Constituent updated successfully', $result);
+                
+                // Sync contact info separately (preserves existing records, updates/adds as needed)
+                $this->syncContactInfo($lgl_id);
                 
                 // Update cache
                 CacheManager::invalidateConstituent($lgl_id);

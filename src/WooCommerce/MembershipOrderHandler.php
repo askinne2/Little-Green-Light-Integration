@@ -111,7 +111,7 @@ class MembershipOrderHandler {
         
         try {
             // Resolve membership configuration
-            $membership_config = $this->resolveMembershipConfig($product, $membership_level, (float) $product->get_total());
+            $membership_config = $this->resolveMembershipConfig($product, $membership_level);
             $actual_membership_level = $membership_config['membership_name'] ?? $membership_level;
             $membership_level_id = $membership_config['membership_level_id'] ?? null;
             
@@ -183,7 +183,7 @@ class MembershipOrderHandler {
         
         try {
             // Resolve membership configuration
-            $membership_config = $this->resolveMembershipConfig($product, $membership_level, (float) $product->get_total());
+            $membership_config = $this->resolveMembershipConfig($product, $membership_level);
             $actual_membership_level = $membership_config['membership_name'] ?? $membership_level;
             $membership_level_id = $membership_config['membership_level_id'] ?? null;
             
@@ -264,7 +264,7 @@ class MembershipOrderHandler {
             'product_meta_keys' => array_keys($product_meta)
         ]);
         
-        $membership_config = $this->resolveMembershipConfig($product, $membership_level, $product_price);
+        $membership_config = $this->resolveMembershipConfig($product, $membership_level);
         $actual_membership_level = $membership_config['membership_name'] ?? $membership_level;
         $membership_level_id = $membership_config['membership_level_id'] ?? null;
         
@@ -338,17 +338,18 @@ class MembershipOrderHandler {
     }
     
     /**
-     * Determine actual membership level from product and price
+     * Determine actual membership level from product
+     * 
+     * Primary method: Uses _ui_lgl_sync_id on product/variation to get membership level
+     * Fallback methods: Name-based conversion, attribute-based detection
      * 
      * @param mixed $product WooCommerce product item
      * @param string $wc_product_name WooCommerce product name
-     * @param float $product_price Product price
-     * @return string Actual membership level for LGL
+     * @return array Membership configuration with membership_level_id, membership_name, and membership_config
      */
-    private function resolveMembershipConfig($product, string $wc_product_name, float $product_price): array {
+    private function resolveMembershipConfig($product, string $wc_product_name): array {
         $this->helper->debug('🔍 MembershipOrderHandler: Determining membership level', [
-            'wc_product_name' => $wc_product_name,
-            'product_price' => $product_price
+            'wc_product_name' => $wc_product_name
         ]);
         $variation_id = $product->get_variation_id() ?: $product->get_product_id();
         $candidate_ids = [];
@@ -457,9 +458,9 @@ class MembershipOrderHandler {
         // Fallback: Use original name but log warning
         $this->helper->debug('⚠️ MembershipOrderHandler: No membership level detection worked, using fallback', [
             'fallback_level' => $wc_product_name,
-            'price_tried' => $product_price,
             'name_tried' => $wc_product_name,
-            'method' => 'fallback'
+            'method' => 'fallback',
+            'note' => 'Ensure product has _ui_lgl_sync_id set for reliable membership detection'
         ]);
         
         return [

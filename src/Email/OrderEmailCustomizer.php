@@ -12,6 +12,7 @@
 namespace UpstateInternational\LGL\Email;
 
 use UpstateInternational\LGL\LGL\Helper;
+use UpstateInternational\LGL\Admin\SettingsManager;
 
 /**
  * OrderEmailCustomizer Class
@@ -26,6 +27,13 @@ class OrderEmailCustomizer {
      * @var Helper
      */
     private Helper $helper;
+    
+    /**
+     * Settings manager (optional, for database templates)
+     * 
+     * @var SettingsManager|null
+     */
+    private ?SettingsManager $settingsManager = null;
     
     /**
      * Email template base path
@@ -48,10 +56,12 @@ class OrderEmailCustomizer {
      * 
      * @param Helper $helper LGL helper service
      * @param string $templateBasePath Base path for email templates
+     * @param SettingsManager|null $settingsManager Settings manager (optional)
      */
-    public function __construct(Helper $helper, string $templateBasePath = '') {
+    public function __construct(Helper $helper, string $templateBasePath = '', ?SettingsManager $settingsManager = null) {
         $this->helper = $helper;
         $this->templateBasePath = $templateBasePath ?: LGL_PLUGIN_DIR . 'form-emails/';
+        $this->settingsManager = $settingsManager;
     }
     
     /**
@@ -71,6 +81,8 @@ class OrderEmailCustomizer {
             return;
         }
         
+        $template_info = null;
+        
         foreach ($order->get_items() as $item_id => $item) {
             $product_id = $item->get_product_id();
             $product_name = $item->get_name();
@@ -80,6 +92,27 @@ class OrderEmailCustomizer {
             if ($template_info) {
                 $this->renderEmailTemplate($template_info, $order, $product_id);
                 break; // Only process the first matching product
+            }
+        }
+        
+        // If no template was found and we have a general template, use it
+        // This handles the case where getGeneralTemplate() returns null (no database template)
+        // but we still want to check if a general template exists
+        if (!$template_info && $this->settingsManager) {
+            $settings = $this->settingsManager->getAll();
+            $general_content = $settings['order_email_template_general_content'] ?? '';
+            if (!empty($general_content)) {
+                $template_info = [
+                    'source' => 'database',
+                    'type' => 'general',
+                    'content' => $general_content,
+                    'subject' => $settings['order_email_template_general_subject'] ?? '',
+                    'dynamic_data' => false
+                ];
+                // Use first product ID from order
+                $first_item = reset($order->get_items());
+                $first_product_id = $first_item ? $first_item->get_product_id() : 0;
+                $this->renderEmailTemplate($template_info, $order, $first_product_id);
             }
         }
     }
@@ -93,6 +126,13 @@ class OrderEmailCustomizer {
      * @return array|null Template information or null if no template found
      */
     private function getTemplateForProduct(int $product_id, string $product_name, \WC_Order $order): ?array {
+        // Try database template first
+        $db_template = $this->getTemplateFromDatabase($product_id, $product_name, $order);
+        if ($db_template) {
+            return $db_template;
+        }
+        
+        // Fall back to file-based templates
         $template_info = null;
         
         // Check for membership products
@@ -103,15 +143,118 @@ class OrderEmailCustomizer {
         elseif (has_term('language-class', 'product_cat', $product_id)) {
             $template_info = [
                 'file' => 'language-class-registration.html',
-                'dynamic_data' => false
+                'dynamic_data' => false,
+                'source' => 'file'
             ];
         }
         // Check for event products
         elseif (has_term('events', 'product_cat', $product_id)) {
             $template_info = $this->getEventTemplate($product_id, $product_name);
         }
+        // Check for general/catch-all template if no category matches
+        else {
+            $template_info = $this->getGeneralTemplate();
+        }
         
         return $template_info;
+    }
+    
+    /**
+     * Get general/catch-all email template
+     * 
+     * @return array Template information
+     */
+    private function getGeneralTemplate(): array {
+        // Check database first
+        if ($this->settingsManager) {
+            $settings = $this->settingsManager->getAll();
+            $content = $settings['order_email_template_general_content'] ?? '';
+            if (!empty($content)) {
+                return [
+                    'source' => 'database',
+                    'type' => 'general',
+                    'content' => $content,
+                    'subject' => $settings['order_email_template_general_subject'] ?? '',
+                    'dynamic_data' => false
+                ];
+            }
+        }
+        
+        // Return null to use default WooCommerce email (no custom template)
+        // This allows WooCommerce to handle orders that don't match any category
+        return null;
+    }
+    
+    /**
+     * Get template from database
+     * 
+     * @param int $product_id Product ID
+     * @param string $product_name Product name
+     * @param \WC_Order $order WooCommerce order
+     * @return array|null Template information or null if not found
+     */
+    private function getTemplateFromDatabase(int $product_id, string $product_name, \WC_Order $order): ?array {
+        if (!$this->settingsManager) {
+            return null;
+        }
+        
+        $settings = $this->settingsManager->getAll();
+        
+        // Check membership
+        if (has_term('memberships', 'product_cat', $product_id)) {
+            $is_renewal = function_exists('wcs_order_contains_renewal') ? wcs_order_contains_renewal($order) : false;
+            $key = $is_renewal ? 'membership_renewal' : 'membership_new';
+            
+            $content = $settings["order_email_template_{$key}_content"] ?? '';
+            if (!empty($content)) {
+                return [
+                    'source' => 'database',
+                    'type' => $key,
+                    'content' => $content,
+                    'subject' => $settings["order_email_template_{$key}_subject"] ?? '',
+                    'dynamic_data' => false
+                ];
+            }
+        }
+        
+        // Check language class
+        elseif (has_term('language-class', 'product_cat', $product_id)) {
+            $content = $settings['order_email_template_language_class_content'] ?? '';
+            if (!empty($content)) {
+                return [
+                    'source' => 'database',
+                    'type' => 'language_class',
+                    'content' => $content,
+                    'subject' => $settings['order_email_template_language_class_subject'] ?? '',
+                    'dynamic_data' => false
+                ];
+            }
+        }
+        
+        // Check events
+        elseif (has_term('events', 'product_cat', $product_id)) {
+            // Check for special product templates first
+            if (isset($this->specialProductTemplates[$product_id])) {
+                // Special products still use file-based templates
+                return null;
+            }
+            
+            $has_lunch = strpos(strtolower($product_name), 'free') !== false;
+            $key = $has_lunch ? 'event_with_lunch' : 'event_no_lunch';
+            
+            $content = $settings["order_email_template_{$key}_content"] ?? '';
+            if (!empty($content)) {
+                return [
+                    'source' => 'database',
+                    'type' => $key,
+                    'content' => $content,
+                    'subject' => $settings["order_email_template_{$key}_subject"] ?? '',
+                    'dynamic_data' => true
+                ];
+            }
+        }
+        
+        return null;
     }
     
     /**
@@ -125,7 +268,8 @@ class OrderEmailCustomizer {
         
         return [
             'file' => $is_renewal ? 'membership-renewal.html' : 'membership-confirmation.html',
-            'dynamic_data' => false
+            'dynamic_data' => false,
+            'source' => 'file'
         ];
     }
     
@@ -141,7 +285,8 @@ class OrderEmailCustomizer {
         if (isset($this->specialProductTemplates[$product_id])) {
             return [
                 'file' => $this->specialProductTemplates[$product_id],
-                'dynamic_data' => true
+                'dynamic_data' => true,
+                'source' => 'file'
             ];
         }
         
@@ -152,7 +297,8 @@ class OrderEmailCustomizer {
         
         return [
             'file' => $template_file,
-            'dynamic_data' => true
+            'dynamic_data' => true,
+            'source' => 'file'
         ];
     }
     
@@ -165,6 +311,45 @@ class OrderEmailCustomizer {
      * @return void
      */
     private function renderEmailTemplate(array $template_info, \WC_Order $order, int $product_id): void {
+        // Handle database templates
+        if (isset($template_info['source']) && $template_info['source'] === 'database') {
+            $content = $template_info['content'];
+            
+            // Replace template variables
+            $content = $this->replaceTemplateVariables($content, $order, $product_id, $template_info['type']);
+            
+            // Set email subject if available
+            if (!empty($template_info['subject'])) {
+                $subject = $this->replaceTemplateVariables($template_info['subject'], $order, $product_id, $template_info['type']);
+                // Hook into WooCommerce email subject filters
+                // Use a closure to capture the order ID and check if it matches
+                $order_id = $order->get_id();
+                add_filter('woocommerce_email_subject_customer_processing_order', function($default_subject, $email) use ($subject, $order_id) {
+                    // Only apply if this is the correct order
+                    if (isset($email->object) && is_a($email->object, 'WC_Order') && $email->object->get_id() === $order_id) {
+                        return $subject;
+                    }
+                    return $default_subject;
+                }, 10, 2);
+                // Also try the general filter
+                add_filter('woocommerce_email_subject_customer_completed_order', function($default_subject, $email) use ($subject, $order_id) {
+                    if (isset($email->object) && is_a($email->object, 'WC_Order') && $email->object->get_id() === $order_id) {
+                        return $subject;
+                    }
+                    return $default_subject;
+                }, 10, 2);
+            }
+            
+            echo $content;
+            $this->helper->debug('OrderEmailCustomizer: Rendered database template', [
+                'type' => $template_info['type'],
+                'order_id' => $order->get_id(),
+                'product_id' => $product_id
+            ]);
+            return;
+        }
+        
+        // Handle file-based templates (existing logic)
         $file_path = $this->templateBasePath . $template_info['file'];
         
         if (!file_exists($file_path)) {
@@ -193,7 +378,110 @@ class OrderEmailCustomizer {
     }
     
     /**
-     * Insert dynamic data into email template
+     * Replace template variables in content
+     * 
+     * @param string $content Email template content
+     * @param \WC_Order $order WooCommerce order
+     * @param int $product_id Product ID
+     * @param string $template_type Template type (membership_new, membership_renewal, language_class, event_with_lunch, event_no_lunch)
+     * @return string Content with variables replaced
+     */
+    private function replaceTemplateVariables(string $content, \WC_Order $order, int $product_id, string $template_type): string {
+        $customer = $order->get_customer();
+        $first_name = $order->get_billing_first_name() ?: ($customer ? $customer->get_first_name() : '');
+        $last_name = $order->get_billing_last_name() ?: ($customer ? $customer->get_last_name() : '');
+        
+        $replacements = [
+            '{first_name}' => $first_name,
+            '{last_name}' => $last_name,
+            '{order_id}' => (string) $order->get_id(),
+            '{order_date}' => $order->get_date_created()->date_i18n('F j, Y'),
+            '{order_total}' => $order->get_formatted_order_total(),
+        ];
+        
+        // Add type-specific variables
+        switch ($template_type) {
+            case 'membership_new':
+            case 'membership_renewal':
+                $membership_level = '';
+                foreach ($order->get_items() as $item) {
+                    if (has_term('memberships', 'product_cat', $item->get_product_id())) {
+                        $membership_level = $item->get_name();
+                        break;
+                    }
+                }
+                $replacements['{membership_level}'] = $membership_level;
+                
+                if ($template_type === 'membership_renewal') {
+                    // Get renewal date from subscription or user meta
+                    $renewal_date = '';
+                    if (function_exists('wcs_get_subscription')) {
+                        $subscriptions = wcs_get_subscriptions_for_order($order);
+                        if (!empty($subscriptions)) {
+                            $subscription = reset($subscriptions);
+                            $renewal_date = $subscription->get_date('next_payment');
+                            if ($renewal_date) {
+                                $renewal_date = date_i18n('F j, Y', strtotime($renewal_date));
+                            }
+                        }
+                    }
+                    if (empty($renewal_date)) {
+                        // Fallback: calculate from order date + 1 year
+                        $renewal_date = date_i18n('F j, Y', strtotime('+1 year', $order->get_date_created()->getTimestamp()));
+                    }
+                    $replacements['{renewal_date}'] = $renewal_date;
+                }
+                break;
+                
+            case 'language_class':
+                $class_name = '';
+                foreach ($order->get_items() as $item) {
+                    if (has_term('language-class', 'product_cat', $item->get_product_id())) {
+                        $class_name = $item->get_name();
+                        break;
+                    }
+                }
+                $replacements['{class_name}'] = $class_name;
+                break;
+                
+            case 'event_with_lunch':
+            case 'event_no_lunch':
+                $datetime_info = $this->getEventDateTimeInfo($product_id);
+                $location_info = $this->getEventLocationInfo($product_id);
+                $speaker_info = $this->getEventSpeakerInfo($product_id);
+                
+                $replacements['{event_name}'] = get_the_title($product_id) ?: 'Event';
+                $replacements['{event_date}'] = $datetime_info['date'];
+                $replacements['{event_time}'] = $datetime_info['time'];
+                $replacements['{event_location}'] = $location_info['full_location'];
+                $replacements['{speaker_name}'] = $speaker_info['name'];
+                
+                // Handle [Speaker Section] placeholder (legacy format)
+                $content = $this->insertSpeakerSection($content, $speaker_info);
+                break;
+                
+            case 'general':
+                // Get product name from order items
+                $product_name = '';
+                foreach ($order->get_items() as $item) {
+                    $product_name = $item->get_name();
+                    break; // Use first product name
+                }
+                if (empty($product_name)) {
+                    $product_name = get_the_title($product_id) ?: 'Product';
+                }
+                $replacements['{product_name}'] = $product_name;
+                break;
+        }
+        
+        // Replace all variables
+        $content = str_replace(array_keys($replacements), array_values($replacements), $content);
+        
+        return $content;
+    }
+    
+    /**
+     * Insert dynamic data into email template (legacy method for file-based templates)
      * 
      * @param string $email_body_content Email template content
      * @param \WC_Order $order WooCommerce order
@@ -216,7 +504,7 @@ class OrderEmailCustomizer {
         // Get product name
         $product_name = get_the_title($product_id) ?: 'Event';
         
-        // Replace basic placeholders
+        // Replace basic placeholders (legacy format)
         $replacements = [
             '[Product Name]' => $product_name,
             '[Event Date]' => $datetime_info['date'],

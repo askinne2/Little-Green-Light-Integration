@@ -1148,6 +1148,98 @@ class SettingsManager implements SettingsManagerInterface {
                 'default' => '<h1>There\'s an issue with your membership subscription.</h1><h2>Your membership renewal date has passed and your one month grace period to renew your membership has expired.</h2><p><b>Your membership account has been marked as inactive.</b></p><p>If your membership plan includes family members, their accounts have also been marked as inactive.</p><p>After a 60 day period of inactivity, all user data for your account and family members\' accounts will be permanently removed from the Upstate International website.</p><h3>To reactivate your account</h3><p>Please follow the following steps:</p><ol><li>Reset your account password using the <a href="' . get_site_url() . '/my-account/lost-password">Login & Reset Password form</a>.</li><li>Make a new password and login into your account.</li><li>Add a Membership Level to your cart & complete your online checkout</li></ol><p>If you need to make changes to your membership, please feel free to stop by the office or contact us at:</p><ul><li><a href="tel:+18646312188">864-631-2188</a></li><li><a href="mailto:info@upstateinternational.org">info@upstateinternational.org</a></li></ul>',
                 'sanitize' => 'wp_kses_post',
                 'label' => '30 Days Overdue (Inactive) - Content'
+            ],
+            
+            // Order Email Templates
+            'order_email_template_membership_new_subject' => [
+                'type' => 'string',
+                'default' => '',
+                'sanitize' => 'sanitize_text_field',
+                'label' => 'New Membership - Subject'
+            ],
+            'order_email_template_membership_new_content' => [
+                'type' => 'text',
+                'default' => function() {
+                    $file = LGL_PLUGIN_DIR . 'form-emails/membership-confirmation.html';
+                    return file_exists($file) ? file_get_contents($file) : '';
+                },
+                'sanitize' => 'wp_kses_post',
+                'label' => 'New Membership - Content'
+            ],
+            'order_email_template_membership_renewal_subject' => [
+                'type' => 'string',
+                'default' => '',
+                'sanitize' => 'sanitize_text_field',
+                'label' => 'Membership Renewal - Subject'
+            ],
+            'order_email_template_membership_renewal_content' => [
+                'type' => 'text',
+                'default' => function() {
+                    $file = LGL_PLUGIN_DIR . 'form-emails/membership-renewal.html';
+                    return file_exists($file) ? file_get_contents($file) : '';
+                },
+                'sanitize' => 'wp_kses_post',
+                'label' => 'Membership Renewal - Content'
+            ],
+            'order_email_template_language_class_subject' => [
+                'type' => 'string',
+                'default' => '',
+                'sanitize' => 'sanitize_text_field',
+                'label' => 'Language Class - Subject'
+            ],
+            'order_email_template_language_class_content' => [
+                'type' => 'text',
+                'default' => function() {
+                    $file = LGL_PLUGIN_DIR . 'form-emails/language-class-registration.html';
+                    return file_exists($file) ? file_get_contents($file) : '';
+                },
+                'sanitize' => 'wp_kses_post',
+                'label' => 'Language Class - Content'
+            ],
+            'order_email_template_event_with_lunch_subject' => [
+                'type' => 'string',
+                'default' => '',
+                'sanitize' => 'sanitize_text_field',
+                'label' => 'Event (With Lunch) - Subject'
+            ],
+            'order_email_template_event_with_lunch_content' => [
+                'type' => 'text',
+                'default' => function() {
+                    $file = LGL_PLUGIN_DIR . 'form-emails/event-with-lunch.html';
+                    return file_exists($file) ? file_get_contents($file) : '';
+                },
+                'sanitize' => 'wp_kses_post',
+                'label' => 'Event (With Lunch) - Content'
+            ],
+            'order_email_template_event_no_lunch_subject' => [
+                'type' => 'string',
+                'default' => '',
+                'sanitize' => 'sanitize_text_field',
+                'label' => 'Event (No Lunch) - Subject'
+            ],
+            'order_email_template_event_no_lunch_content' => [
+                'type' => 'text',
+                'default' => function() {
+                    $file = LGL_PLUGIN_DIR . 'form-emails/event-no-lunch.html';
+                    return file_exists($file) ? file_get_contents($file) : '';
+                },
+                'sanitize' => 'wp_kses_post',
+                'label' => 'Event (No Lunch) - Content'
+            ],
+            'order_email_template_general_subject' => [
+                'type' => 'string',
+                'default' => 'Thank you for your support of Upstate International!',
+                'sanitize' => 'sanitize_text_field',
+                'label' => 'General Orders - Subject'
+            ],
+            'order_email_template_general_content' => [
+                'type' => 'text',
+                'default' => function() {
+                    $file = LGL_PLUGIN_DIR . 'form-emails/general-order-confirmation.html';
+                    return file_exists($file) ? file_get_contents($file) : '';
+                },
+                'sanitize' => 'wp_kses_post',
+                'label' => 'General Orders - Content'
             ]
         ];
     }

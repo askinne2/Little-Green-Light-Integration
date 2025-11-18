@@ -1212,6 +1212,7 @@ class ComposerStaticInitfd51084b437ac28d68c9551e9a9739c0
         'UpstateInternational\\LGL\\Admin\\MembershipMigrationUtility' => __DIR__ . '/../..' . '/src/Admin/MembershipMigrationUtility.php',
         'UpstateInternational\\LGL\\Admin\\MembershipTestingUtility' => __DIR__ . '/../..' . '/src/Admin/MembershipTestingUtility.php',
         'UpstateInternational\\LGL\\Admin\\OperationalDataManager' => __DIR__ . '/../..' . '/src/Admin/OperationalDataManager.php',
+        'UpstateInternational\\LGL\\Admin\\OrderEmailSettingsPage' => __DIR__ . '/../..' . '/src/Admin/OrderEmailSettingsPage.php',
         'UpstateInternational\\LGL\\Admin\\RenewalSettingsPage' => __DIR__ . '/../..' . '/src/Admin/RenewalSettingsPage.php',
         'UpstateInternational\\LGL\\Admin\\SettingsHandler' => __DIR__ . '/../..' . '/src/Admin/SettingsHandler.php',
         'UpstateInternational\\LGL\\Admin\\SettingsManager' => __DIR__ . '/../..' . '/src/Admin/SettingsManager.php',

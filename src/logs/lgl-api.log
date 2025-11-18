@@ -1,78 +1,82 @@
-[2025-11-17 11:34:51] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:34:51] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:35:02] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:35:02] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:35:02] [debug] LGL Relations Manager: User to order relation created 1958_90163
-[2025-11-17 11:35:04] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-17 11:35:04] [debug] LGL Email Blocker: Evaluation - To: Linley@upstateinternational.org | Subject: [Upstate International] New customer order (90163) - November 17, 2025 | Detected Type: woocommerce | Level: all | Should Block: YES
-[2025-11-17 11:35:04] [debug] LGL Email Blocker: BLOCKED email - To: Linley@upstateinternational.org | Subject: [Upstate International] New customer order (90163) - November 17, 2025 | Type: woocommerce | Level: all | Environment: ui-hybrid.local (DEBUG_OFF) | Mode: manual_override
-[2025-11-17 11:35:04] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-17 11:35:04] [debug] OrderEmailCustomizer: Rendered email template Array
+[2025-11-18 06:52:33] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:52:34] [debug] Membership cron jobs scheduled successfully
+[2025-11-18 06:52:34] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:52:35] [debug] Membership cron jobs scheduled successfully
+[2025-11-18 06:52:36] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:52:37] [debug] Membership cron jobs scheduled successfully
+[2025-11-18 06:52:44] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:52:45] [debug] Membership cron jobs scheduled successfully
+[2025-11-18 06:52:45] [debug] LGL Relations Manager: User to order relation created 1967_90172
+[2025-11-18 06:52:47] [debug] OrderEmailCustomizer: Running email customizer
+[2025-11-18 06:52:47] [debug] LGL Email Blocker: Evaluation - To: Linley@upstateinternational.org | Subject: [Upstate International] New customer order (90172) - November 18, 2025 | Detected Type: woocommerce | Level: all | Should Block: YES
+[2025-11-18 06:52:47] [debug] LGL Email Blocker: BLOCKED email - To: Linley@upstateinternational.org | Subject: [Upstate International] New customer order (90172) - November 18, 2025 | Type: woocommerce | Level: all | Environment: ui-hybrid.local (DEBUG_OFF) | Mode: manual_override
+[2025-11-18 06:52:47] [debug] OrderEmailCustomizer: Running email customizer
+[2025-11-18 06:52:47] [debug] OrderEmailCustomizer: Rendered email template Array
 (
     [template] => membership-confirmation.html
-    [order_id] => 90163
-    [product_id] => 89880
+    [order_id] => 90172
+    [product_id] => 89885
 )
 
-[2025-11-17 11:35:04] [debug] LGL Email Blocker: Evaluation - To: andrew@hispanicalliancesc.com | Subject: Your Upstate International order has been received! | Detected Type: woocommerce | Level: all | Should Block: YES
-[2025-11-17 11:35:04] [debug] LGL Email Blocker: BLOCKED email - To: andrew@hispanicalliancesc.com | Subject: Your Upstate International order has been received! | Type: woocommerce | Level: all | Environment: ui-hybrid.local (DEBUG_OFF) | Mode: manual_override
-[2025-11-17 11:35:05] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
+[2025-11-18 06:52:47] [debug] LGL Email Blocker: Evaluation - To: andrew@hispanicalliancesc.com | Subject: Your Upstate International order has been received! | Detected Type: woocommerce | Level: all | Should Block: YES
+[2025-11-18 06:52:47] [debug] LGL Email Blocker: BLOCKED email - To: andrew@hispanicalliancesc.com | Subject: Your Upstate International order has been received! | Type: woocommerce | Level: all | Environment: ui-hybrid.local (DEBUG_OFF) | Mode: manual_override
+[2025-11-18 06:52:47] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
 (
-    [order_id] => 90163
-    [timestamp] => 2025-11-17 11:35:05
-    [memory_usage] => 122MB
+    [order_id] => 90172
+    [timestamp] => 2025-11-18 06:52:47
+    [memory_usage] => 124MB
     [hook] => woocommerce_payment_complete
 )
 
-[2025-11-17 11:35:05] [debug] 📋 OrderProcessor: Order Details Array
+[2025-11-18 06:52:47] [debug] 📋 OrderProcessor: Order Details Array
 (
-    [order_id] => 90163
+    [order_id] => 90172
     [order_status] => processing
-    [order_total] => 77.63
-    [customer_id] => 1958
+    [order_total] => 155.25
+    [customer_id] => 1967
     [customer_email] => andrew@hispanicalliancesc.com
     [payment_method] => stripe_cc
-    [order_date] => 2025-11-17 11:35:02
+    [order_date] => 2025-11-18 06:52:45
     [item_count] => 1
 )
 
-[2025-11-17 11:35:05] [debug] 👤 OrderProcessor: Customer Info Array
+[2025-11-18 06:52:47] [debug] 👤 OrderProcessor: Customer Info Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
     [billing_email] => andrew@hispanicalliancesc.com
     [billing_first_name] => Andrew
     [billing_last_name] => Skinner
     [billing_phone] => 8653120285
 )
 
-[2025-11-17 11:35:05] [debug] ⚡ OrderProcessor: Processing immediate tasks...
-[2025-11-17 11:35:05] [debug] ⚡ OrderProcessor::processImmediateTasks() STARTED Array
+[2025-11-18 06:52:47] [debug] ⚡ OrderProcessor: Processing immediate tasks...
+[2025-11-18 06:52:47] [debug] ⚡ OrderProcessor::processImmediateTasks() STARTED Array
 (
-    [order_id] => 90163
-    [user_id] => 1958
+    [order_id] => 90172
+    [user_id] => 1967
 )
 
-[2025-11-17 11:35:05] [debug] OrderProcessor: Payment method updated Array
+[2025-11-18 06:52:47] [debug] OrderProcessor: Payment method updated Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
     [payment_method] => stripe_cc
     [stored_as] => online
 )
 
-[2025-11-17 11:35:05] [debug] ⚡ OrderProcessor::processOrderProductsImmediate() STARTED Array
+[2025-11-18 06:52:47] [debug] ⚡ OrderProcessor::processOrderProductsImmediate() STARTED Array
 (
     [total_products] => 1
-    [user_id] => 1958
-    [order_id] => 90163
+    [user_id] => 1967
+    [order_id] => 90172
     [mode] => immediate_only
 )
 
-[2025-11-17 11:35:05] [debug] 🔍 OrderProcessor: Processing Product #1 (IMMEDIATE) Array
+[2025-11-18 06:52:47] [debug] 🔍 OrderProcessor: Processing Product #1 (IMMEDIATE) Array
 (
-    [name] => Member
+    [name] => Supporter
     [quantity] => 1
-    [product_id] => 89880
-    [parent_id] => 89880
+    [product_id] => 89885
+    [parent_id] => 89885
     [categories] => Array
         (
             [0] => memberships
@@ -80,43 +84,42 @@
 
 )
 
-[2025-11-17 11:35:05] [debug] 🎯 OrderProcessor: Processing membership (IMMEDIATE) Array
+[2025-11-18 06:52:47] [debug] 🎯 OrderProcessor: Processing membership (IMMEDIATE) Array
 (
-    [product_name] => Member
+    [product_name] => Supporter
 )
 
-[2025-11-17 11:35:05] [debug] 🎯 OrderProcessor::processMembershipProductImmediate() STARTED Array
+[2025-11-18 06:52:47] [debug] 🎯 OrderProcessor::processMembershipProductImmediate() STARTED Array
 (
-    [user_id] => 1958
-    [order_id] => 90163
-    [product_name] => Member
+    [user_id] => 1967
+    [order_id] => 90172
+    [product_name] => Supporter
     [mode] => immediate_only
 )
 
-[2025-11-17 11:35:05] [debug] ⚡ MembershipOrderHandler::processOrderImmediate() STARTED Array
+[2025-11-18 06:52:47] [debug] ⚡ MembershipOrderHandler::processOrderImmediate() STARTED Array
 (
-    [user_id] => 1958
-    [order_id] => 90163
-    [membership_level] => Member
+    [user_id] => 1967
+    [order_id] => 90172
+    [membership_level] => Supporter
     [mode] => immediate_only
 )
 
-[2025-11-17 11:35:05] [debug] 🔍 MembershipOrderHandler: Determining membership level Array
+[2025-11-18 06:52:47] [debug] 🔍 MembershipOrderHandler: Determining membership level Array
 (
-    [wc_product_name] => Member
-    [product_price] => 75
+    [wc_product_name] => Supporter
 )
 
-[2025-11-17 11:35:05] [debug] 🔍 Found LGL sync ID on variation Array
+[2025-11-18 06:52:47] [debug] 🔍 Found LGL sync ID on variation Array
 (
-    [variation_id] => 89880
-    [fund_id] => 412
+    [variation_id] => 89885
+    [fund_id] => 427
     [source] => unified
 )
 
-[2025-11-17 11:35:05] [debug] 🔍 ApiSettings::getMembershipLevels() called
-[2025-11-17 11:35:05] [debug] 🔍 ApiSettings: settingsHandler is SET
-[2025-11-17 11:35:05] [debug] 🔍 ApiSettings::getMembershipLevels() called, raw result: Array
+[2025-11-18 06:52:47] [debug] 🔍 ApiSettings::getMembershipLevels() called
+[2025-11-18 06:52:47] [debug] 🔍 ApiSettings: settingsHandler is SET
+[2025-11-18 06:52:47] [debug] 🔍 ApiSettings::getMembershipLevels() called, raw result: Array
 (
     [0] => Array
         (
@@ -167,9 +170,30 @@
             [lgl_membership_level_id] => 417
         )
 
+    [7] => Array
+        (
+            [level_name] => Member
+            [level_slug] => member
+            [lgl_membership_level_id] => 422
+        )
+
+    [8] => Array
+        (
+            [level_name] =>  Supporter
+            [level_slug] => supporter
+            [lgl_membership_level_id] => 427
+        )
+
+    [9] => Array
+        (
+            [level_name] =>  Patron
+            [level_slug] => patron
+            [lgl_membership_level_id] => 432
+        )
+
 )
 
-[2025-11-17 11:35:05] [debug] 🔍 ApiSettings::getMembershipLevels() returning: Array
+[2025-11-18 06:52:47] [debug] 🔍 ApiSettings::getMembershipLevels() returning: Array
 (
     [0] => Array
         (
@@ -220,169 +244,188 @@
             [lgl_membership_level_id] => 417
         )
 
+    [7] => Array
+        (
+            [level_name] => Member
+            [level_slug] => member
+            [lgl_membership_level_id] => 422
+        )
+
+    [8] => Array
+        (
+            [level_name] =>  Supporter
+            [level_slug] => supporter
+            [lgl_membership_level_id] => 427
+        )
+
+    [9] => Array
+        (
+            [level_name] =>  Patron
+            [level_slug] => patron
+            [lgl_membership_level_id] => 432
+        )
+
 )
 
-[2025-11-17 11:35:05] [debug] ✅ MembershipOrderHandler: Using JetEngine membership mapping Array
+[2025-11-18 06:52:47] [debug] ✅ MembershipOrderHandler: Using JetEngine membership mapping Array
 (
-    [membership_level_id] => 412
-    [membership_name] => Individual
+    [membership_level_id] => 427
+    [membership_name] =>  Supporter
 )
 
-[2025-11-17 11:35:05] [debug] 👤 Helper: Changing user role Array
+[2025-11-18 06:52:47] [debug] 👤 Helper: Changing user role Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
     [old_role] => customer
     [new_role] => ui_member
 )
 
-[2025-11-17 11:35:05] [debug] ✅ Helper: User role changed successfully Array
+[2025-11-18 06:52:47] [debug] ✅ Helper: User role changed successfully Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
     [from] => customer
     [to] => ui_member
     [current_roles] => Array
         (
-            [0] => ui_patron_owner
-            [1] => ui_member
+            [0] => ui_member
         )
 
 )
 
-[2025-11-17 11:35:05] [debug] MembershipOrderHandler: Updated user role to ui_member (individual) 1958
-[2025-11-17 11:35:05] [debug] 🔄 Helper: Converting WC name to LGL name Array
+[2025-11-18 06:52:47] [debug] MembershipOrderHandler: Updated user role to ui_member (individual) 1967
+[2025-11-18 06:52:47] [debug] 🔄 Helper: Converting WC name to LGL name Array
 (
-    [input] => Individual
+    [input] =>  Supporter
 )
 
-[2025-11-17 11:35:05] [debug] ⚠️ Helper: No name mapping found, returning original Array
+[2025-11-18 06:52:47] [debug] ⚠️ Helper: No name mapping found, returning original Array
 (
-    [wc_name] => Individual
+    [wc_name] =>  Supporter
 )
 
-[2025-11-17 11:35:05] [debug] UPDATING USER META FOR:  1958
-[2025-11-17 11:35:05] [debug] MembershipOrderHandler: User data updated (WordPress only, LGL sync happens separately) 1958
-[2025-11-17 11:35:05] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-17 11:35:05] [debug] OrderEmailCustomizer: Rendered email template Array
+[2025-11-18 06:52:47] [debug] UPDATING USER META FOR:  1967
+[2025-11-18 06:52:47] [debug] MembershipOrderHandler: User data updated (WordPress only, LGL sync happens separately) 1967
+[2025-11-18 06:52:47] [debug] OrderEmailCustomizer: Running email customizer
+[2025-11-18 06:52:47] [debug] OrderEmailCustomizer: Rendered email template Array
 (
     [template] => membership-confirmation.html
-    [order_id] => 90163
-    [product_id] => 89880
+    [order_id] => 90172
+    [product_id] => 89885
 )
 
-[2025-11-17 11:35:05] [debug] LGL Email Blocker: Evaluation - To: andrew@hispanicalliancesc.com | Subject: Your Upstate International order is now complete | Detected Type: woocommerce | Level: all | Should Block: YES
-[2025-11-17 11:35:05] [debug] LGL Email Blocker: BLOCKED email - To: andrew@hispanicalliancesc.com | Subject: Your Upstate International order is now complete | Type: woocommerce | Level: all | Environment: ui-hybrid.local (DEBUG_OFF) | Mode: manual_override
-[2025-11-17 11:35:05] [debug] Set one-time renewal date for user 1958 Array
+[2025-11-18 06:52:47] [debug] LGL Email Blocker: Evaluation - To: andrew@hispanicalliancesc.com | Subject: Your Upstate International order is now complete | Detected Type: woocommerce | Level: all | Should Block: YES
+[2025-11-18 06:52:47] [debug] LGL Email Blocker: BLOCKED email - To: andrew@hispanicalliancesc.com | Subject: Your Upstate International order is now complete | Type: woocommerce | Level: all | Environment: ui-hybrid.local (DEBUG_OFF) | Mode: manual_override
+[2025-11-18 06:52:47] [debug] Set one-time renewal date for user 1967 Array
 (
-    [membership_level] => Individual
-    [renewal_date] => 2026-11-17
-    [start_date] => 2025-11-17
+    [membership_level] =>  Supporter
+    [renewal_date] => 2026-11-18
+    [start_date] => 2025-11-18
 )
 
-[2025-11-17 11:35:05] [debug] ✅ MembershipOrderHandler::processOrderImmediate() COMPLETED Array
+[2025-11-18 06:52:47] [debug] ✅ MembershipOrderHandler::processOrderImmediate() COMPLETED Array
 (
-    [order_id] => 90163
-    [user_id] => 1958
-    [final_membership_level] => Individual
+    [order_id] => 90172
+    [user_id] => 1967
+    [final_membership_level] =>  Supporter
 )
 
-[2025-11-17 11:35:05] [debug] ✅ OrderProcessor: MembershipOrderHandler (immediate) completed
-[2025-11-17 11:35:05] [debug] ✅ OrderProcessor::processOrderProductsImmediate() COMPLETED Array
+[2025-11-18 06:52:47] [debug] ✅ OrderProcessor: MembershipOrderHandler (immediate) completed
+[2025-11-18 06:52:47] [debug] ✅ OrderProcessor::processOrderProductsImmediate() COMPLETED Array
 (
     [products_processed] => 1
     [events_processed] => 0
     [attendees_created] => 0
 )
 
-[2025-11-17 11:35:05] [debug] ✅ OrderProcessor::processImmediateTasks() COMPLETED Array
+[2025-11-18 06:52:47] [debug] ✅ OrderProcessor::processImmediateTasks() COMPLETED Array
 (
-    [order_id] => 90163
+    [order_id] => 90172
 )
 
-[2025-11-17 11:35:05] [debug] ⏰ OrderProcessor: Scheduling async LGL sync...
-[2025-11-17 11:35:05] [debug] ⏰ AsyncOrderProcessor: Scheduling async processing (WP Cron) Array
+[2025-11-18 06:52:47] [debug] ⏰ OrderProcessor: Scheduling async LGL sync...
+[2025-11-18 06:52:47] [debug] ⏰ AsyncOrderProcessor: Scheduling async processing (WP Cron) Array
 (
-    [order_id] => 90163
+    [order_id] => 90172
 )
 
-[2025-11-17 11:35:05] [debug] ✅ AsyncOrderProcessor: WP Cron event scheduled Array
+[2025-11-18 06:52:47] [debug] ✅ AsyncOrderProcessor: WP Cron event scheduled Array
 (
-    [order_id] => 90163
+    [order_id] => 90172
     [hook] => lgl_process_order_async
-    [scheduled_for] => 2025-11-17 16:35:05
+    [scheduled_for] => 2025-11-18 11:52:47
 )
 
-[2025-11-17 11:35:05] [debug] 🚀 AsyncOrderProcessor: Triggered cron spawn for immediate execution Array
+[2025-11-18 06:52:47] [debug] 🚀 AsyncOrderProcessor: Triggered cron spawn for immediate execution Array
 (
-    [order_id] => 90163
+    [order_id] => 90172
 )
 
-[2025-11-17 11:35:05] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
+[2025-11-18 06:52:47] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
 (
-    [order_id] => 90163
-    [final_memory_usage] => 122MB
+    [order_id] => 90172
+    [final_memory_usage] => 124MB
     [async_scheduled] => 1
 )
 
-[2025-11-17 11:35:05] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:35:05] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:35:05] [debug] 🔄 AsyncOrderProcessor: Processing order async (WP Cron) Array
+[2025-11-18 06:52:47] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:52:47] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:52:47] [debug] 🔄 AsyncOrderProcessor: Processing order async (WP Cron) Array
 (
-    [order_id] => 90163
-    [timestamp] => 2025-11-17 11:35:05
+    [order_id] => 90172
+    [timestamp] => 2025-11-18 06:52:47
     [cron_hook] => lgl_process_order_async
 )
 
-[2025-11-17 11:35:05] [debug] 🔄 OrderProcessor::processLglSyncOnly() STARTED Array
+[2025-11-18 06:52:47] [debug] 🔄 OrderProcessor::processLglSyncOnly() STARTED Array
 (
-    [order_id] => 90163
-    [timestamp] => 2025-11-17 11:35:05
+    [order_id] => 90172
+    [timestamp] => 2025-11-18 06:52:47
 )
 
-[2025-11-17 11:35:05] [debug] 🔄 OrderProcessor::processOrderProductsLglSync() STARTED Array
+[2025-11-18 06:52:47] [debug] 🔄 OrderProcessor::processOrderProductsLglSync() STARTED Array
 (
     [total_products] => 1
-    [user_id] => 1958
-    [order_id] => 90163
+    [user_id] => 1967
+    [order_id] => 90172
     [mode] => lgl_sync_only
 )
 
-[2025-11-17 11:35:05] [debug] 🎯 OrderProcessor: Processing membership (LGL SYNC) Array
+[2025-11-18 06:52:47] [debug] 🎯 OrderProcessor: Processing membership (LGL SYNC) Array
 (
-    [product_name] => Member
+    [product_name] => Supporter
 )
 
-[2025-11-17 11:35:05] [debug] 🎯 OrderProcessor::processMembershipProductLglSync() STARTED Array
+[2025-11-18 06:52:47] [debug] 🎯 OrderProcessor::processMembershipProductLglSync() STARTED Array
 (
-    [user_id] => 1958
-    [order_id] => 90163
-    [product_name] => Member
+    [user_id] => 1967
+    [order_id] => 90172
+    [product_name] => Supporter
     [mode] => lgl_sync_only
 )
 
-[2025-11-17 11:35:05] [debug] 🔄 MembershipOrderHandler::processOrderLglSync() STARTED Array
+[2025-11-18 06:52:47] [debug] 🔄 MembershipOrderHandler::processOrderLglSync() STARTED Array
 (
-    [user_id] => 1958
-    [order_id] => 90163
-    [membership_level] => Member
+    [user_id] => 1967
+    [order_id] => 90172
+    [membership_level] => Supporter
     [mode] => lgl_sync_only
 )
 
-[2025-11-17 11:35:05] [debug] 🔍 MembershipOrderHandler: Determining membership level Array
+[2025-11-18 06:52:47] [debug] 🔍 MembershipOrderHandler: Determining membership level Array
 (
-    [wc_product_name] => Member
-    [product_price] => 75
+    [wc_product_name] => Supporter
 )
 
-[2025-11-17 11:35:05] [debug] 🔍 Found LGL sync ID on variation Array
+[2025-11-18 06:52:47] [debug] 🔍 Found LGL sync ID on variation Array
 (
-    [variation_id] => 89880
-    [fund_id] => 412
+    [variation_id] => 89885
+    [fund_id] => 427
     [source] => unified
 )
 
-[2025-11-17 11:35:05] [debug] 🔍 ApiSettings::getMembershipLevels() called
-[2025-11-17 11:35:05] [debug] 🔍 ApiSettings: settingsHandler is SET
-[2025-11-17 11:35:05] [debug] 🔍 ApiSettings::getMembershipLevels() called, raw result: Array
+[2025-11-18 06:52:47] [debug] 🔍 ApiSettings::getMembershipLevels() called
+[2025-11-18 06:52:47] [debug] 🔍 ApiSettings: settingsHandler is SET
+[2025-11-18 06:52:47] [debug] 🔍 ApiSettings::getMembershipLevels() called, raw result: Array
 (
     [0] => Array
         (
@@ -433,9 +476,30 @@
             [lgl_membership_level_id] => 417
         )
 
+    [7] => Array
+        (
+            [level_name] => Member
+            [level_slug] => member
+            [lgl_membership_level_id] => 422
+        )
+
+    [8] => Array
+        (
+            [level_name] =>  Supporter
+            [level_slug] => supporter
+            [lgl_membership_level_id] => 427
+        )
+
+    [9] => Array
+        (
+            [level_name] =>  Patron
+            [level_slug] => patron
+            [lgl_membership_level_id] => 432
+        )
+
 )
 
-[2025-11-17 11:35:05] [debug] 🔍 ApiSettings::getMembershipLevels() returning: Array
+[2025-11-18 06:52:47] [debug] 🔍 ApiSettings::getMembershipLevels() returning: Array
 (
     [0] => Array
         (
@@ -486,82 +550,102 @@
             [lgl_membership_level_id] => 417
         )
 
+    [7] => Array
+        (
+            [level_name] => Member
+            [level_slug] => member
+            [lgl_membership_level_id] => 422
+        )
+
+    [8] => Array
+        (
+            [level_name] =>  Supporter
+            [level_slug] => supporter
+            [lgl_membership_level_id] => 427
+        )
+
+    [9] => Array
+        (
+            [level_name] =>  Patron
+            [level_slug] => patron
+            [lgl_membership_level_id] => 432
+        )
+
 )
 
-[2025-11-17 11:35:05] [debug] ✅ MembershipOrderHandler: Using JetEngine membership mapping Array
+[2025-11-18 06:52:47] [debug] ✅ MembershipOrderHandler: Using JetEngine membership mapping Array
 (
-    [membership_level_id] => 412
-    [membership_name] => Individual
+    [membership_level_id] => 427
+    [membership_name] =>  Supporter
 )
 
-[2025-11-17 11:35:05] [debug] 🔄 Helper: Converting WC name to LGL name Array
+[2025-11-18 06:52:47] [debug] 🔄 Helper: Converting WC name to LGL name Array
 (
-    [input] => Individual
+    [input] =>  Supporter
 )
 
-[2025-11-17 11:35:05] [debug] ⚠️ Helper: No name mapping found, returning original Array
+[2025-11-18 06:52:47] [debug] ⚠️ Helper: No name mapping found, returning original Array
 (
-    [wc_name] => Individual
+    [wc_name] =>  Supporter
 )
 
-[2025-11-17 11:35:05] [debug] 🔗 MembershipOrderHandler::registerUserInLGL() STARTED Array
+[2025-11-18 06:52:47] [debug] 🔗 MembershipOrderHandler::registerUserInLGL() STARTED Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
     [user_email] => andrew@hispanicalliancesc.com
-    [membership_type] => Individual
-    [order_id] => 90163
-    [membership_level_id] => 412
+    [membership_type] =>  Supporter
+    [order_id] => 90172
+    [membership_level_id] => 427
 )
 
-[2025-11-17 11:35:05] [debug] 🧭 MembershipRegistrationService::register() STARTED Array
+[2025-11-18 06:52:47] [debug] 🧭 MembershipRegistrationService::register() STARTED Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
     [search_name] => Andrew%20Skinner
     [email] => andrew@hispanicalliancesc.com
-    [order_id] => 90163
-    [membership_level] => Individual
-    [membership_level_id] => 412
+    [order_id] => 90172
+    [membership_level] =>  Supporter
+    [membership_level_id] => 427
 )
 
-[2025-11-17 11:35:05] [debug] 🔍 MembershipRegistrationService: Found LGL ID in user meta Array
+[2025-11-18 06:52:47] [debug] 🔍 MembershipRegistrationService: Found LGL ID in user meta Array
 (
-    [user_id] => 1958
-    [lgl_id] => 947132
+    [user_id] => 1967
+    [lgl_id] => 947172
     [meta_key] => lgl_constituent_id or lgl_id
 )
 
-[2025-11-17 11:35:05] [debug] LGL Connection: Cache HIT for constituents/947132
-[2025-11-17 11:35:05] [debug] ✅ MembershipRegistrationService: LGL ID verified in LGL Array
+[2025-11-18 06:52:47] [debug] LGL Connection: Cache HIT for constituents/947172
+[2025-11-18 06:52:47] [debug] ✅ MembershipRegistrationService: LGL ID verified in LGL Array
 (
-    [lgl_id] => 947132
+    [lgl_id] => 947172
     [constituent_name] => Andrew Skinner
 )
 
-[2025-11-17 11:35:05] [debug] 🔄 MembershipRegistrationService: Existing constituent found, updating Array
+[2025-11-18 06:52:47] [debug] 🔄 MembershipRegistrationService: Existing constituent found, updating Array
 (
-    [user_id] => 1958
-    [lgl_id] => 947132
+    [user_id] => 1967
+    [lgl_id] => 947172
     [match_method] => user_meta
 )
 
-[2025-11-17 11:35:05] [debug] LGL Constituents: Name set Array
+[2025-11-18 06:52:47] [debug] LGL Constituents: Name set Array
 (
     [first_name] => Andrew
     [last_name] => Skinner
 )
 
-[2025-11-17 11:35:05] [debug] LGL Constituents: Email set andrew@hispanicalliancesc.com
-[2025-11-17 11:35:05] [debug] LGL Constituents: Phone set 8642560760
-[2025-11-17 11:35:05] [debug] LGL Constituents: 🔍 setAddress: Checking user meta Array
+[2025-11-18 06:52:47] [debug] LGL Constituents: Email set andrew@hispanicalliancesc.com
+[2025-11-18 06:52:47] [debug] LGL Constituents: 🔍 setAddress: Checking user meta Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
     [street1] => 57 Blake Street
     [city] => Greenville
     [has_street1] => 1
     [has_city] => 1
 )
 
-[2025-11-17 11:35:05] [debug] LGL Constituents: ✅ Address set and added to array Array
+[2025-11-18 06:52:47] [debug] LGL Constituents: ✅ Address set and added to array Array
 (
     [street] => 57 Blake Street
     [city] => Greenville
@@ -585,20 +669,20 @@
 
 )
 
-[2025-11-17 11:35:05] [debug] LGL Constituents: 🎯 setMembership() CALLED! Array
+[2025-11-18 06:52:47] [debug] LGL Constituents: 🎯 setMembership() CALLED! Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
 )
 
-[2025-11-17 11:35:05] [debug] LGL Constituents: 🔍 Looking up membership level config Array
+[2025-11-18 06:52:47] [debug] LGL Constituents: 🔍 Looking up membership level config Array
 (
-    [membership_type] => Individual
-    [user_id] => 1958
+    [membership_type] =>  Supporter
+    [user_id] => 1967
 )
 
-[2025-11-17 11:35:05] [debug] 🔍 ApiSettings::getMembershipLevels() called
-[2025-11-17 11:35:05] [debug] 🔍 ApiSettings: settingsHandler is SET
-[2025-11-17 11:35:05] [debug] 🔍 ApiSettings::getMembershipLevels() called, raw result: Array
+[2025-11-18 06:52:47] [debug] 🔍 ApiSettings::getMembershipLevels() called
+[2025-11-18 06:52:47] [debug] 🔍 ApiSettings: settingsHandler is SET
+[2025-11-18 06:52:47] [debug] 🔍 ApiSettings::getMembershipLevels() called, raw result: Array
 (
     [0] => Array
         (
@@ -649,9 +733,30 @@
             [lgl_membership_level_id] => 417
         )
 
+    [7] => Array
+        (
+            [level_name] => Member
+            [level_slug] => member
+            [lgl_membership_level_id] => 422
+        )
+
+    [8] => Array
+        (
+            [level_name] =>  Supporter
+            [level_slug] => supporter
+            [lgl_membership_level_id] => 427
+        )
+
+    [9] => Array
+        (
+            [level_name] =>  Patron
+            [level_slug] => patron
+            [lgl_membership_level_id] => 432
+        )
+
 )
 
-[2025-11-17 11:35:05] [debug] 🔍 ApiSettings::getMembershipLevels() returning: Array
+[2025-11-18 06:52:47] [debug] 🔍 ApiSettings::getMembershipLevels() returning: Array
 (
     [0] => Array
         (
@@ -702,54 +807,75 @@
             [lgl_membership_level_id] => 417
         )
 
+    [7] => Array
+        (
+            [level_name] => Member
+            [level_slug] => member
+            [lgl_membership_level_id] => 422
+        )
+
+    [8] => Array
+        (
+            [level_name] =>  Supporter
+            [level_slug] => supporter
+            [lgl_membership_level_id] => 427
+        )
+
+    [9] => Array
+        (
+            [level_name] =>  Patron
+            [level_slug] => patron
+            [lgl_membership_level_id] => 432
+        )
+
 )
 
-[2025-11-17 11:35:05] [debug] LGL Constituents: 🔍 Membership level config from user meta Array
+[2025-11-18 06:52:47] [debug] LGL Constituents: 🔍 Membership level config from user meta Array
 (
-    [membership_level_id] => 412
+    [membership_level_id] => 427
     [found] => YES
 )
 
-[2025-11-17 11:35:05] [debug] LGL Constituents: 📋 Final level config Array
+[2025-11-18 06:52:47] [debug] LGL Constituents: 📋 Final level config Array
 (
-    [level_name] => Individual
-    [level_slug] => individual
-    [lgl_membership_level_id] => 412
+    [level_name] =>  Supporter
+    [level_slug] => supporter
+    [lgl_membership_level_id] => 427
 )
 
-[2025-11-17 11:35:05] [debug] LGL Constituents: Modern Membership Data Created Array
+[2025-11-18 06:52:47] [debug] LGL Constituents: Modern Membership Data Created Array
 (
-    [user_id] => 1958
-    [membership_type] => Individual
+    [user_id] => 1967
+    [membership_type] =>  Supporter
     [level_config] => Array
         (
-            [level_name] => Individual
-            [level_slug] => individual
-            [lgl_membership_level_id] => 412
+            [level_name] =>  Supporter
+            [level_slug] => supporter
+            [lgl_membership_level_id] => 427
         )
 
     [membership_data] => Array
         (
-            [membership_level_id] => 412
-            [membership_level_name] => Individual
-            [date_start] => 2025-11-17
-            [finish_date] => 2026-11-17
-            [note] => Membership created via Modern LGL API on 2025-11-17
+            [membership_level_id] => 427
+            [membership_level_name] =>  Supporter
+            [date_start] => 2025-11-18
+            [finish_date] => 2026-11-18
+            [note] => Membership created via Modern LGL API on 2025-11-18
         )
 
 )
 
-[2025-11-17 11:35:05] [debug] LGL Constituents: Final Membership Data Set Array
+[2025-11-18 06:52:47] [debug] LGL Constituents: Final Membership Data Set Array
 (
-    [membership_level_id] => 412
-    [membership_level_name] => Individual
-    [date_start] => 2025-11-17
-    [finish_date] => 2026-11-17
-    [note] => Membership created via Modern LGL API on 2025-11-17
+    [membership_level_id] => 427
+    [membership_level_name] =>  Supporter
+    [date_start] => 2025-11-18
+    [finish_date] => 2026-11-18
+    [note] => Membership created via Modern LGL API on 2025-11-18
 )
 
-[2025-11-17 11:35:05] [debug] LGL Constituents: All data set for user 1958
-[2025-11-17 11:35:05] [debug] LGL Constituents: Name set Array
+[2025-11-18 06:52:47] [debug] LGL Constituents: All data set for user 1967
+[2025-11-18 06:52:47] [debug] LGL Constituents: Name set Array
 (
     [first_name] => Andrew
     [last_name] => Skinner
@@ -761,13 +887,13 @@
     [sort_name] => Skinner, Andrew
     [is_deceased] => 
     [annual_report_name] => Andrew Skinner
-    [date_added] => 2025-11-17
+    [date_added] => 2025-11-18
     [is_anon] => 
 )
 
-[2025-11-17 11:35:05] [debug] LGL Constituents: Email already set, skipping duplicate andrew@hispanicalliancesc.com
-[2025-11-17 11:35:05] [debug] LGL Constituents: Phone set 8653120285
-[2025-11-17 11:35:05] [debug] 🔧 buildUpdateData: Including email addresses Array
+[2025-11-18 06:52:47] [debug] LGL Constituents: Email already set, skipping duplicate andrew@hispanicalliancesc.com
+[2025-11-18 06:52:47] [debug] LGL Constituents: Phone set 8653120285
+[2025-11-18 06:52:47] [debug] 🔧 buildUpdateData: Including email addresses Array
 (
     [count] => 1
     [emails] => Array
@@ -777,18 +903,17 @@
 
 )
 
-[2025-11-17 11:35:05] [debug] 🔧 buildUpdateData: Including phone numbers Array
+[2025-11-18 06:52:47] [debug] 🔧 buildUpdateData: Including phone numbers Array
 (
-    [count] => 2
+    [count] => 1
     [phones] => Array
         (
-            [0] => 8642560760
-            [1] => 8653120285
+            [0] => 8653120285
         )
 
 )
 
-[2025-11-17 11:35:05] [debug] 🔧 buildUpdateData: Including street addresses Array
+[2025-11-18 06:52:47] [debug] 🔧 buildUpdateData: Including street addresses Array
 (
     [count] => 1
     [addresses] => Array
@@ -798,16 +923,16 @@
 
 )
 
-[2025-11-17 11:35:05] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:35:06] [debug] Rate Limiter: Request recorded. Total in window: 4
-[2025-11-17 11:35:06] [debug] LGL Constituents: Constituent updated successfully Array
+[2025-11-18 06:52:47] [debug] Membership cron jobs scheduled successfully
+[2025-11-18 06:52:48] [debug] Rate Limiter: Request recorded. Total in window: 1
+[2025-11-18 06:52:48] [debug] LGL Constituents: Constituent updated successfully Array
 (
     [success] => 1
     [http_code] => 200
     [data] => Array
         (
             [api_version] => 1.0
-            [id] => 947132
+            [id] => 947172
             [external_constituent_id] => 
             [is_org] => 
             [constituent_contact_type_id] => 1247
@@ -835,7 +960,7 @@
             [maiden_name] => 
             [nick_name] => 
             [spouse_nick_name] => 
-            [date_added] => 2025-11-17
+            [date_added] => 2025-11-18
             [alt_salutation] => Andrew
             [alt_addressee] => Andrew Skinner
             [honorary_name] => Andrew Skinner
@@ -843,35 +968,21 @@
             [marital_status_id] => 
             [marital_status_name] => 
             [is_anon] => 
-            [created_at] => 2025-11-17T15:43:34Z
-            [updated_at] => 2025-11-17T16:35:06Z
+            [created_at] => 2025-11-18T11:45:52Z
+            [updated_at] => 2025-11-18T11:52:48Z
             [class_affiliations] => Array
                 (
                 )
 
             [relationships] => Array
                 (
-                    [0] => Array
-                        (
-                            [id] => 92
-                            [relationship_type_id] => 77
-                            [constituent_id] => 947132
-                            [related_constituent_id] => 947167
-                            [name] => Child
-                            [description] => 
-                            [auto_soft_credit] => 
-                            [also_acknowledge] => 
-                            [share_address] => 
-                            [share_phone] => 
-                        )
-
                 )
 
             [street_addresses] => Array
                 (
                     [0] => Array
                         (
-                            [id] => 840422
+                            [id] => 840432
                             [street] => 57 Blake Street
                             [city] => Greenville
                             [state] => SC
@@ -891,8 +1002,8 @@
                             [zip5] => 29605
                             [verified] => 
                             [verified_on] => 
-                            [created_at] => 2025-11-17T16:35:06Z
-                            [updated_at] => 2025-11-17T16:35:06Z
+                            [created_at] => 2025-11-18T11:45:56Z
+                            [updated_at] => 2025-11-18T11:45:56Z
                         )
 
                 )
@@ -901,7 +1012,7 @@
                 (
                     [0] => Array
                         (
-                            [id] => 482007
+                            [id] => 482077
                             [number] => 8653120285
                             [phone_number_type_id] => 1
                             [phone_type_name] => Home
@@ -909,22 +1020,22 @@
                             [not_current] => 
                             [parent_id] => 
                             [normalized_number] => 8653120285
-                            [created_at] => 2025-11-17T16:35:06Z
-                            [updated_at] => 2025-11-17T16:35:06Z
+                            [created_at] => 2025-11-18T11:46:42Z
+                            [updated_at] => 2025-11-18T11:46:42Z
                         )
 
                     [1] => Array
                         (
-                            [id] => 482002
-                            [number] => 8642560760
+                            [id] => 482072
+                            [number] => 
                             [phone_number_type_id] => 1
                             [phone_type_name] => Home
                             [is_preferred] => 
                             [not_current] => 
                             [parent_id] => 
-                            [normalized_number] => 8642560760
-                            [created_at] => 2025-11-17T16:35:06Z
-                            [updated_at] => 2025-11-17T16:35:06Z
+                            [normalized_number] => 
+                            [created_at] => 2025-11-18T11:45:54Z
+                            [updated_at] => 2025-11-18T11:50:25Z
                         )
 
                 )
@@ -933,15 +1044,28 @@
                 (
                     [0] => Array
                         (
-                            [id] => 279172
+                            [id] => 279207
                             [address] => andrew@hispanicalliancesc.com
                             [email_address_type_id] => 1
                             [email_type_name] => Home
                             [is_preferred] => 1
                             [not_current] => 
                             [parent_id] => 
-                            [created_at] => 2025-11-17T16:35:06Z
-                            [updated_at] => 2025-11-17T16:35:06Z
+                            [created_at] => 2025-11-18T11:45:53Z
+                            [updated_at] => 2025-11-18T11:50:06Z
+                        )
+
+                    [1] => Array
+                        (
+                            [id] => 279212
+                            [address] => 
+                            [email_address_type_id] => 1
+                            [email_type_name] => Home
+                            [is_preferred] => 
+                            [not_current] => 
+                            [parent_id] => 
+                            [created_at] => 2025-11-18T11:46:41Z
+                            [updated_at] => 2025-11-18T11:50:19Z
                         )
 
                 )
@@ -966,21 +1090,6 @@
                             [keywords] => Array
                                 (
                                     [0] => Array
-                                        (
-                                            [id] => 12777
-                                            [category_id] => 1287
-                                            [name] => Top 100 Donor
-                                            [description] => 
-                                            [short_code] => top_100_donor
-                                            [ordinal] => 0
-                                            [removable] => 
-                                            [can_change] => 1
-                                            [can_select] => 1
-                                            [created_at] => 2023-02-25T00:56:33Z
-                                            [updated_at] => 2023-02-25T00:56:33Z
-                                        )
-
-                                    [1] => Array
                                         (
                                             [id] => 12797
                                             [category_id] => 1287
@@ -1009,28 +1118,28 @@
                 (
                     [0] => Array
                         (
-                            [id] => 4082
-                            [constituent_id] => 947132
-                            [membership_level_id] => 412
-                            [membership_level_name] => Individual
-                            [date_start] => 2025-11-17
-                            [finish_date] => 2026-11-17
-                            [note] => Membership created via Modern LGL API on 2025-11-17
-                            [created_at] => 2025-11-17T15:54:31Z
-                            [updated_at] => 2025-11-17T16:32:04Z
+                            [id] => 4117
+                            [constituent_id] => 947172
+                            [membership_level_id] => 427
+                            [membership_level_name] =>  Supporter
+                            [date_start] => 2025-11-18
+                            [finish_date] => 2026-11-18
+                            [note] => Membership created via Modern LGL API on 2025-11-18
+                            [created_at] => 2025-11-18T11:46:46Z
+                            [updated_at] => 2025-11-18T11:46:52Z
                         )
 
                     [1] => Array
                         (
-                            [id] => 4077
-                            [constituent_id] => 947132
-                            [membership_level_id] => 412
-                            [membership_level_name] => Individual
-                            [date_start] => 2025-11-17
-                            [finish_date] => 2025-11-17
-                            [note] => Membership ended via WooCommerce renewal on 2025-11-17
-                            [created_at] => 2025-11-17T15:43:40Z
-                            [updated_at] => 2025-11-17T16:32:05Z
+                            [id] => 4112
+                            [constituent_id] => 947172
+                            [membership_level_id] => 427
+                            [membership_level_name] =>  Supporter
+                            [date_start] => 2025-11-18
+                            [finish_date] => 2025-11-18
+                            [note] => Membership ended via WooCommerce renewal on 2025-11-18
+                            [created_at] => 2025-11-18T11:45:58Z
+                            [updated_at] => 2025-11-18T11:46:52Z
                         )
 
                 )
@@ -1041,119 +1150,78 @@
 
         )
 
-    [raw_response] => {"api_version":"1.0","id":947132,"external_constituent_id":null,"is_org":false,"constituent_contact_type_id":1247,"constituent_contact_type_name":"Primary","prefix":null,"first_name":"Andrew","middle_name":null,"last_name":"Skinner","suffix":null,"spouse_name":null,"org_name":null,"job_title":null,"addressee":"Andrew Skinner","salutation":"Andrew","sort_name":"Skinner, Andrew","constituent_interest_level_id":null,"constituent_interest_level_name":null,"constituent_rating_id":null,"constituent_rating_name":null,"is_deceased":false,"deceased_date":null,"annual_report_name":"Andrew Skinner","birthday":null,"gender":null,"maiden_name":null,"nick_name":null,"spouse_nick_name":null,"date_added":"2025-11-17","alt_salutation":"Andrew","alt_addressee":"Andrew Skinner","honorary_name":"Andrew Skinner","assistant_name":null,"marital_status_id":null,"marital_status_name":null,"is_anon":false,"created_at":"2025-11-17T15:43:34Z","updated_at":"2025-11-17T16:35:06Z","class_affiliations":[],"relationships":[{"id":92,"relationship_type_id":77,"constituent_id":947132,"related_constituent_id":947167,"name":"Child","description":null,"auto_soft_credit":false,"also_acknowledge":false,"share_address":null,"share_phone":null}],"street_addresses":[{"id":840422,"street":"57 Blake Street","city":"Greenville","state":"SC","country":"US","postal_code":"29605","county":"","street_address_type_id":1,"street_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":false,"lat":null,"lng":null,"zip5":"29605","verified":false,"verified_on":null,"created_at":"2025-11-17T16:35:06Z","updated_at":"2025-11-17T16:35:06Z"}],"phone_numbers":[{"id":482007,"number":"8653120285","phone_number_type_id":1,"phone_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"normalized_number":"8653120285","created_at":"2025-11-17T16:35:06Z","updated_at":"2025-11-17T16:35:06Z"},{"id":482002,"number":"8642560760","phone_number_type_id":1,"phone_type_name":"Home","is_preferred":false,"not_current":false,"parent_id":null,"normalized_number":"8642560760","created_at":"2025-11-17T16:35:06Z","updated_at":"2025-11-17T16:35:06Z"}],"email_addresses":[{"id":279172,"address":"andrew@hispanicalliancesc.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2025-11-17T16:35:06Z","updated_at":"2025-11-17T16:35:06Z"}],"web_addresses":[],"categories":[{"id":1287,"item_type":"Constituent","name":"Giving Status","key":"giving_status","facet_type":"list","ordinal":100,"removable":false,"editable":false,"display_format":"compact","keywords":[{"id":12777,"category_id":1287,"name":"Top 100 Donor","description":null,"short_code":"top_100_donor","ordinal":0,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"},{"id":12797,"category_id":1287,"name":"Non Donor","description":null,"short_code":"non_donor","ordinal":4,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"}]}],"groups":[],"memberships":[{"id":4082,"constituent_id":947132,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-17","finish_date":"2026-11-17","note":"Membership created via Modern LGL API on 2025-11-17","created_at":"2025-11-17T15:54:31Z","updated_at":"2025-11-17T16:32:04Z"},{"id":4077,"constituent_id":947132,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-17","finish_date":"2025-11-17","note":"Membership ended via WooCommerce renewal on 2025-11-17","created_at":"2025-11-17T15:43:40Z","updated_at":"2025-11-17T16:32:05Z"}],"custom_attrs":[]}
+    [raw_response] => {"api_version":"1.0","id":947172,"external_constituent_id":null,"is_org":false,"constituent_contact_type_id":1247,"constituent_contact_type_name":"Primary","prefix":null,"first_name":"Andrew","middle_name":null,"last_name":"Skinner","suffix":null,"spouse_name":null,"org_name":null,"job_title":null,"addressee":"Andrew Skinner","salutation":"Andrew","sort_name":"Skinner, Andrew","constituent_interest_level_id":null,"constituent_interest_level_name":null,"constituent_rating_id":null,"constituent_rating_name":null,"is_deceased":false,"deceased_date":null,"annual_report_name":"Andrew Skinner","birthday":null,"gender":null,"maiden_name":null,"nick_name":null,"spouse_nick_name":null,"date_added":"2025-11-18","alt_salutation":"Andrew","alt_addressee":"Andrew Skinner","honorary_name":"Andrew Skinner","assistant_name":null,"marital_status_id":null,"marital_status_name":null,"is_anon":false,"created_at":"2025-11-18T11:45:52Z","updated_at":"2025-11-18T11:52:48Z","class_affiliations":[],"relationships":[],"street_addresses":[{"id":840432,"street":"57 Blake Street","city":"Greenville","state":"SC","country":"US","postal_code":"29605","county":"","street_address_type_id":1,"street_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"seasonal_from":"01-01","seasonal_to":"12-31","seasonal":false,"lat":null,"lng":null,"zip5":"29605","verified":false,"verified_on":null,"created_at":"2025-11-18T11:45:56Z","updated_at":"2025-11-18T11:45:56Z"}],"phone_numbers":[{"id":482077,"number":"8653120285","phone_number_type_id":1,"phone_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"normalized_number":"8653120285","created_at":"2025-11-18T11:46:42Z","updated_at":"2025-11-18T11:46:42Z"},{"id":482072,"number":"","phone_number_type_id":1,"phone_type_name":"Home","is_preferred":false,"not_current":false,"parent_id":null,"normalized_number":"","created_at":"2025-11-18T11:45:54Z","updated_at":"2025-11-18T11:50:25Z"}],"email_addresses":[{"id":279207,"address":"andrew@hispanicalliancesc.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2025-11-18T11:45:53Z","updated_at":"2025-11-18T11:50:06Z"},{"id":279212,"address":"","email_address_type_id":1,"email_type_name":"Home","is_preferred":false,"not_current":false,"parent_id":null,"created_at":"2025-11-18T11:46:41Z","updated_at":"2025-11-18T11:50:19Z"}],"web_addresses":[],"categories":[{"id":1287,"item_type":"Constituent","name":"Giving Status","key":"giving_status","facet_type":"list","ordinal":100,"removable":false,"editable":false,"display_format":"compact","keywords":[{"id":12797,"category_id":1287,"name":"Non Donor","description":null,"short_code":"non_donor","ordinal":4,"removable":false,"can_change":true,"can_select":true,"created_at":"2023-02-25T00:56:33Z","updated_at":"2023-02-25T00:56:33Z"}]}],"groups":[],"memberships":[{"id":4117,"constituent_id":947172,"membership_level_id":427,"membership_level_name":" Supporter","date_start":"2025-11-18","finish_date":"2026-11-18","note":"Membership created via Modern LGL API on 2025-11-18","created_at":"2025-11-18T11:46:46Z","updated_at":"2025-11-18T11:46:52Z"},{"id":4112,"constituent_id":947172,"membership_level_id":427,"membership_level_name":" Supporter","date_start":"2025-11-18","finish_date":"2025-11-18","note":"Membership ended via WooCommerce renewal on 2025-11-18","created_at":"2025-11-18T11:45:58Z","updated_at":"2025-11-18T11:46:52Z"}],"custom_attrs":[]}
 )
 
-[2025-11-17 11:35:06] [debug] LGL Cache: DELETED key constituent_947132
-[2025-11-17 11:35:06] [debug] LGL Cache: SET key constituent_947132 (TTL: 3600s)
-[2025-11-17 11:35:06] [debug] Rate Limiter: Waiting 767.951171875ms before next request
-[2025-11-17 11:35:07] [debug] Rate Limiter: Request recorded. Total in window: 5
-[2025-11-17 11:35:07] [debug] ✅ MembershipRegistrationService: Constituent updated (Step 1/5) Array
+[2025-11-18 06:52:48] [debug] 🔄 updateOrAddEmailAddress: Checking existing emails Array
 (
-    [lgl_id] => 947132
-    [http_code] => 200
-    [skip_membership] => 
+    [lgl_id] => 947172
+    [email] => andrew@hispanicalliancesc.com
 )
 
-[2025-11-17 11:35:07] [debug] Rate Limiter: Waiting 475.94287109375ms before next request
-[2025-11-17 11:35:08] [debug] 🔍 RAW JSON PAYLOAD: {"address":"andrew@hispanicalliancesc.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false}
-[2025-11-17 11:35:08] [debug] Rate Limiter: Request recorded. Total in window: 6
-[2025-11-17 11:35:08] [debug] ✅ MembershipRegistrationService: Email added (Step 2/4) Array
+[2025-11-18 06:52:48] [debug] Rate Limiter: Waiting 641.7939453125ms before next request
+[2025-11-18 06:52:49] [debug] Rate Limiter: Request recorded. Total in window: 2
+[2025-11-18 06:52:49] [debug] 🔍 getConstituentEmails: Raw response format Array
 (
-    [lgl_id] => 947132
-    [success] => 1
-    [response] => Array
+    [lgl_id] => 947172
+    [data_type] => array
+    [is_array] => 1
+    [has_items] => 1
+    [first_item_has_address] => 
+    [data_keys] => Array
         (
-            [success] => 1
-            [http_code] => 200
-            [data] => Array
-                (
-                    [api_version] => 1.0
-                    [id] => 279177
-                    [item_id] => 947132
-                    [item_type] => Constituent
-                    [address] => andrew@hispanicalliancesc.com
-                    [email_address_type_id] => 1
-                    [email_type_name] => Home
-                    [is_preferred] => 1
-                    [not_current] => 
-                    [parent_id] => 
-                    [created_at] => 2025-11-17T16:35:08Z
-                    [updated_at] => 2025-11-17T16:35:08Z
-                )
-
-            [raw_response] => {"api_version":"1.0","id":279177,"item_id":947132,"item_type":"Constituent","address":"andrew@hispanicalliancesc.com","email_address_type_id":1,"email_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"created_at":"2025-11-17T16:35:08Z","updated_at":"2025-11-17T16:35:08Z"}
+            [0] => api_version
+            [1] => items_count
+            [2] => total_items
+            [3] => limit
+            [4] => offset
+            [5] => item_type
+            [6] => items
         )
 
 )
 
-[2025-11-17 11:35:08] [debug] Rate Limiter: Waiting 564.06689453125ms before next request
-[2025-11-17 11:35:09] [debug] 🔍 RAW JSON PAYLOAD: {"number":"8642560760","phone_number_type_id":1,"phone_type_name":"Home","is_preferred":true,"not_current":false}
-[2025-11-17 11:35:09] [debug] Rate Limiter: Request recorded. Total in window: 7
-[2025-11-17 11:35:09] [debug] ✅ MembershipRegistrationService: Phone added (Step 3/4) Array
+[2025-11-18 06:52:49] [debug] 🔍 getConstituentEmails: Items array format Array
 (
-    [lgl_id] => 947132
-    [success] => 1
-    [response] => Array
-        (
-            [success] => 1
-            [http_code] => 200
-            [data] => Array
-                (
-                    [api_version] => 1.0
-                    [id] => 482012
-                    [item_id] => 947132
-                    [item_type] => Constituent
-                    [number] => 8642560760
-                    [phone_number_type_id] => 1
-                    [phone_type_name] => Home
-                    [is_preferred] => 1
-                    [not_current] => 
-                    [parent_id] => 
-                    [normalized_number] => 8642560760
-                    [created_at] => 2025-11-17T16:35:09Z
-                    [updated_at] => 2025-11-17T16:35:09Z
-                )
-
-            [raw_response] => {"api_version":"1.0","id":482012,"item_id":947132,"item_type":"Constituent","number":"8642560760","phone_number_type_id":1,"phone_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"normalized_number":"8642560760","created_at":"2025-11-17T16:35:09Z","updated_at":"2025-11-17T16:35:09Z"}
-        )
-
+    [count] => 2
 )
 
-[2025-11-17 11:35:09] [debug] Rate Limiter: Waiting 521.0009765625ms before next request
-[2025-11-17 11:35:10] [debug] 🔍 RAW JSON PAYLOAD: {"number":"8653120285","phone_number_type_id":1,"phone_type_name":"Home","is_preferred":true,"not_current":false}
-[2025-11-17 11:35:10] [debug] Rate Limiter: Request recorded. Total in window: 8
-[2025-11-17 11:35:10] [debug] ✅ MembershipRegistrationService: Phone added (Step 3/4) Array
+[2025-11-18 06:52:49] [debug] ✅ updateOrAddEmailAddress: Email unchanged, skipping Array
 (
-    [lgl_id] => 947132
-    [success] => 1
-    [response] => Array
-        (
-            [success] => 1
-            [http_code] => 200
-            [data] => Array
-                (
-                    [api_version] => 1.0
-                    [id] => 482017
-                    [item_id] => 947132
-                    [item_type] => Constituent
-                    [number] => 8653120285
-                    [phone_number_type_id] => 1
-                    [phone_type_name] => Home
-                    [is_preferred] => 1
-                    [not_current] => 
-                    [parent_id] => 
-                    [normalized_number] => 8653120285
-                    [created_at] => 2025-11-17T16:35:10Z
-                    [updated_at] => 2025-11-17T16:35:10Z
-                )
-
-            [raw_response] => {"api_version":"1.0","id":482017,"item_id":947132,"item_type":"Constituent","number":"8653120285","phone_number_type_id":1,"phone_type_name":"Home","is_preferred":true,"not_current":false,"parent_id":null,"normalized_number":"8653120285","created_at":"2025-11-17T16:35:10Z","updated_at":"2025-11-17T16:35:10Z"}
-        )
-
+    [email] => andrew@hispanicalliancesc.com
 )
 
-[2025-11-17 11:35:10] [debug] LGL Constituents: 🔍 getAddressData: Returning address data Array
+[2025-11-18 06:52:49] [debug] ✅ syncContactInfo: Email unchanged Array
+(
+    [lgl_id] => 947172
+    [email] => andrew@hispanicalliancesc.com
+)
+
+[2025-11-18 06:52:49] [debug] 🔄 updateOrAddPhoneNumber: Checking existing phones Array
+(
+    [lgl_id] => 947172
+    [phone] => 8653120285
+)
+
+[2025-11-18 06:52:49] [debug] Rate Limiter: Waiting 575.58081054688ms before next request
+[2025-11-18 06:52:50] [debug] Rate Limiter: Request recorded. Total in window: 3
+[2025-11-18 06:52:50] [debug] 🔍 getConstituentPhones: Items array format Array
+(
+    [count] => 2
+)
+
+[2025-11-18 06:52:50] [debug] ✅ updateOrAddPhoneNumber: Phone unchanged, skipping Array
+(
+    [phone] => 8653120285
+)
+
+[2025-11-18 06:52:50] [debug] ✅ syncContactInfo: Phone unchanged Array
+(
+    [lgl_id] => 947172
+    [phone] => 8653120285
+)
+
+[2025-11-18 06:52:50] [debug] LGL Constituents: 🔍 getAddressData: Returning address data Array
 (
     [count] => 1
     [data] => Array
@@ -1179,226 +1247,348 @@
 
 )
 
-[2025-11-17 11:35:10] [debug] 🔍 MembershipRegistrationService: Checking address data Array
+[2025-11-18 06:52:50] [debug] 🔄 updateOrAddStreetAddress: Checking existing addresses Array
 (
-    [lgl_id] => 947132
-    [address_data_count] => 1
-    [address_data] => Array
-        (
-            [0] => Array
-                (
-                    [street] => 57 Blake Street
-                    [street_address_type_id] => 1
-                    [street_type_name] => Home
-                    [city] => Greenville
-                    [state] => SC
-                    [postal_code] => 29605
-                    [county] => 
-                    [country] => US
-                    [seasonal_from] => 01-01
-                    [seasonal_to] => 12-31
-                    [seasonal] => 
-                    [is_preferred] => 1
-                    [not_current] => 
-                )
+    [lgl_id] => 947172
+    [street] => 57 Blake Street
+    [city] => Greenville
+)
 
+[2025-11-18 06:52:50] [debug] Rate Limiter: Waiting 561.34716796875ms before next request
+[2025-11-18 06:52:51] [debug] Rate Limiter: Request recorded. Total in window: 4
+[2025-11-18 06:52:51] [debug] 🔍 getConstituentAddresses: Items array format Array
+(
+    [count] => 1
+)
+
+[2025-11-18 06:52:51] [debug] ✅ updateOrAddStreetAddress: Address unchanged, skipping Array
+(
+    [street] => 57 Blake Street
+)
+
+[2025-11-18 06:52:51] [debug] ✅ syncContactInfo: Address unchanged Array
+(
+    [lgl_id] => 947172
+    [street] => 57 Blake Street
+)
+
+[2025-11-18 06:52:51] [debug] LGL Cache: DELETED key constituent_947172
+[2025-11-18 06:52:51] [debug] LGL Cache: SET key constituent_947172 (TTL: 3600s)
+[2025-11-18 06:52:51] [debug] Rate Limiter: Waiting 585.21411132812ms before next request
+[2025-11-18 06:52:51] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:52:51] [debug] Membership cron jobs scheduled successfully
+[2025-11-18 06:52:51] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:52:52] [debug] Membership cron jobs scheduled successfully
+[2025-11-18 06:52:52] [debug] 🔍 SubscriptionRenewalManager: displayManualRenewalStatus() called Array
+(
+    [user_id] => 1967
+    [show_all] => no
+)
+
+[2025-11-18 06:52:52] [debug] 📊 WC Subscriptions check Array
+(
+    [user_id] => 1967
+    [subscription_count] => 0
+    [has_subscriptions] => 
+)
+
+[2025-11-18 06:52:52] [debug] 🔍 Checking for one-time membership (priority check) Array
+(
+    [user_id] => 1967
+)
+
+[2025-11-18 06:52:52] [debug] 🔍 Getting one-time membership status Array
+(
+    [user_id] => 1967
+)
+
+[2025-11-18 06:52:52] [debug] 📊 User meta values Array
+(
+    [user_id] => 1967
+    [subscription_status] => one-time
+    [renewal_timestamp] => 1795002767
+    [start_timestamp] => 1763448767
+    [membership_level] =>  Supporter
+    [renewal_date_formatted] => 2026-11-18 11:52:47
+    [start_date_formatted] => 2025-11-18 06:52:47
+)
+
+[2025-11-18 06:52:52] [debug] ⏰ Membership expiration check Array
+(
+    [user_id] => 1967
+    [now] => 2025-11-18 06:52:52
+    [renewal_date] => 2026-11-18 11:52:47
+    [is_active] => 1
+    [seconds_remaining] => 31553995
+)
+
+[2025-11-18 06:52:52] [debug] 📅 Days remaining calculated Array
+(
+    [user_id] => 1967
+    [days_remaining] => 366
+)
+
+[2025-11-18 06:52:52] [debug] 🔍 Getting last membership product name Array
+(
+    [user_id] => 1967
+)
+
+[2025-11-18 06:52:52] [debug] 📦 Orders found Array
+(
+    [user_id] => 1967
+    [order_count] => 78
+)
+
+[2025-11-18 06:52:52] [debug] 🔍 Checking order Array
+(
+    [order_id] => 90172
+    [order_date] => 2025-11-18 06:52:45
+)
+
+[2025-11-18 06:52:52] [debug] 🏷️ Checking product Array
+(
+    [product_id] => 89885
+    [product_name] => Supporter
+    [has_membership_category] => 1
+)
+
+[2025-11-18 06:52:52] [debug] ✅ Found membership product Array
+(
+    [product_name] => Supporter
+    [order_id] => 90172
+)
+
+[2025-11-18 06:52:52] [debug] 🎫 Product name retrieved Array
+(
+    [user_id] => 1967
+    [product_name] => Supporter
+)
+
+[2025-11-18 06:52:52] [debug] ✅ One-time membership status compiled Array
+(
+    [user_id] => 1967
+    [status_data] => Array
+        (
+            [user_id] => 1967
+            [membership_level] =>  Supporter
+            [product_name] => Supporter
+            [start_date] => November 18, 2025
+            [renewal_date] => November 18, 2026
+            [days_remaining] => 366
+            [is_active] => 1
+            [status] => active
         )
 
 )
 
-[2025-11-17 11:35:10] [debug] 🔍 addStreetAddressSafe: Checking for duplicate Array
+[2025-11-18 06:52:52] [debug] 📋 One-time membership status result Array
 (
-    [lgl_id] => 947132
-    [street] => 57 Blake Street
-    [city] => Greenville
-    [postal_code] => 29605
+    [user_id] => 1967
+    [status_found] => 1
+    [status_data] => Array
+        (
+            [user_id] => 1967
+            [membership_level] =>  Supporter
+            [product_name] => Supporter
+            [start_date] => November 18, 2025
+            [renewal_date] => November 18, 2026
+            [days_remaining] => 366
+            [is_active] => 1
+            [status] => active
+        )
+
 )
 
-[2025-11-17 11:35:10] [debug] Rate Limiter: Waiting 577.51806640625ms before next request
-[2025-11-17 11:35:11] [debug] Rate Limiter: Request recorded. Total in window: 9
-[2025-11-17 11:35:11] [debug] 🔍 getConstituentAddresses: Items array format Array
+[2025-11-18 06:52:52] [debug] ✅ One-time membership found - displaying it (hiding any WC subscriptions) Array
 (
-    [count] => 1
+    [user_id] => 1967
+    [membership_level] =>  Supporter
+    [days_remaining] => 366
+    [wc_subscriptions_hidden] => 0
 )
 
-[2025-11-17 11:35:11] [debug] 🔍 addStreetAddressSafe: Found existing addresses Array
+[2025-11-18 06:52:52] [debug] Rate Limiter: Request recorded. Total in window: 5
+[2025-11-18 06:52:52] [debug] ✅ MembershipRegistrationService: Constituent updated (Step 1/5) Array
 (
-    [count] => 1
+    [lgl_id] => 947172
+    [http_code] => 200
+    [skip_membership] => 
 )
 
-[2025-11-17 11:35:11] [debug] ⚠️ Address already exists, skipping duplicate Array
+[2025-11-18 06:52:52] [debug] ℹ️ MembershipRegistrationService: Skipping email/phone (already handled by syncContactInfo()) Array
 (
-    [lgl_id] => 947132
-    [street] => 57 Blake Street
-    [address_id] => 840422
+    [lgl_id] => 947172
 )
 
-[2025-11-17 11:35:11] [debug] ⚠️ MembershipRegistrationService: Address skipped (already exists) Array
+[2025-11-18 06:52:52] [debug] ℹ️ MembershipRegistrationService: Skipping address (already handled by syncContactInfo()) Array
 (
-    [lgl_id] => 947132
-    [street] => 57 Blake Street
+    [lgl_id] => 947172
 )
 
-[2025-11-17 11:35:11] [debug] 🔍 Connection::getMemberships() Array
+[2025-11-18 06:52:52] [debug] 🔍 Connection::getMemberships() Array
 (
-    [endpoint] => constituents/947132/memberships
-    [lgl_id] => 947132
+    [endpoint] => constituents/947172/memberships
+    [lgl_id] => 947172
 )
 
-[2025-11-17 11:35:11] [debug] Rate Limiter: Waiting 498.89794921875ms before next request
-[2025-11-17 11:35:12] [debug] Rate Limiter: Request recorded. Total in window: 10
-[2025-11-17 11:35:12] [debug] 📥 Memberships Response Array
+[2025-11-18 06:52:52] [debug] Rate Limiter: Waiting 455.63598632812ms before next request
+[2025-11-18 06:52:52] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:52:53] [debug] Membership cron jobs scheduled successfully
+[2025-11-18 06:52:53] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:52:53] [debug] Membership cron jobs scheduled successfully
+[2025-11-18 06:52:53] [debug] Rate Limiter: Request recorded. Total in window: 6
+[2025-11-18 06:52:53] [debug] 📥 Memberships Response Array
 (
     [success] => 1
     [count] => 2
 )
 
-[2025-11-17 11:35:12] [debug] 🔄 Deactivating old active memberships Array
+[2025-11-18 06:52:53] [debug] 🔄 Deactivating old active memberships Array
 (
-    [lgl_id] => 947132
+    [lgl_id] => 947172
     [active_count] => 2
     [total_count] => 2
 )
 
-[2025-11-17 11:35:12] [debug] 🔄 Connection::updateMembership() - Using direct endpoint Array
+[2025-11-18 06:52:53] [debug] 🔄 Connection::updateMembership() - Using direct endpoint Array
 (
-    [endpoint] => memberships/4077
-    [membership_id] => 4077
+    [endpoint] => memberships/4112
+    [membership_id] => 4112
     [membership_data] => Array
         (
-            [id] => 4077
-            [membership_level_id] => 412
-            [membership_level_name] => Individual
-            [date_start] => 2025-11-17
-            [finish_date] => 2025-11-17
-            [note] => Membership ended via WooCommerce renewal on 2025-11-17
+            [id] => 4112
+            [membership_level_id] => 427
+            [membership_level_name] =>  Supporter
+            [date_start] => 2025-11-18
+            [finish_date] => 2025-11-18
+            [note] => Membership ended via WooCommerce renewal on 2025-11-18
         )
 
 )
 
-[2025-11-17 11:35:12] [debug] Rate Limiter: Waiting 636.52001953125ms before next request
-[2025-11-17 11:35:13] [debug] Rate Limiter: Request recorded. Total in window: 11
-[2025-11-17 11:35:13] [debug] 📥 Membership Update Response Array
+[2025-11-18 06:52:53] [debug] Rate Limiter: Waiting 573.61596679688ms before next request
+[2025-11-18 06:52:54] [debug] Rate Limiter: Request recorded. Total in window: 7
+[2025-11-18 06:52:54] [debug] 📥 Membership Update Response Array
 (
     [success] => 1
     [http_code] => 200
     [data] => Array
         (
             [api_version] => 1.0
-            [id] => 4077
-            [constituent_id] => 947132
-            [membership_level_id] => 412
-            [membership_level_name] => Individual
-            [date_start] => 2025-11-17
-            [finish_date] => 2025-11-17
-            [note] => Membership ended via WooCommerce renewal on 2025-11-17
-            [created_at] => 2025-11-17T15:43:40Z
-            [updated_at] => 2025-11-17T16:35:13Z
+            [id] => 4112
+            [constituent_id] => 947172
+            [membership_level_id] => 427
+            [membership_level_name] =>  Supporter
+            [date_start] => 2025-11-18
+            [finish_date] => 2025-11-18
+            [note] => Membership ended via WooCommerce renewal on 2025-11-18
+            [created_at] => 2025-11-18T11:45:58Z
+            [updated_at] => 2025-11-18T11:52:54Z
         )
 
-    [raw_response] => {"api_version":"1.0","id":4077,"constituent_id":947132,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-17","finish_date":"2025-11-17","note":"Membership ended via WooCommerce renewal on 2025-11-17","created_at":"2025-11-17T15:43:40Z","updated_at":"2025-11-17T16:35:13Z"}
+    [raw_response] => {"api_version":"1.0","id":4112,"constituent_id":947172,"membership_level_id":427,"membership_level_name":" Supporter","date_start":"2025-11-18","finish_date":"2025-11-18","note":"Membership ended via WooCommerce renewal on 2025-11-18","created_at":"2025-11-18T11:45:58Z","updated_at":"2025-11-18T11:52:54Z"}
 )
 
-[2025-11-17 11:35:13] [debug] ✅ Membership updated successfully Array
+[2025-11-18 06:52:54] [debug] ✅ Membership updated successfully Array
 (
-    [membership_id] => 4077
+    [membership_id] => 4112
 )
 
-[2025-11-17 11:35:13] [debug] ✅ Deactivated membership Array
+[2025-11-18 06:52:54] [debug] ✅ Deactivated membership Array
 (
-    [membership_id] => 4077
+    [membership_id] => 4112
 )
 
-[2025-11-17 11:35:13] [debug] 🔄 Connection::updateMembership() - Using direct endpoint Array
+[2025-11-18 06:52:54] [debug] 🔄 Connection::updateMembership() - Using direct endpoint Array
 (
-    [endpoint] => memberships/4082
-    [membership_id] => 4082
+    [endpoint] => memberships/4117
+    [membership_id] => 4117
     [membership_data] => Array
         (
-            [id] => 4082
-            [membership_level_id] => 412
-            [membership_level_name] => Individual
-            [date_start] => 2025-11-17
-            [finish_date] => 2025-11-17
-            [note] => Membership ended via WooCommerce renewal on 2025-11-17
+            [id] => 4117
+            [membership_level_id] => 427
+            [membership_level_name] =>  Supporter
+            [date_start] => 2025-11-18
+            [finish_date] => 2025-11-18
+            [note] => Membership ended via WooCommerce renewal on 2025-11-18
         )
 
 )
 
-[2025-11-17 11:35:13] [debug] Rate Limiter: Waiting 624.31982421875ms before next request
-[2025-11-17 11:35:14] [debug] Rate Limiter: Request recorded. Total in window: 12
-[2025-11-17 11:35:14] [debug] 📥 Membership Update Response Array
+[2025-11-18 06:52:54] [debug] Rate Limiter: Waiting 561.44189453125ms before next request
+[2025-11-18 06:52:55] [debug] Rate Limiter: Request recorded. Total in window: 8
+[2025-11-18 06:52:55] [debug] 📥 Membership Update Response Array
 (
     [success] => 1
     [http_code] => 200
     [data] => Array
         (
             [api_version] => 1.0
-            [id] => 4082
-            [constituent_id] => 947132
-            [membership_level_id] => 412
-            [membership_level_name] => Individual
-            [date_start] => 2025-11-17
-            [finish_date] => 2025-11-17
-            [note] => Membership ended via WooCommerce renewal on 2025-11-17
-            [created_at] => 2025-11-17T15:54:31Z
-            [updated_at] => 2025-11-17T16:35:14Z
+            [id] => 4117
+            [constituent_id] => 947172
+            [membership_level_id] => 427
+            [membership_level_name] =>  Supporter
+            [date_start] => 2025-11-18
+            [finish_date] => 2025-11-18
+            [note] => Membership ended via WooCommerce renewal on 2025-11-18
+            [created_at] => 2025-11-18T11:46:46Z
+            [updated_at] => 2025-11-18T11:52:55Z
         )
 
-    [raw_response] => {"api_version":"1.0","id":4082,"constituent_id":947132,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-17","finish_date":"2025-11-17","note":"Membership ended via WooCommerce renewal on 2025-11-17","created_at":"2025-11-17T15:54:31Z","updated_at":"2025-11-17T16:35:14Z"}
+    [raw_response] => {"api_version":"1.0","id":4117,"constituent_id":947172,"membership_level_id":427,"membership_level_name":" Supporter","date_start":"2025-11-18","finish_date":"2025-11-18","note":"Membership ended via WooCommerce renewal on 2025-11-18","created_at":"2025-11-18T11:46:46Z","updated_at":"2025-11-18T11:52:55Z"}
 )
 
-[2025-11-17 11:35:14] [debug] ✅ Membership updated successfully Array
+[2025-11-18 06:52:55] [debug] ✅ Membership updated successfully Array
 (
-    [membership_id] => 4082
+    [membership_id] => 4117
 )
 
-[2025-11-17 11:35:14] [debug] ✅ Deactivated membership Array
+[2025-11-18 06:52:55] [debug] ✅ Deactivated membership Array
 (
-    [membership_id] => 4082
+    [membership_id] => 4117
 )
 
-[2025-11-17 11:35:14] [debug] LGL Membership Payload Array
+[2025-11-18 06:52:55] [debug] LGL Membership Payload Array
 (
-    [endpoint] => constituents/947132/memberships
+    [endpoint] => constituents/947172/memberships
     [payload] => Array
         (
-            [membership_level_id] => 412
-            [membership_level_name] => Individual
-            [date_start] => 2025-11-17
-            [finish_date] => 2026-11-17
-            [note] => Membership created via Modern LGL API on 2025-11-17
+            [membership_level_id] => 427
+            [membership_level_name] =>  Supporter
+            [date_start] => 2025-11-18
+            [finish_date] => 2026-11-18
+            [note] => Membership created via Modern LGL API on 2025-11-18
         )
 
 )
 
-[2025-11-17 11:35:14] [debug] Rate Limiter: Waiting 566.72607421875ms before next request
-[2025-11-17 11:35:15] [debug] 🔍 RAW JSON PAYLOAD: {"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-17","finish_date":"2026-11-17","note":"Membership created via Modern LGL API on 2025-11-17"}
-[2025-11-17 11:35:15] [debug] Rate Limiter: Request recorded. Total in window: 13
-[2025-11-17 11:35:15] [debug] LGL Membership Response Array
+[2025-11-18 06:52:55] [debug] Rate Limiter: Waiting 500.3330078125ms before next request
+[2025-11-18 06:52:56] [debug] 🔍 RAW JSON PAYLOAD: {"membership_level_id":427,"membership_level_name":" Supporter","date_start":"2025-11-18","finish_date":"2026-11-18","note":"Membership created via Modern LGL API on 2025-11-18"}
+[2025-11-18 06:52:56] [debug] Rate Limiter: Request recorded. Total in window: 9
+[2025-11-18 06:52:56] [debug] LGL Membership Response Array
 (
     [success] => 1
     [http_code] => 200
     [data] => Array
         (
             [api_version] => 1.0
-            [id] => 4087
-            [constituent_id] => 947132
-            [membership_level_id] => 412
-            [membership_level_name] => Individual
-            [date_start] => 2025-11-17
-            [finish_date] => 2026-11-17
-            [note] => Membership created via Modern LGL API on 2025-11-17
-            [created_at] => 2025-11-17T16:35:15Z
-            [updated_at] => 2025-11-17T16:35:15Z
+            [id] => 4122
+            [constituent_id] => 947172
+            [membership_level_id] => 427
+            [membership_level_name] =>  Supporter
+            [date_start] => 2025-11-18
+            [finish_date] => 2026-11-18
+            [note] => Membership created via Modern LGL API on 2025-11-18
+            [created_at] => 2025-11-18T11:52:56Z
+            [updated_at] => 2025-11-18T11:52:56Z
         )
 
-    [raw_response] => {"api_version":"1.0","id":4087,"constituent_id":947132,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-17","finish_date":"2026-11-17","note":"Membership created via Modern LGL API on 2025-11-17","created_at":"2025-11-17T16:35:15Z","updated_at":"2025-11-17T16:35:15Z"}
+    [raw_response] => {"api_version":"1.0","id":4122,"constituent_id":947172,"membership_level_id":427,"membership_level_name":" Supporter","date_start":"2025-11-18","finish_date":"2026-11-18","note":"Membership created via Modern LGL API on 2025-11-18","created_at":"2025-11-18T11:52:56Z","updated_at":"2025-11-18T11:52:56Z"}
 )
 
-[2025-11-17 11:35:15] [debug] ✅ MembershipRegistrationService: New membership added (Step 5/5) Array
+[2025-11-18 06:52:56] [debug] ✅ MembershipRegistrationService: New membership added (Step 5/5) Array
 (
-    [lgl_id] => 947132
+    [lgl_id] => 947172
     [success] => 1
     [response] => Array
         (
@@ -1407,58 +1597,30 @@
             [data] => Array
                 (
                     [api_version] => 1.0
-                    [id] => 4087
-                    [constituent_id] => 947132
-                    [membership_level_id] => 412
-                    [membership_level_name] => Individual
-                    [date_start] => 2025-11-17
-                    [finish_date] => 2026-11-17
-                    [note] => Membership created via Modern LGL API on 2025-11-17
-                    [created_at] => 2025-11-17T16:35:15Z
-                    [updated_at] => 2025-11-17T16:35:15Z
+                    [id] => 4122
+                    [constituent_id] => 947172
+                    [membership_level_id] => 427
+                    [membership_level_name] =>  Supporter
+                    [date_start] => 2025-11-18
+                    [finish_date] => 2026-11-18
+                    [note] => Membership created via Modern LGL API on 2025-11-18
+                    [created_at] => 2025-11-18T11:52:56Z
+                    [updated_at] => 2025-11-18T11:52:56Z
                 )
 
-            [raw_response] => {"api_version":"1.0","id":4087,"constituent_id":947132,"membership_level_id":412,"membership_level_name":"Individual","date_start":"2025-11-17","finish_date":"2026-11-17","note":"Membership created via Modern LGL API on 2025-11-17","created_at":"2025-11-17T16:35:15Z","updated_at":"2025-11-17T16:35:15Z"}
+            [raw_response] => {"api_version":"1.0","id":4122,"constituent_id":947172,"membership_level_id":427,"membership_level_name":" Supporter","date_start":"2025-11-18","finish_date":"2026-11-18","note":"Membership created via Modern LGL API on 2025-11-18","created_at":"2025-11-18T11:52:56Z","updated_at":"2025-11-18T11:52:56Z"}
         )
 
 )
 
-[2025-11-17 11:35:15] [debug] LGL Connection: Cache HIT for constituents/947132
-[2025-11-17 11:35:15] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
+[2025-11-18 06:52:56] [debug] LGL Connection: Cache HIT for constituents/947172
+[2025-11-18 06:52:56] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
 (
     [method] => Memberships
 )
 
-[2025-11-17 11:35:15] [debug] LGL Cache: GET MISS for key payment_types_a7a7b26872b3e2d00de7bb7b1452b5a8
-[2025-11-17 11:35:15] [debug] 🔍 LGL Payments: No cache, making API requests...
-[2025-11-17 11:35:15] [debug] LGL Cache: GET MISS for key api_request_aaeb127445991344eb9d8c32705ed172
-[2025-11-17 11:35:15] [debug] Rate Limiter: Waiting 498.36401367188ms before next request
-[2025-11-17 11:35:16] [debug] Rate Limiter: Request recorded. Total in window: 14
-[2025-11-17 11:35:16] [debug] LGL Cache: SET key api_request_aaeb127445991344eb9d8c32705ed172 (TTL: 3600s)
-[2025-11-17 11:35:16] [debug] LGL Cache: GET MISS for key api_request_6e3ba696cc9949cba84254d6d298c22b
-[2025-11-17 11:35:16] [debug] Rate Limiter: Waiting 548.9951171875ms before next request
-[2025-11-17 11:35:17] [debug] Rate Limiter: Request recorded. Total in window: 15
-[2025-11-17 11:35:17] [debug] LGL Cache: SET key api_request_6e3ba696cc9949cba84254d6d298c22b (TTL: 3600s)
-[2025-11-17 11:35:17] [debug] LGL Cache: GET MISS for key api_request_2096fd49001738ce285c5cb8f61abaf5
-[2025-11-17 11:35:17] [debug] Rate Limiter: Waiting 485.80493164062ms before next request
-[2025-11-17 11:35:18] [debug] Rate Limiter: Request recorded. Total in window: 16
-[2025-11-17 11:35:18] [debug] LGL Cache: SET key api_request_2096fd49001738ce285c5cb8f61abaf5 (TTL: 3600s)
-[2025-11-17 11:35:18] [debug] LGL Cache: GET MISS for key api_request_164c8af342666973ed856fbb42dc4600
-[2025-11-17 11:35:18] [debug] Rate Limiter: Waiting 528.73315429688ms before next request
-[2025-11-17 11:35:19] [debug] Rate Limiter: Request recorded. Total in window: 17
-[2025-11-17 11:35:19] [debug] LGL Cache: SET key api_request_164c8af342666973ed856fbb42dc4600 (TTL: 3600s)
-[2025-11-17 11:35:19] [debug] LGL Cache: GET MISS for key api_request_0ca4268ca4a8b1bc6be73e2ebd2dbae4
-[2025-11-17 11:35:19] [debug] Rate Limiter: Waiting 569.7900390625ms before next request
-[2025-11-17 11:35:20] [debug] Rate Limiter: Request recorded. Total in window: 18
-[2025-11-17 11:35:20] [debug] LGL Cache: SET key api_request_0ca4268ca4a8b1bc6be73e2ebd2dbae4 (TTL: 3600s)
-[2025-11-17 11:35:20] [debug] LGL Cache: SET key payment_types_a7a7b26872b3e2d00de7bb7b1452b5a8 (TTL: 1800s)
-[2025-11-17 11:35:20] [debug] LGL Payments: Payment types retrieved Array
-(
-    [method] => Memberships
-    [count] => 7
-)
-
-[2025-11-17 11:35:20] [debug] LGL Payments: Payment data retrieved Array
+[2025-11-18 06:52:56] [debug] 🔍 LGL Payments: Using cached data
+[2025-11-18 06:52:56] [debug] LGL Payments: Payment data retrieved Array
 (
     [method] => Memberships
     [data_keys] => Array
@@ -1477,10 +1639,10 @@
     [payment_types_count] => 7
 )
 
-[2025-11-17 11:35:20] [debug] LGL Payments: Fund ID detection by category Array
+[2025-11-18 06:52:56] [debug] LGL Payments: Fund ID detection by category Array
 (
-    [product_id] => 89880
-    [parent_id] => 89880
+    [product_id] => 89885
+    [parent_id] => 89885
     [product_type] => simple
     [categories] => Array
         (
@@ -1489,17 +1651,17 @@
 
 )
 
-[2025-11-17 11:35:20] [debug] LGL Payments: Membership category detected Array
+[2025-11-18 06:52:56] [debug] LGL Payments: Membership category detected Array
 (
     [fund_id] => 2437
 )
 
-[2025-11-17 11:35:20] [debug] 💳 Connection::addPayment() Array
+[2025-11-18 06:52:56] [debug] 💳 Connection::addPayment() Array
 (
-    [lgl_id] => 947132
+    [lgl_id] => 947172
     [payment_data] => Array
         (
-            [external_id] => 90163
+            [external_id] => 90172
             [is_anon] => 
             [gift_type_id] => 5
             [gift_type_name] => Other Income
@@ -1513,16 +1675,16 @@
             [appeal_name] => 
             [event_id] => 0
             [event_name] => 
-            [received_amount] => 77.63
-            [received_date] => 2025-11-17
+            [received_amount] => 155.25
+            [received_date] => 2025-11-18
             [payment_type_id] => 1547
             [payment_type_name] => stripe_cc
             [check_number] => 
-            [deductible_amount] => 77.63
-            [note] => Website Registration, Order #90163
+            [deductible_amount] => 155.25
+            [note] => Website Registration, Order #90172
             [ack_template_name] => 
-            [deposit_date] => 2025-11-17
-            [deposited_amount] => 77.63
+            [deposit_date] => 2025-11-18
+            [deposited_amount] => 155.25
             [parent_gift_id] => 0
             [parent_external_id] => 0
             [team_member] => 
@@ -1530,603 +1692,172 @@
 
 )
 
-[2025-11-17 11:35:20] [debug] Rate Limiter: Waiting 605.958984375ms before next request
-[2025-11-17 11:35:21] [debug] 🔍 RAW JSON PAYLOAD: {"external_id":90163,"is_anon":false,"gift_type_id":"5","gift_type_name":"Other Income","gift_category_id":"6002","gift_category_name":"Donation","campaign_id":"857","campaign_name":"Membership Fees","fund_id":2437,"fund_name":"","appeal_id":0,"appeal_name":"","event_id":0,"event_name":"","received_amount":"77.63","received_date":"2025-11-17","payment_type_id":"1547","payment_type_name":"stripe_cc","check_number":"","deductible_amount":"77.63","note":"Website Registration, Order #90163","ack_template_name":"","deposit_date":"2025-11-17","deposited_amount":"77.63","parent_gift_id":0,"parent_external_id":0,"team_member":""}
-[2025-11-17 11:35:21] [debug] Rate Limiter: Request recorded. Total in window: 19
-[2025-11-17 11:35:21] [debug] ✅ Payment added successfully Array
+[2025-11-18 06:52:56] [debug] Rate Limiter: Waiting 582.3779296875ms before next request
+[2025-11-18 06:52:57] [debug] 🔍 RAW JSON PAYLOAD: {"external_id":90172,"is_anon":false,"gift_type_id":"5","gift_type_name":"Other Income","gift_category_id":"6002","gift_category_name":"Donation","campaign_id":"857","campaign_name":"Membership Fees","fund_id":2437,"fund_name":"","appeal_id":0,"appeal_name":"","event_id":0,"event_name":"","received_amount":"155.25","received_date":"2025-11-18","payment_type_id":"1547","payment_type_name":"stripe_cc","check_number":"","deductible_amount":"155.25","note":"Website Registration, Order #90172","ack_template_name":"","deposit_date":"2025-11-18","deposited_amount":"155.25","parent_gift_id":0,"parent_external_id":0,"team_member":""}
+[2025-11-18 06:52:57] [debug] Rate Limiter: Request recorded. Total in window: 10
+[2025-11-18 06:52:57] [debug] ✅ Payment added successfully Array
 (
-    [payment_id] => 905622
+    [payment_id] => 905662
 )
 
-[2025-11-17 11:35:21] [debug] LGL Payments: Membership payment created Array
+[2025-11-18 06:52:57] [debug] LGL Payments: Membership payment created Array
 (
-    [lgl_id] => 947132
-    [order_id] => 90163
-    [amount] => 77.63
+    [lgl_id] => 947172
+    [order_id] => 90172
+    [amount] => 155.25
 )
 
-[2025-11-17 11:35:21] [debug] LGL Cache: SET key payment_905622 (TTL: 3600s)
-[2025-11-17 11:35:21] [debug] ✅ MembershipRegistrationService: Payment created Array
+[2025-11-18 06:52:57] [debug] LGL Cache: SET key payment_905662 (TTL: 3600s)
+[2025-11-18 06:52:57] [debug] ✅ MembershipRegistrationService: Payment created Array
 (
-    [payment_id] => 905622
-    [lgl_id] => 947132
-    [order_id] => 90163
-    [amount] => 77.63
+    [payment_id] => 905662
+    [lgl_id] => 947172
+    [order_id] => 90172
+    [amount] => 155.25
 )
 
-[2025-11-17 11:35:21] [debug] LGL Cache: GET MISS for key api_request_1680885fef65332f4e636ca72c40d52a
-[2025-11-17 11:35:21] [debug] Rate Limiter: Waiting 409.80615234375ms before next request
-[2025-11-17 11:35:22] [debug] Rate Limiter: Request recorded. Total in window: 20
-[2025-11-17 11:35:22] [debug] ✅ MembershipOrderHandler::registerUserInLGL() COMPLETED Array
+[2025-11-18 06:52:57] [debug] LGL Cache: GET MISS for key api_request_71f52a1b4d27106b1e7a35b7f5b77db4
+[2025-11-18 06:52:57] [debug] Rate Limiter: Waiting 440.34619140625ms before next request
+[2025-11-18 06:52:58] [debug] Rate Limiter: Request recorded. Total in window: 11
+[2025-11-18 06:52:58] [debug] ✅ MembershipOrderHandler::registerUserInLGL() COMPLETED Array
 (
-    [user_id] => 1958
-    [lgl_id] => 947132
+    [user_id] => 1967
+    [lgl_id] => 947172
     [status] => partial
 )
 
-[2025-11-17 11:35:22] [debug] ✅ MembershipOrderHandler::processOrderLglSync() COMPLETED Array
+[2025-11-18 06:52:58] [debug] ✅ MembershipOrderHandler::processOrderLglSync() COMPLETED Array
 (
-    [order_id] => 90163
-    [user_id] => 1958
-    [lgl_id] => 947132
+    [order_id] => 90172
+    [user_id] => 1967
+    [lgl_id] => 947172
     [match_method] => user_meta
-    [payment_id] => 905622
+    [payment_id] => 905662
 )
 
-[2025-11-17 11:35:22] [debug] ✅ OrderProcessor: MembershipOrderHandler (LGL sync) completed
-[2025-11-17 11:35:22] [debug] ✅ OrderProcessor::processOrderProductsLglSync() COMPLETED Array
+[2025-11-18 06:52:58] [debug] ✅ OrderProcessor: MembershipOrderHandler (LGL sync) completed
+[2025-11-18 06:52:58] [debug] ✅ OrderProcessor::processOrderProductsLglSync() COMPLETED Array
 (
     [products_processed] => 1
     [events_processed] => 0
 )
 
-[2025-11-17 11:35:22] [debug] ✅ OrderProcessor::processLglSyncOnly() COMPLETED Array
+[2025-11-18 06:52:58] [debug] ✅ OrderProcessor::processLglSyncOnly() COMPLETED Array
 (
-    [order_id] => 90163
+    [order_id] => 90172
 )
 
-[2025-11-17 11:35:22] [debug] ✅ AsyncOrderProcessor: Async processing completed Array
+[2025-11-18 06:52:58] [debug] ✅ AsyncOrderProcessor: Async processing completed Array
 (
-    [order_id] => 90163
+    [order_id] => 90172
 )
 
-[2025-11-17 11:35:44] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:35:44] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:35:45] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:35:46] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:35:46] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:35:46] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:35:46] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:35:48] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:35:48] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:35:49] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:35:50] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:35:52] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:35:52] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:01] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:01] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:01] [debug] LGL Relations Manager: User to order relation created 1958_90164
-[2025-11-17 11:36:03] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-17 11:36:03] [debug] LGL Email Blocker: Evaluation - To: Linley@upstateinternational.org | Subject: [Upstate International] New customer order (90164) - November 17, 2025 | Detected Type: woocommerce | Level: all | Should Block: YES
-[2025-11-17 11:36:03] [debug] LGL Email Blocker: BLOCKED email - To: Linley@upstateinternational.org | Subject: [Upstate International] New customer order (90164) - November 17, 2025 | Type: woocommerce | Level: all | Environment: ui-hybrid.local (DEBUG_OFF) | Mode: manual_override
-[2025-11-17 11:36:03] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-17 11:36:03] [debug] OrderEmailCustomizer: Rendered email template Array
+[2025-11-18 06:53:15] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:53:15] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:53:16] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:55:16] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:55:16] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:57:17] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:57:17] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:57:18] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:59:23] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:59:23] [debug] Membership cron jobs scheduled successfully
+[2025-11-18 06:59:23] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:59:24] [debug] 🔍 SubscriptionRenewalManager: displayManualRenewalStatus() called Array
 (
-    [template] => event-no-lunch.html
-    [order_id] => 90164
-    [product_id] => 88446
-)
-
-[2025-11-17 11:36:03] [debug] LGL Email Blocker: Evaluation - To: andrew@hispanicalliancesc.com | Subject: Your Upstate International order has been received! | Detected Type: woocommerce | Level: all | Should Block: YES
-[2025-11-17 11:36:03] [debug] LGL Email Blocker: BLOCKED email - To: andrew@hispanicalliancesc.com | Subject: Your Upstate International order has been received! | Type: woocommerce | Level: all | Environment: ui-hybrid.local (DEBUG_OFF) | Mode: manual_override
-[2025-11-17 11:36:03] [debug] 🚀 OrderProcessor::processCompletedOrder() STARTED Array
-(
-    [order_id] => 90164
-    [timestamp] => 2025-11-17 11:36:03
-    [memory_usage] => 122MB
-    [hook] => woocommerce_payment_complete
-)
-
-[2025-11-17 11:36:03] [debug] 📋 OrderProcessor: Order Details Array
-(
-    [order_id] => 90164
-    [order_status] => processing
-    [order_total] => 10.35
-    [customer_id] => 1958
-    [customer_email] => andrew@hispanicalliancesc.com
-    [payment_method] => stripe_cc
-    [order_date] => 2025-11-17 11:36:01
-    [item_count] => 1
-)
-
-[2025-11-17 11:36:03] [debug] 👤 OrderProcessor: Customer Info Array
-(
-    [user_id] => 1958
-    [billing_email] => andrew@hispanicalliancesc.com
-    [billing_first_name] => Andrew
-    [billing_last_name] => Skinner
-    [billing_phone] => 8653120285
-)
-
-[2025-11-17 11:36:03] [debug] ⚡ OrderProcessor: Processing immediate tasks...
-[2025-11-17 11:36:03] [debug] ⚡ OrderProcessor::processImmediateTasks() STARTED Array
-(
-    [order_id] => 90164
-    [user_id] => 1958
-)
-
-[2025-11-17 11:36:03] [debug] OrderProcessor: Payment method updated Array
-(
-    [user_id] => 1958
-    [payment_method] => stripe_cc
-    [stored_as] => online
-)
-
-[2025-11-17 11:36:03] [debug] ⚡ OrderProcessor::processOrderProductsImmediate() STARTED Array
-(
-    [total_products] => 1
-    [user_id] => 1958
-    [order_id] => 90164
-    [mode] => immediate_only
-)
-
-[2025-11-17 11:36:03] [debug] 🔍 OrderProcessor: Processing Product #1 (IMMEDIATE) Array
-(
-    [name] => UIWG Holiday Craft Workshop – Make and Take<span> - </span>Craft ticket
-    [quantity] => 1
-    [product_id] => 88450
-    [parent_id] => 88446
-    [categories] => Array
-        (
-            [0] => events
-        )
-
-)
-
-[2025-11-17 11:36:03] [debug] 🎪 OrderProcessor: Processing event (IMMEDIATE) Array
-(
-    [product_name] => UIWG Holiday Craft Workshop – Make and Take<span> - </span>Craft ticket
-)
-
-[2025-11-17 11:36:03] [debug] OrderProcessor: Adding new attendee Skinny
-[2025-11-17 11:36:03] [debug] 🎪 OrderProcessor::processEventProductImmediate() STARTED Array
-(
-    [user_id] => 1958
-    [order_id] => 90164
-    [mode] => immediate_only
-)
-
-[2025-11-17 11:36:03] [debug] ⚡ EventOrderHandler::processOrderImmediate() STARTED Array
-(
-    [user_id] => 1958
-    [order_id] => 90164
-    [product_name] => UIWG Holiday Craft Workshop – Make and Take<span> - </span>Craft ticket
-    [product_id] => 88450
-    [parent_id] => 88446
-    [quantity] => 1
-    [mode] => immediate_only
-)
-
-[2025-11-17 11:36:03] [debug] UPDATING USER META FOR:  1958
-[2025-11-17 11:36:03] [debug] OrderEmailCustomizer: Running email customizer
-[2025-11-17 11:36:03] [debug] OrderEmailCustomizer: Rendered email template Array
-(
-    [template] => event-no-lunch.html
-    [order_id] => 90164
-    [product_id] => 88446
-)
-
-[2025-11-17 11:36:04] [debug] LGL Email Blocker: Evaluation - To: andrew@hispanicalliancesc.com | Subject: Your Upstate International order is now complete | Detected Type: woocommerce | Level: all | Should Block: YES
-[2025-11-17 11:36:04] [debug] LGL Email Blocker: BLOCKED email - To: andrew@hispanicalliancesc.com | Subject: Your Upstate International order is now complete | Type: woocommerce | Level: all | Environment: ui-hybrid.local (DEBUG_OFF) | Mode: manual_override
-[2025-11-17 11:36:04] [debug] ✅ EventOrderHandler::processOrderImmediate() COMPLETED 90164
-[2025-11-17 11:36:04] [debug] 👥 OrderProcessor: Creating attendee CCT records 1
-[2025-11-17 11:36:04] [debug] WpUsers: Creating event registration CCT via JetEngine API Array
-(
-    [cct_slug] => _ui_event_registrations
-    [user_name] => Andy
-    [user_email] => Skinny
-    [product_id] => 88450
-    [order_id] => 90164
-)
-
-[2025-11-17 11:36:04] [debug] WpUsers: Event registration CCT created successfully Array
-(
-    [item_id] => 585
-    [attendee_name] => Andy
-)
-
-[2025-11-17 11:36:04] [debug] OrderProcessor: Created attendee CCT records 1
-[2025-11-17 11:36:04] [debug] ✅ OrderProcessor::processOrderProductsImmediate() COMPLETED Array
-(
-    [products_processed] => 1
-    [events_processed] => 1
-    [attendees_created] => 1
-)
-
-[2025-11-17 11:36:04] [debug] ✅ OrderProcessor::processImmediateTasks() COMPLETED Array
-(
-    [order_id] => 90164
-)
-
-[2025-11-17 11:36:04] [debug] ⏰ OrderProcessor: Scheduling async LGL sync...
-[2025-11-17 11:36:04] [debug] ⏰ AsyncOrderProcessor: Scheduling async processing (WP Cron) Array
-(
-    [order_id] => 90164
-)
-
-[2025-11-17 11:36:04] [debug] ✅ AsyncOrderProcessor: WP Cron event scheduled Array
-(
-    [order_id] => 90164
-    [hook] => lgl_process_order_async
-    [scheduled_for] => 2025-11-17 16:36:04
-)
-
-[2025-11-17 11:36:04] [debug] 🚀 AsyncOrderProcessor: Triggered cron spawn for immediate execution Array
-(
-    [order_id] => 90164
-)
-
-[2025-11-17 11:36:04] [debug] ✅ OrderProcessor::processCompletedOrder() COMPLETED Array
-(
-    [order_id] => 90164
-    [final_memory_usage] => 122MB
-    [async_scheduled] => 1
-)
-
-[2025-11-17 11:36:04] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:04] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:04] [debug] 🔄 AsyncOrderProcessor: Processing order async (WP Cron) Array
-(
-    [order_id] => 90164
-    [timestamp] => 2025-11-17 11:36:04
-    [cron_hook] => lgl_process_order_async
-)
-
-[2025-11-17 11:36:04] [debug] 🔄 OrderProcessor::processLglSyncOnly() STARTED Array
-(
-    [order_id] => 90164
-    [timestamp] => 2025-11-17 11:36:04
-)
-
-[2025-11-17 11:36:04] [debug] 🔄 OrderProcessor::processOrderProductsLglSync() STARTED Array
-(
-    [total_products] => 1
-    [user_id] => 1958
-    [order_id] => 90164
-    [mode] => lgl_sync_only
-)
-
-[2025-11-17 11:36:04] [debug] 🎪 OrderProcessor: Processing event (LGL SYNC) Array
-(
-    [product_name] => UIWG Holiday Craft Workshop – Make and Take<span> - </span>Craft ticket
-)
-
-[2025-11-17 11:36:04] [debug] 🎪 OrderProcessor::processEventProductLglSync() STARTED Array
-(
-    [user_id] => 1958
-    [order_id] => 90164
-    [mode] => lgl_sync_only
-)
-
-[2025-11-17 11:36:04] [debug] 🔄 EventOrderHandler::processOrderLglSync() STARTED Array
-(
-    [user_id] => 1958
-    [order_id] => 90164
-    [product_name] => UIWG Holiday Craft Workshop – Make and Take<span> - </span>Craft ticket
-    [product_id] => 88450
-    [parent_id] => 88446
-    [quantity] => 1
-    [mode] => lgl_sync_only
-)
-
-[2025-11-17 11:36:04] [debug] EventRegistrationAction: Processing request Array
-(
-    [user_id] => 1958
-    [class_id] => 88450
-    [username] => Andrew%20Skinner
-    [user_firstname] => Andrew
-    [user_lastname] => Skinner
-    [user_email] => andrew@hispanicalliancesc.com
-    [user_phone] => 8653120285
-    [event_name] => UIWG Holiday Craft Workshop – Make and Take<span> - </span>Craft ticket
-    [event_price] => 10.35
-    [user_preferred_language] => 
-    [user_home_country] => 
-    [order_notes] => 
-    [inserted_post_id] => 90164
-    [event_id] => 88450
-)
-
-[2025-11-17 11:36:04] [debug] ⚠️ EventRegistrationAction: Async processor not available, using sync Array
-(
-    [user_id] => 1958
-)
-
-[2025-11-17 11:36:04] [debug] 🔍 Connection::getConstituentData() Array
-(
-    [lgl_id] => 947132
-)
-
-[2025-11-17 11:36:04] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:05] [debug] Rate Limiter: Request recorded. Total in window: 20
-[2025-11-17 11:36:05] [debug] ✅ Constituent data retrieved successfully
-[2025-11-17 11:36:05] [debug] LGL USER EXISTS:  947132
-[2025-11-17 11:36:05] [debug] 🔍 LGL Payments: retrievePaymentTypes called Array
-(
-    [method] => Events
-)
-
-[2025-11-17 11:36:05] [debug] LGL Cache: GET MISS for key payment_types_87f9f735a1d36793ceaecd4e47124b63
-[2025-11-17 11:36:05] [debug] 🔍 LGL Payments: No cache, making API requests...
-[2025-11-17 11:36:05] [debug] LGL Connection: Cache HIT for payment_types.json
-[2025-11-17 11:36:05] [debug] LGL Connection: Cache HIT for funds.json
-[2025-11-17 11:36:05] [debug] LGL Connection: Cache HIT for campaigns.json
-[2025-11-17 11:36:05] [debug] LGL Connection: Cache HIT for gift_types.json
-[2025-11-17 11:36:05] [debug] LGL Connection: Cache HIT for gift_categories.json
-[2025-11-17 11:36:05] [debug] LGL Cache: SET key payment_types_87f9f735a1d36793ceaecd4e47124b63 (TTL: 1800s)
-[2025-11-17 11:36:05] [debug] LGL Payments: Payment types retrieved Array
-(
-    [method] => Events
-    [count] => 7
-)
-
-[2025-11-17 11:36:05] [debug] LGL Payments: Fund ID detection by category Array
-(
-    [product_id] => 88450
-    [parent_id] => 88446
-    [product_type] => variation
-    [categories] => Array
-        (
-            [0] => events
-        )
-
-)
-
-[2025-11-17 11:36:05] [debug] LGL Payments: Events category detected Array
-(
-    [fund_id] => 4142
-)
-
-[2025-11-17 11:36:05] [debug] 💳 Connection::addPayment() Array
-(
-    [lgl_id] => 947132
-    [payment_data] => Array
-        (
-            [external_id] => 90164
-            [is_anon] => 
-            [gift_type_id] => 5
-            [gift_type_name] => Other Income
-            [gift_category_id] => 6052
-            [gift_category_name] => Event fee
-            [campaign_id] => 867
-            [campaign_name] => WACU Programming
-            [fund_id] => 4142
-            [fund_name] => 
-            [appeal_id] => 0
-            [appeal_name] => 
-            [event_id] => 0
-            [event_name] => UIWG Holiday Craft Workshop – Make and Take<span> - </span>Craft ticket
-            [received_amount] => 10.35
-            [received_date] => 2025-11-17
-            [payment_type_id] => 1527
-            [payment_type_name] => Credit Card
-            [check_number] => 
-            [deductible_amount] => 10.35
-            [note] => Event registration - UIWG Holiday Craft Workshop – Make and Take<span> - </span>Craft ticket - Order #90164
-            [ack_template_name] => 
-            [deposit_date] => 2025-11-17
-            [deposited_amount] => 10.35
-            [parent_gift_id] => 0
-            [parent_external_id] => 0
-            [team_member] => 
-        )
-
-)
-
-[2025-11-17 11:36:05] [debug] Rate Limiter: Waiting 1063.076171875ms before next request
-[2025-11-17 11:36:06] [debug] 🔍 RAW JSON PAYLOAD: {"external_id":90164,"is_anon":false,"gift_type_id":"5","gift_type_name":"Other Income","gift_category_id":"6052","gift_category_name":"Event fee","campaign_id":"867","campaign_name":"WACU Programming","fund_id":4142,"fund_name":"","appeal_id":0,"appeal_name":"","event_id":0,"event_name":"UIWG Holiday Craft Workshop \u2013 Make and Take<span> - </span>Craft ticket","received_amount":"10.35","received_date":"2025-11-17","payment_type_id":"1527","payment_type_name":"Credit Card","check_number":"","deductible_amount":"10.35","note":"Event registration - UIWG Holiday Craft Workshop \u2013 Make and Take<span> - </span>Craft ticket - Order #90164","ack_template_name":"","deposit_date":"2025-11-17","deposited_amount":"10.35","parent_gift_id":0,"parent_external_id":0,"team_member":""}
-[2025-11-17 11:36:06] [debug] Rate Limiter: Request recorded. Total in window: 21
-[2025-11-17 11:36:06] [debug] ✅ Payment added successfully Array
-(
-    [payment_id] => 905627
-)
-
-[2025-11-17 11:36:06] [debug] LGL Payments: Event payment created Array
-(
-    [lgl_id] => 947132
-    [order_id] => 90164
-    [event_name] => UIWG Holiday Craft Workshop – Make and Take<span> - </span>Craft ticket
-    [amount] => 10.35
-)
-
-[2025-11-17 11:36:06] [debug] LGL Cache: SET key payment_905627 (TTL: 3600s)
-[2025-11-17 11:36:06] [debug] Event payment data:  Array
-(
-    [success] => 1
-    [id] => 905627
-    [data] => Array
-        (
-            [api_version] => 1.0
-            [id] => 905627
-            [constituent_id] => 947132
-            [external_id] => 90164
-            [is_anon] => 
-            [gift_type_id] => 5
-            [gift_type_name] => Other Income
-            [gift_category_id] => 6052
-            [gift_category_name] => Event Fee
-            [campaign_id] => 867
-            [campaign_name] => WACU Programming
-            [fund_id] => 4142
-            [fund_name] => Events
-            [appeal_id] => 0
-            [appeal_name] => 
-            [event_id] => 1247
-            [event_name] => UIWG Holiday Craft Workshop – Make and Take<span> - </span>Craft ticket
-            [received_amount] => 10.35
-            [received_date] => 2025-11-17
-            [payment_type_id] => 1527
-            [payment_type_name] => Credit Card
-            [check_number] => 
-            [deductible_amount] => 0
-            [note] => Event registration - UIWG Holiday Craft Workshop – Make and Take<span> - </span>Craft ticket - Order #90164
-            [ack_template_name] => 
-            [deposit_date] => 2025-11-17
-            [deposited_amount] => 10.35
-            [parent_gift_id] => 0
-            [parent_external_id] => 
-            [tribute_name] => 
-            [tributee_name] => 
-            [tribute_dedication] => 
-            [tribute_recipient_name] => 
-            [tribute_recipient_salutation] => 
-            [tribute_recipient_email] => 
-            [tribute_recipient_address] => 
-            [tribute_recipient_notification_template] => 
-            [team_member] => 
-            [team_member_email] => 
-            [custom_fields] => Array
-                (
-                )
-
-            [created_at] => 2025-11-17T16:36:06Z
-            [updated_at] => 2025-11-17T16:36:06Z
-        )
-
-)
-
-[2025-11-17 11:36:06] [debug] Event Payment ID:  905627
-[2025-11-17 11:36:06] [debug] EventOrderHandler: Event registered in LGL 1958
-[2025-11-17 11:36:06] [debug] ✅ EventOrderHandler::processOrderLglSync() COMPLETED 90164
-[2025-11-17 11:36:06] [debug] ✅ OrderProcessor::processOrderProductsLglSync() COMPLETED Array
-(
-    [products_processed] => 1
-    [events_processed] => 1
-)
-
-[2025-11-17 11:36:06] [debug] ✅ OrderProcessor::processLglSyncOnly() COMPLETED Array
-(
-    [order_id] => 90164
-)
-
-[2025-11-17 11:36:06] [debug] ✅ AsyncOrderProcessor: Async processing completed Array
-(
-    [order_id] => 90164
-)
-
-[2025-11-17 11:36:37] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:37] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:38] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:38] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:38] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:38] [debug] 🔍 SubscriptionRenewalManager: displayManualRenewalStatus() called Array
-(
-    [user_id] => 1958
+    [user_id] => 1967
     [show_all] => no
 )
 
-[2025-11-17 11:36:38] [debug] 📊 WC Subscriptions check Array
+[2025-11-18 06:59:24] [debug] 📊 WC Subscriptions check Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
     [subscription_count] => 0
     [has_subscriptions] => 
 )
 
-[2025-11-17 11:36:38] [debug] 🔍 Checking for one-time membership (priority check) Array
+[2025-11-18 06:59:24] [debug] 🔍 Checking for one-time membership (priority check) Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
 )
 
-[2025-11-17 11:36:38] [debug] 🔍 Getting one-time membership status Array
+[2025-11-18 06:59:24] [debug] 🔍 Getting one-time membership status Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
 )
 
-[2025-11-17 11:36:38] [debug] 📊 User meta values Array
+[2025-11-18 06:59:24] [debug] 📊 User meta values Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
     [subscription_status] => one-time
-    [renewal_timestamp] => 1794933305
-    [start_timestamp] => 1763379305
-    [membership_level] => Individual
-    [renewal_date_formatted] => 2026-11-17 16:35:05
-    [start_date_formatted] => 2025-11-17 11:35:05
+    [renewal_timestamp] => 1795002767
+    [start_timestamp] => 1763448767
+    [membership_level] =>  Supporter
+    [renewal_date_formatted] => 2026-11-18 11:52:47
+    [start_date_formatted] => 2025-11-18 06:52:47
 )
 
-[2025-11-17 11:36:38] [debug] ⏰ Membership expiration check Array
+[2025-11-18 06:59:24] [debug] ⏰ Membership expiration check Array
 (
-    [user_id] => 1958
-    [now] => 2025-11-17 11:36:38
-    [renewal_date] => 2026-11-17 16:35:05
+    [user_id] => 1967
+    [now] => 2025-11-18 06:59:24
+    [renewal_date] => 2026-11-18 11:52:47
     [is_active] => 1
-    [seconds_remaining] => 31553907
+    [seconds_remaining] => 31553603
 )
 
-[2025-11-17 11:36:38] [debug] 📅 Days remaining calculated Array
+[2025-11-18 06:59:24] [debug] 📅 Days remaining calculated Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
     [days_remaining] => 366
 )
 
-[2025-11-17 11:36:38] [debug] 🔍 Getting last membership product name Array
+[2025-11-18 06:59:24] [debug] 🔍 Getting last membership product name Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
 )
 
-[2025-11-17 11:36:38] [debug] 📦 Orders found Array
+[2025-11-18 06:59:24] [debug] 📦 Orders found Array
 (
-    [user_id] => 1958
-    [order_count] => 71
+    [user_id] => 1967
+    [order_count] => 78
 )
 
-[2025-11-17 11:36:38] [debug] 🔍 Checking order Array
+[2025-11-18 06:59:24] [debug] 🔍 Checking order Array
 (
-    [order_id] => 90164
-    [order_date] => 2025-11-17 11:36:01
+    [order_id] => 90172
+    [order_date] => 2025-11-18 06:52:45
 )
 
-[2025-11-17 11:36:38] [debug] 🏷️ Checking product Array
+[2025-11-18 06:59:24] [debug] 🏷️ Checking product Array
 (
-    [product_id] => 88450
-    [product_name] => UIWG Holiday Craft Workshop – Make and Take<span> - </span>Craft ticket
-    [has_membership_category] => 
-)
-
-[2025-11-17 11:36:38] [debug] 🔍 Checking order Array
-(
-    [order_id] => 90163
-    [order_date] => 2025-11-17 11:35:02
-)
-
-[2025-11-17 11:36:38] [debug] 🏷️ Checking product Array
-(
-    [product_id] => 89880
-    [product_name] => Member
+    [product_id] => 89885
+    [product_name] => Supporter
     [has_membership_category] => 1
 )
 
-[2025-11-17 11:36:38] [debug] ✅ Found membership product Array
+[2025-11-18 06:59:24] [debug] ✅ Found membership product Array
 (
-    [product_name] => Member
-    [order_id] => 90163
+    [product_name] => Supporter
+    [order_id] => 90172
 )
 
-[2025-11-17 11:36:38] [debug] 🎫 Product name retrieved Array
+[2025-11-18 06:59:24] [debug] 🎫 Product name retrieved Array
 (
-    [user_id] => 1958
-    [product_name] => Member
+    [user_id] => 1967
+    [product_name] => Supporter
 )
 
-[2025-11-17 11:36:38] [debug] ✅ One-time membership status compiled Array
+[2025-11-18 06:59:24] [debug] ✅ One-time membership status compiled Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
     [status_data] => Array
         (
-            [user_id] => 1958
-            [membership_level] => Individual
-            [product_name] => Member
-            [start_date] => November 17, 2025
-            [renewal_date] => November 17, 2026
+            [user_id] => 1967
+            [membership_level] =>  Supporter
+            [product_name] => Supporter
+            [start_date] => November 18, 2025
+            [renewal_date] => November 18, 2026
             [days_remaining] => 366
             [is_active] => 1
             [status] => active
@@ -2134,17 +1865,17 @@
 
 )
 
-[2025-11-17 11:36:38] [debug] 📋 One-time membership status result Array
+[2025-11-18 06:59:24] [debug] 📋 One-time membership status result Array
 (
-    [user_id] => 1958
+    [user_id] => 1967
     [status_found] => 1
     [status_data] => Array
         (
-            [user_id] => 1958
-            [membership_level] => Individual
-            [product_name] => Member
-            [start_date] => November 17, 2025
-            [renewal_date] => November 17, 2026
+            [user_id] => 1967
+            [membership_level] =>  Supporter
+            [product_name] => Supporter
+            [start_date] => November 18, 2025
+            [renewal_date] => November 18, 2026
             [days_remaining] => 366
             [is_active] => 1
             [status] => active
@@ -2152,88 +1883,63 @@
 
 )
 
-[2025-11-17 11:36:38] [debug] ✅ One-time membership found - displaying it (hiding any WC subscriptions) Array
+[2025-11-18 06:59:24] [debug] ✅ One-time membership found - displaying it (hiding any WC subscriptions) Array
 (
-    [user_id] => 1958
-    [membership_level] => Individual
+    [user_id] => 1967
+    [membership_level] =>  Supporter
     [days_remaining] => 366
     [wc_subscriptions_hidden] => 0
 )
 
-[2025-11-17 11:36:39] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:39] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:39] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:39] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:39] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:39] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:40] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:40] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:41] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:41] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:46] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:46] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:47] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:47] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:51] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:51] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:36:52] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:36:52] [debug] Membership cron jobs scheduled successfully
-[2025-11-17 11:42:41] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:42:52] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:42:59] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:44:48] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:44:49] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:44:49] [debug] LGL WP Users: Starting LGL ID meta field migration Array
-(
-    [dry_run] => 1
-)
-
-[2025-11-17 11:44:50] [debug] LGL WP Users: Found users with legacy LGL ID fields Array
-(
-    [count] => 0
-)
-
-[2025-11-17 11:44:50] [debug] LGL WP Users: LGL ID migration completed Array
-(
-    [processed] => 0
-    [migrated] => 0
-    [skipped] => 0
-    [errors] => Array
-        (
-        )
-
-    [details] => Array
-        (
-        )
-
-)
-
-[2025-11-17 11:45:41] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:45:43] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:45:45] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:46:02] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
-[2025-11-17 11:46:03] [debug] LGL WP Users: Starting LGL ID meta field migration Array
-(
-    [dry_run] => 1
-)
-
-[2025-11-17 11:46:03] [debug] LGL WP Users: Found users with legacy LGL ID fields Array
-(
-    [count] => 0
-)
-
-[2025-11-17 11:46:03] [debug] LGL WP Users: LGL ID migration completed Array
-(
-    [processed] => 0
-    [migrated] => 0
-    [skipped] => 0
-    [errors] => Array
-        (
-        )
-
-    [details] => Array
-        (
-        )
-
-)
-
+[2025-11-18 06:59:28] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 06:59:29] [debug] Membership cron jobs scheduled successfully
+[2025-11-18 06:59:29] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:01:19] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:01:19] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:02:06] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:02:06] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:02:07] [debug] EmailBlocker: showEmailBlockingNotice() called
+[2025-11-18 07:02:07] [debug] EmailBlocker: Rendering admin notice
+[2025-11-18 07:02:07] [debug] EmailBlocker: Blocked count = 50
+[2025-11-18 07:02:12] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:02:12] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:02:12] [debug] EmailBlocker: showEmailBlockingNotice() called
+[2025-11-18 07:02:12] [debug] EmailBlocker: Rendering admin notice
+[2025-11-18 07:02:12] [debug] EmailBlocker: Blocked count = 50
+[2025-11-18 07:03:13] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:03:13] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:03:13] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:05:13] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:05:13] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:06:50] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:06:51] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:07:50] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:07:51] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:08:50] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:08:51] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:08:51] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:09:50] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:09:51] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:09:55] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:09:55] [debug] EmailBlocker: showEmailBlockingNotice() called
+[2025-11-18 07:09:55] [debug] EmailBlocker: Rendering admin notice
+[2025-11-18 07:09:55] [debug] EmailBlocker: Blocked count = 50
+[2025-11-18 07:10:56] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:10:56] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:11:56] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:11:56] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:12:55] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:12:55] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:12:55] [debug] EmailBlocker: showEmailBlockingNotice() called
+[2025-11-18 07:12:55] [debug] EmailBlocker: Rendering admin notice
+[2025-11-18 07:12:55] [debug] EmailBlocker: Blocked count = 50
+[2025-11-18 07:13:15] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:13:15] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:13:15] [debug] EmailBlocker: showEmailBlockingNotice() called
+[2025-11-18 07:13:15] [debug] EmailBlocker: Rendering admin notice
+[2025-11-18 07:13:15] [debug] EmailBlocker: Blocked count = 50
+[2025-11-18 07:13:25] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:13:26] [debug] LGL Email Blocker: ACTIVE - MANUAL OVERRIDE ENABLED (Level: all)
+[2025-11-18 07:13:26] [debug] EmailBlocker: showEmailBlockingNotice() called
+[2025-11-18 07:13:26] [debug] EmailBlocker: Rendering admin notice
+[2025-11-18 07:13:26] [debug] EmailBlocker: Blocked count = 50

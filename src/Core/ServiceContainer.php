@@ -491,7 +491,9 @@ class ServiceContainer implements ContainerInterface {
         // Register Email services (with explicit dependency injection)
         $this->register('email.order_customizer', function($container) {
             return new \UpstateInternational\LGL\Email\OrderEmailCustomizer(
-                $container->get('lgl.helper')
+                $container->get('lgl.helper'),
+                '', // template base path (uses default)
+                $container->get('admin.settings_manager')
             );
         });
         
@@ -601,7 +603,8 @@ class ServiceContainer implements ContainerInterface {
                 $container->get('admin.sync_log_page'),
                 $container->get('admin.renewal_settings_page'),
                 $container->get('admin.testing_tools_page'),
-                $container->get('admin.email_blocking_page')
+                $container->get('admin.email_blocking_page'),
+                $container->get('admin.order_email_settings_page')
             );
         });
         $this->register('admin.testing_handler', function($container) {
@@ -645,6 +648,13 @@ class ServiceContainer implements ContainerInterface {
                 $container->get('admin.operational_data'),
                 $container->get('lgl.helper'),
                 $container->get('email.blocker')
+            );
+        });
+        $this->register('admin.order_email_settings_page', function($container) {
+            return new \UpstateInternational\LGL\Admin\OrderEmailSettingsPage(
+                $container->get('admin.settings_manager'),
+                $container->get('lgl.helper'),
+                $container->get('email.order_customizer')
             );
         });
         

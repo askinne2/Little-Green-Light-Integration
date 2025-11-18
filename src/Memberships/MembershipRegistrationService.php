@@ -289,65 +289,106 @@ class MembershipRegistrationService {
      * @param string $lglId LGL constituent ID
      * @param int $userId WordPress user ID
      * @param bool $skipMembership Skip membership creation/update (for family member slot purchases)
+     * @param bool $skipContactInfo Skip email/phone/address (for updates - syncContactInfo() already handles these)
      */
-    private function addConstituentDetails(string $lglId, int $userId, bool $skipMembership = false): void {
-        // STEP 2: Add email address
-        $emailData = $this->constituents->getEmailData();
-        if (!empty($emailData)) {
-            foreach ($emailData as $email) {
-                $response = $this->connection->addEmailAddress($lglId, $email);
-                $this->helper->debug('✅ MembershipRegistrationService: Email added (Step 2/4)', [
-                    'lgl_id' => $lglId,
-                    'success' => $response['success'] ?? false,
-                    'response' => $response
-                ]);
+    private function addConstituentDetails(string $lglId, int $userId, bool $skipMembership = false, bool $skipContactInfo = false): void {
+        // STEP 2: Add/update email address (use updateOrAdd to prevent duplicates)
+        // Skip if syncContactInfo() already handled it (for updates)
+        if (!$skipContactInfo) {
+            $emailData = $this->constituents->getEmailData();
+            if (!empty($emailData)) {
+                foreach ($emailData as $email) {
+                    $response = $this->connection->updateOrAddEmailAddress($lglId, $email);
+                    if (isset($response['skipped']) && $response['skipped']) {
+                        $this->helper->debug('✅ MembershipRegistrationService: Email unchanged (Step 2/4)', [
+                            'lgl_id' => $lglId,
+                            'email' => $email['address'] ?? 'unknown'
+                        ]);
+                    } elseif (isset($response['updated']) && $response['updated']) {
+                        $this->helper->debug('✅ MembershipRegistrationService: Email updated (Step 2/4)', [
+                            'lgl_id' => $lglId,
+                            'success' => $response['success'] ?? false,
+                            'response' => $response
+                        ]);
+                    } else {
+                        $this->helper->debug('✅ MembershipRegistrationService: Email added (Step 2/4)', [
+                            'lgl_id' => $lglId,
+                            'success' => $response['success'] ?? false,
+                            'response' => $response
+                        ]);
+                    }
+                }
+            } else {
+                $this->helper->debug('⚠️ MembershipRegistrationService: No email data to add (Step 2/4)');
+            }
+            
+            // STEP 3: Add/update phone number (use updateOrAdd to prevent duplicates)
+            $phoneData = $this->constituents->getPhoneData();
+            if (!empty($phoneData)) {
+                foreach ($phoneData as $phone) {
+                    $response = $this->connection->updateOrAddPhoneNumber($lglId, $phone);
+                    if (isset($response['skipped']) && $response['skipped']) {
+                        $this->helper->debug('✅ MembershipRegistrationService: Phone unchanged (Step 3/4)', [
+                            'lgl_id' => $lglId,
+                            'phone' => $phone['number'] ?? 'unknown'
+                        ]);
+                    } elseif (isset($response['updated']) && $response['updated']) {
+                        $this->helper->debug('✅ MembershipRegistrationService: Phone updated (Step 3/4)', [
+                            'lgl_id' => $lglId,
+                            'success' => $response['success'] ?? false,
+                            'response' => $response
+                        ]);
+                    } else {
+                        $this->helper->debug('✅ MembershipRegistrationService: Phone added (Step 3/4)', [
+                            'lgl_id' => $lglId,
+                            'success' => $response['success'] ?? false,
+                            'response' => $response
+                        ]);
+                    }
+                }
+            } else {
+                $this->helper->debug('⚠️ MembershipRegistrationService: No phone data to add (Step 3/4)');
             }
         } else {
-            $this->helper->debug('⚠️ MembershipRegistrationService: No email data to add (Step 2/4)');
-        }
-        
-        // STEP 3: Add phone number
-        $phoneData = $this->constituents->getPhoneData();
-        if (!empty($phoneData)) {
-            foreach ($phoneData as $phone) {
-                $response = $this->connection->addPhoneNumber($lglId, $phone);
-                $this->helper->debug('✅ MembershipRegistrationService: Phone added (Step 3/4)', [
-                    'lgl_id' => $lglId,
-                    'success' => $response['success'] ?? false,
-                    'response' => $response
-                ]);
-            }
-        } else {
-            $this->helper->debug('⚠️ MembershipRegistrationService: No phone data to add (Step 3/4)');
+            $this->helper->debug('ℹ️ MembershipRegistrationService: Skipping email/phone (already handled by syncContactInfo())', [
+                'lgl_id' => $lglId
+            ]);
         }
         
         // STEP 4: Add street address (with duplicate checking)
-        $addressData = $this->constituents->getAddressData();
-        $this->helper->debug('🔍 MembershipRegistrationService: Checking address data', [
-            'lgl_id' => $lglId,
-            'address_data_count' => count($addressData),
-            'address_data' => $addressData
-        ]);
-        if (!empty($addressData)) {
-            foreach ($addressData as $address) {
-                $response = $this->connection->addStreetAddressSafe($lglId, $address);
-                if (isset($response['skipped']) && $response['skipped']) {
-                    $this->helper->debug('⚠️ MembershipRegistrationService: Address skipped (already exists)', [
-                        'lgl_id' => $lglId,
-                        'street' => $address['street'] ?? 'unknown'
-                    ]);
-                } else {
-                    $this->helper->debug('✅ MembershipRegistrationService: Address added (Step 4/4)', [
-                        'lgl_id' => $lglId,
-                        'success' => $response['success'] ?? false,
-                        'response' => $response
-                    ]);
+        // Skip if syncContactInfo() already handled it (for updates)
+        if (!$skipContactInfo) {
+            $addressData = $this->constituents->getAddressData();
+            $this->helper->debug('🔍 MembershipRegistrationService: Checking address data', [
+                'lgl_id' => $lglId,
+                'address_data_count' => count($addressData),
+                'address_data' => $addressData
+            ]);
+            if (!empty($addressData)) {
+                foreach ($addressData as $address) {
+                    $response = $this->connection->addStreetAddressSafe($lglId, $address);
+                    if (isset($response['skipped']) && $response['skipped']) {
+                        $this->helper->debug('⚠️ MembershipRegistrationService: Address skipped (already exists)', [
+                            'lgl_id' => $lglId,
+                            'street' => $address['street'] ?? 'unknown'
+                        ]);
+                    } else {
+                        $this->helper->debug('✅ MembershipRegistrationService: Address added (Step 4/4)', [
+                            'lgl_id' => $lglId,
+                            'success' => $response['success'] ?? false,
+                            'response' => $response
+                        ]);
+                    }
                 }
+            } else {
+                $this->helper->debug('⚠️ MembershipRegistrationService: No address data to add (Step 4/4)', [
+                    'lgl_id' => $lglId,
+                    'address_data' => $addressData
+                ]);
             }
         } else {
-            $this->helper->debug('⚠️ MembershipRegistrationService: No address data to add (Step 4/4)', [
-                'lgl_id' => $lglId,
-                'address_data' => $addressData
+            $this->helper->debug('ℹ️ MembershipRegistrationService: Skipping address (already handled by syncContactInfo())', [
+                'lgl_id' => $lglId
             ]);
         }
         
@@ -479,6 +520,7 @@ class MembershipRegistrationService {
         }
         
         // STEP 1: Update constituent personal data
+        // Note: Constituents::updateConstituent() already calls syncContactInfo() which handles email/phone/address
         $payload = $this->constituents->updateConstituent($lglId);
         $response = $this->connection->updateConstituent($lglId, $payload);
         $this->helper->debug('✅ MembershipRegistrationService: Constituent updated (Step 1/5)', [
@@ -487,10 +529,10 @@ class MembershipRegistrationService {
             'skip_membership' => $skipMembership
         ]);
         
-        // STEP 2-5: Update email, phone, address, and membership separately (matching legacy pattern)
-        // Note: For updates, we typically only add NEW data, not replace existing
+        // STEP 2-5: Handle membership separately
+        // Skip email/phone/address since syncContactInfo() already handled them (prevents duplicates)
         // Skip membership for family member products (slot purchases only)
-        $this->addConstituentDetails($lglId, $userId, $skipMembership);
+        $this->addConstituentDetails($lglId, $userId, $skipMembership, true); // true = skip contact info
     }
 
     private function createPayment(string $lglId, int $orderId, float $amount, string $paymentType): ?int {

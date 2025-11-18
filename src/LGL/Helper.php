@@ -525,7 +525,10 @@ class Helper {
     }
     
     /**
-     * Convert membership price to membership name (Legacy compatibility)
+     * Convert membership price to membership name (DEPRECATED)
+     * 
+     * @deprecated Price-based membership detection is unreliable. Use _ui_lgl_sync_id on products instead.
+     * This method is kept only for admin testing purposes.
      * 
      * @param float $price Membership price
      * @return string Membership name
@@ -567,7 +570,10 @@ class Helper {
     }
     
     /**
-     * Convert membership name to price (Legacy compatibility)
+     * Convert membership name to price (DEPRECATED)
+     * 
+     * @deprecated Price-based membership detection is unreliable. Use _ui_lgl_sync_id on products instead.
+     * This method is kept only for admin testing purposes.
      * 
      * @param string $membership_name Membership name
      * @return float Membership price

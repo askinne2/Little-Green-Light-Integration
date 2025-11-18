@@ -82,6 +82,13 @@ class AdminMenuManager {
     private ?EmailBlockingSettingsPage $emailBlockingPage = null;
     
     /**
+     * Order Email Settings Page
+     * 
+     * @var OrderEmailSettingsPage|null
+     */
+    private ?OrderEmailSettingsPage $orderEmailSettingsPage = null;
+    
+    /**
      * Constructor
      * 
      * @param Helper $helper Helper service
@@ -91,6 +98,7 @@ class AdminMenuManager {
      * @param RenewalSettingsPage|null $renewalSettingsPage Renewal settings page (optional)
      * @param TestingToolsPage|null $testingToolsPage Testing tools page (optional)
      * @param EmailBlockingSettingsPage|null $emailBlockingPage Email blocking page (optional)
+     * @param OrderEmailSettingsPage|null $orderEmailSettingsPage Order email settings page (optional)
      */
     public function __construct(
         Helper $helper,
@@ -99,7 +107,8 @@ class AdminMenuManager {
         SyncLogPage $syncLogPage,
         ?RenewalSettingsPage $renewalSettingsPage = null,
         ?TestingToolsPage $testingToolsPage = null,
-        ?EmailBlockingSettingsPage $emailBlockingPage = null
+        ?EmailBlockingSettingsPage $emailBlockingPage = null,
+        ?OrderEmailSettingsPage $orderEmailSettingsPage = null
     ) {
         $this->helper = $helper;
         $this->apiSettings = $apiSettings;
@@ -108,6 +117,7 @@ class AdminMenuManager {
         $this->renewalSettingsPage = $renewalSettingsPage;
         $this->testingToolsPage = $testingToolsPage;
         $this->emailBlockingPage = $emailBlockingPage;
+        $this->orderEmailSettingsPage = $orderEmailSettingsPage;
     }
     
     /**
@@ -186,6 +196,18 @@ class AdminMenuManager {
                 'manage_options',
                 'lgl-email-blocking',
                 [$this->emailBlockingPage, 'render']
+            );
+        }
+        
+        // Order Email Templates
+        if ($this->orderEmailSettingsPage) {
+            add_submenu_page(
+                self::MAIN_MENU_SLUG,
+                'Order Email Templates',
+                'Order Email Templates',
+                'manage_options',
+                'lgl-order-email-settings',
+                [$this->orderEmailSettingsPage, 'render']
             );
         }
         
