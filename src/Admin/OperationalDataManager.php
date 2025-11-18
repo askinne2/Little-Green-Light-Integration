@@ -283,5 +283,128 @@ class OperationalDataManager {
         
         $this->helper->debug('OperationalDataManager: All operational data cleared');
     }
+    
+    /**
+     * Populate statistics from historical order data
+     * 
+     * Queries WooCommerce orders to calculate statistics from existing sync data.
+     * This is useful for initial population or recalculation of statistics.
+     * 
+     * @param int|null $limit Maximum number of orders to process (null = all)
+     * @return array Statistics that were calculated
+     */
+    public function populateHistoricalStatistics(?int $limit = null): array {
+        if (!function_exists('wc_get_orders')) {
+            $this->helper->debug('OperationalDataManager: WooCommerce not available for historical statistics');
+            return [];
+        }
+        
+        global $wpdb;
+        
+        $this->helper->debug('📊 OperationalDataManager: Starting historical statistics population', [
+            'limit' => $limit
+        ]);
+        
+        // Query orders with LGL sync status
+        $meta_query = [
+            [
+                'key' => '_lgl_sync_status',
+                'compare' => 'EXISTS'
+            ]
+        ];
+        
+        $query_args = [
+            'limit' => $limit ?? -1,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'status' => 'any',
+            'meta_query' => $meta_query,
+            'return' => 'ids'
+        ];
+        
+        $order_ids = wc_get_orders($query_args);
+        
+        $stats = [
+            'total_synced_constituents' => 0,
+            'total_memberships' => 0,
+            'total_payments' => 0,
+            'last_sync_time' => '',
+            'orders_processed' => 0
+        ];
+        
+        $unique_constituents = [];
+        $unique_memberships = [];
+        $last_sync_timestamp = 0;
+        
+        foreach ($order_ids as $order_id) {
+            $order = wc_get_order($order_id);
+            if (!$order) {
+                continue;
+            }
+            
+            $sync_status = $order->get_meta('_lgl_sync_status');
+            if (!$sync_status || ($sync_status !== 'synced' && $sync_status !== 'partial')) {
+                continue;
+            }
+            
+            $stats['orders_processed']++;
+            
+            // Count unique constituents (by LGL ID)
+            $lgl_id = $order->get_meta('_lgl_lgl_id');
+            if ($lgl_id && !in_array($lgl_id, $unique_constituents, true)) {
+                $unique_constituents[] = $lgl_id;
+                $stats['total_synced_constituents']++;
+            }
+            
+            // Check if order contains membership products
+            $items = $order->get_items();
+            $has_membership = false;
+            foreach ($items as $item) {
+                $product_id = $item->get_variation_id() ?: $item->get_product_id();
+                $parent_id = $item->get_variation_id() ? $item->get_product_id() : $product_id;
+                if (has_term('memberships', 'product_cat', $parent_id)) {
+                    $has_membership = true;
+                    break;
+                }
+            }
+            
+            if ($has_membership) {
+                $membership_key = $order->get_customer_id() . '_' . $order->get_date_created()->format('Y-m-d');
+                if (!in_array($membership_key, $unique_memberships, true)) {
+                    $unique_memberships[] = $membership_key;
+                    $stats['total_memberships']++;
+                }
+            }
+            
+            // Count payments (by payment ID)
+            $payment_id = $order->get_meta('_lgl_payment_id');
+            if ($payment_id) {
+                $stats['total_payments']++;
+            }
+            
+            // Track latest sync time
+            $processed_at = $order->get_meta('_lgl_processed_at');
+            if ($processed_at) {
+                $timestamp = strtotime($processed_at);
+                if ($timestamp > $last_sync_timestamp) {
+                    $last_sync_timestamp = $timestamp;
+                    $stats['last_sync_time'] = $processed_at;
+                }
+            }
+        }
+        
+        // Update statistics
+        $this->updateSyncStat('total_synced_constituents', $stats['total_synced_constituents']);
+        $this->updateSyncStat('total_memberships', $stats['total_memberships']);
+        $this->updateSyncStat('total_payments', $stats['total_payments']);
+        if ($stats['last_sync_time']) {
+            $this->updateSyncStat('last_sync_time', $stats['last_sync_time']);
+            $this->updateSyncStat('last_sync_date', date('Y-m-d', $last_sync_timestamp));
+        }
+        
+        $this->helper->debug('✅ OperationalDataManager: Historical statistics populated', $stats);
+        
+        return $stats;
+    }
 }
 

@@ -83,6 +83,20 @@ class LGL_API {
     }
     
     /**
+     * Initialize shortcodes (legacy compatibility)
+     * 
+     * Note: Shortcodes are now handled by ShortcodeRegistry in the modern architecture.
+     * This method exists only for backward compatibility and does nothing.
+     * 
+     * @return void
+     */
+    public function shortcode_init() {
+        // Shortcodes are now registered via ShortcodeRegistry in the modern architecture
+        // This method exists only for backward compatibility with legacy code
+        // that calls $lgl_api->shortcode_init()
+    }
+    
+    /**
      * Magic method to delegate to modern services
      */
     public function __call($method, $args) {

@@ -145,19 +145,22 @@ class MembershipRegistrationService {
         }
 
         $paymentId = null;
-        $paymentVerification = null;
+        $paymentResponse = null;
         // Create payment for all orders (including family member products)
         if ($orderId > 0 && $price > 0) {
-            $paymentId = $this->createPayment((string) $lglId, $orderId, $price, $paymentType ?? 'online');
-            if ($paymentId) {
-                $paymentVerification = $this->connection->getPayment((string) $paymentId);
+            $paymentResult = $this->createPayment((string) $lglId, $orderId, $price, $paymentType ?? 'online');
+            if ($paymentResult && isset($paymentResult['id'])) {
+                $paymentId = $paymentResult['id'];
+                // Use the creation response as verification data (no need for separate verification call)
+                $paymentResponse = $paymentResult;
             }
         }
 
         $status = 'synced';
         if (empty($constituentVerification['success'])) {
             $status = 'unsynced';
-        } elseif ($paymentId && ($paymentVerification === null || empty($paymentVerification['success']))) {
+        } elseif ($orderId > 0 && $price > 0 && $paymentId === null) {
+            // Payment was expected but creation failed - mark as partial
             $status = 'partial';
         }
 
@@ -168,7 +171,7 @@ class MembershipRegistrationService {
             'matched_email' => $matchedEmail,
             'payment_id' => $paymentId,
             'constituent_response' => $constituentVerification,
-            'payment_response' => $paymentVerification,
+            'payment_response' => $paymentResponse,
             'status' => $status
         ];
     }
@@ -535,7 +538,16 @@ class MembershipRegistrationService {
         $this->addConstituentDetails($lglId, $userId, $skipMembership, true); // true = skip contact info
     }
 
-    private function createPayment(string $lglId, int $orderId, float $amount, string $paymentType): ?int {
+    /**
+     * Create payment in LGL
+     * 
+     * @param string $lglId LGL constituent ID
+     * @param int $orderId WooCommerce order ID
+     * @param float $amount Payment amount
+     * @param string $paymentType Payment type
+     * @return array|null Payment result with 'id' and 'success' keys, or null on failure
+     */
+    private function createPayment(string $lglId, int $orderId, float $amount, string $paymentType): ?array {
         $result = $this->payments->setupMembershipPayment($lglId, $orderId, $amount, date('Y-m-d'), $paymentType);
 
         if (empty($result['success'])) {
@@ -551,6 +563,7 @@ class MembershipRegistrationService {
             'amount' => $amount
         ]);
 
-        return $paymentId;
+        // Return full result array (includes 'id', 'success', 'data', etc.)
+        return $result;
     }
 }

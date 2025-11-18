@@ -387,9 +387,18 @@ class OrderEmailCustomizer {
      * @return string Content with variables replaced
      */
     private function replaceTemplateVariables(string $content, \WC_Order $order, int $product_id, string $template_type): string {
-        $customer = $order->get_customer();
-        $first_name = $order->get_billing_first_name() ?: ($customer ? $customer->get_first_name() : '');
-        $last_name = $order->get_billing_last_name() ?: ($customer ? $customer->get_last_name() : '');
+        // Get customer object if customer ID exists
+        $customer_id = $order->get_customer_id();
+        $customer = null;
+        if ($customer_id > 0 && function_exists('wc_get_customer')) {
+            $customer = wc_get_customer($customer_id);
+        } elseif ($customer_id > 0) {
+            // Fallback to WordPress user if WooCommerce customer function not available
+            $customer = get_user_by('id', $customer_id);
+        }
+        
+        $first_name = $order->get_billing_first_name() ?: ($customer ? ($customer->get_first_name() ?? ($customer->first_name ?? '')) : '');
+        $last_name = $order->get_billing_last_name() ?: ($customer ? ($customer->get_last_name() ?? ($customer->last_name ?? '')) : '');
         
         $replacements = [
             '{first_name}' => $first_name,

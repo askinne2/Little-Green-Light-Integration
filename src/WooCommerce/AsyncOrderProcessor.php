@@ -169,6 +169,10 @@ class AsyncOrderProcessor {
                 [
                     'key' => '_lgl_async_processed',
                     'compare' => 'NOT EXISTS'
+                ],
+                [
+                    'key' => '_lgl_async_permanently_failed',
+                    'compare' => 'NOT EXISTS'
                 ]
             ]
         ];
@@ -234,11 +238,128 @@ class AsyncOrderProcessor {
             return;
         }
         
+        // Check if permanently failed (don't retry)
+        $permanently_failed = $order->get_meta('_lgl_async_permanently_failed');
+        if ($permanently_failed) {
+            $this->helper->debug('⏹️ AsyncOrderProcessor: Order permanently failed, skipping', [
+                'order_id' => $order_id,
+                'failed_reason' => $order->get_meta('_lgl_async_permanent_failure_reason')
+            ]);
+            return;
+        }
+        
         $already_processed = $order->get_meta('_lgl_async_processed');
         if ($already_processed) {
             $this->helper->debug('⏭️ AsyncOrderProcessor: Order already processed, skipping', [
                 'order_id' => $order_id,
                 'processed_at' => $order->get_meta('_lgl_async_processed_at')
+            ]);
+            return;
+        }
+        
+        // Check if user exists (critical validation)
+        $user_id = $order->get_customer_id();
+        
+        // Check what products are in this order to determine if user_id is required
+        $order_items = $order->get_items();
+        $has_membership_products = false;
+        $has_products_requiring_user = false;
+        
+        foreach ($order_items as $item) {
+            $product_id = $item->get_variation_id() ?: $item->get_product_id();
+            $parent_id = $item->get_variation_id() ? $item->get_product_id() : $product_id;
+            
+            // Check if this is a membership product (requires user_id)
+            if (has_term('memberships', 'product_cat', $parent_id)) {
+                $has_membership_products = true;
+                $has_products_requiring_user = true;
+                break;
+            }
+        }
+        
+        // If order has products requiring user_id but user_id is 0 or user doesn't exist
+        if ($has_products_requiring_user) {
+            if ($user_id <= 0) {
+                // Membership products require a user - mark as permanently failed
+                $order->update_meta_data('_lgl_async_permanently_failed', true);
+                $order->update_meta_data('_lgl_async_permanent_failure_reason', 'Membership products require a valid user_id, but customer_id is 0');
+                $order->update_meta_data('_lgl_async_failed_at', current_time('mysql'));
+                $order->save();
+                
+                $this->helper->debug('🛑 AsyncOrderProcessor: Membership product requires user_id but customer_id is 0', [
+                    'order_id' => $order_id,
+                    'has_membership_products' => true
+                ]);
+                return;
+            }
+            
+            // User ID exists - verify user still exists
+            $user = get_user_by('id', $user_id);
+            if (!$user) {
+                // User was deleted - mark as permanently failed
+                $order->update_meta_data('_lgl_async_permanently_failed', true);
+                $order->update_meta_data('_lgl_async_permanent_failure_reason', 'User deleted from WordPress');
+                $order->update_meta_data('_lgl_async_failed_at', current_time('mysql'));
+                $order->save();
+                
+                $this->helper->debug('🛑 AsyncOrderProcessor: User deleted, marking as permanently failed', [
+                    'order_id' => $order_id,
+                    'user_id' => $user_id
+                ]);
+                return;
+            }
+        } else {
+            // For non-membership products, check if user exists (if user_id > 0)
+            if ($user_id > 0) {
+                $user = get_user_by('id', $user_id);
+                if (!$user) {
+                    // User was deleted - mark as permanently failed
+                    $order->update_meta_data('_lgl_async_permanently_failed', true);
+                    $order->update_meta_data('_lgl_async_permanent_failure_reason', 'User deleted from WordPress');
+                    $order->update_meta_data('_lgl_async_failed_at', current_time('mysql'));
+                    $order->save();
+                    
+                    $this->helper->debug('🛑 AsyncOrderProcessor: User deleted, marking as permanently failed', [
+                        'order_id' => $order_id,
+                        'user_id' => $user_id
+                    ]);
+                    return;
+                }
+            } else {
+                // No customer ID for non-membership products - check if billing email exists
+                $billing_email = $order->get_billing_email();
+                if (empty($billing_email)) {
+                    // No user and no email - mark as permanently failed
+                    $order->update_meta_data('_lgl_async_permanently_failed', true);
+                    $order->update_meta_data('_lgl_async_permanent_failure_reason', 'No customer ID and no billing email');
+                    $order->update_meta_data('_lgl_async_failed_at', current_time('mysql'));
+                    $order->save();
+                    
+                    $this->helper->debug('🛑 AsyncOrderProcessor: No customer ID or email, marking as permanently failed', [
+                        'order_id' => $order_id
+                    ]);
+                    return;
+                }
+            }
+        }
+        
+        // Check retry count (max 5 retries = ~25 minutes total)
+        $retry_count = (int) $order->get_meta('_lgl_async_retry_count');
+        $max_retries = 5;
+        
+        if ($retry_count >= $max_retries) {
+            // Max retries reached - mark as permanently failed
+            $order->update_meta_data('_lgl_async_permanently_failed', true);
+            $order->update_meta_data('_lgl_async_permanent_failure_reason', "Max retries reached ({$max_retries})");
+            $order->update_meta_data('_lgl_async_failed_at', current_time('mysql'));
+            $order->save();
+            
+            // Unschedule any pending cron events
+            wp_unschedule_event(wp_next_scheduled(self::CRON_HOOK, [$order_id]), self::CRON_HOOK, [$order_id]);
+            
+            $this->helper->debug('🛑 AsyncOrderProcessor: Max retries reached, marking as permanently failed', [
+                'order_id' => $order_id,
+                'retry_count' => $retry_count
             ]);
             return;
         }
@@ -250,6 +371,9 @@ class AsyncOrderProcessor {
             // Mark as processed
             $order->update_meta_data('_lgl_async_processed', true);
             $order->update_meta_data('_lgl_async_processed_at', current_time('mysql'));
+            $order->delete_meta_data('_lgl_async_retry_count'); // Clear retry count on success
+            $order->delete_meta_data('_lgl_async_failed');
+            $order->delete_meta_data('_lgl_async_error');
             $order->save();
             
             $this->helper->debug('✅ AsyncOrderProcessor: Async processing completed', [
@@ -257,28 +381,140 @@ class AsyncOrderProcessor {
             ]);
             
         } catch (\Exception $e) {
+            $retry_count++;
+            $error_message = $e->getMessage();
+            
             $this->helper->debug('❌ AsyncOrderProcessor: Async processing failed', [
                 'order_id' => $order_id,
-                'error' => $e->getMessage(),
+                'error' => $error_message,
+                'retry_count' => $retry_count,
+                'max_retries' => $max_retries,
                 'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
+                'line' => $e->getLine()
             ]);
             
-            // Mark as failed for retry (WP Cron will retry on next page load)
-            $order->update_meta_data('_lgl_async_failed', true);
-            $order->update_meta_data('_lgl_async_error', $e->getMessage());
-            $order->update_meta_data('_lgl_async_failed_at', current_time('mysql'));
-            $order->save();
+            // Check if error is non-retryable (user-related errors)
+            $non_retryable_errors = [
+                'requires a valid user_id',
+                'User deleted',
+                'No customer ID',
+                'user not found'
+            ];
             
-            // Re-schedule for retry (in 5 minutes)
-            wp_schedule_single_event(time() + (5 * MINUTE_IN_SECONDS), self::CRON_HOOK, [$order_id]);
+            $is_non_retryable = false;
+            foreach ($non_retryable_errors as $pattern) {
+                if (stripos($error_message, $pattern) !== false) {
+                    $is_non_retryable = true;
+                    break;
+                }
+            }
             
-            $this->helper->debug('🔄 AsyncOrderProcessor: Re-scheduled for retry', [
-                'order_id' => $order_id,
-                'retry_in' => '5 minutes'
-            ]);
+            if ($is_non_retryable || $retry_count >= $max_retries) {
+                // Mark as permanently failed
+                $order->update_meta_data('_lgl_async_permanently_failed', true);
+                $order->update_meta_data('_lgl_async_permanent_failure_reason', $is_non_retryable 
+                    ? 'Non-retryable error: ' . $error_message 
+                    : "Max retries reached ({$max_retries})");
+                $order->update_meta_data('_lgl_async_failed_at', current_time('mysql'));
+                $order->save();
+                
+                // Unschedule any pending cron events
+                $next_scheduled = wp_next_scheduled(self::CRON_HOOK, [$order_id]);
+                if ($next_scheduled) {
+                    wp_unschedule_event($next_scheduled, self::CRON_HOOK, [$order_id]);
+                }
+                
+                $this->helper->debug('🛑 AsyncOrderProcessor: Marking as permanently failed', [
+                    'order_id' => $order_id,
+                    'reason' => $is_non_retryable ? 'Non-retryable error' : 'Max retries',
+                    'error' => $error_message
+                ]);
+            } else {
+                // Mark as failed for retry
+                $order->update_meta_data('_lgl_async_failed', true);
+                $order->update_meta_data('_lgl_async_error', $error_message);
+                $order->update_meta_data('_lgl_async_failed_at', current_time('mysql'));
+                $order->update_meta_data('_lgl_async_retry_count', $retry_count);
+                $order->save();
+                
+                // Re-schedule for retry (in 5 minutes)
+                wp_schedule_single_event(time() + (5 * MINUTE_IN_SECONDS), self::CRON_HOOK, [$order_id]);
+                
+                $this->helper->debug('🔄 AsyncOrderProcessor: Re-scheduled for retry', [
+                    'order_id' => $order_id,
+                    'retry_count' => $retry_count,
+                    'retry_in' => '5 minutes'
+                ]);
+            }
         }
+    }
+    
+    /**
+     * Clear permanently failed status for an order (admin utility)
+     * 
+     * @param int $order_id Order ID
+     * @return bool Success status
+     */
+    public function clearPermanentFailure(int $order_id): bool {
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            return false;
+        }
+        
+        $order->delete_meta_data('_lgl_async_permanently_failed');
+        $order->delete_meta_data('_lgl_async_permanent_failure_reason');
+        $order->delete_meta_data('_lgl_async_retry_count');
+        $order->save();
+        
+        // Unschedule any pending cron events
+        $next_scheduled = wp_next_scheduled(self::CRON_HOOK, [$order_id]);
+        if ($next_scheduled) {
+            wp_unschedule_event($next_scheduled, self::CRON_HOOK, [$order_id]);
+        }
+        
+        $this->helper->debug('🔓 AsyncOrderProcessor: Cleared permanent failure status', [
+            'order_id' => $order_id
+        ]);
+        
+        return true;
+    }
+    
+    /**
+     * Get processing status for an order
+     * 
+     * @param int $order_id Order ID
+     * @return array Status information
+     */
+    public function getOrderStatus(int $order_id): array {
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            return ['error' => 'Order not found'];
+        }
+        
+        $status = [
+            'order_id' => $order_id,
+            'queued' => (bool) $order->get_meta('_lgl_async_queued'),
+            'queued_at' => $order->get_meta('_lgl_async_queued_at'),
+            'processed' => (bool) $order->get_meta('_lgl_async_processed'),
+            'processed_at' => $order->get_meta('_lgl_async_processed_at'),
+            'failed' => (bool) $order->get_meta('_lgl_async_failed'),
+            'failed_at' => $order->get_meta('_lgl_async_failed_at'),
+            'error' => $order->get_meta('_lgl_async_error'),
+            'permanently_failed' => (bool) $order->get_meta('_lgl_async_permanently_failed'),
+            'permanent_failure_reason' => $order->get_meta('_lgl_async_permanent_failure_reason'),
+            'retry_count' => (int) $order->get_meta('_lgl_async_retry_count'),
+            'next_scheduled' => wp_next_scheduled(self::CRON_HOOK, [$order_id]),
+            'customer_id' => $order->get_customer_id(),
+            'user_exists' => false
+        ];
+        
+        // Check if user exists
+        $user_id = $order->get_customer_id();
+        if ($user_id > 0) {
+            $status['user_exists'] = (bool) get_user_by('id', $user_id);
+        }
+        
+        return $status;
     }
 }
 

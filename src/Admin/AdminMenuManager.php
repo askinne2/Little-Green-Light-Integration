@@ -126,6 +126,7 @@ class AdminMenuManager {
     public function initialize(): void {
         add_action('admin_menu', [$this, 'registerMenus']);
         add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
+        add_action('admin_post_lgl_populate_historical_stats', [$this, 'handlePopulateHistoricalStats']);
     }
     
     /**
@@ -246,6 +247,27 @@ class AdminMenuManager {
     public function renderDashboard(): void {
         $settingsManager = $this->getSettingsManager();
         
+        // Show success/error messages
+        if (isset($_GET['stats_populated']) && $_GET['stats_populated'] === '1') {
+            $constituents = $_GET['constituents'] ?? 0;
+            $memberships = $_GET['memberships'] ?? 0;
+            $payments = $_GET['payments'] ?? 0;
+            echo '<div class="notice notice-success is-dismissible"><p>';
+            echo '✅ Historical statistics populated successfully! ';
+            echo sprintf('Found %d constituents, %d memberships, and %d payments.', 
+                number_format($constituents), 
+                number_format($memberships), 
+                number_format($payments)
+            );
+            echo '</p></div>';
+        }
+        
+        if (isset($_GET['stats_error']) && $_GET['stats_error'] === '1') {
+            echo '<div class="notice notice-error is-dismissible"><p>';
+            echo '❌ Failed to populate historical statistics. Check debug logs for details.';
+            echo '</p></div>';
+        }
+        
         // Build dashboard content with components
         $content = '<div class="lgl-dashboard-grid">';
         
@@ -285,10 +307,24 @@ class AdminMenuManager {
         ]);
         
         // Statistics Card
+        $stats_content = lgl_partial('partials/statistics', ['helper' => $this->helper]);
+        
+        // Add button to populate historical statistics
+        $stats_content .= '<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">';
+        $stats_content .= '<form method="post" action="' . admin_url('admin-post.php') . '" style="display: inline;">';
+        $stats_content .= wp_nonce_field('lgl_populate_stats', '_wpnonce', true, false);
+        $stats_content .= '<input type="hidden" name="action" value="lgl_populate_historical_stats">';
+        $stats_content .= '<button type="submit" class="button button-secondary" onclick="return confirm(\'This will recalculate statistics from all historical orders. Continue?\');">';
+        $stats_content .= '📊 Populate Historical Statistics';
+        $stats_content .= '</button>';
+        $stats_content .= '</form>';
+        $stats_content .= '<p style="margin-top: 10px; font-size: 0.9em; color: #666;"><em>Recalculate statistics from all synced orders</em></p>';
+        $stats_content .= '</div>';
+        
         $content .= lgl_partial('components/card', [
             'title' => 'Statistics',
             'icon' => '📊',
-            'content' => lgl_partial('partials/statistics', ['helper' => $this->helper])
+            'content' => $stats_content
         ]);
         
         // Recent Activity Card
@@ -549,10 +585,100 @@ class AdminMenuManager {
      * Get recent activity data
      */
     private function getRecentActivity(): string {
+        if (!function_exists('wc_get_orders')) {
+            return '<div class="lgl-activity-list"><p><em>WooCommerce not available</em></p></div>';
+        }
+        
+        // Get recent orders with LGL sync status
+        $orders = wc_get_orders([
+            'limit' => 10,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'status' => 'any',
+            'meta_query' => [
+                [
+                    'key' => '_lgl_sync_status',
+                    'compare' => 'EXISTS'
+                ]
+            ]
+        ]);
+        
+        if (empty($orders)) {
+            return '<div class="lgl-activity-list"><p><em>No recent sync activity found</em></p></div>';
+        }
+        
         $activity = '<div class="lgl-activity-list">';
-        $activity .= '<p><em>Recent activity tracking coming soon...</em></p>';
+        $activity .= '<ul style="list-style: none; padding: 0; margin: 0;">';
+        
+        foreach ($orders as $order) {
+            $sync_status = $order->get_meta('_lgl_sync_status') ?: 'unknown';
+            $order_number = $order->get_order_number();
+            $order_date = $order->get_date_created();
+            $date_display = $order_date ? $order_date->format('M j, Y g:i a') : 'Unknown';
+            $admin_url = $order->get_edit_order_url();
+            
+            $status_class = 'lgl-status-' . esc_attr($sync_status);
+            $status_color = $sync_status === 'synced' ? '#28a745' : ($sync_status === 'partial' ? '#ffc107' : '#dc3545');
+            
+            $activity .= '<li style="padding: 8px 0; border-bottom: 1px solid #eee;">';
+            $activity .= '<strong><a href="' . esc_url($admin_url) . '">#' . esc_html($order_number) . '</a></strong> ';
+            $activity .= '<span style="color: #666; font-size: 0.9em;">' . esc_html($date_display) . '</span> ';
+            $activity .= '<span class="' . $status_class . '" style="display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.85em; background: ' . $status_color . '20; color: ' . $status_color . '; font-weight: 600;">';
+            $activity .= esc_html(ucfirst($sync_status));
+            $activity .= '</span>';
+            $activity .= '</li>';
+        }
+        
+        $activity .= '</ul>';
+        $activity .= '<p style="margin-top: 15px;"><a href="' . admin_url('admin.php?page=lgl-sync-log') . '" class="button button-secondary">View Full Sync Log</a></p>';
         $activity .= '</div>';
+        
         return $activity;
+    }
+    
+    /**
+     * Handle populate historical statistics request
+     */
+    public function handlePopulateHistoricalStats(): void {
+        // Verify nonce and permissions
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized');
+        }
+        
+        if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'lgl_populate_stats')) {
+            wp_die('Security check failed');
+        }
+        
+        try {
+            $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
+            $operationalData = $container->get('admin.operational_data');
+            
+            $stats = $operationalData->populateHistoricalStatistics();
+            
+            // Redirect back with success message
+            $redirect_url = add_query_arg([
+                'page' => self::MAIN_MENU_SLUG,
+                'stats_populated' => '1',
+                'constituents' => $stats['total_synced_constituents'] ?? 0,
+                'memberships' => $stats['total_memberships'] ?? 0,
+                'payments' => $stats['total_payments'] ?? 0
+            ], admin_url('admin.php'));
+            
+            wp_safe_redirect($redirect_url);
+            exit;
+        } catch (\Exception $e) {
+            $this->helper->debug('❌ AdminMenuManager: Failed to populate historical statistics', [
+                'error' => $e->getMessage()
+            ]);
+            
+            $redirect_url = add_query_arg([
+                'page' => self::MAIN_MENU_SLUG,
+                'stats_error' => '1'
+            ], admin_url('admin.php'));
+            
+            wp_safe_redirect($redirect_url);
+            exit;
+        }
     }
     
     /**

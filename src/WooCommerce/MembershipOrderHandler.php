@@ -12,6 +12,8 @@
 namespace UpstateInternational\LGL\WooCommerce;
 
 use Exception;
+use UpstateInternational\LGL\Admin\OperationalDataManager;
+use UpstateInternational\LGL\Core\ServiceContainer;
 use UpstateInternational\LGL\LGL\ApiSettings;
 use UpstateInternational\LGL\LGL\Helper;
 use UpstateInternational\LGL\LGL\WpUsers;
@@ -602,7 +604,8 @@ class MembershipOrderHandler {
 
         $result = $this->registrationService->register($context);
 
-        $order->update_meta_data('_lgl_sync_status', $result['status'] ?? 'unknown');
+        $sync_status = $result['status'] ?? 'unknown';
+        $order->update_meta_data('_lgl_sync_status', $sync_status);
         $order->update_meta_data('_lgl_lgl_id', $result['lgl_id'] ?? null);
         $order->update_meta_data('_lgl_match_method', $result['match_method'] ?? null);
         if (isset($result['matched_email'])) {
@@ -618,6 +621,9 @@ class MembershipOrderHandler {
             $order->update_meta_data('_lgl_payment_response', wp_json_encode($result['payment_response']));
         }
         $order->save();
+        
+        // Update statistics after successful sync
+        $this->updateSyncStatistics($sync_status, $result);
 
         $this->helper->debug('✅ MembershipOrderHandler::registerUserInLGL() COMPLETED', [
             'user_id' => $userId,
@@ -829,6 +835,51 @@ class MembershipOrderHandler {
                     'note' => 'user_used_family_slots synced with JetEngine count'
                 ]);
             }
+        }
+    }
+    
+    /**
+     * Update sync statistics after successful order processing
+     * 
+     * @param string $sync_status Sync status (synced, partial, unsynced)
+     * @param array $result Registration result
+     * @return void
+     */
+    private function updateSyncStatistics(string $sync_status, array $result): void {
+        try {
+            $container = ServiceContainer::getInstance();
+            $operationalData = $container->get('admin.operational_data');
+            
+            // Only update stats for successful or partial syncs (not unsynced/failed)
+            if ($sync_status === 'synced' || $sync_status === 'partial') {
+                // Increment constituents synced (if LGL ID exists)
+                if (!empty($result['lgl_id'])) {
+                    $operationalData->incrementSyncStat('total_synced_constituents');
+                }
+                
+                // Increment memberships (membership products always create/update membership)
+                $operationalData->incrementSyncStat('total_memberships');
+                
+                // Increment payments (if payment was created)
+                if (!empty($result['payment_id'])) {
+                    $operationalData->incrementSyncStat('total_payments');
+                }
+                
+                // Update last sync time
+                $operationalData->updateSyncStat('last_sync_time', current_time('mysql'));
+                $operationalData->updateSyncStat('last_sync_date', current_time('Y-m-d'));
+                
+                $this->helper->debug('📊 MembershipOrderHandler: Updated sync statistics', [
+                    'status' => $sync_status,
+                    'has_lgl_id' => !empty($result['lgl_id']),
+                    'has_payment_id' => !empty($result['payment_id'])
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Don't fail order processing if statistics update fails
+            $this->helper->debug('⚠️ MembershipOrderHandler: Failed to update statistics', [
+                'error' => $e->getMessage()
+            ]);
         }
     }
 }
