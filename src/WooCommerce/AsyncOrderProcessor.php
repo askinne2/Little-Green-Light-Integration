@@ -54,6 +54,11 @@ class AsyncOrderProcessor {
         
         // Register WP Cron handler (more reliable than HTTP postback)
         add_action(self::CRON_HOOK, [$this, 'handleAsyncRequest'], 10, 1);
+        
+        // Register fallback mechanism to check for stuck orders
+        // This ensures processing happens even if WP Cron doesn't fire
+        add_action('admin_init', [$this, 'checkStuckOrders'], 999);
+        add_action('wp_loaded', [$this, 'checkStuckOrders'], 999);
     }
     
     /**
@@ -87,6 +92,14 @@ class AsyncOrderProcessor {
             $order->save();
         }
         
+        // Check if DISABLE_WP_CRON is set
+        $cron_disabled = defined('DISABLE_WP_CRON') && constant('DISABLE_WP_CRON');
+        $this->helper->debug('🔍 AsyncOrderProcessor: Cron status check', [
+            'order_id' => $order_id,
+            'DISABLE_WP_CRON' => $cron_disabled,
+            'has_order_processor' => !is_null($this->orderProcessor)
+        ]);
+        
         // Schedule WP Cron event to run immediately (on next page load)
         // This is more reliable than HTTP postback and doesn't require nonces/sessions
         $scheduled = wp_schedule_single_event(time(), self::CRON_HOOK, [$order_id]);
@@ -113,11 +126,74 @@ class AsyncOrderProcessor {
             
             // Trigger cron immediately (non-blocking) to ensure it runs
             // This uses WordPress's spawn_cron() which makes a non-blocking HTTP request
-            if (!defined('DISABLE_WP_CRON') || !constant('DISABLE_WP_CRON')) {
+            if (!$cron_disabled) {
                 spawn_cron();
                 $this->helper->debug('🚀 AsyncOrderProcessor: Triggered cron spawn for immediate execution', [
                     'order_id' => $order_id
                 ]);
+            } else {
+                $this->helper->debug('⚠️ AsyncOrderProcessor: WP Cron disabled, will run on next page load', [
+                    'order_id' => $order_id
+                ]);
+            }
+        }
+    }
+    
+    /**
+     * Check for orders that are queued but not yet processed
+     * Fallback mechanism if WP Cron doesn't fire
+     * 
+     * @return void
+     */
+    public function checkStuckOrders(): void {
+        // Only check occasionally (every 30 seconds) to avoid performance issues
+        $last_check = get_transient('lgl_async_order_check');
+        if ($last_check && (time() - $last_check) < 30) {
+            return;
+        }
+        
+        set_transient('lgl_async_order_check', time(), 60);
+        
+        // Find orders queued more than 1 minute ago but not processed
+        $args = [
+            'limit' => 10,
+            'status' => 'any',
+            'date_created' => '>' . (time() - DAY_IN_SECONDS),
+            'meta_query' => [
+                'relation' => 'AND',
+                [
+                    'key' => '_lgl_async_queued',
+                    'value' => '1',
+                    'compare' => '='
+                ],
+                [
+                    'key' => '_lgl_async_processed',
+                    'compare' => 'NOT EXISTS'
+                ]
+            ]
+        ];
+        
+        $queued_orders = wc_get_orders($args);
+        
+        if (!empty($queued_orders)) {
+            foreach ($queued_orders as $order) {
+                $queued_at = $order->get_meta('_lgl_async_queued_at');
+                if ($queued_at) {
+                    $queued_timestamp = strtotime($queued_at);
+                    $minutes_ago = (time() - $queued_timestamp) / 60;
+                    
+                    // Process if queued more than 1 minute ago
+                    if ($minutes_ago > 1) {
+                        $this->helper->debug('🔧 AsyncOrderProcessor: Found stuck order, processing now', [
+                            'order_id' => $order->get_id(),
+                            'queued_at' => $queued_at,
+                            'minutes_ago' => round($minutes_ago, 2)
+                        ]);
+                        
+                        // Process directly (bypass cron)
+                        $this->handleAsyncRequest($order->get_id());
+                    }
+                }
             }
         }
     }
