@@ -756,122 +756,10 @@ class AdminMenuManager {
         ob_start();
         ?>
         <div class="lgl-sync-data-container">
-            <p class="description">
-                Sync data from your Little Green Light account to use in WooCommerce products and forms. 
-                Click the import buttons below to fetch the latest data from the LGL API.
-            </p>
-            
-            <!-- Membership Levels Section -->
-            <h3 style="margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
-                📋 Membership Levels
-            </h3>
-            
-            <table class="widefat" style="margin-top: 15px;">
-                <thead>
-                    <tr>
-                        <th>Level Name</th>
-                        <th>LGL Level ID</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($levels)): ?>
-                        <tr><td colspan="2"><em>No membership levels imported yet. Use the button below to import.</em></td></tr>
-                    <?php else: ?>
-                        <?php foreach ($levels as $level): ?>
-                            <tr>
-                                <td><?php echo esc_html($level['level_name'] ?? ''); ?></td>
-                                <td><?php echo esc_html($level['lgl_membership_level_id'] ?? ''); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-            
-            <p style="margin-top: 15px;">
-                <button type="button" id="lgl-import-levels" class="button button-secondary" style="padding: 8px 20px; height: auto;">
-                    🔄 Import Membership Levels
-                </button>
-                <span id="lgl-import-levels-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
-            </p>
-            
-            <!-- Events Section -->
-            <h3 style="margin-top: 40px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
-                🎉 Events
-            </h3>
-            
-            <table class="widefat" style="margin-top: 15px;">
-                <thead>
-                    <tr>
-                        <th>Event Name</th>
-                        <th>LGL Event ID</th>
-                        <th>Date</th>
-                        <th>Description</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($events)): ?>
-                        <tr><td colspan="4"><em>No events imported yet. Use the button below to import.</em></td></tr>
-                    <?php else: ?>
-                        <?php foreach ($events as $event): ?>
-                            <tr>
-                                <td><?php echo esc_html($event['name'] ?? ''); ?></td>
-                                <td><?php echo esc_html($event['lgl_event_id'] ?? ''); ?></td>
-                                <td><?php echo esc_html($event['date'] ?? ''); ?></td>
-                                <td><?php echo esc_html(wp_trim_words($event['description'] ?? '', 10)); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-            
-            <p style="margin-top: 15px;">
-                <button type="button" id="lgl-import-events" class="button button-secondary" style="padding: 8px 20px; height: auto;">
-                    🔄 Import Events
-                </button>
-                <span id="lgl-import-events-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
-            </p>
-            
-            <!-- Funds Section -->
-            <h3 style="margin-top: 40px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
-                💰 Funds
-            </h3>
-            
-            <table class="widefat" style="margin-top: 15px;">
-                <thead>
-                    <tr>
-                        <th>Fund Name</th>
-                        <th>LGL Fund ID</th>
-                        <th>Code</th>
-                        <th>Description</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($funds)): ?>
-                        <tr><td colspan="4"><em>No funds imported yet. Use the button below to import.</em></td></tr>
-                    <?php else: ?>
-                        <?php foreach ($funds as $fund): ?>
-                            <tr>
-                                <td><?php echo esc_html($fund['name'] ?? ''); ?></td>
-                                <td><?php echo esc_html($fund['lgl_fund_id'] ?? ''); ?></td>
-                                <td><?php echo esc_html($fund['code'] ?? ''); ?></td>
-                                <td><?php echo esc_html(wp_trim_words($fund['description'] ?? '', 10)); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-            
-            <p style="margin-top: 15px;">
-                <button type="button" id="lgl-import-funds" class="button button-secondary" style="padding: 8px 20px; height: auto;">
-                    🔄 Import Funds
-                </button>
-                <span id="lgl-import-funds-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
-            </p>
-            
-            <!-- Consolidated Fund IDs Section -->
-            <h3 style="margin-top: 40px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
-                ⚙️ Consolidated Fund IDs (Post-Remediation)
-            </h3>
+            <!-- Consolidated Fund IDs Section - MOVED TO TOP -->
+            <h2 style="margin-top: 0; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">
+                ⚙️ Consolidated Fund IDs
+            </h2>
             
             <p class="description" style="margin-top: 15px;">
                 Configure the LGL fund IDs used for different order types. These replace individual product-level fund assignments.
@@ -919,10 +807,195 @@ class AdminMenuManager {
                             <p class="description">LGL fund ID for general donations (default: 4127)</p>
                         </td>
                     </tr>
+                    <tr>
+                        <th><label for="fund_id_family_member_slots">Family Member Slots Fund ID</label></th>
+                        <td>
+                            <input type="number" id="fund_id_family_member_slots" name="fund_id_family_member_slots" 
+                                   value="<?php echo esc_attr($settings['fund_id_family_member_slots'] ?? 4147); ?>" 
+                                   class="regular-text" min="1" />
+                            <p class="description">LGL fund ID for Family Member slot purchases - separate from membership fund (default: 4147)</p>
+                        </td>
+                    </tr>
+                </table>
+                
+                <h3 style="margin-top: 30px;">Cart Validation Rules</h3>
+                <table class="form-table">
+                    <tr>
+                        <th><label>Cart Validation Settings</label></th>
+                        <td>
+                            <fieldset>
+                                <label>
+                                    <input type="checkbox" name="cart_validation[require_membership_for_family_members]" value="1" 
+                                           <?php 
+                                           $cart_validation = $settings['cart_validation'] ?? [];
+                                           checked($cart_validation['require_membership_for_family_members'] ?? true, true); 
+                                           ?> />
+                                    Require membership when purchasing family member slots
+                                </label>
+                                <p class="description">If checked, guests must add a membership to cart when purchasing family member slots</p>
+                            </fieldset>
+                            
+                            <fieldset style="margin-top: 15px;">
+                                <label>
+                                    Maximum Family Members:
+                                    <input type="number" name="cart_validation[max_family_members]" 
+                                           value="<?php 
+                                           $cart_validation = $settings['cart_validation'] ?? [];
+                                           echo esc_attr($cart_validation['max_family_members'] ?? 6); 
+                                           ?>" 
+                                           min="1" max="20" style="width: 80px; margin-left: 10px;" />
+                                </label>
+                                <p class="description">Maximum number of family members allowed per membership (default: 6)</p>
+                            </fieldset>
+                            
+                            <fieldset style="margin-top: 15px;">
+                                <label>
+                                    <input type="checkbox" name="cart_validation[allow_guest_family_member_purchase]" value="1" 
+                                           <?php 
+                                           $cart_validation = $settings['cart_validation'] ?? [];
+                                           checked($cart_validation['allow_guest_family_member_purchase'] ?? false, true); 
+                                           ?> />
+                                    Allow guests to purchase family member slots without membership
+                                </label>
+                                <p class="description">If checked, guests can purchase family member slots without adding a membership to cart (not recommended)</p>
+                            </fieldset>
+                        </td>
+                    </tr>
                 </table>
                 
                 <?php submit_button('Save Fund Settings'); ?>
             </form>
+            
+            <!-- Reference Data Section - MOVED TO BOTTOM -->
+            <div style="margin-top: 60px; padding-top: 30px; border-top: 2px solid #ddd;">
+                <h2 style="border-bottom: 1px solid #ccc; padding-bottom: 10px;">
+                    📚 Reference Data (Read-Only)
+                </h2>
+                
+                <p class="description" style="margin-top: 15px;">
+                    <strong>Note:</strong> These imports are for reference only. They do not affect order processing, which uses product meta fields (<code>_ui_lgl_sync_id</code>) and the consolidated fund settings above. 
+                    Click the import buttons below to fetch the latest data from the LGL API (all pages will be retrieved).
+                </p>
+                
+                <!-- Membership Levels Section - Scrollable -->
+                <div style="margin-top: 30px; border: 1px solid #ddd; border-radius: 4px; padding: 15px; background: #f9f9f9;">
+                    <h3 style="margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 8px;">
+                        📋 Membership Levels
+                    </h3>
+                    
+                    <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; background: #fff; padding: 10px;">
+                        <table class="widefat" style="margin: 0;">
+                            <thead style="position: sticky; top: 0; background: #fff; z-index: 10;">
+                                <tr>
+                                    <th>Level Name</th>
+                                    <th>LGL Level ID</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($levels)): ?>
+                                    <tr><td colspan="2"><em>No membership levels imported yet. Use the button below to import.</em></td></tr>
+                                <?php else: ?>
+                                    <?php foreach ($levels as $level): ?>
+                                        <tr>
+                                            <td><?php echo esc_html($level['level_name'] ?? ''); ?></td>
+                                            <td><?php echo esc_html($level['lgl_membership_level_id'] ?? ''); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <p style="margin-top: 15px; margin-bottom: 0;">
+                        <button type="button" id="lgl-import-levels" class="button button-secondary" style="padding: 8px 20px; height: auto;">
+                            🔄 Import Membership Levels
+                        </button>
+                        <span id="lgl-import-levels-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
+                    </p>
+                </div>
+                
+                <!-- Events Section - Scrollable -->
+                <div style="margin-top: 30px; border: 1px solid #ddd; border-radius: 4px; padding: 15px; background: #f9f9f9;">
+                    <h3 style="margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 8px;">
+                        🎉 Events
+                    </h3>
+                    
+                    <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; background: #fff; padding: 10px;">
+                        <table class="widefat" style="margin: 0;">
+                            <thead style="position: sticky; top: 0; background: #fff; z-index: 10;">
+                                <tr>
+                                    <th>Event Name</th>
+                                    <th>LGL Event ID</th>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($events)): ?>
+                                    <tr><td colspan="4"><em>No events imported yet. Use the button below to import.</em></td></tr>
+                                <?php else: ?>
+                                    <?php foreach ($events as $event): ?>
+                                        <tr>
+                                            <td><?php echo esc_html($event['name'] ?? ''); ?></td>
+                                            <td><?php echo esc_html($event['lgl_event_id'] ?? ''); ?></td>
+                                            <td><?php echo esc_html($event['date'] ?? ''); ?></td>
+                                            <td><?php echo esc_html(wp_trim_words($event['description'] ?? '', 10)); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <p style="margin-top: 15px; margin-bottom: 0;">
+                        <button type="button" id="lgl-import-events" class="button button-secondary" style="padding: 8px 20px; height: auto;">
+                            🔄 Import Events
+                        </button>
+                        <span id="lgl-import-events-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
+                    </p>
+                </div>
+                
+                <!-- Funds Section - Scrollable -->
+                <div style="margin-top: 30px; border: 1px solid #ddd; border-radius: 4px; padding: 15px; background: #f9f9f9;">
+                    <h3 style="margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 8px;">
+                        💰 Funds
+                    </h3>
+                    
+                    <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; background: #fff; padding: 10px;">
+                        <table class="widefat" style="margin: 0;">
+                            <thead style="position: sticky; top: 0; background: #fff; z-index: 10;">
+                                <tr>
+                                    <th>Fund Name</th>
+                                    <th>LGL Fund ID</th>
+                                    <th>Code</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($funds)): ?>
+                                    <tr><td colspan="4"><em>No funds imported yet. Use the button below to import.</em></td></tr>
+                                <?php else: ?>
+                                    <?php foreach ($funds as $fund): ?>
+                                        <tr>
+                                            <td><?php echo esc_html($fund['name'] ?? ''); ?></td>
+                                            <td><?php echo esc_html($fund['lgl_fund_id'] ?? ''); ?></td>
+                                            <td><?php echo esc_html($fund['code'] ?? ''); ?></td>
+                                            <td><?php echo esc_html(wp_trim_words($fund['description'] ?? '', 10)); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <p style="margin-top: 15px; margin-bottom: 0;">
+                        <button type="button" id="lgl-import-funds" class="button button-secondary" style="padding: 8px 20px; height: auto;">
+                            🔄 Import Funds
+                        </button>
+                        <span id="lgl-import-funds-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
+                    </p>
+                </div>
+            </div>
         </div>
         
         <script type="text/javascript">

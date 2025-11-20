@@ -181,6 +181,9 @@ class Plugin {
                 $this->container->get('woocommerce.order_processor');
                 $this->container->get('woocommerce.subscription_handler');
                 
+                // Initialize Cart Validator (registers validation hooks)
+                $this->container->get('woocommerce.cart_validator');
+                
                 // Register custom WooCommerce email classes
                 $this->registerWooCommerceEmails();
             }

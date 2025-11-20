@@ -254,11 +254,14 @@ class Payments {
      */
     public function setupMembershipPayment(
         string $lgl_id, 
-        int $order_id, 
+        $external_id, 
         float $price, 
         string $date, 
-        ?string $payment_type = null
+        ?string $payment_type = null,
+        $product = null
     ): array {
+        // external_id can be int (order_id) or string (order_id-product_id)
+        $order_id = is_int($external_id) ? $external_id : (int) explode('-', (string) $external_id)[0];
         try {
             // Get order details
             if (function_exists('wc_get_order')) {
@@ -297,16 +300,24 @@ class Payments {
             $payment_types_items = $payment_data['payment_types']['items'] ?? [];
             
             // Get fund ID from settings based on product category
-            $fund_id = $this->getFundIdByProductCategory($order);
+            // CRITICAL: Pass the specific product being processed to ensure correct fund ID
+            $fund_id = $this->getFundIdByProductCategory($order, $product);
             $fund_name = ''; // Empty - LGL resolves it
             
             // Find campaign (match legacy: 'Membership Fees')
             $campaign_name = 'Membership Fees';
             $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
             
-            // Find gift category (match legacy: 'Donation')
-            $category_name = 'Donation';
+            // Find gift category - use "Membership Fees" under "Other Income" gift type
+            // This matches the gift_type_id of 5 (Other Income) and is more accurate than "Donation"
+            $category_name = 'Membership Fees';
             $category_id = $this->findLglObjectKey($category_name, 'display_name', $categories_items);
+            
+            // Fallback to "Misc." if "Membership Fees" not found (both under Other Income)
+            if (empty($category_id)) {
+                $category_name = 'Misc.';
+                $category_id = $this->findLglObjectKey($category_name, 'display_name', $categories_items);
+            }
             
             // Find gift type (match legacy: 'Other Income')
             $gift_type_name = 'Other Income';
@@ -320,8 +331,11 @@ class Payments {
             // LGL API requires all amounts to be formatted with decimals
             $formatted_amount = number_format((float)$price, 2, '.', '');
             
+            // Generate descriptive payment note based on product type
+            $payment_note = $this->generateMembershipPaymentNote($order, $order_id, $product);
+            
             $payment_data_to_send = [
-                'external_id' => $order_id,
+                'external_id' => $external_id,
                 'is_anon' => false,
                 'gift_type_id' => $gift_type_id,
                 'gift_type_name' => $gift_type_name,
@@ -341,7 +355,7 @@ class Payments {
                 'payment_type_name' => $type_name,
                 'check_number' => '',
                 'deductible_amount' => $formatted_amount,
-                'note' => 'Website Registration, Order #' . $order_id,
+                'note' => $payment_note,
                 'ack_template_name' => '',
                 'deposit_date' => $this->formatDateForApi($date),
                 'deposited_amount' => $formatted_amount,
@@ -483,7 +497,7 @@ class Payments {
                 'payment_type_name' => $type_name,
                 'check_number' => '',
                 'deductible_amount' => $formatted_amount,
-                'note' => 'Class registration - ' . $class_type . ' - Order #' . $order_id,
+                'note' => 'Language Class Registration - ' . $class_type . ' - Order #' . $order_id,
                 'ack_template_name' => '',
                 'deposit_date' => $this->formatDateForApi($date),
                 'deposited_amount' => $formatted_amount,
@@ -624,7 +638,7 @@ class Payments {
                 'payment_type_name' => $type_name,
                 'check_number' => '',
                 'deductible_amount' => $formatted_amount,
-                'note' => 'Event registration - ' . $event_name . ' - Order #' . $order_id,
+                'note' => 'Event Registration - ' . $event_name . ' - Order #' . $order_id,
                 'ack_template_name' => '',
                 'deposit_date' => $this->formatDateForApi($date),
                 'deposited_amount' => $formatted_amount,
@@ -729,9 +743,10 @@ class Payments {
      * Settings always override legacy product meta fields.
      * 
      * @param \WC_Order $order WooCommerce order
+     * @param mixed $specific_product Optional specific product to check (order item or product object)
      * @return int Fund ID from settings
      */
-    private function getFundIdByProductCategory(\WC_Order $order): int {
+    private function getFundIdByProductCategory(\WC_Order $order, $specific_product = null): int {
         // Get SettingsManager instance from container
         $settingsManager = null;
         if (function_exists('lgl_get_container')) {
@@ -745,15 +760,149 @@ class Payments {
             }
         }
         
-        // Check order items for product categories
+        // Get Family Member Slots fund ID from settings (for comparison)
+        $family_member_fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_family_member_slots', 4147) : 4147;
+        
+        // CRITICAL FIX: If a specific product is provided, only check that product
+        // This ensures correct fund ID for mixed carts
+        if ($specific_product) {
+            $product_obj = null;
+            $product_id = null;
+            $variation_id = null;
+            
+            // Handle order item object (WC_Order_Item_Product)
+            if (is_object($specific_product) && method_exists($specific_product, 'get_product_id')) {
+                $product_obj = $specific_product->get_product();
+                $variation_id = $specific_product->get_variation_id();
+                $product_id = $specific_product->get_product_id();
+            }
+            // Handle product object
+            elseif (is_object($specific_product) && method_exists($specific_product, 'get_id')) {
+                $product_obj = $specific_product;
+                $variation_id = method_exists($specific_product, 'get_variation_id') ? $specific_product->get_variation_id() : null;
+                $product_id = $specific_product->get_id();
+            }
+            
+            if ($product_obj) {
+                // Check for _ui_lgl_sync_id on variation or product
+                $lgl_sync_id = null;
+                if ($variation_id) {
+                    $lgl_sync_id = get_post_meta($variation_id, '_ui_lgl_sync_id', true);
+                }
+                if (empty($lgl_sync_id) && $product_id) {
+                    $lgl_sync_id = get_post_meta($product_id, '_ui_lgl_sync_id', true);
+                }
+                
+                // CRITICAL FIX: _ui_lgl_sync_id contains membership level ID, not fund ID
+                // Only use it as fund ID if it matches Family Member Slots fund (4147)
+                // For regular memberships, use the membership fund from settings instead
+                if (!empty($lgl_sync_id)) {
+                    $sync_id_value = (int) $lgl_sync_id;
+                    
+                    // If this is a Family Member product (sync ID matches Family Member fund), use it as fund ID
+                    if ($sync_id_value === $family_member_fund_id) {
+                        $this->debug('Using _ui_lgl_sync_id as fund ID (Family Member product)', [
+                            'product_id' => $product_id,
+                            'variation_id' => $variation_id,
+                            'fund_id' => $sync_id_value,
+                            'product_name' => method_exists($product_obj, 'get_name') ? $product_obj->get_name() : 'N/A',
+                            'is_family_member' => true
+                        ]);
+                        return $sync_id_value;
+                    }
+                    
+                    // For regular membership products, _ui_lgl_sync_id is the membership level ID, not fund ID
+                    // Fall through to category-based detection to get the correct membership fund
+                    $this->debug('_ui_lgl_sync_id is membership level ID, not fund ID', [
+                        'product_id' => $product_id,
+                        'variation_id' => $variation_id,
+                        'membership_level_id' => $sync_id_value,
+                        'product_name' => method_exists($product_obj, 'get_name') ? $product_obj->get_name() : 'N/A',
+                        'note' => 'Will use membership fund from settings instead'
+                    ]);
+                }
+                
+                // Fallback to category-based detection (existing logic)
+                $parent_id = method_exists($product_obj, 'get_parent_id') ? ($product_obj->get_parent_id() ?: $product_id) : $product_id;
+                $categories = wp_get_post_terms($parent_id, 'product_cat', ['fields' => 'slugs']);
+                
+                $this->debug('Fund ID detection by category', [
+                    'product_id' => $product_id,
+                    'parent_id' => $parent_id,
+                    'product_type' => method_exists($product_obj, 'get_type') ? $product_obj->get_type() : 'N/A',
+                    'categories' => $categories
+                ]);
+                
+                // Check for membership category (use 'memberships' plural as that's the actual slug)
+                if (in_array('memberships', $categories) || in_array('membership', $categories)) {
+                    $fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_membership', 2437) : 2437;
+                    $this->debug('Membership category detected', ['fund_id' => $fund_id]);
+                    return $fund_id;
+                }
+                
+                // Check for language class category
+                if (in_array('language-class', $categories)) {
+                    $fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_language_classes', 4132) : 4132;
+                    $this->debug('Language class category detected', ['fund_id' => $fund_id]);
+                    return $fund_id;
+                }
+                
+                // Check for events category
+                if (in_array('events', $categories)) {
+                    $fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_events', 4142) : 4142;
+                    $this->debug('Events category detected', ['fund_id' => $fund_id]);
+                    return $fund_id;
+                }
+            }
+        }
+        
+        // Fallback: Check all order items if no specific product provided
         foreach ($order->get_items() as $item) {
             $product = $item->get_product();
             if ($product) {
-                // Get parent product ID (variations inherit categories from parent)
                 $product_id = $product->get_id();
-                $parent_id = $product->get_parent_id() ?: $product_id;
+                $variation_id = $product->get_variation_id();
                 
-                // Get categories from parent product (variations don't have their own categories)
+                // Check for _ui_lgl_sync_id on variation or product
+                $lgl_sync_id = null;
+                if ($variation_id) {
+                    $lgl_sync_id = get_post_meta($variation_id, '_ui_lgl_sync_id', true);
+                }
+                if (empty($lgl_sync_id)) {
+                    $lgl_sync_id = get_post_meta($product_id, '_ui_lgl_sync_id', true);
+                }
+                
+                // CRITICAL FIX: _ui_lgl_sync_id contains membership level ID, not fund ID
+                // Only use it as fund ID if it matches Family Member Slots fund (4147)
+                // For regular memberships, use the membership fund from settings instead
+                if (!empty($lgl_sync_id)) {
+                    $sync_id_value = (int) $lgl_sync_id;
+                    
+                    // If this is a Family Member product (sync ID matches Family Member fund), use it as fund ID
+                    if ($sync_id_value === $family_member_fund_id) {
+                        $this->debug('Using _ui_lgl_sync_id as fund ID (Family Member product)', [
+                            'product_id' => $product_id,
+                            'variation_id' => $variation_id,
+                            'fund_id' => $sync_id_value,
+                            'product_name' => $product->get_name(),
+                            'is_family_member' => true
+                        ]);
+                        return $sync_id_value;
+                    }
+                    
+                    // For regular membership products, _ui_lgl_sync_id is the membership level ID, not fund ID
+                    // Fall through to category-based detection to get the correct membership fund
+                    $this->debug('_ui_lgl_sync_id is membership level ID, not fund ID', [
+                        'product_id' => $product_id,
+                        'variation_id' => $variation_id,
+                        'membership_level_id' => $sync_id_value,
+                        'product_name' => $product->get_name(),
+                        'note' => 'Will use membership fund from settings instead'
+                    ]);
+                }
+                
+                // Fallback to category-based detection (existing logic)
+                $parent_id = $product->get_parent_id() ?: $product_id;
                 $categories = wp_get_post_terms($parent_id, 'product_cat', ['fields' => 'slugs']);
                 
                 $this->debug('Fund ID detection by category', [
@@ -789,6 +938,111 @@ class Payments {
         // Default to general fund if no category matched
         $this->debug('No category matched, using general fund', []);
         return $settingsManager ? (int) $settingsManager->get('fund_id_general', 4127) : 4127;
+    }
+    
+    /**
+     * Generate descriptive payment note for membership payments
+     * 
+     * Creates category-specific notes:
+     * - Family Member products: "Family Member Slot Purchase, Order #X"
+     * - Regular memberships: "Membership Purchase - {level} - Order #X"
+     * - Default: "Membership Purchase, Order #X"
+     * 
+     * @param \WC_Order $order WooCommerce order
+     * @param int $order_id Order ID
+     * @return string Payment note
+     */
+    private function generateMembershipPaymentNote(\WC_Order $order, int $order_id, $specific_product = null): string {
+        // Get SettingsManager to check Family Member fund ID
+        $settingsManager = null;
+        $family_member_fund_id = null;
+        
+        if (function_exists('lgl_get_container')) {
+            try {
+                $container = lgl_get_container();
+                if ($container->has('admin.settings_manager')) {
+                    $settingsManager = $container->get('admin.settings_manager');
+                    $family_member_fund_id = (int) $settingsManager->get('fund_id_family_member_slots', 4147);
+                }
+            } catch (\Exception $e) {
+                $family_member_fund_id = 4147;
+            }
+        } else {
+            $family_member_fund_id = 4147;
+        }
+        
+        $is_family_member = false;
+        $membership_level = null;
+        $quantity = 1;
+        
+        // CRITICAL FIX: Check ONLY the specific product being processed, not all order items
+        if ($specific_product) {
+            $product_obj = null;
+            
+            // Handle different product object types
+            if (is_object($specific_product) && method_exists($specific_product, 'get_product')) {
+                // Order item object
+                $product_obj = $specific_product->get_product();
+                $quantity = $specific_product->get_quantity();
+            } elseif (is_object($specific_product) && method_exists($specific_product, 'get_name')) {
+                // Product object
+                $product_obj = $specific_product;
+            }
+            
+            if ($product_obj) {
+                $product_name = method_exists($product_obj, 'get_name') ? $product_obj->get_name() : '';
+                
+                $variation_id = method_exists($product_obj, 'get_variation_id') ? $product_obj->get_variation_id() : null;
+                $product_id = method_exists($product_obj, 'get_id') ? $product_obj->get_id() : null;
+                
+                // If specific_product is an order item, get IDs from it
+                if (is_object($specific_product) && method_exists($specific_product, 'get_product_id')) {
+                    $variation_id = $specific_product->get_variation_id();
+                    $product_id = $specific_product->get_product_id();
+                }
+                
+                // Check _ui_lgl_sync_id for Family Member detection
+                $lgl_sync_id = null;
+                if ($variation_id) {
+                    $lgl_sync_id = get_post_meta($variation_id, '_ui_lgl_sync_id', true);
+                }
+                if (empty($lgl_sync_id) && $product_id) {
+                    $lgl_sync_id = get_post_meta($product_id, '_ui_lgl_sync_id', true);
+                }
+                
+                // Check if this is a Family Member product
+                if (!empty($lgl_sync_id) && $family_member_fund_id > 0 && (int) $lgl_sync_id === $family_member_fund_id) {
+                    $is_family_member = true;
+                } elseif (stripos($product_name, 'Family Member') !== false) {
+                    $is_family_member = true;
+                }
+                
+                // Extract membership level from product name if not a family member product
+                if (!$is_family_member && $product_name) {
+                    $membership_names = ['Member', 'Supporter', 'Patron', 'Community Member', 'Community Supporter', 'Community Patron'];
+                    foreach ($membership_names as $level) {
+                        if (stripos($product_name, $level) !== false) {
+                            $membership_level = $level;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Generate note based on product type
+        if ($is_family_member) {
+            if ($quantity > 1) {
+                return sprintf('Family Member Slot Purchase (%d slots), Order #%d', $quantity, $order_id);
+            } else {
+                return sprintf('Family Member Slot Purchase, Order #%d', $order_id);
+            }
+        } elseif ($membership_level) {
+            return sprintf('Membership Purchase - %s - Order #%d', $membership_level, $order_id);
+        } else {
+            // Default fallback
+            return sprintf('Membership Purchase, Order #%d', $order_id);
+        }
     }
     
     /**

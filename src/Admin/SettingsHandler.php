@@ -316,6 +316,7 @@ class SettingsHandler {
             'fund_id_language_classes' => isset($_POST['fund_id_language_classes']) ? (int) $_POST['fund_id_language_classes'] : 4132,
             'fund_id_events' => isset($_POST['fund_id_events']) ? (int) $_POST['fund_id_events'] : 4142,
             'fund_id_general' => isset($_POST['fund_id_general']) ? (int) $_POST['fund_id_general'] : 4127,
+            'fund_id_family_member_slots' => isset($_POST['fund_id_family_member_slots']) ? (int) $_POST['fund_id_family_member_slots'] : 4147,
         ];
         
         // Validate fund IDs are positive integers
@@ -325,6 +326,15 @@ class SettingsHandler {
                 return;
             }
         }
+        
+        // Handle cart validation settings
+        $cart_validation = [
+            'require_membership_for_family_members' => isset($_POST['cart_validation']['require_membership_for_family_members']) ? (bool) $_POST['cart_validation']['require_membership_for_family_members'] : true,
+            'max_family_members' => isset($_POST['cart_validation']['max_family_members']) ? max(1, (int) $_POST['cart_validation']['max_family_members']) : 6,
+            'allow_guest_family_member_purchase' => isset($_POST['cart_validation']['allow_guest_family_member_purchase']) ? (bool) $_POST['cart_validation']['allow_guest_family_member_purchase'] : false,
+        ];
+        
+        $fund_settings['cart_validation'] = $cart_validation;
         
         if ($this->updateSettings($fund_settings)) {
             $this->redirectWithMessage('updated', 'Fund settings saved successfully!');

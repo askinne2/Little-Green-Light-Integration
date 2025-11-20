@@ -31,6 +31,11 @@ class Helper {
     const LOG_FILE = 'logs/lgl-api.log';
     
     /**
+     * Maximum number of family members allowed per membership
+     */
+    const MAX_FAMILY_MEMBERS = 6;
+    
+    /**
      * Debug mode flag (now dynamically determined)
      */
     // Removed hardcoded constant - now uses ApiSettings checkbox
@@ -706,12 +711,18 @@ class Helper {
         $total_purchased = (int) get_user_meta($parent_uid, 'user_total_family_slots_purchased', true);
         $actual_used = $this->getActualUsedFamilySlots($parent_uid);
         
-        $available = $total_purchased - $actual_used;
+        // Enforce maximum of 6 family members regardless of purchased slots
+        $max_allowed = self::MAX_FAMILY_MEMBERS;
+        $effective_total = min($total_purchased, $max_allowed);
+        
+        $available = max(0, $effective_total - $actual_used);
         
         $this->debug('Helper: Calculated available family slots', [
             'parent_uid' => $parent_uid,
             'total_purchased' => $total_purchased,
             'actual_used' => $actual_used,
+            'max_allowed' => $max_allowed,
+            'effective_total' => $effective_total,
             'available' => $available
         ]);
         

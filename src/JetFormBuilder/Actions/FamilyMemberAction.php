@@ -122,6 +122,32 @@ class FamilyMemberAction implements JetFormActionInterface {
             // may be called by the filter hook AFTER the action has already consumed slots
             if (!empty($request['parent_user_id'])) {
                 $parent_uid = (int) $request['parent_user_id'];
+                $actual_used = $this->helper->getActualUsedFamilySlots($parent_uid);
+                $max_allowed = \UpstateInternational\LGL\LGL\Helper::MAX_FAMILY_MEMBERS;
+                
+                // Check hard maximum first
+                if ($actual_used >= $max_allowed) {
+                    $this->helper->debug('FamilyMemberAction: Maximum family members reached', [
+                        'parent_uid' => $parent_uid,
+                        'actual_used' => $actual_used,
+                        'max_allowed' => $max_allowed
+                    ]);
+                    
+                    $error_message = sprintf(
+                        'You have reached the maximum limit of %d family members. Please remove a family member before adding another.',
+                        $max_allowed
+                    );
+                    
+                    if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
+                        throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
+                    } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
+                        throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
+                    } else {
+                        throw new \RuntimeException($error_message);
+                    }
+                }
+                
+                // Then check available slots (purchased slots)
                 $available_slots = $this->helper->getAvailableFamilySlots($parent_uid);
                 
                 if ($available_slots <= 0) {

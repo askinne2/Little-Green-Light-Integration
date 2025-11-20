@@ -454,6 +454,13 @@ class ServiceContainer implements ContainerInterface {
             );
         });
         
+        // Register Cart Validator (initializes hooks in constructor)
+        $this->register('woocommerce.cart_validator', function($container) {
+            return new \UpstateInternational\LGL\WooCommerce\CartValidator(
+                $container->get('lgl.helper')
+            );
+        });
+        
         // Register WooCommerce handler services
         $this->register('memberships.registration_service', function($container) {
             return new \UpstateInternational\LGL\Memberships\MembershipRegistrationService(

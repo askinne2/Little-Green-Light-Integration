@@ -203,7 +203,8 @@ class MembershipOrderHandler {
                 $uid,
                 $order,
                 $request,
-                $membership_config
+                $membership_config,
+                $product
             );
             
             $this->helper->debug('✅ MembershipOrderHandler::processOrderLglSync() COMPLETED', [
@@ -569,7 +570,8 @@ class MembershipOrderHandler {
         int $userId,
         \WC_Order $order,
         array $request,
-        array $membership_config
+        array $membership_config,
+        $current_product = null
     ): array {
         $this->helper->debug('🔗 MembershipOrderHandler::registerUserInLGL() STARTED', [
             'user_id' => $userId,
@@ -586,20 +588,108 @@ class MembershipOrderHandler {
             $user ? $user->user_email : null
         ]))));
 
+        // IMPROVED: Check _ui_lgl_sync_id to detect Family Member products
+        // CRITICAL FIX: Only check the specific product being processed, not all order items
+        $is_family_member = false;
+        $family_member_fund_id = null;
+        
+        // Get SettingsManager to access fund_id_family_member_slots
+        if (function_exists('lgl_get_container')) {
+            try {
+                $container = lgl_get_container();
+                if ($container->has('admin.settings_manager')) {
+                    $settingsManager = $container->get('admin.settings_manager');
+                    $family_member_fund_id = (int) $settingsManager->get('fund_id_family_member_slots', 4147);
+                }
+            } catch (\Exception $e) {
+                // SettingsManager not available, use default
+                $family_member_fund_id = 4147;
+            }
+        } else {
+            $family_member_fund_id = 4147;
+        }
+        
+        // Check ONLY the specific product being processed (not all order items)
+        if ($current_product) {
+            $variation_id = null;
+            $product_id = null;
+            $product_name = 'N/A';
+            
+            // Handle order item object (WC_Order_Item_Product)
+            if (is_object($current_product) && method_exists($current_product, 'get_product_id')) {
+                $variation_id = $current_product->get_variation_id();
+                $product_id = $current_product->get_product_id();
+                $product_obj = $current_product->get_product();
+                if ($product_obj) {
+                    $product_name = $product_obj->get_name();
+                }
+            } 
+            // Handle product object
+            elseif (is_object($current_product) && method_exists($current_product, 'get_id')) {
+                $variation_id = method_exists($current_product, 'get_variation_id') ? $current_product->get_variation_id() : null;
+                $product_id = $current_product->get_id();
+                $product_name = method_exists($current_product, 'get_name') ? $current_product->get_name() : 'N/A';
+            }
+            
+            // Check _ui_lgl_sync_id for Family Member detection
+            if ($variation_id || $product_id) {
+                $lgl_sync_id = null;
+                if ($variation_id) {
+                    $lgl_sync_id = get_post_meta($variation_id, '_ui_lgl_sync_id', true);
+                }
+                if (empty($lgl_sync_id) && $product_id) {
+                    $lgl_sync_id = get_post_meta($product_id, '_ui_lgl_sync_id', true);
+                }
+                
+                // If this product's _ui_lgl_sync_id matches Family Member Slots fund, it's a family member product
+                if (!empty($lgl_sync_id) && $family_member_fund_id > 0 && (int) $lgl_sync_id === $family_member_fund_id) {
+                    $is_family_member = true;
+                    $this->helper->debug('Family Member product detected via _ui_lgl_sync_id', [
+                        'product_id' => $product_id,
+                        'variation_id' => $variation_id,
+                        'fund_id' => $lgl_sync_id,
+                        'product_name' => $product_name
+                    ]);
+                }
+            }
+        }
+        
+        // Fallback to membership level check if not found via _ui_lgl_sync_id
+        if (!$is_family_member) {
+            $is_family_member = $this->isFamilyMembership($request['ui-membership-type'] ?? '');
+        }
+        
+        // Calculate price for this specific product (not entire order)
+        $product_price = 0;
+        $product_item_id = null;
+        if ($current_product) {
+            // If current_product is an order item, get its price
+            if (is_object($current_product) && method_exists($current_product, 'get_total')) {
+                $product_price = (float) $current_product->get_total();
+                $product_item_id = method_exists($current_product, 'get_id') ? $current_product->get_id() : null;
+            }
+        }
+        // Fallback to order total if product price not available
+        if ($product_price <= 0) {
+            $product_price = (float) $order->get_total();
+        }
+        
         $context = [
             'user_id' => $userId,
             'search_name' => ($request['user_firstname'] ?? '') . '%20' . ($request['user_lastname'] ?? ''),
             'emails' => $emails,
             'email' => reset($emails) ?: ($request['user_email'] ?? ''),
             'order_id' => $order->get_id(),
-            'price' => (float) $order->get_total(),
+            'price' => $product_price,
             'membership_level' => $request['ui-membership-type'] ?? '',
             'membership_level_id' => $request['lgl_membership_level_id'] ?? null,
             'payment_type' => $request['payment_method'] ?? $order->get_payment_method() ?? 'online',
-            'is_family_member' => $this->isFamilyMembership($request['ui-membership-type'] ?? ''),
+            'is_family_member' => $is_family_member,
             'request' => $request,
             'membership_config' => $membership_config,
-            'order' => $order
+            'order' => $order,
+            'product' => $current_product,
+            'product_item_id' => $product_item_id
         ];
 
         $result = $this->registrationService->register($context);

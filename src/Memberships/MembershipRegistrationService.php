@@ -52,14 +52,44 @@ class MembershipRegistrationService {
             throw new \InvalidArgumentException('Membership registration requires a valid user_id.');
         }
 
-        // STEP 1: Check user meta for existing LGL ID first (highest priority)
-        $lglId = $this->constituents->getUserLglId($userId);
+        // STEP 0: Check if order already has an LGL ID (for mixed carts - prevents duplicate constituents)
+        // This must be checked BEFORE user meta to ensure all products in an order use the same constituent
+        $lglId = null;
         $matchMethod = null;
         $matchedEmail = null;
         $created = false;
+        
+        if ($orderId > 0 && $order instanceof \WC_Order) {
+            $order_lgl_id = $order->get_meta('_lgl_lgl_id');
+            if (!empty($order_lgl_id)) {
+                $this->helper->debug('🔄 MembershipRegistrationService: Order already has LGL ID, reusing for this product', [
+                    'order_id' => $orderId,
+                    'lgl_id' => $order_lgl_id,
+                    'user_id' => $userId,
+                    'product_type' => $isFamilyMember ? 'Family Member (slot purchase)' : 'Membership'
+                ]);
+                
+                // Use the existing LGL ID from order - don't create a new constituent
+                $lglId = (string) $order_lgl_id;
+                $matchMethod = 'order_meta';
+                
+                // Ensure user meta is also set (in case it wasn't set yet)
+                if (get_user_meta($userId, 'lgl_id', true) !== $lglId) {
+                    update_user_meta($userId, 'lgl_id', $lglId);
+                }
+                
+                // Skip constituent creation/update - go straight to payment creation
+                // (the constituent was already created/updated for the first product in this order)
+                // Jump to payment creation section below
+            }
+        }
 
-        if ($lglId) {
-            $this->helper->debug('🔍 MembershipRegistrationService: Found LGL ID in user meta', [
+        // STEP 1: Check user meta for existing LGL ID (only if order doesn't have one)
+        if (!$lglId) {
+            $lglId = $this->constituents->getUserLglId($userId);
+
+            if ($lglId) {
+                $this->helper->debug('🔍 MembershipRegistrationService: Found LGL ID in user meta', [
                 'user_id' => $userId,
                 'lgl_id' => $lglId,
                 'meta_key' => 'lgl_constituent_id or lgl_id'
@@ -90,9 +120,10 @@ class MembershipRegistrationService {
                 delete_user_meta($userId, 'lgl_user_id');
                 $lglId = null;
             }
+            }
         }
 
-        // STEP 2: If no LGL ID found in user meta, search by email (then name)
+        // STEP 2: If no LGL ID found in user meta or order meta, search by email (then name)
         if (!$lglId) {
             $this->helper->debug('🔍 MembershipRegistrationService: No LGL ID in user meta, searching by email/name', [
                 'user_id' => $userId,
@@ -106,7 +137,7 @@ class MembershipRegistrationService {
             $lglId = $match['id'] ?? null;
         }
 
-        // STEP 3: Create or update constituent
+        // STEP 3: Create or update constituent (only if not already found in order meta)
         if (!$lglId) {
             $this->helper->debug('➕ MembershipRegistrationService: No existing constituent found, creating new one', [
                 'user_id' => $userId
@@ -114,7 +145,9 @@ class MembershipRegistrationService {
             $this->ensureUserProfileHasNames($userId, $request, $order);
             $lglId = $this->createConstituent($userId, $request, $isFamilyMember);
             $created = true;
-        } else {
+        } elseif ($matchMethod !== 'order_meta') {
+            // Only update constituent if we found it via user meta or search (not order meta)
+            // If found via order meta, constituent was already created/updated for first product
             $this->helper->debug('🔄 MembershipRegistrationService: Existing constituent found, updating', [
                 'user_id' => $userId,
                 'lgl_id' => $lglId,
@@ -122,6 +155,13 @@ class MembershipRegistrationService {
             ]);
             $this->ensureUserProfileHasNames($userId, $request, $order);
             $this->updateConstituent($userId, (string) $lglId, $request, $isFamilyMember);
+        } else {
+            // Found via order meta - constituent already exists, just verify it
+            $this->helper->debug('✅ MembershipRegistrationService: Using existing constituent from order meta, skipping update', [
+                'user_id' => $userId,
+                'lgl_id' => $lglId,
+                'match_method' => $matchMethod
+            ]);
         }
 
         // Store membership level ID if provided (but skip for family member products)
@@ -131,7 +171,7 @@ class MembershipRegistrationService {
 
         $constituentVerification = $this->connection->getConstituent((string) $lglId);
 
-        // Save LGL ID to user meta (canonical field: lgl_id)
+        // Save LGL ID to user meta (canonical field: lgl_id) - ensure it's set even if we found via order meta
         \update_user_meta($userId, 'lgl_id', $lglId);
         
         // Only update membership type if NOT a family member product (family member = slot purchase only)
@@ -148,7 +188,9 @@ class MembershipRegistrationService {
         $paymentResponse = null;
         // Create payment for all orders (including family member products)
         if ($orderId > 0 && $price > 0) {
-            $paymentResult = $this->createPayment((string) $lglId, $orderId, $price, $paymentType ?? 'online');
+            $product = $context['product'] ?? null;
+            $productItemId = $context['product_item_id'] ?? null;
+            $paymentResult = $this->createPayment((string) $lglId, $orderId, $price, $paymentType ?? 'online', $product, $productItemId);
             if ($paymentResult && isset($paymentResult['id'])) {
                 $paymentId = $paymentResult['id'];
                 // Use the creation response as verification data (no need for separate verification call)
@@ -547,8 +589,25 @@ class MembershipRegistrationService {
      * @param string $paymentType Payment type
      * @return array|null Payment result with 'id' and 'success' keys, or null on failure
      */
-    private function createPayment(string $lglId, int $orderId, float $amount, string $paymentType): ?array {
-        $result = $this->payments->setupMembershipPayment($lglId, $orderId, $amount, date('Y-m-d'), $paymentType);
+    private function createPayment(string $lglId, int $orderId, float $amount, string $paymentType, $product = null, $productItemId = null): ?array {
+        // Make external_id unique per product to prevent duplicate payment errors
+        $externalId = $orderId;
+        if ($productItemId) {
+            $externalId = $orderId . '-' . $productItemId;
+        } elseif ($product) {
+            // Try to get product ID from product object
+            $prodId = null;
+            if (is_object($product) && method_exists($product, 'get_product_id')) {
+                $prodId = $product->get_product_id();
+            } elseif (is_object($product) && method_exists($product, 'get_id')) {
+                $prodId = $product->get_id();
+            }
+            if ($prodId) {
+                $externalId = $orderId . '-' . $prodId;
+            }
+        }
+        
+        $result = $this->payments->setupMembershipPayment($lglId, $externalId, $amount, date('Y-m-d'), $paymentType, $product);
 
         if (empty($result['success'])) {
             $this->helper->debug('⚠️ MembershipRegistrationService: Payment creation failed', $result);
@@ -560,6 +619,7 @@ class MembershipRegistrationService {
             'payment_id' => $paymentId,
             'lgl_id' => $lglId,
             'order_id' => $orderId,
+            'external_id' => $externalId,
             'amount' => $amount
         ]);
 

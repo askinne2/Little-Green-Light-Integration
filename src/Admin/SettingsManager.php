@@ -375,56 +375,90 @@ class SettingsManager implements SettingsManagerInterface {
     }
     
     /**
-     * Import membership levels from LGL API
+     * Import membership levels from LGL API with pagination support
      * 
      * @return array ['success' => bool, 'levels' => array, 'message' => string]
      */
     public function importMembershipLevels(): array {
         try {
-            $response = $this->connection->makeRequest('membership_levels', 'GET', [], false);
-            
-            $this->helper->debug('SettingsManager: Import membership levels - Raw response', [
-                'success' => $response['success'] ?? false,
-                'has_data' => isset($response['data']),
-                'data_keys' => isset($response['data']) ? array_keys($response['data']) : []
-            ]);
-            
-            if (!($response['success'] ?? false)) {
-                return [
-                    'success' => false,
-                    'levels' => [],
-                    'message' => 'Failed to fetch membership levels from LGL'
-                ];
-            }
-            
             $levels = [];
+            $page = 1;
+            $per_page = 100; // Max items per page
+            $has_more = true;
             
-            // LGL API returns data in nested structure: response['data']['items']
-            $data = $response['data'] ?? [];
-            $items = $data['items'] ?? $data; // Fallback to $data if 'items' key doesn't exist
-            
-            $this->helper->debug('SettingsManager: Parsing membership levels', [
-                'items_count' => count($items),
-                'first_item' => !empty($items) ? reset($items) : null
-            ]);
-            
-            foreach ($items as $level) {
-                // Skip if level doesn't have required fields
-                if (empty($level['name']) || empty($level['id'])) {
-                    $this->helper->debug('SettingsManager: Skipping invalid level', $level);
-                    continue;
+            while ($has_more) {
+                $response = $this->connection->makeRequest('membership_levels', 'GET', [
+                    'page' => $page,
+                    'per_page' => $per_page
+                ], false);
+                
+                $this->helper->debug('SettingsManager: Import membership levels - Page ' . $page, [
+                    'success' => $response['success'] ?? false,
+                    'has_data' => isset($response['data']),
+                    'page' => $page
+                ]);
+                
+                if (!($response['success'] ?? false)) {
+                    if ($page === 1) {
+                        // First page failed - return error
+                        return [
+                            'success' => false,
+                            'levels' => [],
+                            'message' => 'Failed to fetch membership levels from LGL'
+                        ];
+                    }
+                    // Subsequent page failed - stop pagination
+                    break;
                 }
                 
-                $levels[] = [
-                    'level_name' => $level['name'] ?? '',
-                    'level_slug' => sanitize_title($level['name'] ?? ''),
-                    'lgl_membership_level_id' => (int) ($level['id'] ?? 0)
-                ];
+                // LGL API returns data in nested structure: response['data']['items']
+                $data = $response['data'] ?? [];
+                $items = $data['items'] ?? $data; // Fallback to $data if 'items' key doesn't exist
+                
+                if (empty($items) || !is_array($items)) {
+                    $has_more = false;
+                    break;
+                }
+                
+                foreach ($items as $level) {
+                    // Skip if level doesn't have required fields
+                    if (empty($level['name']) || empty($level['id'])) {
+                        $this->helper->debug('SettingsManager: Skipping invalid level', $level);
+                        continue;
+                    }
+                    
+                    $levels[] = [
+                        'level_name' => $level['name'] ?? '',
+                        'level_slug' => sanitize_title($level['name'] ?? ''),
+                        'lgl_membership_level_id' => (int) ($level['id'] ?? 0)
+                    ];
+                }
+                
+                // Check if there are more pages
+                // LGL API typically returns pagination info in response['data']['pagination'] or similar
+                $pagination = $data['pagination'] ?? [];
+                $total_pages = $pagination['total_pages'] ?? null;
+                $current_page = $pagination['current_page'] ?? $page;
+                
+                if ($total_pages !== null) {
+                    $has_more = $current_page < $total_pages;
+                } else {
+                    // If no pagination info, check if we got fewer items than requested
+                    $has_more = count($items) >= $per_page;
+                }
+                
+                $page++;
+                
+                // Safety limit - prevent infinite loops
+                if ($page > 100) {
+                    $this->helper->debug('SettingsManager: Pagination safety limit reached');
+                    break;
+                }
             }
             
             $this->helper->debug('SettingsManager: Processed membership levels', [
                 'count' => count($levels),
-                'levels' => $levels
+                'pages_fetched' => $page - 1
             ]);
             
             // Save imported levels
@@ -449,61 +483,94 @@ class SettingsManager implements SettingsManagerInterface {
     }
     
     /**
-     * Import events from LGL API
+     * Import events from LGL API with pagination support
      * 
      * @return array ['success' => bool, 'events' => array, 'message' => string]
      */
     public function importEvents(): array {
         try {
-            $response = $this->connection->makeRequest('events', 'GET', [], false);
-            
-            $this->helper->debug('SettingsManager: Import events - Raw response', [
-                'success' => $response['success'] ?? false,
-                'has_data' => isset($response['data']),
-                'data_keys' => isset($response['data']) ? array_keys($response['data']) : []
-            ]);
-            
-            if (!($response['success'] ?? false)) {
-                return [
-                    'success' => false,
-                    'events' => [],
-                    'message' => 'Failed to fetch events from LGL'
-                ];
-            }
-            
             $events = [];
+            $page = 1;
+            $per_page = 100; // Max items per page
+            $has_more = true;
             
-            // LGL API returns data in nested structure: response['data']['items']
-            $data = $response['data'] ?? [];
-            $items = $data['items'] ?? $data;
-            
-            $this->helper->debug('SettingsManager: Parsing events', [
-                'items_count' => count($items),
-                'first_item' => !empty($items) ? reset($items) : null
-            ]);
-            
-            foreach ($items as $event) {
-                // Skip if event doesn't have required fields
-                if (empty($event['name']) || empty($event['id'])) {
-                    $this->helper->debug('SettingsManager: Skipping invalid event', $event);
-                    continue;
+            while ($has_more) {
+                $response = $this->connection->makeRequest('events', 'GET', [
+                    'page' => $page,
+                    'per_page' => $per_page
+                ], false);
+                
+                $this->helper->debug('SettingsManager: Import events - Page ' . $page, [
+                    'success' => $response['success'] ?? false,
+                    'has_data' => isset($response['data']),
+                    'page' => $page
+                ]);
+                
+                if (!($response['success'] ?? false)) {
+                    if ($page === 1) {
+                        // First page failed - return error
+                        return [
+                            'success' => false,
+                            'events' => [],
+                            'message' => 'Failed to fetch events from LGL'
+                        ];
+                    }
+                    // Subsequent page failed - stop pagination
+                    break;
                 }
                 
-                $events[] = [
-                    'name' => $event['name'] ?? '',
-                    'lgl_event_id' => (int) ($event['id'] ?? 0),
-                    'description' => $event['description'] ?? '',
-                    'date' => $event['date'] ?? '',
-                    'end_date' => $event['end_date'] ?? '',
-                    'financial_goal' => $event['financial_goal'] ?? null,
-                    'projected_amount' => $event['projected_amount'] ?? null,
-                    'code' => $event['code'] ?? ''
-                ];
+                // LGL API returns data in nested structure: response['data']['items']
+                $data = $response['data'] ?? [];
+                $items = $data['items'] ?? $data;
+                
+                if (empty($items) || !is_array($items)) {
+                    $has_more = false;
+                    break;
+                }
+                
+                foreach ($items as $event) {
+                    // Skip if event doesn't have required fields
+                    if (empty($event['name']) || empty($event['id'])) {
+                        $this->helper->debug('SettingsManager: Skipping invalid event', $event);
+                        continue;
+                    }
+                    
+                    $events[] = [
+                        'name' => $event['name'] ?? '',
+                        'lgl_event_id' => (int) ($event['id'] ?? 0),
+                        'description' => $event['description'] ?? '',
+                        'date' => $event['date'] ?? '',
+                        'end_date' => $event['end_date'] ?? '',
+                        'financial_goal' => $event['financial_goal'] ?? null,
+                        'projected_amount' => $event['projected_amount'] ?? null,
+                        'code' => $event['code'] ?? ''
+                    ];
+                }
+                
+                // Check if there are more pages
+                $pagination = $data['pagination'] ?? [];
+                $total_pages = $pagination['total_pages'] ?? null;
+                $current_page = $pagination['current_page'] ?? $page;
+                
+                if ($total_pages !== null) {
+                    $has_more = $current_page < $total_pages;
+                } else {
+                    // If no pagination info, check if we got fewer items than requested
+                    $has_more = count($items) >= $per_page;
+                }
+                
+                $page++;
+                
+                // Safety limit - prevent infinite loops
+                if ($page > 100) {
+                    $this->helper->debug('SettingsManager: Pagination safety limit reached');
+                    break;
+                }
             }
             
             $this->helper->debug('SettingsManager: Processed events', [
                 'count' => count($events),
-                'events' => $events
+                'pages_fetched' => $page - 1
             ]);
             
             // Save imported events
@@ -528,60 +595,93 @@ class SettingsManager implements SettingsManagerInterface {
     }
     
     /**
-     * Import funds from LGL API
+     * Import funds from LGL API with pagination support
      * 
      * @return array ['success' => bool, 'funds' => array, 'message' => string]
      */
     public function importFunds(): array {
         try {
-            $response = $this->connection->makeRequest('funds', 'GET', [], false);
-            
-            $this->helper->debug('SettingsManager: Import funds - Raw response', [
-                'success' => $response['success'] ?? false,
-                'has_data' => isset($response['data']),
-                'data_keys' => isset($response['data']) ? array_keys($response['data']) : []
-            ]);
-            
-            if (!($response['success'] ?? false)) {
-                return [
-                    'success' => false,
-                    'funds' => [],
-                    'message' => 'Failed to fetch funds from LGL'
-                ];
-            }
-            
             $funds = [];
+            $page = 1;
+            $per_page = 100; // Max items per page
+            $has_more = true;
             
-            // LGL API returns data in nested structure: response['data']['items']
-            $data = $response['data'] ?? [];
-            $items = $data['items'] ?? $data;
-            
-            $this->helper->debug('SettingsManager: Parsing funds', [
-                'items_count' => count($items),
-                'first_item' => !empty($items) ? reset($items) : null
-            ]);
-            
-            foreach ($items as $fund) {
-                // Skip if fund doesn't have required fields
-                if (empty($fund['name']) || empty($fund['id'])) {
-                    $this->helper->debug('SettingsManager: Skipping invalid fund', $fund);
-                    continue;
+            while ($has_more) {
+                $response = $this->connection->makeRequest('funds', 'GET', [
+                    'page' => $page,
+                    'per_page' => $per_page
+                ], false);
+                
+                $this->helper->debug('SettingsManager: Import funds - Page ' . $page, [
+                    'success' => $response['success'] ?? false,
+                    'has_data' => isset($response['data']),
+                    'page' => $page
+                ]);
+                
+                if (!($response['success'] ?? false)) {
+                    if ($page === 1) {
+                        // First page failed - return error
+                        return [
+                            'success' => false,
+                            'funds' => [],
+                            'message' => 'Failed to fetch funds from LGL'
+                        ];
+                    }
+                    // Subsequent page failed - stop pagination
+                    break;
                 }
                 
-                $funds[] = [
-                    'name' => $fund['name'] ?? '',
-                    'lgl_fund_id' => (int) ($fund['id'] ?? 0),
-                    'description' => $fund['description'] ?? '',
-                    'code' => $fund['code'] ?? '',
-                    'start_date' => $fund['start_date'] ?? '',
-                    'end_date' => $fund['end_date'] ?? '',
-                    'financial_goal' => $fund['financial_goal'] ?? null
-                ];
+                // LGL API returns data in nested structure: response['data']['items']
+                $data = $response['data'] ?? [];
+                $items = $data['items'] ?? $data;
+                
+                if (empty($items) || !is_array($items)) {
+                    $has_more = false;
+                    break;
+                }
+                
+                foreach ($items as $fund) {
+                    // Skip if fund doesn't have required fields
+                    if (empty($fund['name']) || empty($fund['id'])) {
+                        $this->helper->debug('SettingsManager: Skipping invalid fund', $fund);
+                        continue;
+                    }
+                    
+                    $funds[] = [
+                        'name' => $fund['name'] ?? '',
+                        'lgl_fund_id' => (int) ($fund['id'] ?? 0),
+                        'description' => $fund['description'] ?? '',
+                        'code' => $fund['code'] ?? '',
+                        'start_date' => $fund['start_date'] ?? '',
+                        'end_date' => $fund['end_date'] ?? '',
+                        'financial_goal' => $fund['financial_goal'] ?? null
+                    ];
+                }
+                
+                // Check if there are more pages
+                $pagination = $data['pagination'] ?? [];
+                $total_pages = $pagination['total_pages'] ?? null;
+                $current_page = $pagination['current_page'] ?? $page;
+                
+                if ($total_pages !== null) {
+                    $has_more = $current_page < $total_pages;
+                } else {
+                    // If no pagination info, check if we got fewer items than requested
+                    $has_more = count($items) >= $per_page;
+                }
+                
+                $page++;
+                
+                // Safety limit - prevent infinite loops
+                if ($page > 100) {
+                    $this->helper->debug('SettingsManager: Pagination safety limit reached');
+                    break;
+                }
             }
             
             $this->helper->debug('SettingsManager: Processed funds', [
                 'count' => count($funds),
-                'funds' => $funds
+                'pages_fetched' => $page - 1
             ]);
             
             // Save imported funds
@@ -1025,6 +1125,33 @@ class SettingsManager implements SettingsManagerInterface {
                 'sanitize' => 'intval',
                 'label' => 'General Fund ID',
                 'description' => 'LGL fund ID for general donations'
+            ],
+            'fund_id_family_member_slots' => [
+                'type' => 'integer',
+                'default' => 4147,
+                'validation' => ['integer', 'min:1'],
+                'sanitize' => 'intval',
+                'label' => 'Family Member Slots Fund ID',
+                'description' => 'LGL fund ID for Family Member slot purchases (separate from membership fund)'
+            ],
+            
+            // Cart Validation Settings
+            'cart_validation' => [
+                'type' => 'array',
+                'default' => [
+                    'require_membership_for_family_members' => true,
+                    'max_family_members' => 6,
+                    'allow_guest_family_member_purchase' => false,
+                ],
+                'sanitize' => function($val) {
+                    return [
+                        'require_membership_for_family_members' => isset($val['require_membership_for_family_members']) ? (bool)$val['require_membership_for_family_members'] : true,
+                        'max_family_members' => isset($val['max_family_members']) ? max(1, (int)$val['max_family_members']) : 6,
+                        'allow_guest_family_member_purchase' => isset($val['allow_guest_family_member_purchase']) ? (bool)$val['allow_guest_family_member_purchase'] : false,
+                    ];
+                },
+                'label' => 'Cart Validation Rules',
+                'description' => 'Business rules for cart validation'
             ],
             
             'campaign_mappings' => [
