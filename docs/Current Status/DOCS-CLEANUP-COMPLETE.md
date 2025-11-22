@@ -1,3 +1,8 @@
+---
+layout: default
+title: Documentation Cleanup Complete
+---
+
 # Documentation Cleanup - Complete ✅
 
 **Date:** November 22, 2025  

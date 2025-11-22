@@ -1,3 +1,8 @@
+---
+layout: default
+title: Standard Coding Prompt
+---
+
 ## standardize instruction set for AI agents
 
 You're assisting with an ongoing full-stack project that includes:

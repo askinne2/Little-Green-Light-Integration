@@ -1,3 +1,8 @@
+---
+layout: default
+title: Development Testing Guide
+---
+
 # Development Testing Guide
 
 ## Overview

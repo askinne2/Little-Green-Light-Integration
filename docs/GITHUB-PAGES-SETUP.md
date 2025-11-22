@@ -1,6 +1,6 @@
-# GitHub Pages Setup for System Flowchart
+# GitHub Pages Setup with Jekyll
 
-This document explains how to publish the interactive system flowchart to GitHub Pages for easy access and embedding in Notion.
+This documentation site uses **Jekyll** (built into GitHub Pages) to automatically render all markdown files as browsable HTML pages with consistent navigation and styling.
 
 ## Quick Setup Steps
 
@@ -17,11 +17,16 @@ This document explains how to publish the interactive system flowchart to GitHub
    - Choose folder: `/docs`
    - Click "Save"
 
-3. **Access Your Flowchart**
-   - After a few minutes, your flowchart will be available at:
-   - `https://[your-username].github.io/[repository-name]/flowchart.html`
-   - Or visit the landing page at:
-   - `https://[your-username].github.io/[repository-name]/` (if `index.html` exists)
+3. **Wait for Build** (5-10 minutes)
+   - GitHub Pages will automatically build your Jekyll site
+   - You'll see a green checkmark when it's ready
+   - Access your documentation at:
+   - `https://[your-username].github.io/[repository-name]/`
+
+4. **Access Your Documentation**
+   - **Homepage:** `https://[your-username].github.io/[repository-name]/`
+   - **Flowchart:** `https://[your-username].github.io/[repository-name]/flowchart.html`
+   - **All markdown files** are automatically rendered as HTML pages
 
 ## Embedding in Notion
 
@@ -41,18 +46,60 @@ This document explains how to publish the interactive system flowchart to GitHub
 ```
 Integrate-LGL/
 ├── docs/
-│   ├── index.html              ← Landing page (optional but recommended)
-│   ├── flowchart.html          ← Interactive flowchart
-│   ├── GITHUB-PAGES-SETUP.md   ← This setup guide
-│   └── [other documentation files]
+│   ├── _config.yml             ← Jekyll configuration
+│   ├── _layouts/
+│   │   └── default.html        ← Page layout template
+│   ├── index.md                ← Homepage (Jekyll renders as HTML)
+│   ├── flowchart.html          ← Interactive flowchart (standalone)
+│   ├── Reference Documentation/
+│   │   ├── API-REFERENCE.md    ← Renders as HTML automatically
+│   │   ├── LGL API LOGIC MODEL.md
+│   │   └── [other .md files]
+│   ├── Testing & Troubleshooting/
+│   │   ├── MANUAL-TESTING-GUIDE.md
+│   │   └── [other .md files]
+│   └── [other documentation folders]
 └── [other plugin files]
 ```
 
-**Note:** `index.html` is optional. Without it, you can still access `flowchart.html` directly via its full URL. With `index.html`, visitors to the root URL get a nice landing page.
+## How Jekyll Works
 
-## Updating the Flowchart
+**Automatic Markdown Rendering:**
+- All `.md` files are automatically converted to HTML
+- They use the `default` layout for consistent styling
+- Navigation sidebar is automatically included
+- URLs are automatically generated from file paths
 
-Simply edit `docs/flowchart.html` and push changes to GitHub. GitHub Pages will automatically update within a few minutes.
+**Example:**
+- `Reference Documentation/API-REFERENCE.md` → `/Reference%20Documentation/API-REFERENCE.html`
+- `Testing & Troubleshooting/MANUAL-TESTING-GUIDE.md` → `/Testing%20&%20Troubleshooting/MANUAL-TESTING-GUIDE.html`
+
+**Standalone HTML Files:**
+- `flowchart.html` is served as-is (no Jekyll processing)
+- Perfect for the interactive flowchart with embedded JavaScript
+
+## Updating Documentation
+
+**Markdown Files:**
+- Edit any `.md` file in the `docs/` folder
+- Push changes to GitHub
+- GitHub Pages automatically rebuilds and updates within 5-10 minutes
+
+**Flowchart:**
+- Edit `docs/flowchart.html`
+- Push changes to GitHub
+- Updates automatically (no rebuild needed for HTML files)
+
+**Adding New Pages:**
+- Create a new `.md` file anywhere in `docs/`
+- Add front matter at the top:
+  ```yaml
+  ---
+  layout: default
+  title: Your Page Title
+  ---
+  ```
+- It will automatically appear in the sidebar navigation
 
 ## Troubleshooting
 
@@ -60,10 +107,32 @@ Simply edit `docs/flowchart.html` and push changes to GitHub. GitHub Pages will 
 - **404 Error?** Make sure the repository is public and GitHub Pages is enabled for `/docs` folder
 - **Notion embed not working?** Try the direct link instead, or use Notion's "Create Link" feature
 
+## Features
+
+✅ **Automatic Markdown Rendering** - All `.md` files become browsable HTML pages  
+✅ **Consistent Navigation** - Sidebar navigation on every page  
+✅ **Search-Friendly** - All content is indexable by search engines  
+✅ **Mobile Responsive** - Works great on all devices  
+✅ **Interactive Flowchart** - Standalone HTML with full interactivity  
+✅ **Easy Updates** - Just edit markdown files and push to GitHub  
+
+## Customization
+
+**Change Layout:**
+- Edit `_layouts/default.html` to modify page structure and styling
+
+**Update Navigation:**
+- Edit `_config.yml` to change navigation links
+- Or modify the sidebar in `_layouts/default.html`
+
+**Add Pages:**
+- Create new `.md` files with front matter
+- They'll automatically use the default layout
+
 ## Notes
 
-- The flowchart is a standalone HTML file with embedded CSS and JavaScript
-- No external dependencies required
-- Works offline once loaded
-- Fully responsive and accessible
+- Jekyll is built into GitHub Pages - no additional setup needed
+- The flowchart (`flowchart.html`) is standalone HTML (not processed by Jekyll)
+- All markdown files are automatically rendered with consistent styling
+- Navigation sidebar links are automatically generated
 

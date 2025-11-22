@@ -1,3 +1,8 @@
+---
+layout: default
+title: Manual Testing Guide
+---
+
 # Manual Testing Guide
 
 This guide provides comprehensive manual testing procedures for the Integrate-LGL plugin before production deployment.

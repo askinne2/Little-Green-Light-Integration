@@ -1,3 +1,8 @@
+---
+layout: default
+title: API Reference
+---
+
 # LGL API Reference
 
 This document provides a comprehensive reference for the Little Green Light (LGL) Dynamic API endpoints used by the Integrate-LGL WordPress plugin.

@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{% if page.description %}{{ page.description }}{% else %}{{ site.description }}{% endif %}">
+    <title>{% if page.title %}{{ page.title }} | {% endif %}{{ site.title }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #667eea;
+            --primary-dark: #764ba2;
+            --secondary: #4facfe;
+            --text: #2d3748;
+            --text-light: #4a5568;
+            --text-muted: #718096;
+            --bg: #f7fafc;
+            --bg-white: #ffffff;
+            --border: #e2e8f0;
+            --shadow: rgba(0,0,0,0.05);
+            --shadow-hover: rgba(0,0,0,0.1);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 30px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .nav {
+            background: var(--bg-white);
+            border-bottom: 1px solid var(--border);
+            padding: 0;
+            box-shadow: 0 2px 4px var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .nav-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            padding: 15px 0;
+        }
+        
+        .nav-links a {
+            color: var(--text-light);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+            padding: 8px 0;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+        
+        .breadcrumbs {
+            max-width: 1200px;
+            margin: 20px auto 0;
+            padding: 0 20px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        
+        .breadcrumbs a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
+        .breadcrumbs a:hover {
+            text-decoration: underline;
+        }
+        
+        .breadcrumbs span {
+            margin: 0 8px;
+            color: var(--text-muted);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 40px;
+        }
+        
+        .sidebar {
+            background: var(--bg-white);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px var(--shadow);
+            height: fit-content;
+            position: sticky;
+            top: 80px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
+        
+        .sidebar h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: var(--text);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 13px;
+        }
+        
+        .sidebar ul {
+            list-style: none;
+            margin-bottom: 25px;
+        }
+        
+        .sidebar ul:last-child {
+            margin-bottom: 0;
+        }
+        
+        .sidebar ul li {
+            margin-bottom: 6px;
+        }
+        
+        .sidebar a {
+            color: var(--text-light);
+            text-decoration: none;
+            font-size: 14px;
+            display: block;
+            padding: 6px 10px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .sidebar a:hover {
+            color: var(--primary);
+            background: #f7fafc;
+        }
+        
+        .sidebar a.active {
+            color: var(--primary);
+            background: #eef2ff;
+            font-weight: 600;
+        }
+        
+        .content {
+            background: var(--bg-white);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px var(--shadow);
+            min-height: 600px;
+        }
+        
+        .content h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: var(--text);
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        
+        .content h2 {
+            font-size: 28px;
+            margin-top: 40px;
+            margin-bottom: 15px;
+            color: var(--text);
+            font-weight: 700;
+            padding-bottom: 10px;
+            border-bottom: 3px solid var(--primary);
+            scroll-margin-top: 100px;
+        }
+        
+        .content h3 {
+            font-size: 22px;
+            margin-top: 30px;
+            margin-bottom: 12px;
+            color: var(--text);
+            font-weight: 700;
+            scroll-margin-top: 100px;
+        }
+        
+        .content h4 {
+            font-size: 18px;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            color: var(--text);
+            font-weight: 600;
+        }
+        
+        .content p {
+            margin-bottom: 15px;
+            color: var(--text-light);
+            font-size: 16px;
+            line-height: 1.7;
+        }
+        
+        .content ul,
+        .content ol {
+            margin: 15px 0 15px 30px;
+            color: var(--text-light);
+        }
+        
+        .content li {
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+        
+        .content code {
+            background: #f7fafc;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            color: #e53e3e;
+        }
+        
+        .content pre {
+            background: #2d3748;
+            color: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 20px 0;
+            line-height: 1.5;
+        }
+        
+        .content pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        
+        .content blockquote {
+            border-left: 4px solid var(--primary);
+            padding-left: 20px;
+            margin: 20px 0;
+            color: var(--text-muted);
+            font-style: italic;
+            background: #f7fafc;
+            padding: 15px 20px;
+            border-radius: 4px;
+        }
+        
+        .content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 1px 3px var(--shadow);
+        }
+        
+        .content table th,
+        .content table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .content table th {
+            background: #f7fafc;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .content table tr:hover {
+            background: #f7fafc;
+        }
+        
+        .content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 10px 10px 10px 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, var(--secondary) 0%, #00f2fe 100%);
+            box-shadow: 0 4px 12px rgba(79, 172, 254, 0.3);
+        }
+        
+        .alert {
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid;
+        }
+        
+        .alert-info {
+            background: #e7f3ff;
+            border-color: #2196F3;
+            color: #1565c0;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+        
+        .footer {
+            background: #2d3748;
+            color: white;
+            padding: 30px 0;
+            margin-top: 60px;
+            text-align: center;
+        }
+        
+        .footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Scrollbar styling for sidebar */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 10px;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0;
+        }
+        
+        @media (max-width: 968px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                position: static;
+                max-height: none;
+            }
+            
+            .nav-links {
+                gap: 15px;
+            }
+            
+            .content {
+                padding: 25px;
+            }
+            
+            .content h1 {
+                font-size: 28px;
+            }
+            
+            .content h2 {
+                font-size: 24px;
+            }
+        }
+        
+        /* Print styles */
+        @media print {
+            .header, .nav, .sidebar, .footer {
+                display: none;
+            }
+            
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1><a href="{{ '/' | relative_url }}" style="color: white; text-decoration: none;">🌐 Integrate-LGL</a></h1>
+            <p>{{ site.description }}</p>
+        </div>
+    </header>
+    
+    <nav class="nav">
+        <div class="nav-content">
+            <div class="nav-links">
+                <a href="{{ '/' | relative_url }}" {% if page.url == '/' %}class="active"{% endif %}>Home</a>
+                <a href="{{ '/flowchart.html' | relative_url }}" {% if page.url == '/flowchart.html' %}class="active"{% endif %}>System Flowchart</a>
+                <a href="{{ '/Reference Documentation/API-REFERENCE.html' | relative_url }}" {% if page.url contains 'API-REFERENCE' %}class="active"{% endif %}>API Reference</a>
+                <a href="{{ '/Reference Documentation/LGL API LOGIC MODEL.html' | relative_url }}" {% if page.url contains 'LOGIC MODEL' %}class="active"{% endif %}>Logic Model</a>
+                <a href="{{ '/Testing & Troubleshooting/MANUAL-TESTING-GUIDE.html' | relative_url }}" {% if page.url contains 'TESTING' %}class="active"{% endif %}>Testing</a>
+                <a href="{{ '/Testing & Troubleshooting/TROUBLESHOOTING.html' | relative_url }}" {% if page.url contains 'TROUBLESHOOTING' %}class="active"{% endif %}>Troubleshooting</a>
+            </div>
+        </div>
+    </nav>
+    
+    {% if page.url != '/' %}
+    <div class="breadcrumbs">
+        <a href="{{ '/' | relative_url }}">Home</a>
+        {% assign path_parts = page.url | split: '/' %}
+        {% assign current_path = '' %}
+        {% for part in path_parts %}
+            {% if part != '' and part != 'index.html' %}
+                {% assign current_path = current_path | append: '/' | append: part %}
+                {% if forloop.last %}
+                    <span>/</span>
+                    <span>{{ page.title }}</span>
+                {% else %}
+                    <span>/</span>
+                    <a href="{{ current_path | relative_url }}">{{ part | replace: '-', ' ' | capitalize }}</a>
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <div class="container">
+        <aside class="sidebar">
+            <h3>📚 Documentation</h3>
+            <ul>
+                <li><a href="{{ '/' | relative_url }}" {% if page.url == '/' %}class="active"{% endif %}>Home</a></li>
+                <li><a href="{{ '/flowchart.html' | relative_url }}" {% if page.url == '/flowchart.html' %}class="active"{% endif %}>System Flowchart</a></li>
+            </ul>
+            
+            <h3>Reference</h3>
+            <ul>
+                <li><a href="{{ '/Reference Documentation/API-REFERENCE.html' | relative_url }}" {% if page.url contains 'API-REFERENCE' %}class="active"{% endif %}>API Reference</a></li>
+                <li><a href="{{ '/Reference Documentation/LGL API LOGIC MODEL.html' | relative_url }}" {% if page.url contains 'LOGIC MODEL' %}class="active"{% endif %}>Logic Model</a></li>
+                <li><a href="{{ '/Reference Documentation/data-contracts.html' | relative_url }}" {% if page.url contains 'data-contracts' %}class="active"{% endif %}>Data Contracts</a></li>
+                <li><a href="{{ '/Reference Documentation/user-meta-fields.html' | relative_url }}" {% if page.url contains 'user-meta-fields' %}class="active"{% endif %}>User Meta Fields</a></li>
+                <li><a href="{{ '/Reference Documentation/0-standard-coding-prompt.html' | relative_url }}" {% if page.url contains 'standard-coding' %}class="active"{% endif %}>Coding Standards</a></li>
+            </ul>
+            
+            <h3>Testing</h3>
+            <ul>
+                <li><a href="{{ '/Testing & Troubleshooting/MANUAL-TESTING-GUIDE.html' | relative_url }}" {% if page.url contains 'MANUAL-TESTING' %}class="active"{% endif %}>Manual Testing</a></li>
+                <li><a href="{{ '/Testing & Troubleshooting/TESTING-GUIDE.html' | relative_url }}" {% if page.url contains 'TESTING-GUIDE' and page.url contains 'MANUAL' == false %}class="active"{% endif %}>Testing Guide</a></li>
+                <li><a href="{{ '/Testing & Troubleshooting/TESTING-SUITE-GUIDE.html' | relative_url }}" {% if page.url contains 'TESTING-SUITE' %}class="active"{% endif %}>Testing Suite</a></li>
+                <li><a href="{{ '/Testing & Troubleshooting/TROUBLESHOOTING.html' | relative_url }}" {% if page.url contains 'TROUBLESHOOTING' %}class="active"{% endif %}>Troubleshooting</a></li>
+            </ul>
+            
+            <h3>Status</h3>
+            <ul>
+                <li><a href="{{ '/Current Status/PRODUCTION-READINESS-STATUS.html' | relative_url }}" {% if page.url contains 'PRODUCTION-READINESS' %}class="active"{% endif %}>Production Status</a></li>
+                <li><a href="{{ '/Current Status/SPRINT-PROGRESS.html' | relative_url }}" {% if page.url contains 'SPRINT-PROGRESS' %}class="active"{% endif %}>Sprint Progress</a></li>
+            </ul>
+            
+            <h3>Security</h3>
+            <ul>
+                <li><a href="{{ '/Security & Audits/SECURITY.html' | relative_url }}" {% if page.url contains 'SECURITY' and page.url contains 'AUDIT' == false %}class="active"{% endif %}>Security</a></li>
+                <li><a href="{{ '/Security & Audits/SECURITY-AUDIT-CHECKLIST.html' | relative_url }}" {% if page.url contains 'SECURITY-AUDIT-CHECKLIST' %}class="active"{% endif %}>Security Checklist</a></li>
+                <li><a href="{{ '/Security & Audits/DATABASE-QUERY-AUDIT.html' | relative_url }}" {% if page.url contains 'DATABASE-QUERY-AUDIT' %}class="active"{% endif %}>Database Audit</a></li>
+            </ul>
+        </aside>
+        
+        <main class="content">
+            {{ content }}
+        </main>
+    </div>
+    
+    <footer class="footer">
+        <p>Integrate-LGL Plugin Documentation | Built with Jekyll on GitHub Pages</p>
+        <p style="margin-top: 10px; font-size: 14px; opacity: 0.8;">
+            Last updated: {{ site.time | date: "%B %d, %Y" }}
+        </p>
+    </footer>
+</body>
+</html>

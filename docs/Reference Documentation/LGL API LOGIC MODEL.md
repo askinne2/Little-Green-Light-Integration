@@ -1,3 +1,8 @@
+---
+layout: default
+title: LGL API Logic Model
+---
+
 # LGL API LOGIC MODEL
 **Last Updated:** September 29, 2025  
 **Architecture:** PSR-4 Modern PHP with Service Container

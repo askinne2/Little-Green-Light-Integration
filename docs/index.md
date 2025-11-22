@@ -1,0 +1,60 @@
+---
+layout: default
+title: Home
+---
+
+# 🌐 Integrate-LGL Documentation
+
+Welcome to the complete documentation for the **Integrate-LGL** WordPress plugin - a modern, enterprise-grade integration with Little Green Light CRM.
+
+## 📊 System Architecture Flowchart
+
+<div class="alert alert-info">
+<strong>🎯 Start Here:</strong> The interactive flowchart provides a visual overview of how all systems work together. Perfect for understanding the complete member lifecycle and data flow.
+</div>
+
+<a href="{{ '/flowchart.html' | relative_url }}" class="btn">View Interactive System Flowchart →</a>
+
+## 📚 Documentation Sections
+
+### Reference Documentation
+- **[API Reference]({{ '/Reference Documentation/API-REFERENCE.html' | relative_url }})** - Complete API documentation
+- **[LGL API Logic Model]({{ '/Reference Documentation/LGL API LOGIC MODEL.html' | relative_url }})** - Detailed logic flow and architecture
+- **[Data Contracts]({{ '/Reference Documentation/data-contracts.html' | relative_url }})** - Data structure specifications
+- **[User Meta Fields]({{ '/Reference Documentation/user-meta-fields.html' | relative_url }})** - WordPress user metadata reference
+
+### Testing & Troubleshooting
+- **[Manual Testing Guide]({{ '/Testing & Troubleshooting/MANUAL-TESTING-GUIDE.html' | relative_url }})** - Step-by-step testing procedures
+- **[Testing Guide]({{ '/Testing & Troubleshooting/TESTING-GUIDE.html' | relative_url }})** - Development testing tools and workflows
+- **[Testing Suite Guide]({{ '/Testing & Troubleshooting/TESTING-SUITE-GUIDE.html' | relative_url }})** - Admin testing interface and API tests
+- **[Troubleshooting]({{ '/Testing & Troubleshooting/TROUBLESHOOTING.html' | relative_url }})** - Common issues and solutions
+
+### Current Status
+- **[Production Readiness Status]({{ '/Current Status/PRODUCTION-READINESS-STATUS.html' | relative_url }})** - Current production status
+- **[Sprint Progress]({{ '/Current Status/SPRINT-PROGRESS.html' | relative_url }})** - Development progress tracking
+
+### Security
+- **[Security Documentation]({{ '/Security & Audits/SECURITY.html' | relative_url }})** - Security practices and audits
+
+## 🚀 Quick Start
+
+1. **View the System Flowchart** - Start with the interactive flowchart to understand the architecture
+2. **Read the Logic Model** - Understand how orders are processed and data flows
+3. **Check API Reference** - Find specific function documentation
+4. **Review Testing Guides** - Learn how to test the plugin
+
+## 🔗 Key Features
+
+- ✅ **Modern PHP Architecture** - PSR-4 compliant with dependency injection
+- ✅ **WooCommerce Integration** - Automated membership and event processing
+- ✅ **JetFormBuilder Actions** - Custom form actions for member management
+- ✅ **Automated Renewals** - Smart renewal reminder system
+- ✅ **LGL CRM Sync** - Real-time bidirectional data synchronization
+- ✅ **CourseStorm Integration** - External platform integration support
+
+## 📖 About This Documentation
+
+This documentation is built with Jekyll and hosted on GitHub Pages. All markdown files are automatically rendered as HTML with consistent navigation and styling.
+
+**Last Updated:** {{ site.time | date: "%B %d, %Y" }}
+

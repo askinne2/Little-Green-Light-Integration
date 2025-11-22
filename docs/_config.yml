@@ -1,0 +1,82 @@
+# Jekyll Configuration for Integrate-LGL Documentation
+title: Integrate-LGL Documentation
+description: Complete documentation for the Little Green Light WordPress integration plugin
+author: Upstate International
+baseurl: "" # Leave empty if using /docs folder
+url: "" # Will be set automatically by GitHub Pages
+
+# Markdown processor
+markdown: kramdown
+highlighter: rouge
+
+# Layout settings (using custom layout, not a theme)
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+
+# Default layout for all pages
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "default"
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "default"
+
+# Navigation structure
+navigation:
+  - title: Home
+    url: /
+  - title: System Flowchart
+    url: /flowchart.html
+  - title: API Reference
+    url: /Reference%20Documentation/API-REFERENCE.html
+  - title: Logic Model
+    url: /Reference%20Documentation/LGL%20API%20LOGIC%20MODEL.html
+  - title: Testing Guide
+    url: /Testing%20&%20Troubleshooting/MANUAL-TESTING-GUIDE.html
+  - title: Troubleshooting
+    url: /Testing%20&%20Troubleshooting/TROUBLESHOOTING.html
+
+# Site metadata
+timezone: America/New_York
+lang: en-US
+
+# Exclude files from processing
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+  - .git
+  - .gitignore
+  - .DS_Store
+  - Thumbs.db
+
+# Include all markdown files and necessary assets
+include:
+  - "*.md"
+  - "*.html"
+  - "*.yml"
+  - "*.json"
+  - "_layouts"
+  - "_config.yml"
+
+# Kramdown options
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+  syntax_highlighter_opts:
+    block:
+      line_numbers: true
+      start_line: 1
+
+# Sitemap configuration
+sitemap:
+  exclude: []
+  include: ["*.html", "*.md"]

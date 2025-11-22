@@ -1,3 +1,8 @@
+---
+layout: default
+title: Troubleshooting
+---
+
 # Troubleshooting Guide
 
 This guide provides solutions to common issues encountered with the Integrate-LGL WordPress plugin.
