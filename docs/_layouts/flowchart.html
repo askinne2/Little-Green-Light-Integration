@@ -15,11 +15,30 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
             padding: 0;
             min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        
+        /* WordPress Theme Colors */
+        :root {
+            --primary: #68C5D3;
+            --primary-dark: #013969;
+            --accent: #8DCAD3;
+            --secondary: #3D3D3D;
+            --button-primary: #1E73BE;
+            --button-hover: #013969;
+            --text: #5D5D5D;
+            --text-light: #3D3D3D;
+            --text-muted: #A8A8A8;
+            --bg: #F6F6F6;
+            --bg-white: #FFFFFF;
+            --border: #D8D8D8;
         }
         
         /* Header and Navigation Styles */
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--button-primary) 100%);
             color: white;
             padding: 30px 0;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -66,7 +85,7 @@
         }
         
         .nav-links a {
-            color: #4a5568;
+            color: var(--text-light);
             text-decoration: none;
             font-weight: 500;
             font-size: 15px;
@@ -77,32 +96,35 @@
         
         .nav-links a:hover,
         .nav-links a.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
+            color: var(--button-primary);
+            border-bottom-color: var(--button-primary);
         }
         
         .container {
             max-width: 1400px;
             margin: 40px auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            background: var(--bg-white);
+            border-radius: 12px;
+            padding: 50px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            line-height: 1.7;
         }
         
         .container h1 {
             text-align: center;
-            color: #2d3748;
+            color: var(--secondary);
             margin-bottom: 15px;
-            font-size: 42px;
+            font-size: 2.5rem;
             font-weight: 700;
+            line-height: 1.2;
         }
         
         .subtitle {
             text-align: center;
-            color: #718096;
+            color: var(--text-muted);
             margin-bottom: 40px;
-            font-size: 18px;
+            font-size: 1.1rem;
+            line-height: 1.6;
         }
         
         .legend {
@@ -118,7 +140,7 @@
             align-items: center;
             gap: 10px;
             font-size: 16px;
-            color: #4a5568;
+            color: var(--text-light);
             font-weight: 500;
         }
         
@@ -136,13 +158,14 @@
         /* System Boxes */
         .system-box {
             position: relative;
-            padding: 28px;
+            padding: 32px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
-            margin: 25px auto;
-            max-width: 380px;
+            margin: 30px auto;
+            max-width: 400px;
+            line-height: 1.7;
         }
         
         .system-box:hover {
@@ -151,96 +174,77 @@
         }
         
         .system-box h3 {
-            font-size: 24px;
-            margin-bottom: 12px;
+            font-size: 1.5rem;
+            margin-bottom: 16px;
             display: flex;
             align-items: center;
             gap: 10px;
             font-weight: 700;
+            line-height: 1.3;
         }
         
         .system-box p {
             font-size: 16px;
-            line-height: 1.6;
-            color: #4a5568;
+            line-height: 1.7;
+            color: rgba(255,255,255,0.95);
         }
         
         .system-box small {
             display: block;
             margin-top: 12px;
             font-size: 14px;
-            color: #718096;
+            color: rgba(255,255,255,0.85);
             font-style: italic;
-            line-height: 1.5;
+            line-height: 1.6;
         }
         
-        /* Color coding */
+        /* Color coding - Using WordPress theme colors */
         .entry-point {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--button-primary) 100%);
             color: white;
-        }
-        
-        .entry-point p,
-        .entry-point small {
-            color: rgba(255,255,255,0.9);
         }
         
         .payment-system {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);
             color: white;
-        }
-        
-        .payment-system p,
-        .payment-system small {
-            color: rgba(255,255,255,0.9);
         }
         
         .integration-layer {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            background: linear-gradient(135deg, var(--button-primary) 0%, var(--primary-dark) 100%);
             color: white;
-        }
-        
-        .integration-layer p,
-        .integration-layer small {
-            color: rgba(255,255,255,0.9);
         }
         
         .crm-system {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
             color: white;
-        }
-        
-        .crm-system p,
-        .crm-system small {
-            color: rgba(255,255,255,0.9);
         }
         
         .registration-system {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);
             color: white;
         }
         
-        .registration-system p,
-        .registration-system small {
-            color: rgba(255,255,255,0.9);
-        }
-        
         .form-system {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            color: #2d3748;
+            background: var(--bg-white);
+            color: var(--text-light);
+            border: 2px solid var(--border);
         }
         
         .admin-action {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            color: #2d3748;
-            border: 2px dashed #667eea;
+            background: var(--bg);
+            color: var(--text-light);
+            border: 2px dashed var(--button-primary);
         }
         
         /* Flow sections */
         .flow-section {
-            margin-bottom: 70px;
+            margin-bottom: 80px;
             opacity: 0;
             animation: fadeInUp 0.8s ease forwards;
+        }
+        
+        .flow-section:last-child {
+            margin-bottom: 40px;
         }
         
         @keyframes fadeInUp {
@@ -263,19 +267,20 @@
         .flow-section:nth-child(7) { animation-delay: 0.7s; }
         
         .flow-section h2 {
-            color: #2d3748;
+            color: var(--secondary);
             margin-bottom: 35px;
             padding-bottom: 15px;
-            border-bottom: 4px solid #667eea;
-            font-size: 32px;
+            border-bottom: 4px solid var(--button-primary);
+            font-size: 2rem;
             font-weight: 700;
             cursor: pointer;
             position: relative;
             transition: all 0.3s ease;
+            line-height: 1.3;
         }
         
         .flow-section h2:hover {
-            color: #667eea;
+            color: var(--button-primary);
             padding-left: 10px;
         }
         
@@ -300,29 +305,29 @@
             justify-content: center;
             align-items: center;
             gap: 40px;
-            margin: 30px 0;
+            margin: 40px 0;
             flex-wrap: wrap;
         }
         
         /* Arrows */
         .arrow {
             font-size: 36px;
-            color: #667eea;
+            color: var(--button-primary);
             font-weight: bold;
         }
         
         .arrow-down {
             text-align: center;
             font-size: 36px;
-            color: #667eea;
+            color: var(--button-primary);
             margin: 10px 0;
         }
         
         /* Tags and badges */
         .tag {
             display: inline-block;
-            background: rgba(102, 126, 234, 0.2);
-            color: #667eea;
+            background: rgba(30, 115, 190, 0.15);
+            color: var(--button-primary);
             padding: 6px 16px;
             border-radius: 20px;
             font-size: 14px;
@@ -332,7 +337,7 @@
         }
         
         .tag:hover {
-            background: rgba(102, 126, 234, 0.3);
+            background: rgba(30, 115, 190, 0.25);
             transform: scale(1.05);
         }
         
@@ -342,13 +347,14 @@
         
         /* Callout boxes */
         .callout {
-            background: #f7fafc;
-            border-left: 6px solid #667eea;
-            padding: 20px 24px;
-            margin: 25px 0;
+            background: var(--bg);
+            border-left: 6px solid var(--button-primary);
+            padding: 24px 28px;
+            margin: 30px 0;
             border-radius: 8px;
             transition: all 0.3s ease;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            line-height: 1.7;
         }
         
         .callout:hover {
@@ -357,16 +363,22 @@
         }
         
         .callout h4 {
-            color: #2d3748;
+            color: var(--secondary);
             margin-bottom: 12px;
-            font-size: 20px;
+            font-size: 1.3rem;
             font-weight: 700;
+            line-height: 1.4;
         }
         
         .callout p {
-            color: #4a5568;
+            color: var(--text-light);
             font-size: 16px;
             line-height: 1.7;
+            margin-bottom: 10px;
+        }
+        
+        .callout p:last-child {
+            margin-bottom: 0;
         }
         
         /* Timeline steps */
@@ -387,7 +399,7 @@
         }
         
         .timeline-number {
-            background: #667eea;
+            background: var(--button-primary);
             color: white;
             width: 48px;
             height: 48px;
@@ -398,13 +410,13 @@
             font-weight: bold;
             flex-shrink: 0;
             font-size: 20px;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 12px rgba(30, 115, 190, 0.3);
             transition: all 0.3s ease;
         }
         
         .timeline-step:hover .timeline-number {
             transform: scale(1.1);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 6px 16px rgba(30, 115, 190, 0.4);
         }
         
         .timeline-content {
@@ -412,16 +424,17 @@
         }
         
         .timeline-content h4 {
-            color: #2d3748;
+            color: var(--secondary);
             margin-bottom: 8px;
-            font-size: 20px;
+            font-size: 1.3rem;
             font-weight: 700;
+            line-height: 1.4;
         }
         
         .timeline-content p {
-            color: #4a5568;
+            color: var(--text-light);
             font-size: 16px;
-            line-height: 1.6;
+            line-height: 1.7;
         }
         
         /* Responsive */
@@ -498,7 +511,7 @@
         .control-btn:focus,
         .quick-nav-item:focus,
         .flow-section h2:focus {
-            outline: 3px solid #667eea;
+            outline: 3px solid var(--button-primary);
             outline-offset: 3px;
         }
         
@@ -517,7 +530,7 @@
             left: 0;
             width: 0%;
             height: 5px;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(90deg, var(--primary) 0%, var(--button-primary) 100%);
             z-index: 10000;
             transition: width 0.1s ease;
         }
@@ -552,12 +565,12 @@
         }
         
         .quick-nav-item.active {
-            background: #667eea;
+            background: var(--button-primary);
             transform: scale(1.5);
         }
         
         .quick-nav-item:hover {
-            background: #667eea;
+            background: var(--button-primary);
             transform: scale(1.3);
         }
         
@@ -571,7 +584,7 @@
         }
         
         .control-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--button-primary) 0%, var(--primary-dark) 100%);
             color: white;
             border: none;
             padding: 12px 28px;
@@ -580,12 +593,13 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 12px rgba(30, 115, 190, 0.3);
         }
         
         .control-btn:hover {
+            background: var(--button-hover);
             transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 6px 20px rgba(30, 115, 190, 0.4);
         }
         
         .control-btn:active {
@@ -625,15 +639,19 @@
         <div class="nav-content">
             <div class="nav-links">
                 <a href="{% if site.baseurl == '' %}/{% else %}{{ site.baseurl }}/{% endif %}" {% if page.url == '/' %}class="active"{% endif %}>Home</a>
-                <a href="{% if site.baseurl == '' %}/flowchart.html{% else %}{{ site.baseurl }}/flowchart.html{% endif %}" {% if page.url == '/flowchart.html' %}class="active"{% endif %}>System Flowchart</a>
-                {% assign api_ref = site.pages | where_exp: "p", "p.path contains 'API-REFERENCE.md'" | first %}
+                <a href="{% if site.baseurl == '' %}/flowchart.html{% else %}{{ site.baseurl }}/flowchart.html{% endif %}" {% if page.url == '/flowchart.html' %}class="active"{% endif %}>Flowchart</a>
+                {% assign api_ref = site.pages | where: "path", "reference-documentation/API-REFERENCE.md" | first %}
                 {% if api_ref %}<a href="{{ api_ref.url | relative_url }}" {% if page.url == api_ref.url %}class="active"{% endif %}>API Reference</a>{% endif %}
-                {% assign logic_model = site.pages | where_exp: "p", "p.path contains 'lgl-api-logic-model.md'" | first %}
+                {% assign logic_model = site.pages | where: "path", "reference-documentation/lgl-api-logic-model.md" | first %}
                 {% if logic_model %}<a href="{{ logic_model.url | relative_url }}" {% if page.url == logic_model.url %}class="active"{% endif %}>Logic Model</a>{% endif %}
-                {% assign manual_testing = site.pages | where_exp: "p", "p.path contains 'MANUAL-TESTING-GUIDE.md'" | first %}
+                {% assign data_contracts = site.pages | where: "path", "reference-documentation/data-contracts.md" | first %}
+                {% if data_contracts %}<a href="{{ data_contracts.url | relative_url }}" {% if page.url == data_contracts.url %}class="active"{% endif %}>Data Contracts</a>{% endif %}
+                {% assign manual_testing = site.pages | where: "path", "testing-troubleshooting/MANUAL-TESTING-GUIDE.md" | first %}
                 {% if manual_testing %}<a href="{{ manual_testing.url | relative_url }}" {% if page.url == manual_testing.url %}class="active"{% endif %}>Testing</a>{% endif %}
-                {% assign troubleshooting = site.pages | where_exp: "p", "p.path contains 'TROUBLESHOOTING.md'" | first %}
+                {% assign troubleshooting = site.pages | where: "path", "testing-troubleshooting/TROUBLESHOOTING.md" | first %}
                 {% if troubleshooting %}<a href="{{ troubleshooting.url | relative_url }}" {% if page.url == troubleshooting.url %}class="active"{% endif %}>Troubleshooting</a>{% endif %}
+                {% assign security = site.pages | where: "path", "security-audits/SECURITY.md" | first %}
+                {% if security %}<a href="{{ security.url | relative_url }}" {% if page.url == security.url %}class="active"{% endif %}>Security</a>{% endif %}
             </div>
         </div>
     </nav>
