@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if page.title %}{{ page.title }}{% else %}Upstate International - System Architecture & Member Lifecycle{% endif %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            padding: 0;
+            min-height: 100vh;
+        }
+        
+        /* Header and Navigation Styles */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .nav {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .nav-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            padding: 15px 0;
+        }
+        
+        .nav-links a {
+            color: #4a5568;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+            padding: 8px 0;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 40px auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .container h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 42px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 40px;
+            font-size: 18px;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+        
+        .legend-box {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+        }
+        
+        .flowchart {
+            position: relative;
+            padding: 40px 0;
+        }
+        
+        /* System Boxes */
+        .system-box {
+            position: relative;
+            padding: 28px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            margin: 25px auto;
+            max-width: 380px;
+        }
+        
+        .system-box:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+        }
+        
+        .system-box h3 {
+            font-size: 24px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+        }
+        
+        .system-box p {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #4a5568;
+        }
+        
+        .system-box small {
+            display: block;
+            margin-top: 12px;
+            font-size: 14px;
+            color: #718096;
+            font-style: italic;
+            line-height: 1.5;
+        }
+        
+        /* Color coding */
+        .entry-point {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .entry-point p,
+        .entry-point small {
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .payment-system {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .payment-system p,
+        .payment-system small {
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .integration-layer {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+        
+        .integration-layer p,
+        .integration-layer small {
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .crm-system {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        
+        .crm-system p,
+        .crm-system small {
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .registration-system {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+        }
+        
+        .registration-system p,
+        .registration-system small {
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .form-system {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #2d3748;
+        }
+        
+        .admin-action {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #2d3748;
+            border: 2px dashed #667eea;
+        }
+        
+        /* Flow sections */
+        .flow-section {
+            margin-bottom: 70px;
+            opacity: 0;
+            animation: fadeInUp 0.8s ease forwards;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .flow-section:nth-child(1) { animation-delay: 0.1s; }
+        .flow-section:nth-child(2) { animation-delay: 0.2s; }
+        .flow-section:nth-child(3) { animation-delay: 0.3s; }
+        .flow-section:nth-child(4) { animation-delay: 0.4s; }
+        .flow-section:nth-child(5) { animation-delay: 0.5s; }
+        .flow-section:nth-child(6) { animation-delay: 0.6s; }
+        .flow-section:nth-child(7) { animation-delay: 0.7s; }
+        
+        .flow-section h2 {
+            color: #2d3748;
+            margin-bottom: 35px;
+            padding-bottom: 15px;
+            border-bottom: 4px solid #667eea;
+            font-size: 32px;
+            font-weight: 700;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .flow-section h2:hover {
+            color: #667eea;
+            padding-left: 10px;
+        }
+        
+        .flow-section h2::after {
+            content: '▼';
+            position: absolute;
+            right: 0;
+            font-size: 20px;
+            transition: transform 0.3s ease;
+        }
+        
+        .flow-section.collapsed h2::after {
+            transform: rotate(-90deg);
+        }
+        
+        .flow-section.collapsed .flow-content {
+            display: none;
+        }
+        
+        .flow-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        /* Arrows */
+        .arrow {
+            font-size: 36px;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .arrow-down {
+            text-align: center;
+            font-size: 36px;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        /* Tags and badges */
+        .tag {
+            display: inline-block;
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 700;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .tag:hover {
+            background: rgba(102, 126, 234, 0.3);
+            transform: scale(1.05);
+        }
+        
+        .icon {
+            font-size: 32px;
+        }
+        
+        /* Callout boxes */
+        .callout {
+            background: #f7fafc;
+            border-left: 6px solid #667eea;
+            padding: 20px 24px;
+            margin: 25px 0;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .callout:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            transform: translateX(5px);
+        }
+        
+        .callout h4 {
+            color: #2d3748;
+            margin-bottom: 12px;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        
+        .callout p {
+            color: #4a5568;
+            font-size: 16px;
+            line-height: 1.7;
+        }
+        
+        /* Timeline steps */
+        .timeline {
+            margin: 35px 0;
+        }
+        
+        .timeline-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 25px;
+            transition: all 0.3s ease;
+        }
+        
+        .timeline-step:hover {
+            transform: translateX(10px);
+        }
+        
+        .timeline-number {
+            background: #667eea;
+            color: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+            font-size: 20px;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .timeline-step:hover .timeline-number {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+        
+        .timeline-content {
+            flex: 1;
+        }
+        
+        .timeline-content h4 {
+            color: #2d3748;
+            margin-bottom: 8px;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        
+        .timeline-content p {
+            color: #4a5568;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container h1 {
+                font-size: 32px;
+            }
+            
+            .nav-links {
+                gap: 15px;
+            }
+            
+            .subtitle {
+                font-size: 16px;
+            }
+            
+            .flow-section h2 {
+                font-size: 26px;
+            }
+            
+            .system-box {
+                max-width: 100%;
+                padding: 24px;
+            }
+            
+            .system-box h3 {
+                font-size: 20px;
+            }
+            
+            .system-box p {
+                font-size: 15px;
+            }
+            
+            .callout h4 {
+                font-size: 18px;
+            }
+            
+            .callout p {
+                font-size: 15px;
+            }
+            
+            .timeline-content h4 {
+                font-size: 18px;
+            }
+            
+            .timeline-content p {
+                font-size: 15px;
+            }
+            
+            .flow-row {
+                flex-direction: column;
+            }
+            
+            .arrow {
+                transform: rotate(90deg);
+            }
+            
+            .quick-nav {
+                right: 10px;
+                padding: 10px;
+            }
+            
+            .control-buttons {
+                flex-direction: column;
+                padding: 0 20px;
+            }
+            
+            .control-btn {
+                width: 100%;
+            }
+        }
+        
+        /* Focus styles for accessibility */
+        .control-btn:focus,
+        .quick-nav-item:focus,
+        .flow-section h2:focus {
+            outline: 3px solid #667eea;
+            outline-offset: 3px;
+        }
+        
+        /* Reduce motion for users who prefer it */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        
+        /* Progress Bar */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 5px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            z-index: 10000;
+            transition: width 0.1s ease;
+        }
+        
+        /* Quick Navigation */
+        .quick-nav {
+            position: fixed;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 1001;
+            opacity: 0.3;
+            transition: opacity 0.3s ease;
+        }
+        
+        .quick-nav:hover {
+            opacity: 1;
+        }
+        
+        .quick-nav-item {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #cbd5e0;
+            margin: 12px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .quick-nav-item.active {
+            background: #667eea;
+            transform: scale(1.5);
+        }
+        
+        .quick-nav-item:hover {
+            background: #667eea;
+            transform: scale(1.3);
+        }
+        
+        /* Collapse/Expand All Button */
+        .control-buttons {
+            text-align: center;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        .control-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .control-btn:active {
+            transform: translateY(-1px);
+        }
+        
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+            }
+            
+            .progress-bar, .quick-nav, .control-buttons {
+                display: none;
+            }
+            
+            .flow-section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1><a href="{{ '/' | relative_url }}" style="color: white; text-decoration: none;">🌐 Integrate-LGL</a></h1>
+            <p>{{ site.description }}</p>
+        </div>
+    </header>
+    
+    <nav class="nav">
+        <div class="nav-content">
+            <div class="nav-links">
+                <a href="{{ '/' | relative_url }}" {% if page.url == '/' %}class="active"{% endif %}>Home</a>
+                <a href="{{ '/flowchart.html' | relative_url }}" {% if page.url == '/flowchart.html' %}class="active"{% endif %}>System Flowchart</a>
+                {% assign api_ref = site.pages | where_exp: "p", "p.path contains 'API-REFERENCE.md'" | first %}
+                {% if api_ref %}<a href="{{ api_ref.url | relative_url }}" {% if page.url == api_ref.url %}class="active"{% endif %}>API Reference</a>{% endif %}
+                {% assign logic_model = site.pages | where_exp: "p", "p.path contains 'LGL API LOGIC MODEL.md'" | first %}
+                {% if logic_model %}<a href="{{ logic_model.url | relative_url }}" {% if page.url == logic_model.url %}class="active"{% endif %}>Logic Model</a>{% endif %}
+                {% assign manual_testing = site.pages | where_exp: "p", "p.path contains 'MANUAL-TESTING-GUIDE.md'" | first %}
+                {% if manual_testing %}<a href="{{ manual_testing.url | relative_url }}" {% if page.url == manual_testing.url %}class="active"{% endif %}>Testing</a>{% endif %}
+                {% assign troubleshooting = site.pages | where_exp: "p", "p.path contains 'TROUBLESHOOTING.md'" | first %}
+                {% if troubleshooting %}<a href="{{ troubleshooting.url | relative_url }}" {% if page.url == troubleshooting.url %}class="active"{% endif %}>Troubleshooting</a>{% endif %}
+            </div>
+        </div>
+    </nav>
+    
+    <div class="progress-bar" id="progressBar"></div>
+    
+    <div class="quick-nav" id="quickNav">
+        <div class="quick-nav-item" data-section="0" title="Member Lifecycle"></div>
+        <div class="quick-nav-item" data-section="1" title="Website Forms"></div>
+        <div class="quick-nav-item" data-section="2" title="Event Registration"></div>
+        <div class="quick-nav-item" data-section="3" title="Language Classes"></div>
+        <div class="quick-nav-item" data-section="4" title="Data Flow"></div>
+        <div class="quick-nav-item" data-section="5" title="Staff Operations"></div>
+        <div class="quick-nav-item" data-section="6" title="Support"></div>
+    </div>
+    
+    <div class="container">
+        {{ content }}
+    </div>
+    
+    <script>
+        // Progress bar on scroll
+        window.addEventListener('scroll', function() {
+            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = (winScroll / height) * 100;
+            document.getElementById('progressBar').style.width = scrolled + '%';
+            
+            // Update active section in quick nav
+            updateActiveSection();
+        });
+        
+        // Update active section indicator
+        function updateActiveSection() {
+            const sections = document.querySelectorAll('.flow-section');
+            const navItems = document.querySelectorAll('.quick-nav-item');
+            const scrollPos = window.scrollY + window.innerHeight / 2;
+            
+            sections.forEach((section, index) => {
+                const sectionTop = section.offsetTop;
+                const sectionBottom = sectionTop + section.offsetHeight;
+                
+                if (scrollPos >= sectionTop && scrollPos < sectionBottom) {
+                    navItems.forEach(item => item.classList.remove('active'));
+                    navItems[index].classList.add('active');
+                }
+            });
+        }
+        
+        // Quick navigation click handlers
+        document.querySelectorAll('.quick-nav-item').forEach(item => {
+            // Make items focusable
+            item.setAttribute('tabindex', '0');
+            item.setAttribute('role', 'button');
+            item.setAttribute('aria-label', item.getAttribute('title'));
+            
+            item.addEventListener('click', function() {
+                const sectionIndex = parseInt(this.getAttribute('data-section'));
+                const sections = document.querySelectorAll('.flow-section');
+                sections[sectionIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+            
+            // Keyboard support
+            item.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.click();
+                }
+            });
+        });
+        
+        // Toggle section collapse/expand on h2 click
+        document.querySelectorAll('.flow-section h2').forEach(header => {
+            // Make headers focusable and accessible
+            header.setAttribute('tabindex', '0');
+            header.setAttribute('role', 'button');
+            // Set initial aria-expanded based on whether section is collapsed
+            const section = header.parentElement;
+            const isExpanded = !section.classList.contains('collapsed');
+            header.setAttribute('aria-expanded', isExpanded);
+            
+            header.addEventListener('click', function() {
+                const section = this.parentElement;
+                section.classList.toggle('collapsed');
+                const isExpanded = !section.classList.contains('collapsed');
+                this.setAttribute('aria-expanded', isExpanded);
+            });
+            
+            // Keyboard support
+            header.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.click();
+                }
+            });
+        });
+        
+        // Collapse all sections
+        function collapseAll() {
+            document.querySelectorAll('.flow-section').forEach(section => {
+                section.classList.add('collapsed');
+                const header = section.querySelector('h2');
+                if (header) header.setAttribute('aria-expanded', 'false');
+            });
+        }
+        
+        // Expand all sections
+        function expandAll() {
+            document.querySelectorAll('.flow-section').forEach(section => {
+                section.classList.remove('collapsed');
+                const header = section.querySelector('h2');
+                if (header) header.setAttribute('aria-expanded', 'true');
+            });
+        }
+        
+        // Add smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+        
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            updateActiveSection();
+        });
+    </script>
+</body>
+</html>
+

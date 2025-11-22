@@ -1,1530 +1,858 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upstate International - System Architecture & Member Lifecycle</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 40px 20px;
-            min-height: 100vh;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        
-        h1 {
-            text-align: center;
-            color: #2d3748;
-            margin-bottom: 15px;
-            font-size: 42px;
-            font-weight: 700;
-        }
-        
-        .subtitle {
-            text-align: center;
-            color: #718096;
-            margin-bottom: 40px;
-            font-size: 18px;
-        }
-        
-        .legend {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            margin-bottom: 40px;
-            flex-wrap: wrap;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 16px;
-            color: #4a5568;
-            font-weight: 500;
-        }
-        
-        .legend-box {
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-        }
-        
-        .flowchart {
-            position: relative;
-            padding: 40px 0;
-        }
-        
-        /* System Boxes */
-        .system-box {
-            position: relative;
-            padding: 28px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            margin: 25px auto;
-            max-width: 380px;
-        }
-        
-        .system-box:hover {
-            transform: translateY(-8px) scale(1.02);
-            box-shadow: 0 12px 30px rgba(0,0,0,0.2);
-        }
-        
-        .system-box h3 {
-            font-size: 24px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 700;
-        }
-        
-        .system-box p {
-            font-size: 16px;
-            line-height: 1.6;
-            color: #4a5568;
-        }
-        
-        .system-box small {
-            display: block;
-            margin-top: 12px;
-            font-size: 14px;
-            color: #718096;
-            font-style: italic;
-            line-height: 1.5;
-        }
-        
-        /* Color coding */
-        .entry-point {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        
-        .entry-point p,
-        .entry-point small {
-            color: rgba(255,255,255,0.9);
-        }
-        
-        .payment-system {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-        }
-        
-        .payment-system p,
-        .payment-system small {
-            color: rgba(255,255,255,0.9);
-        }
-        
-        .integration-layer {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-            color: white;
-        }
-        
-        .integration-layer p,
-        .integration-layer small {
-            color: rgba(255,255,255,0.9);
-        }
-        
-        .crm-system {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-        }
-        
-        .crm-system p,
-        .crm-system small {
-            color: rgba(255,255,255,0.9);
-        }
-        
-        .registration-system {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            color: white;
-        }
-        
-        .registration-system p,
-        .registration-system small {
-            color: rgba(255,255,255,0.9);
-        }
-        
-        .form-system {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            color: #2d3748;
-        }
-        
-        .admin-action {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            color: #2d3748;
-            border: 2px dashed #667eea;
-        }
-        
-        /* Flow sections */
-        .flow-section {
-            margin-bottom: 70px;
-            opacity: 0;
-            animation: fadeInUp 0.8s ease forwards;
-        }
-        
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .flow-section:nth-child(1) { animation-delay: 0.1s; }
-        .flow-section:nth-child(2) { animation-delay: 0.2s; }
-        .flow-section:nth-child(3) { animation-delay: 0.3s; }
-        .flow-section:nth-child(4) { animation-delay: 0.4s; }
-        .flow-section:nth-child(5) { animation-delay: 0.5s; }
-        .flow-section:nth-child(6) { animation-delay: 0.6s; }
-        .flow-section:nth-child(7) { animation-delay: 0.7s; }
-        
-        .flow-section h2 {
-            color: #2d3748;
-            margin-bottom: 35px;
-            padding-bottom: 15px;
-            border-bottom: 4px solid #667eea;
-            font-size: 32px;
-            font-weight: 700;
-            cursor: pointer;
-            position: relative;
-            transition: all 0.3s ease;
-        }
-        
-        .flow-section h2:hover {
-            color: #667eea;
-            padding-left: 10px;
-        }
-        
-        .flow-section h2::after {
-            content: '▼';
-            position: absolute;
-            right: 0;
-            font-size: 20px;
-            transition: transform 0.3s ease;
-        }
-        
-        .flow-section.collapsed h2::after {
-            transform: rotate(-90deg);
-        }
-        
-        .flow-section.collapsed .flow-content {
-            display: none;
-        }
-        
-        .flow-row {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 40px;
-            margin: 30px 0;
-            flex-wrap: wrap;
-        }
-        
-        /* Arrows */
-        .arrow {
-            font-size: 36px;
-            color: #667eea;
-            font-weight: bold;
-        }
-        
-        .arrow-down {
-            text-align: center;
-            font-size: 36px;
-            color: #667eea;
-            margin: 10px 0;
-        }
-        
-        /* Tags and badges */
-        .tag {
-            display: inline-block;
-            background: rgba(102, 126, 234, 0.2);
-            color: #667eea;
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 700;
-            margin-top: 10px;
-            transition: all 0.3s ease;
-        }
-        
-        .tag:hover {
-            background: rgba(102, 126, 234, 0.3);
-            transform: scale(1.05);
-        }
-        
-        .icon {
-            font-size: 32px;
-        }
-        
-        /* Callout boxes */
-        .callout {
-            background: #f7fafc;
-            border-left: 6px solid #667eea;
-            padding: 20px 24px;
-            margin: 25px 0;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        
-        .callout:hover {
-            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-            transform: translateX(5px);
-        }
-        
-        .callout h4 {
-            color: #2d3748;
-            margin-bottom: 12px;
-            font-size: 20px;
-            font-weight: 700;
-        }
-        
-        .callout p {
-            color: #4a5568;
-            font-size: 16px;
-            line-height: 1.7;
-        }
-        
-        /* Timeline steps */
-        .timeline {
-            margin: 35px 0;
-        }
-        
-        .timeline-step {
-            display: flex;
-            align-items: flex-start;
-            gap: 20px;
-            margin-bottom: 25px;
-            transition: all 0.3s ease;
-        }
-        
-        .timeline-step:hover {
-            transform: translateX(10px);
-        }
-        
-        .timeline-number {
-            background: #667eea;
-            color: white;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            flex-shrink: 0;
-            font-size: 20px;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-            transition: all 0.3s ease;
-        }
-        
-        .timeline-step:hover .timeline-number {
-            transform: scale(1.1);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-        }
-        
-        .timeline-content {
-            flex: 1;
-        }
-        
-        .timeline-content h4 {
-            color: #2d3748;
-            margin-bottom: 8px;
-            font-size: 20px;
-            font-weight: 700;
-        }
-        
-        .timeline-content p {
-            color: #4a5568;
-            font-size: 16px;
-            line-height: 1.6;
-        }
-        
-        /* Responsive */
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 32px;
-            }
-            
-            .subtitle {
-                font-size: 16px;
-            }
-            
-            .flow-section h2 {
-                font-size: 26px;
-            }
-            
-            .system-box {
-                max-width: 100%;
-                padding: 24px;
-            }
-            
-            .system-box h3 {
-                font-size: 20px;
-            }
-            
-            .system-box p {
-                font-size: 15px;
-            }
-            
-            .callout h4 {
-                font-size: 18px;
-            }
-            
-            .callout p {
-                font-size: 15px;
-            }
-            
-            .timeline-content h4 {
-                font-size: 18px;
-            }
-            
-            .timeline-content p {
-                font-size: 15px;
-            }
-            
-            .flow-row {
-                flex-direction: column;
-            }
-            
-            .arrow {
-                transform: rotate(90deg);
-            }
-            
-            .quick-nav {
-                right: 10px;
-                padding: 10px;
-            }
-            
-            .control-buttons {
-                flex-direction: column;
-                padding: 0 20px;
-            }
-            
-            .control-btn {
-                width: 100%;
-            }
-        }
-        
-        /* Focus styles for accessibility */
-        .control-btn:focus,
-        .quick-nav-item:focus,
-        .flow-section h2:focus {
-            outline: 3px solid #667eea;
-            outline-offset: 3px;
-        }
-        
-        /* Reduce motion for users who prefer it */
-        @media (prefers-reduced-motion: reduce) {
-            * {
-                animation-duration: 0.01ms !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
-        
-        /* Progress Bar */
-        .progress-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 0%;
-            height: 5px;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            z-index: 9999;
-            transition: width 0.1s ease;
-        }
-        
-        /* Quick Navigation */
-        .quick-nav {
-            position: fixed;
-            right: 30px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: white;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            z-index: 1000;
-            opacity: 0.3;
-            transition: opacity 0.3s ease;
-        }
-        
-        .quick-nav:hover {
-            opacity: 1;
-        }
-        
-        .quick-nav-item {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #cbd5e0;
-            margin: 12px 0;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .quick-nav-item.active {
-            background: #667eea;
-            transform: scale(1.5);
-        }
-        
-        .quick-nav-item:hover {
-            background: #667eea;
-            transform: scale(1.3);
-        }
-        
-        /* Collapse/Expand All Button */
-        .control-buttons {
-            text-align: center;
-            margin-bottom: 30px;
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-        }
-        
-        .control-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 28px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-        
-        .control-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-        
-        .control-btn:active {
-            transform: translateY(-1px);
-        }
-        
-        /* Print styles */
-        @media print {
-            body {
-                background: white;
-                padding: 0;
-            }
-            
-            .container {
-                box-shadow: none;
-            }
-            
-            .progress-bar, .quick-nav, .control-buttons {
-                display: none;
-            }
-            
-            .flow-section {
-                page-break-inside: avoid;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="progress-bar" id="progressBar"></div>
+---
+layout: flowchart
+title: System Architecture & Member Lifecycle Flow
+---
+
+<h1>🌐 Upstate International</h1>
+<p class="subtitle">System Architecture & Member Lifecycle Flow | Current Production System</p>
+
+<div class="legend">
+    <div class="legend-item">
+        <div class="legend-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+        <span>Website/Entry Point</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
+        <span>WooCommerce</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-box" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);"></div>
+        <span>Website Forms</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-box" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
+        <span>Integration Plugin</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-box" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
+        <span>Little Green Light CRM</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-box" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
+        <span>CourseStorm</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-box" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); border: 2px dashed #667eea;"></div>
+        <span>Admin Action</span>
+    </div>
+</div>
+
+<div class="control-buttons">
+    <button class="control-btn" onclick="collapseAll()">📁 Collapse All Sections</button>
+    <button class="control-btn" onclick="expandAll()">📂 Expand All Sections</button>
+</div>
+
+<!-- MEMBER LIFECYCLE FLOW -->
+<div class="flow-section collapsed">
+    <h2>👤 Member Lifecycle Flow</h2>
     
-    <div class="quick-nav" id="quickNav">
-        <div class="quick-nav-item" data-section="0" title="Member Lifecycle"></div>
-        <div class="quick-nav-item" data-section="1" title="Website Forms"></div>
-        <div class="quick-nav-item" data-section="2" title="Event Registration"></div>
-        <div class="quick-nav-item" data-section="3" title="Language Classes"></div>
-        <div class="quick-nav-item" data-section="4" title="Data Flow"></div>
-        <div class="quick-nav-item" data-section="5" title="Staff Operations"></div>
-        <div class="quick-nav-item" data-section="6" title="Support"></div>
+    <div class="flow-content">
+    <div class="timeline">
+        <div class="timeline-step">
+            <div class="timeline-number">1</div>
+            <div class="timeline-content">
+                <h4>Discovery & Membership Purchase</h4>
+                <p>Prospective member visits website and purchases membership</p>
+            </div>
+        </div>
+        
+        <div class="system-box entry-point">
+            <h3><span class="icon">🌐</span> UI Website</h3>
+            <p>Member visits upstateinternational.org and clicks "Become a Member" or "Join Now"</p>
+            <small>Landing page explains membership benefits and tier options</small>
+            <span class="tag">WordPress + Elementor</span>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">2</div>
+            <div class="timeline-content">
+                <h4>Membership Selection & Payment</h4>
+                <p>Member selects membership tier and completes payment</p>
+            </div>
+        </div>
+        
+        <div class="system-box payment-system">
+            <h3><span class="icon">💳</span> WooCommerce</h3>
+            <p>Member selects membership tier:<br>
+            • Free/Basic Tier<br>
+            • Standard Tier<br>
+            • Premium Tier</p>
+            <p>Completes checkout with:<br>
+            • Billing information<br>
+            • Payment via PayPal/Stripe<br>
+            • Optional: Subscription for auto-renewal</p>
+            <small>Order created with membership product category</small>
+            <span class="tag">E-commerce Platform</span>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">3</div>
+            <div class="timeline-content">
+                <h4>Automated Processing</h4>
+                <p>Order triggers automatic membership processing and CRM sync</p>
+            </div>
+        </div>
+        
+        <div class="system-box integration-layer">
+            <h3><span class="icon">⚡</span> Integrate-LGL Plugin</h3>
+            <p><strong>When payment succeeds:</strong><br>
+            • Creates WordPress user account (if new)<br>
+            • Assigns <code>ui_member</code> role<br>
+            • Sets membership tier metadata<br>
+            • Calculates renewal date (+1 year from purchase)<br>
+            • Syncs to Little Green Light CRM</p>
+            <small><strong>Smart Processing:</strong> Checks if constituent exists in LGL by email, creates new or updates existing record. All data synced automatically.</small>
+            <span class="tag">Automated Sync</span>
+            <span class="tag">Real-time Processing</span>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">4</div>
+            <div class="timeline-content">
+                <h4>CRM Record Creation</h4>
+                <p>Member data and payment recorded in Little Green Light</p>
+            </div>
+        </div>
+        
+        <div class="system-box crm-system">
+            <h3><span class="icon">📊</span> Little Green Light (LGL)</h3>
+            <p><strong>Constituent Record:</strong><br>
+            • Name, email, phone, address<br>
+            • Membership tier assigned<br>
+            • Membership start date<br>
+            • Membership expiration date</p>
+            <p><strong>Payment Record:</strong><br>
+            • Payment amount<br>
+            • Payment date<br>
+            • Fund ID (tier-specific)<br>
+            • Linked to constituent</p>
+            <small>All membership data stored centrally in LGL CRM for reporting and management</small>
+            <span class="tag">Central Database</span>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">5</div>
+            <div class="timeline-content">
+                <h4>Confirmation & Welcome</h4>
+                <p>Member receives confirmation email with membership details</p>
+            </div>
+        </div>
+        
+        <div class="system-box integration-layer">
+            <h3><span class="icon">✉️</span> Email Confirmation</h3>
+            <p><strong>Automated Email Sent:</strong><br>
+            • Membership confirmation<br>
+            • Tier benefits overview<br>
+            • Renewal date reminder<br>
+            • How to access member benefits<br>
+            • Link to language class registration (CourseStorm)</p>
+            <small>Email customized based on membership tier. Professional HTML template with responsive design.</small>
+            <span class="tag">Automated Email</span>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">6</div>
+            <div class="timeline-content">
+                <h4>Ongoing Membership Management</h4>
+                <p>Automated renewal reminders and status tracking</p>
+            </div>
+        </div>
+        
+        <div class="system-box integration-layer">
+            <h3><span class="icon">🔄</span> Automated Renewal System</h3>
+            <p><strong>Daily Cron Job Checks:</strong><br>
+            • 30 days before expiration: Upcoming renewal reminder<br>
+            • 14 days before: Weekly reminder<br>
+            • 7 days before: Final week reminder<br>
+            • Day of expiration: Renew today reminder<br>
+            • Days -1 to -29: Grace period reminders<br>
+            • Day -30: Automatic deactivation (if not renewed)</p>
+            <small>For subscription memberships: Auto-renewal handled by WooCommerce Subscriptions. Manual renewals processed through WooCommerce checkout.</small>
+            <span class="tag">Automated Lifecycle</span>
+        </div>
+    </div>
+    </div>
+</div>
+
+<!-- WEBSITE FORMS FLOW -->
+<div class="flow-section collapsed">
+    <h2>📝 Website Forms Flow</h2>
+    
+    <div class="flow-content">
+    <div class="callout" style="background: #fff3cd; border-left-color: #ffc107;">
+        <h4>⚠️ Important: Deprecated Actions</h4>
+        <p><strong>Version 2.0 Changes:</strong> Several JetFormBuilder actions have been deprecated. New user registration and membership purchases should use <strong>WooCommerce checkout</strong> instead of forms. Forms are now primarily used for renewals, profile updates, family management, and event registration.</p>
+        <p><strong>Deprecated:</strong><br>
+        • <code>lgl_register_user</code> - Use WooCommerce membership purchase instead<br>
+        • <code>lgl_update_membership</code> - Use WooCommerce checkout for tier changes<br>
+        • <code>lgl_add_class_registration</code> - Use CourseStorm platform instead</p>
     </div>
     
-    <div class="container">
-        <h1>🌐 Upstate International</h1>
-        <p class="subtitle">System Architecture & Member Lifecycle Flow | Current Production System</p>
-        
-        <div class="legend">
-            <div class="legend-item">
-                <div class="legend-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
-                <span>Website/Entry Point</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
-                <span>WooCommerce</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-box" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);"></div>
-                <span>Website Forms</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-box" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
-                <span>Integration Plugin</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-box" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
-                <span>Little Green Light CRM</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-box" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
-                <span>CourseStorm</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-box" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); border: 2px dashed #667eea;"></div>
-                <span>Admin Action</span>
+    <div class="callout">
+        <h4>🎯 Active Website Forms</h4>
+        <p>JetFormBuilder forms are still used for specific member management tasks that don't require payment processing. All form submissions automatically sync with LGL CRM.</p>
+    </div>
+    
+    <div class="timeline">
+        <div class="timeline-step">
+            <div class="timeline-number">A</div>
+            <div class="timeline-content">
+                <h4>Membership Renewal Form</h4>
+                <p>Member renews membership without going through checkout</p>
             </div>
         </div>
         
-        <div class="control-buttons">
-            <button class="control-btn" onclick="collapseAll()">📁 Collapse All Sections</button>
-            <button class="control-btn" onclick="expandAll()">📂 Expand All Sections</button>
+        <div class="system-box form-system">
+            <h3><span class="icon">🔄</span> JetFormBuilder Form</h3>
+            <p><strong>Action: <code>lgl_renew_membership</code></strong><br>
+            • Member submits renewal form<br>
+            • Updates renewal date (+1 year)<br>
+            • Maintains current membership tier<br>
+            • Syncs to LGL CRM</p>
+            <small>Used for: Manual renewals when payment is handled separately (e.g., check payment, staff processing)</small>
+            <span class="tag">Renewal Processing</span>
         </div>
         
-        <!-- MEMBER LIFECYCLE FLOW -->
-        <div class="flow-section collapsed">
-            <h2>👤 Member Lifecycle Flow</h2>
-            
-            <div class="flow-content">
-            <div class="timeline">
-                <div class="timeline-step">
-                    <div class="timeline-number">1</div>
-                    <div class="timeline-content">
-                        <h4>Discovery & Membership Purchase</h4>
-                        <p>Prospective member visits website and purchases membership</p>
-                    </div>
-                </div>
-                
-                <div class="system-box entry-point">
-                    <h3><span class="icon">🌐</span> UI Website</h3>
-                    <p>Member visits upstateinternational.org and clicks "Become a Member" or "Join Now"</p>
-                    <small>Landing page explains membership benefits and tier options</small>
-                    <span class="tag">WordPress + Elementor</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">2</div>
-                    <div class="timeline-content">
-                        <h4>Membership Selection & Payment</h4>
-                        <p>Member selects membership tier and completes payment</p>
-                    </div>
-                </div>
-                
-                <div class="system-box payment-system">
-                    <h3><span class="icon">💳</span> WooCommerce</h3>
-                    <p>Member selects membership tier:<br>
-                    • Free/Basic Tier<br>
-                    • Standard Tier<br>
-                    • Premium Tier</p>
-                    <p>Completes checkout with:<br>
-                    • Billing information<br>
-                    • Payment via PayPal/Stripe<br>
-                    • Optional: Subscription for auto-renewal</p>
-                    <small>Order created with membership product category</small>
-                    <span class="tag">E-commerce Platform</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">3</div>
-                    <div class="timeline-content">
-                        <h4>Automated Processing</h4>
-                        <p>Order triggers automatic membership processing and CRM sync</p>
-                    </div>
-                </div>
-                
-                <div class="system-box integration-layer">
-                    <h3><span class="icon">⚡</span> Integrate-LGL Plugin</h3>
-                    <p><strong>When payment succeeds:</strong><br>
-                    • Creates WordPress user account (if new)<br>
-                    • Assigns <code>ui_member</code> role<br>
-                    • Sets membership tier metadata<br>
-                    • Calculates renewal date (+1 year from purchase)<br>
-                    • Syncs to Little Green Light CRM</p>
-                    <small><strong>Smart Processing:</strong> Checks if constituent exists in LGL by email, creates new or updates existing record. All data synced automatically.</small>
-                    <span class="tag">Automated Sync</span>
-                    <span class="tag">Real-time Processing</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">4</div>
-                    <div class="timeline-content">
-                        <h4>CRM Record Creation</h4>
-                        <p>Member data and payment recorded in Little Green Light</p>
-                    </div>
-                </div>
-                
-                <div class="system-box crm-system">
-                    <h3><span class="icon">📊</span> Little Green Light (LGL)</h3>
-                    <p><strong>Constituent Record:</strong><br>
-                    • Name, email, phone, address<br>
-                    • Membership tier assigned<br>
-                    • Membership start date<br>
-                    • Membership expiration date</p>
-                    <p><strong>Payment Record:</strong><br>
-                    • Payment amount<br>
-                    • Payment date<br>
-                    • Fund ID (tier-specific)<br>
-                    • Linked to constituent</p>
-                    <small>All membership data stored centrally in LGL CRM for reporting and management</small>
-                    <span class="tag">Central Database</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">5</div>
-                    <div class="timeline-content">
-                        <h4>Confirmation & Welcome</h4>
-                        <p>Member receives confirmation email with membership details</p>
-                    </div>
-                </div>
-                
-                <div class="system-box integration-layer">
-                    <h3><span class="icon">✉️</span> Email Confirmation</h3>
-                    <p><strong>Automated Email Sent:</strong><br>
-                    • Membership confirmation<br>
-                    • Tier benefits overview<br>
-                    • Renewal date reminder<br>
-                    • How to access member benefits<br>
-                    • Link to language class registration (CourseStorm)</p>
-                    <small>Email customized based on membership tier. Professional HTML template with responsive design.</small>
-                    <span class="tag">Automated Email</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">6</div>
-                    <div class="timeline-content">
-                        <h4>Ongoing Membership Management</h4>
-                        <p>Automated renewal reminders and status tracking</p>
-                    </div>
-                </div>
-                
-                <div class="system-box integration-layer">
-                    <h3><span class="icon">🔄</span> Automated Renewal System</h3>
-                    <p><strong>Daily Cron Job Checks:</strong><br>
-                    • 30 days before expiration: Upcoming renewal reminder<br>
-                    • 14 days before: Weekly reminder<br>
-                    • 7 days before: Final week reminder<br>
-                    • Day of expiration: Renew today reminder<br>
-                    • Days -1 to -29: Grace period reminders<br>
-                    • Day -30: Automatic deactivation (if not renewed)</p>
-                    <small>For subscription memberships: Auto-renewal handled by WooCommerce Subscriptions. Manual renewals processed through WooCommerce checkout.</small>
-                    <span class="tag">Automated Lifecycle</span>
-                </div>
-            </div>
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">B</div>
+            <div class="timeline-content">
+                <h4>Profile Update Form</h4>
+                <p>Member updates their contact information</p>
             </div>
         </div>
         
-        <!-- WEBSITE FORMS FLOW -->
-        <div class="flow-section collapsed">
-            <h2>📝 Website Forms Flow</h2>
-            
-            <div class="flow-content">
-            <div class="callout" style="background: #fff3cd; border-left-color: #ffc107;">
-                <h4>⚠️ Important: Deprecated Actions</h4>
-                <p><strong>Version 2.0 Changes:</strong> Several JetFormBuilder actions have been deprecated. New user registration and membership purchases should use <strong>WooCommerce checkout</strong> instead of forms. Forms are now primarily used for renewals, profile updates, family management, and event registration.</p>
-                <p><strong>Deprecated:</strong><br>
-                • <code>lgl_register_user</code> - Use WooCommerce membership purchase instead<br>
-                • <code>lgl_update_membership</code> - Use WooCommerce checkout for tier changes<br>
-                • <code>lgl_add_class_registration</code> - Use CourseStorm platform instead</p>
-            </div>
-            
-            <div class="callout">
-                <h4>🎯 Active Website Forms</h4>
-                <p>JetFormBuilder forms are still used for specific member management tasks that don't require payment processing. All form submissions automatically sync with LGL CRM.</p>
-            </div>
-            
-            <div class="timeline">
-                <div class="timeline-step">
-                    <div class="timeline-number">A</div>
-                    <div class="timeline-content">
-                        <h4>Membership Renewal Form</h4>
-                        <p>Member renews membership without going through checkout</p>
-                    </div>
-                </div>
-                
-                <div class="system-box form-system">
-                    <h3><span class="icon">🔄</span> JetFormBuilder Form</h3>
-                    <p><strong>Action: <code>lgl_renew_membership</code></strong><br>
-                    • Member submits renewal form<br>
-                    • Updates renewal date (+1 year)<br>
-                    • Maintains current membership tier<br>
-                    • Syncs to LGL CRM</p>
-                    <small>Used for: Manual renewals when payment is handled separately (e.g., check payment, staff processing)</small>
-                    <span class="tag">Renewal Processing</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">B</div>
-                    <div class="timeline-content">
-                        <h4>Profile Update Form</h4>
-                        <p>Member updates their contact information</p>
-                    </div>
-                </div>
-                
-                <div class="system-box form-system">
-                    <h3><span class="icon">✏️</span> JetFormBuilder Form</h3>
-                    <p><strong>Action: <code>lgl_edit_user</code></strong><br>
-                    • Updates name, email, phone, address<br>
-                    • Syncs changes to LGL CRM<br>
-                    • Updates WordPress user metadata</p>
-                    <small>Used for: Member self-service profile updates</small>
-                    <span class="tag">Profile Management</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">C</div>
-                    <div class="timeline-content">
-                        <h4>Family Member Management</h4>
-                        <p>Add or remove family members from membership</p>
-                    </div>
-                </div>
-                
-                <div class="system-box form-system">
-                    <h3><span class="icon">👨‍👩‍👧‍👦</span> JetFormBuilder Form</h3>
-                    <p><strong>Actions Available:</strong><br>
-                    • <code>lgl_add_family_member</code> - Add family member<br>
-                    • <code>lgl_deactivate_family_member</code> - Remove family member</p>
-                    <p>Manages family member relationships and inheritance of membership benefits</p>
-                    <small>Used for: Adding spouses, children, or other family members to membership</small>
-                    <span class="tag">Family Management</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">D</div>
-                    <div class="timeline-content">
-                        <h4>Event Registration Form</h4>
-                        <p>Register for events without WooCommerce checkout</p>
-                    </div>
-                </div>
-                
-                <div class="system-box form-system">
-                    <h3><span class="icon">🎫</span> JetFormBuilder Form</h3>
-                    <p><strong>Action: <code>lgl_add_event_registration</code></strong><br>
-                    • Event registration without payment<br>
-                    • Useful for free events<br>
-                    • Creates attendee records<br>
-                    • Syncs to LGL CRM</p>
-                    <small>Used for: Free events or when payment is handled separately</small>
-                    <span class="tag">Event Registration</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">E</div>
-                    <div class="timeline-content">
-                        <h4>Membership Deactivation</h4>
-                        <p>Deactivate membership (staff or member-initiated)</p>
-                    </div>
-                </div>
-                
-                <div class="system-box form-system">
-                    <h3><span class="icon">🚫</span> JetFormBuilder Form</h3>
-                    <p><strong>Action: <code>lgl_deactivate_membership</code></strong><br>
-                    • Removes ui_member role<br>
-                    • Updates membership status<br>
-                    • Syncs deactivation to LGL CRM</p>
-                    <small>Used for: Cancellations, non-renewals, or administrative deactivations</small>
-                    <span class="tag">Deactivation</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">F</div>
-                    <div class="timeline-content">
-                        <h4>Form Processing</h4>
-                        <p>Integrate-LGL plugin processes form submission</p>
-                    </div>
-                </div>
-                
-                <div class="system-box integration-layer">
-                    <h3><span class="icon">⚙️</span> Integrate-LGL Plugin</h3>
-                    <p><strong>Form Action Handler:</strong><br>
-                    • Validates form data<br>
-                    • Checks for existing LGL constituent<br>
-                    • Updates LGL record<br>
-                    • Updates WordPress user metadata<br>
-                    • Assigns/removes roles as needed<br>
-                    • Sends confirmation email (if applicable)</p>
-                    <small>Uses same LGL sync logic as WooCommerce orders for consistency</small>
-                    <span class="tag">Automated Processing</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="system-box crm-system">
-                    <h3><span class="icon">📊</span> Little Green Light</h3>
-                    <p>Constituent record updated with changes from form submission</p>
-                    <small>All form data flows to LGL for centralized record keeping</small>
-                </div>
-            </div>
-            
-            <div class="callout" style="background: #e7f3ff; border-left-color: #2196F3;">
-                <h4>📝 Note: New User Registration</h4>
-                <p><strong>For new memberships:</strong> Use WooCommerce checkout. The membership purchase process automatically creates the WordPress user account and syncs to LGL CRM. Forms are not used for new user registration in version 2.0.</p>
-            </div>
+        <div class="system-box form-system">
+            <h3><span class="icon">✏️</span> JetFormBuilder Form</h3>
+            <p><strong>Action: <code>lgl_edit_user</code></strong><br>
+            • Updates name, email, phone, address<br>
+            • Syncs changes to LGL CRM<br>
+            • Updates WordPress user metadata</p>
+            <small>Used for: Member self-service profile updates</small>
+            <span class="tag">Profile Management</span>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">C</div>
+            <div class="timeline-content">
+                <h4>Family Member Management</h4>
+                <p>Add or remove family members from membership</p>
             </div>
         </div>
         
-        <!-- EVENT REGISTRATION FLOW -->
-        <div class="flow-section collapsed">
-            <h2>🎉 Event Registration Flow</h2>
-            
-            <div class="flow-content">
-            <div class="timeline">
-                <div class="timeline-step">
-                    <div class="timeline-number">1</div>
-                    <div class="timeline-content">
-                        <h4>Event Discovery</h4>
-                        <p>Member or guest discovers upcoming event</p>
-                    </div>
-                </div>
-                
-                <div class="system-box entry-point">
-                    <h3><span class="icon">🌐</span> UI Website</h3>
-                    <p>Member browses events page or receives event announcement</p>
-                    <small>Events displayed with date, time, location, and pricing</small>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">2</div>
-                    <div class="timeline-content">
-                        <h4>Event Registration</h4>
-                        <p>Member registers and pays for event ticket</p>
-                    </div>
-                </div>
-                
-                <div class="system-box payment-system">
-                    <h3><span class="icon">🎫</span> WooCommerce</h3>
-                    <p><strong>Event Product Purchase:</strong><br>
-                    • Selects event from catalog<br>
-                    • Adds to cart<br>
-                    • Provides attendee information<br>
-                    • Optional: Lunch selection<br>
-                    • Completes payment</p>
-                    <small>Event products have category: "events"</small>
-                    <span class="tag">Event Registration</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">3</div>
-                    <div class="timeline-content">
-                        <h4>Event Processing</h4>
-                        <p>Registration processed and recorded</p>
-                    </div>
-                </div>
-                
-                <div class="system-box integration-layer">
-                    <h3><span class="icon">⚡</span> Integrate-LGL Plugin</h3>
-                    <p><strong>Event Order Handler:</strong><br>
-                    • Creates event registration record (JetEngine CCT)<br>
-                    • Creates attendee records<br>
-                    • Tracks event capacity<br>
-                    • Syncs to LGL CRM<br>
-                    • Records payment in LGL</p>
-                    <small>Supports multiple attendees per order. Event metadata includes: start/end datetime, location, capacity, registration status.</small>
-                    <span class="tag">Event Management</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="system-box crm-system">
-                    <h3><span class="icon">📊</span> Little Green Light</h3>
-                    <p><strong>Event Registration Recorded:</strong><br>
-                    • Constituent linked to event<br>
-                    • Payment recorded<br>
-                    • Attendee information stored</p>
-                    <small>All event registrations tracked in LGL for reporting and follow-up</small>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="system-box integration-layer">
-                    <h3><span class="icon">✉️</span> Event Confirmation Email</h3>
-                    <p><strong>Automated Email Sent:</strong><br>
-                    • Event details (date, time, location)<br>
-                    • Registration confirmation<br>
-                    • Lunch selection (if applicable)<br>
-                    • What to bring / parking info</p>
-                    <small>Professional HTML email template customized for each event type</small>
-                </div>
-                
-                <div class="callout">
-                    <h4>📝 Alternative: Event Registration via Form</h4>
-                    <p>Events can also be registered through JetFormBuilder forms using the <code>lgl_add_event_registration</code> action. This allows event registration without WooCommerce checkout, useful for free events or manual processing.</p>
-                </div>
-            </div>
+        <div class="system-box form-system">
+            <h3><span class="icon">👨‍👩‍👧‍👦</span> JetFormBuilder Form</h3>
+            <p><strong>Actions Available:</strong><br>
+            • <code>lgl_add_family_member</code> - Add family member<br>
+            • <code>lgl_deactivate_family_member</code> - Remove family member</p>
+            <p>Manages family member relationships and inheritance of membership benefits</p>
+            <small>Used for: Adding spouses, children, or other family members to membership</small>
+            <span class="tag">Family Management</span>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">D</div>
+            <div class="timeline-content">
+                <h4>Event Registration Form</h4>
+                <p>Register for events without WooCommerce checkout</p>
             </div>
         </div>
         
-        <!-- LANGUAGE CLASS REGISTRATION FLOW -->
-        <div class="flow-section collapsed">
-            <h2>📚 Language Class Registration Flow</h2>
-            
-            <div class="flow-content">
-            <div class="callout" style="background: #fff3cd; border-left-color: #ffc107;">
-                <h4>⚠️ Important: CourseStorm Integration</h4>
-                <p>All <strong>new</strong> language class registrations are handled by CourseStorm, an external platform. CourseStorm has direct integration with LGL CRM and operates independently from the WordPress website. Legacy WooCommerce class products are maintained for backward compatibility only.</p>
-            </div>
-            
-            <div class="timeline">
-                <div class="timeline-step">
-                    <div class="timeline-number">1</div>
-                    <div class="timeline-content">
-                        <h4>Class Discovery</h4>
-                        <p>Member discovers language classes available</p>
-                    </div>
-                </div>
-                
-                <div class="system-box entry-point">
-                    <h3><span class="icon">🌐</span> UI Website</h3>
-                    <p>Member views language class catalog or receives class announcement</p>
-                    <small>Classes may be listed on website with link to CourseStorm</small>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">2</div>
-                    <div class="timeline-content">
-                        <h4>CourseStorm Registration</h4>
-                        <p>Member registers for class on CourseStorm platform</p>
-                    </div>
-                </div>
-                
-                <div class="system-box registration-system">
-                    <h3><span class="icon">📚</span> CourseStorm</h3>
-                    <p><strong>External Platform:</strong><br>
-                    • Member browses class catalog<br>
-                    • Selects language class<br>
-                    • Enters registration information<br>
-                    • Membership verification (if applicable)<br>
-                    • Applies member discount (if eligible)<br>
-                    • Completes payment</p>
-                    <small><strong>Note:</strong> CourseStorm operates independently from WordPress. It has its own direct integration with LGL CRM.</small>
-                    <span class="tag">External Platform</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">3</div>
-                    <div class="timeline-content">
-                        <h4>Membership Verification</h4>
-                        <p>CourseStorm verifies member status for discount eligibility</p>
-                    </div>
-                </div>
-                
-                <div class="system-box crm-system">
-                    <h3><span class="icon">🔍</span> Little Green Light</h3>
-                    <p><strong>CourseStorm Queries LGL:</strong><br>
-                    • Checks membership status<br>
-                    • Verifies membership tier<br>
-                    • Confirms expiration date<br>
-                    • Applies appropriate discount</p>
-                    <small>CourseStorm reads membership data directly from LGL CRM. No WordPress involvement in this process.</small>
-                    <span class="tag">Direct Integration</span>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">4</div>
-                    <div class="timeline-content">
-                        <h4>Registration & Payment</h4>
-                        <p>CourseStorm processes registration and payment</p>
-                    </div>
-                </div>
-                
-                <div class="system-box registration-system">
-                    <h3><span class="icon">💳</span> CourseStorm</h3>
-                    <p><strong>Registration Complete:</strong><br>
-                    • Class enrollment confirmed<br>
-                    • Payment processed<br>
-                    • Confirmation email sent<br>
-                    • Student added to class roster</p>
-                    <small>All handled within CourseStorm platform</small>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">5</div>
-                    <div class="timeline-content">
-                        <h4>LGL Sync</h4>
-                        <p>CourseStorm syncs registration data to LGL CRM</p>
-                    </div>
-                </div>
-                
-                <div class="system-box crm-system">
-                    <h3><span class="icon">📊</span> Little Green Light</h3>
-                    <p><strong>CourseStorm → LGL Sync:</strong><br>
-                    • Class registration recorded<br>
-                    • Payment recorded<br>
-                    • Student enrollment tracked<br>
-                    • Linked to constituent record</p>
-                    <small><strong>Important:</strong> CourseStorm syncs directly to LGL. The WordPress Integrate-LGL plugin is NOT involved in CourseStorm registrations.</small>
-                    <span class="tag">Direct Sync</span>
-                </div>
-                
-                <div class="callout" style="background: #e7f3ff; border-left-color: #2196F3;">
-                    <h4>📝 Legacy WooCommerce Classes</h4>
-                    <p>Some older language class products may still exist in WooCommerce for backward compatibility. These are being phased out. When processed through WooCommerce, they follow the same flow as event registrations, but new classes should always use CourseStorm.</p>
-                </div>
-            </div>
+        <div class="system-box form-system">
+            <h3><span class="icon">🎫</span> JetFormBuilder Form</h3>
+            <p><strong>Action: <code>lgl_add_event_registration</code></strong><br>
+            • Event registration without payment<br>
+            • Useful for free events<br>
+            • Creates attendee records<br>
+            • Syncs to LGL CRM</p>
+            <small>Used for: Free events or when payment is handled separately</small>
+            <span class="tag">Event Registration</span>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">E</div>
+            <div class="timeline-content">
+                <h4>Membership Deactivation</h4>
+                <p>Deactivate membership (staff or member-initiated)</p>
             </div>
         </div>
         
-        <!-- DATA FLOW DIAGRAM -->
-        <div class="flow-section collapsed">
-            <h2>🔄 Data Flow & System Integration</h2>
-            
-            <div class="flow-content">
-            <div class="callout">
-                <h4>🎯 System Architecture Overview</h4>
-                <p>The Upstate International system uses WordPress as the central website platform, WooCommerce for e-commerce, Integrate-LGL plugin for CRM integration, and CourseStorm for language classes. All data flows to Little Green Light CRM as the central database.</p>
-            </div>
-            
-            <div class="flow-row">
-                <div class="system-box entry-point" style="max-width: 220px;">
-                    <h3 style="font-size: 20px;">WordPress Website</h3>
-                    <p style="font-size: 15px;">Member visits site<br>Browses content<br>Clicks "Join" or "Register"</p>
-                </div>
-                
-                <span class="arrow">→</span>
-                
-                <div class="system-box payment-system" style="max-width: 220px;">
-                    <h3 style="font-size: 20px;">WooCommerce</h3>
-                    <p style="font-size: 15px;">Membership purchase<br>Event registration<br>Payment processing</p>
-                </div>
-                
-                <span class="arrow">→</span>
-                
-                <div class="system-box integration-layer" style="max-width: 220px;">
-                    <h3 style="font-size: 20px;">Integrate-LGL Plugin</h3>
-                    <p style="font-size: 15px;">Processes order<br>Creates/updates user<br>Syncs to LGL</p>
-                </div>
-                
-                <span class="arrow">→</span>
-                
-                <div class="system-box crm-system" style="max-width: 220px;">
-                    <h3 style="font-size: 20px;">Little Green Light</h3>
-                    <p style="font-size: 15px;">Constituent record<br>Payment record<br>Membership data</p>
-                </div>
-            </div>
-            
-            <div class="arrow-down">↕</div>
-            
-            <div class="flow-row">
-                <div class="system-box form-system" style="max-width: 220px;">
-                    <h3 style="font-size: 20px;">JetFormBuilder Forms</h3>
-                    <p style="font-size: 15px;">Renewals<br>Profile updates<br>Family management<br>Event registration</p>
-                    <small style="display: block; margin-top: 8px; font-size: 12px;">Note: New user registration uses WooCommerce, not forms</small>
-                </div>
-                
-                <span class="arrow">→</span>
-                
-                <div class="system-box integration-layer" style="max-width: 220px;">
-                    <h3 style="font-size: 20px;">Integrate-LGL Plugin</h3>
-                    <p style="font-size: 15px;">Form action handler<br>Validates data<br>Syncs to LGL</p>
-                </div>
-                
-                <span class="arrow">→</span>
-                
-                <div class="system-box crm-system" style="max-width: 220px;">
-                    <h3 style="font-size: 20px;">Little Green Light</h3>
-                    <p style="font-size: 15px;">Updated constituent<br>Membership changes</p>
-                </div>
-            </div>
-            
-            <div class="arrow-down">↕</div>
-            
-            <div class="flow-row">
-                <div class="system-box registration-system" style="max-width: 480px;">
-                    <h3 style="font-size: 20px;">CourseStorm (External Platform)</h3>
-                    <p style="font-size: 15px;">Language class registration → Verifies membership in LGL → Processes payment → Syncs registration to LGL</p>
-                    <small style="display: block; margin-top: 10px; font-size: 13px;">CourseStorm operates independently with direct LGL integration. WordPress plugin is NOT involved.</small>
-                </div>
-            </div>
-            
-            <div class="callout">
-                <h4>🔐 Data Stored in Each System</h4>
-                <p><strong>WordPress:</strong> User accounts, roles (ui_member, ui_patron_owner), membership metadata, event registrations (JetEngine CCT)<br>
-                <strong>WooCommerce:</strong> Orders, products, subscriptions, payment history<br>
-                <strong>Little Green Light:</strong> Constituent records, payment/gift records, membership information, event registrations, class registrations (from CourseStorm)<br>
-                <strong>CourseStorm:</strong> Class catalog, student enrollments, class payments (syncs to LGL)</p>
-            </div>
-            
-            <div class="callout" style="background: #f0f9ff; border-left-color: #0ea5e9;">
-                <h4>⚡ Key Integration Points</h4>
-                <p><strong>WooCommerce → Integrate-LGL:</strong> Order completion triggers automatic processing. Plugin routes orders by product category (memberships, events) to appropriate handlers. <strong>This is the primary method for new user registration and membership purchases.</strong><br><br>
-                <strong>JetFormBuilder → Integrate-LGL:</strong> Form submissions trigger custom actions (lgl_renew_membership, lgl_edit_user, lgl_add_family_member, lgl_add_event_registration, lgl_deactivate_membership) that sync data to LGL. <strong>Note:</strong> User registration and membership updates via forms are deprecated in v2.0 - use WooCommerce checkout instead.<br><br>
-                <strong>Integrate-LGL → LGL:</strong> All WordPress/WooCommerce data flows to LGL via API. Creates constituents, records payments, updates membership status.<br><br>
-                <strong>CourseStorm → LGL:</strong> Direct integration (outside WordPress). CourseStorm reads membership status from LGL and writes class registrations back to LGL.</p>
-            </div>
+        <div class="system-box form-system">
+            <h3><span class="icon">🚫</span> JetFormBuilder Form</h3>
+            <p><strong>Action: <code>lgl_deactivate_membership</code></strong><br>
+            • Removes ui_member role<br>
+            • Updates membership status<br>
+            • Syncs deactivation to LGL CRM</p>
+            <small>Used for: Cancellations, non-renewals, or administrative deactivations</small>
+            <span class="tag">Deactivation</span>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">F</div>
+            <div class="timeline-content">
+                <h4>Form Processing</h4>
+                <p>Integrate-LGL plugin processes form submission</p>
             </div>
         </div>
         
-        <!-- STAFF OPERATIONS FLOW -->
-        <div class="flow-section collapsed">
-            <h2>👨‍💼 UI Staff Operations Flow</h2>
-            
-            <div class="flow-content">
-            <div class="callout">
-                <h4>🎯 Staff Responsibilities Overview</h4>
-                <p>Staff manage the system through WordPress admin, WooCommerce, and CourseStorm. Most processes are automated, requiring minimal daily maintenance. Staff focus on content creation, event management, and member support.</p>
-            </div>
-            
-            <div class="timeline">
-                <div class="timeline-step">
-                    <div class="timeline-number">A</div>
-                    <div class="timeline-content">
-                        <h4>Membership Product Management</h4>
-                        <p>Configure and manage membership offerings</p>
-                    </div>
-                </div>
-                
-                <div class="system-box admin-action">
-                    <h3><span class="icon">⚙️</span> WooCommerce Admin</h3>
-                    <p><strong>Initial Setup:</strong><br>
-                    • Create membership products<br>
-                    • Configure tier pricing<br>
-                    • Set up product categories<br>
-                    • Configure payment gateways<br>
-                    • Set up subscription products (if using auto-renewal)</p>
-                    <p><strong>Ongoing (minimal):</strong><br>
-                    • Monitor new member signups<br>
-                    • Review order reports<br>
-                    • Handle payment issues<br>
-                    • Update pricing as needed</p>
-                    <small>Owner: Laura (primary), Linley (backup)</small>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">B</div>
-                    <div class="timeline-content">
-                        <h4>Event Management</h4>
-                        <p>Create and manage event registrations</p>
-                    </div>
-                </div>
-                
-                <div class="system-box admin-action">
-                    <h3><span class="icon">🎉</span> WooCommerce Admin</h3>
-                    <p><strong>Event Setup:</strong><br>
-                    • Create event product<br>
-                    • Set event date/time/location<br>
-                    • Configure pricing<br>
-                    • Set capacity limits<br>
-                    • Add event metadata (ui_events_* fields)</p>
-                    <p><strong>Ongoing:</strong><br>
-                    • Monitor registrations<br>
-                    • Export attendee lists<br>
-                    • Manage waitlists<br>
-                    • Send event reminders</p>
-                    <small>Owner: Jamaica (events coordination), Linley (technical setup)</small>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">C</div>
-                    <div class="timeline-content">
-                        <h4>Website Forms Management</h4>
-                        <p>Create and maintain JetFormBuilder forms</p>
-                    </div>
-                </div>
-                
-                <div class="system-box admin-action">
-                    <h3><span class="icon">📋</span> WordPress Admin</h3>
-                    <p><strong>Form Creation (Limited Scope):</strong><br>
-                    • Build forms using JetFormBuilder<br>
-                    • Configure active actions:<br>
-                    &nbsp;&nbsp;→ lgl_renew_membership<br>
-                    &nbsp;&nbsp;→ lgl_edit_user<br>
-                    &nbsp;&nbsp;→ lgl_add_family_member<br>
-                    &nbsp;&nbsp;→ lgl_add_event_registration<br>
-                    &nbsp;&nbsp;→ lgl_deactivate_membership<br>
-                    • Set up form fields<br>
-                    • Test form submissions</p>
-                    <p><strong>Ongoing:</strong><br>
-                    • Monitor form submissions<br>
-                    • Update form fields as needed<br>
-                    • Troubleshoot form issues</p>
-                    <small><strong>Note:</strong> User registration and membership purchase forms are deprecated. Use WooCommerce checkout instead.</small>
-                    <small>Owner: Andrew (technical), Staff (content)</small>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">D</div>
-                    <div class="timeline-content">
-                        <h4>Language Class Management</h4>
-                        <p>Manage classes in CourseStorm platform</p>
-                    </div>
-                </div>
-                
-                <div class="system-box admin-action">
-                    <h3><span class="icon">📚</span> CourseStorm Admin</h3>
-                    <p><strong>Class Setup:</strong><br>
-                    • Create class catalog<br>
-                    • Set class schedules<br>
-                    • Configure pricing<br>
-                    • Set up member discounts<br>
-                    • Configure LGL integration</p>
-                    <p><strong>Ongoing:</strong><br>
-                    • Monitor registrations<br>
-                    • Manage waitlists<br>
-                    • Generate enrollment reports<br>
-                    • Verify member discounts working</p>
-                    <small>Owner: Linley (primary), Jamaica (coordination)</small>
-                    <small><strong>Note:</strong> CourseStorm operates independently. Staff manage classes directly in CourseStorm admin panel.</small>
-                </div>
-                
-                <div class="arrow-down">↓</div>
-                
-                <div class="timeline-step">
-                    <div class="timeline-number">E</div>
-                    <div class="timeline-content">
-                        <h4>CRM & System Monitoring</h4>
-                        <p>Monitor integrations and data sync</p>
-                    </div>
-                </div>
-                
-                <div class="system-box admin-action">
-                    <h3><span class="icon">🔍</span> WordPress Admin - Integrate-LGL</h3>
-                    <p><strong>Daily Check (5 min):</strong><br>
-                    • Review plugin logs for errors<br>
-                    • Verify new members synced to LGL<br>
-                    • Check membership renewal status<br>
-                    • Monitor automated email delivery</p>
-                    <p><strong>Weekly Review (15 min):</strong><br>
-                    • Cross-reference WooCommerce orders with LGL records<br>
-                    • Review membership statistics dashboard<br>
-                    • Check for sync issues<br>
-                    • Review renewal reminders sent</p>
-                    <p><strong>Monthly Report (30 min):</strong><br>
-                    • Export membership reports from LGL<br>
-                    • Calculate revenue by tier<br>
-                    • Review renewal rates<br>
-                    • Identify trends or issues</p>
-                    <small>Owner: Andrew (Month 1-2), then Laura/Linley after training</small>
-                </div>
-            </div>
-            
-            <div class="callout">
-                <h4>⏱️ Time Savings Summary</h4>
-                <p><strong>Automated Processes:</strong><br>
-                • Membership processing: 100% automated<br>
-                • LGL sync: 100% automated<br>
-                • Renewal reminders: 100% automated<br>
-                • Email confirmations: 100% automated<br>
-                • Event registration processing: 100% automated<br><br>
-                <strong>Staff Time Focus:</strong><br>
-                • Content creation (events, newsletters)<br>
-                • Member support and communication<br>
-                • Class and event planning<br>
-                • System monitoring and optimization</p>
-            </div>
-            </div>
+        <div class="system-box integration-layer">
+            <h3><span class="icon">⚙️</span> Integrate-LGL Plugin</h3>
+            <p><strong>Form Action Handler:</strong><br>
+            • Validates form data<br>
+            • Checks for existing LGL constituent<br>
+            • Updates LGL record<br>
+            • Updates WordPress user metadata<br>
+            • Assigns/removes roles as needed<br>
+            • Sends confirmation email (if applicable)</p>
+            <small>Uses same LGL sync logic as WooCommerce orders for consistency</small>
+            <span class="tag">Automated Processing</span>
         </div>
         
-        <!-- SUPPORT -->
-        <div class="flow-section collapsed">
-            <h2>🆘 Support & Resources</h2>
-            
-            <div class="flow-content">
-            <div class="flow-row" style="align-items: stretch;">
-                <div class="callout" style="flex: 1;">
-                    <h4>📚 Documentation</h4>
-                    <p>• Integrate-LGL Plugin README<br>
-                    • LGL API Logic Model<br>
-                    • Manual Testing Guide<br>
-                    • Troubleshooting FAQ<br>
-                    • System Architecture Docs</p>
-                </div>
-                
-                <div class="callout" style="flex: 1;">
-                    <h4>👨‍💻 Technical Support</h4>
-                    <p><strong>Andrew Skinner</strong><br>
-                    One Three Consulting<br>
-                    info@21adsmedia.com</p>
-                    <p style="margin-top: 10px;"><strong>Platform Support:</strong><br>
-                    • WordPress: Community support<br>
-                    • WooCommerce: Support portal<br>
-                    • JetFormBuilder: Documentation<br>
-                    • CourseStorm: integrations@coursestorm.com<br>
-                    • Little Green Light: Support portal</p>
-                </div>
-                
-                <div class="callout" style="flex: 1;">
-                    <h4>🔗 Quick Links</h4>
-                    <p>• <a href="#" target="_blank">WordPress Admin</a><br>
-                    • <a href="#" target="_blank">WooCommerce Orders</a><br>
-                    • <a href="#" target="_blank">Little Green Light CRM</a><br>
-                    • <a href="#" target="_blank">CourseStorm Admin</a><br>
-                    • <a href="#" target="_blank">Integrate-LGL Settings</a></p>
-                </div>
-            </div>
-            
-            <div class="callout" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; text-align: center;">
-                <h4 style="color: white; font-size: 20px;">Questions or Issues?</h4>
-                <p style="color: rgba(255,255,255,0.9);">Contact Andrew immediately if you notice any system errors, integration failures, or member complaints.<br>The system is fully automated, but monitoring ensures everything runs smoothly.</p>
-            </div>
-            </div>
+        <div class="arrow-down">↓</div>
+        
+        <div class="system-box crm-system">
+            <h3><span class="icon">📊</span> Little Green Light</h3>
+            <p>Constituent record updated with changes from form submission</p>
+            <small>All form data flows to LGL for centralized record keeping</small>
         </div>
     </div>
     
-    <script>
-        // Progress bar on scroll
-        window.addEventListener('scroll', function() {
-            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-            const scrolled = (winScroll / height) * 100;
-            document.getElementById('progressBar').style.width = scrolled + '%';
-            
-            // Update active section in quick nav
-            updateActiveSection();
-        });
+    <div class="callout" style="background: #e7f3ff; border-left-color: #2196F3;">
+        <h4>📝 Note: New User Registration</h4>
+        <p><strong>For new memberships:</strong> Use WooCommerce checkout. The membership purchase process automatically creates the WordPress user account and syncs to LGL CRM. Forms are not used for new user registration in version 2.0.</p>
+    </div>
+    </div>
+</div>
+
+<!-- EVENT REGISTRATION FLOW -->
+<div class="flow-section collapsed">
+    <h2>🎉 Event Registration Flow</h2>
+    
+    <div class="flow-content">
+    <div class="timeline">
+        <div class="timeline-step">
+            <div class="timeline-number">1</div>
+            <div class="timeline-content">
+                <h4>Event Discovery</h4>
+                <p>Member or guest discovers upcoming event</p>
+            </div>
+        </div>
         
-        // Update active section indicator
-        function updateActiveSection() {
-            const sections = document.querySelectorAll('.flow-section');
-            const navItems = document.querySelectorAll('.quick-nav-item');
-            const scrollPos = window.scrollY + window.innerHeight / 2;
-            
-            sections.forEach((section, index) => {
-                const sectionTop = section.offsetTop;
-                const sectionBottom = sectionTop + section.offsetHeight;
-                
-                if (scrollPos >= sectionTop && scrollPos < sectionBottom) {
-                    navItems.forEach(item => item.classList.remove('active'));
-                    navItems[index].classList.add('active');
-                }
-            });
-        }
+        <div class="system-box entry-point">
+            <h3><span class="icon">🌐</span> UI Website</h3>
+            <p>Member browses events page or receives event announcement</p>
+            <small>Events displayed with date, time, location, and pricing</small>
+        </div>
         
-        // Quick navigation click handlers
-        document.querySelectorAll('.quick-nav-item').forEach(item => {
-            // Make items focusable
-            item.setAttribute('tabindex', '0');
-            item.setAttribute('role', 'button');
-            item.setAttribute('aria-label', item.getAttribute('title'));
-            
-            item.addEventListener('click', function() {
-                const sectionIndex = parseInt(this.getAttribute('data-section'));
-                const sections = document.querySelectorAll('.flow-section');
-                sections[sectionIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
-            });
-            
-            // Keyboard support
-            item.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    this.click();
-                }
-            });
-        });
+        <div class="arrow-down">↓</div>
         
-        // Toggle section collapse/expand on h2 click
-        document.querySelectorAll('.flow-section h2').forEach(header => {
-            // Make headers focusable and accessible
-            header.setAttribute('tabindex', '0');
-            header.setAttribute('role', 'button');
-            // Set initial aria-expanded based on whether section is collapsed
-            const section = header.parentElement;
-            const isExpanded = !section.classList.contains('collapsed');
-            header.setAttribute('aria-expanded', isExpanded);
-            
-            header.addEventListener('click', function() {
-                const section = this.parentElement;
-                section.classList.toggle('collapsed');
-                const isExpanded = !section.classList.contains('collapsed');
-                this.setAttribute('aria-expanded', isExpanded);
-            });
-            
-            // Keyboard support
-            header.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    this.click();
-                }
-            });
-        });
+        <div class="timeline-step">
+            <div class="timeline-number">2</div>
+            <div class="timeline-content">
+                <h4>Event Registration</h4>
+                <p>Member registers and pays for event ticket</p>
+            </div>
+        </div>
         
-        // Collapse all sections
-        function collapseAll() {
-            document.querySelectorAll('.flow-section').forEach(section => {
-                section.classList.add('collapsed');
-                const header = section.querySelector('h2');
-                if (header) header.setAttribute('aria-expanded', 'false');
-            });
-        }
+        <div class="system-box payment-system">
+            <h3><span class="icon">🎫</span> WooCommerce</h3>
+            <p><strong>Event Product Purchase:</strong><br>
+            • Selects event from catalog<br>
+            • Adds to cart<br>
+            • Provides attendee information<br>
+            • Optional: Lunch selection<br>
+            • Completes payment</p>
+            <small>Event products have category: "events"</small>
+            <span class="tag">Event Registration</span>
+        </div>
         
-        // Expand all sections
-        function expandAll() {
-            document.querySelectorAll('.flow-section').forEach(section => {
-                section.classList.remove('collapsed');
-                const header = section.querySelector('h2');
-                if (header) header.setAttribute('aria-expanded', 'true');
-            });
-        }
+        <div class="arrow-down">↓</div>
         
-        // Add smooth scrolling for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth' });
-                }
-            });
-        });
+        <div class="timeline-step">
+            <div class="timeline-number">3</div>
+            <div class="timeline-content">
+                <h4>Event Processing</h4>
+                <p>Registration processed and recorded</p>
+            </div>
+        </div>
         
-        // Initialize on page load
-        window.addEventListener('load', function() {
-            updateActiveSection();
-        });
-    </script>
-</body>
-</html>
+        <div class="system-box integration-layer">
+            <h3><span class="icon">⚡</span> Integrate-LGL Plugin</h3>
+            <p><strong>Event Order Handler:</strong><br>
+            • Creates event registration record (JetEngine CCT)<br>
+            • Creates attendee records<br>
+            • Tracks event capacity<br>
+            • Syncs to LGL CRM<br>
+            • Records payment in LGL</p>
+            <small>Supports multiple attendees per order. Event metadata includes: start/end datetime, location, capacity, registration status.</small>
+            <span class="tag">Event Management</span>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="system-box crm-system">
+            <h3><span class="icon">📊</span> Little Green Light</h3>
+            <p><strong>Event Registration Recorded:</strong><br>
+            • Constituent linked to event<br>
+            • Payment recorded<br>
+            • Attendee information stored</p>
+            <small>All event registrations tracked in LGL for reporting and follow-up</small>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="system-box integration-layer">
+            <h3><span class="icon">✉️</span> Event Confirmation Email</h3>
+            <p><strong>Automated Email Sent:</strong><br>
+            • Event details (date, time, location)<br>
+            • Registration confirmation<br>
+            • Lunch selection (if applicable)<br>
+            • What to bring / parking info</p>
+            <small>Professional HTML email template customized for each event type</small>
+        </div>
+        
+        <div class="callout">
+            <h4>📝 Alternative: Event Registration via Form</h4>
+            <p>Events can also be registered through JetFormBuilder forms using the <code>lgl_add_event_registration</code> action. This allows event registration without WooCommerce checkout, useful for free events or manual processing.</p>
+        </div>
+    </div>
+    </div>
+</div>
+
+<!-- LANGUAGE CLASS REGISTRATION FLOW -->
+<div class="flow-section collapsed">
+    <h2>📚 Language Class Registration Flow</h2>
+    
+    <div class="flow-content">
+    <div class="callout" style="background: #fff3cd; border-left-color: #ffc107;">
+        <h4>⚠️ Important: CourseStorm Integration</h4>
+        <p>All <strong>new</strong> language class registrations are handled by CourseStorm, an external platform. CourseStorm has direct integration with LGL CRM and operates independently from the WordPress website. Legacy WooCommerce class products are maintained for backward compatibility only.</p>
+    </div>
+    
+    <div class="timeline">
+        <div class="timeline-step">
+            <div class="timeline-number">1</div>
+            <div class="timeline-content">
+                <h4>Class Discovery</h4>
+                <p>Member discovers language classes available</p>
+            </div>
+        </div>
+        
+        <div class="system-box entry-point">
+            <h3><span class="icon">🌐</span> UI Website</h3>
+            <p>Member views language class catalog or receives class announcement</p>
+            <small>Classes may be listed on website with link to CourseStorm</small>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">2</div>
+            <div class="timeline-content">
+                <h4>CourseStorm Registration</h4>
+                <p>Member registers for class on CourseStorm platform</p>
+            </div>
+        </div>
+        
+        <div class="system-box registration-system">
+            <h3><span class="icon">📚</span> CourseStorm</h3>
+            <p><strong>External Platform:</strong><br>
+            • Member browses class catalog<br>
+            • Selects language class<br>
+            • Enters registration information<br>
+            • Membership verification (if applicable)<br>
+            • Applies member discount (if eligible)<br>
+            • Completes payment</p>
+            <small><strong>Note:</strong> CourseStorm operates independently from WordPress. It has its own direct integration with LGL CRM.</small>
+            <span class="tag">External Platform</span>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">3</div>
+            <div class="timeline-content">
+                <h4>Membership Verification</h4>
+                <p>CourseStorm verifies member status for discount eligibility</p>
+            </div>
+        </div>
+        
+        <div class="system-box crm-system">
+            <h3><span class="icon">🔍</span> Little Green Light</h3>
+            <p><strong>CourseStorm Queries LGL:</strong><br>
+            • Checks membership status<br>
+            • Verifies membership tier<br>
+            • Confirms expiration date<br>
+            • Applies appropriate discount</p>
+            <small>CourseStorm reads membership data directly from LGL CRM. No WordPress involvement in this process.</small>
+            <span class="tag">Direct Integration</span>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">4</div>
+            <div class="timeline-content">
+                <h4>Registration & Payment</h4>
+                <p>CourseStorm processes registration and payment</p>
+            </div>
+        </div>
+        
+        <div class="system-box registration-system">
+            <h3><span class="icon">💳</span> CourseStorm</h3>
+            <p><strong>Registration Complete:</strong><br>
+            • Class enrollment confirmed<br>
+            • Payment processed<br>
+            • Confirmation email sent<br>
+            • Student added to class roster</p>
+            <small>All handled within CourseStorm platform</small>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">5</div>
+            <div class="timeline-content">
+                <h4>LGL Sync</h4>
+                <p>CourseStorm syncs registration data to LGL CRM</p>
+            </div>
+        </div>
+        
+        <div class="system-box crm-system">
+            <h3><span class="icon">📊</span> Little Green Light</h3>
+            <p><strong>CourseStorm → LGL Sync:</strong><br>
+            • Class registration recorded<br>
+            • Payment recorded<br>
+            • Student enrollment tracked<br>
+            • Linked to constituent record</p>
+            <small><strong>Important:</strong> CourseStorm syncs directly to LGL. The WordPress Integrate-LGL plugin is NOT involved in CourseStorm registrations.</small>
+            <span class="tag">Direct Sync</span>
+        </div>
+        
+        <div class="callout" style="background: #e7f3ff; border-left-color: #2196F3;">
+            <h4>📝 Legacy WooCommerce Classes</h4>
+            <p>Some older language class products may still exist in WooCommerce for backward compatibility. These are being phased out. When processed through WooCommerce, they follow the same flow as event registrations, but new classes should always use CourseStorm.</p>
+        </div>
+    </div>
+    </div>
+</div>
+
+<!-- DATA FLOW DIAGRAM -->
+<div class="flow-section collapsed">
+    <h2>🔄 Data Flow & System Integration</h2>
+    
+    <div class="flow-content">
+    <div class="callout">
+        <h4>🎯 System Architecture Overview</h4>
+        <p>The Upstate International system uses WordPress as the central website platform, WooCommerce for e-commerce, Integrate-LGL plugin for CRM integration, and CourseStorm for language classes. All data flows to Little Green Light CRM as the central database.</p>
+    </div>
+    
+    <div class="flow-row">
+        <div class="system-box entry-point" style="max-width: 220px;">
+            <h3 style="font-size: 20px;">WordPress Website</h3>
+            <p style="font-size: 15px;">Member visits site<br>Browses content<br>Clicks "Join" or "Register"</p>
+        </div>
+        
+        <span class="arrow">→</span>
+        
+        <div class="system-box payment-system" style="max-width: 220px;">
+            <h3 style="font-size: 20px;">WooCommerce</h3>
+            <p style="font-size: 15px;">Membership purchase<br>Event registration<br>Payment processing</p>
+        </div>
+        
+        <span class="arrow">→</span>
+        
+        <div class="system-box integration-layer" style="max-width: 220px;">
+            <h3 style="font-size: 20px;">Integrate-LGL Plugin</h3>
+            <p style="font-size: 15px;">Processes order<br>Creates/updates user<br>Syncs to LGL</p>
+        </div>
+        
+        <span class="arrow">→</span>
+        
+        <div class="system-box crm-system" style="max-width: 220px;">
+            <h3 style="font-size: 20px;">Little Green Light</h3>
+            <p style="font-size: 15px;">Constituent record<br>Payment record<br>Membership data</p>
+        </div>
+    </div>
+    
+    <div class="arrow-down">↕</div>
+    
+    <div class="flow-row">
+        <div class="system-box form-system" style="max-width: 220px;">
+            <h3 style="font-size: 20px;">JetFormBuilder Forms</h3>
+            <p style="font-size: 15px;">Renewals<br>Profile updates<br>Family management<br>Event registration</p>
+            <small style="display: block; margin-top: 8px; font-size: 12px;">Note: New user registration uses WooCommerce, not forms</small>
+        </div>
+        
+        <span class="arrow">→</span>
+        
+        <div class="system-box integration-layer" style="max-width: 220px;">
+            <h3 style="font-size: 20px;">Integrate-LGL Plugin</h3>
+            <p style="font-size: 15px;">Form action handler<br>Validates data<br>Syncs to LGL</p>
+        </div>
+        
+        <span class="arrow">→</span>
+        
+        <div class="system-box crm-system" style="max-width: 220px;">
+            <h3 style="font-size: 20px;">Little Green Light</h3>
+            <p style="font-size: 15px;">Updated constituent<br>Membership changes</p>
+        </div>
+    </div>
+    
+    <div class="arrow-down">↕</div>
+    
+    <div class="flow-row">
+        <div class="system-box registration-system" style="max-width: 480px;">
+            <h3 style="font-size: 20px;">CourseStorm (External Platform)</h3>
+            <p style="font-size: 15px;">Language class registration → Verifies membership in LGL → Processes payment → Syncs registration to LGL</p>
+            <small style="display: block; margin-top: 10px; font-size: 13px;">CourseStorm operates independently with direct LGL integration. WordPress plugin is NOT involved.</small>
+        </div>
+    </div>
+    
+    <div class="callout">
+        <h4>🔐 Data Stored in Each System</h4>
+        <p><strong>WordPress:</strong> User accounts, roles (ui_member, ui_patron_owner), membership metadata, event registrations (JetEngine CCT)<br>
+        <strong>WooCommerce:</strong> Orders, products, subscriptions, payment history<br>
+        <strong>Little Green Light:</strong> Constituent records, payment/gift records, membership information, event registrations, class registrations (from CourseStorm)<br>
+        <strong>CourseStorm:</strong> Class catalog, student enrollments, class payments (syncs to LGL)</p>
+    </div>
+    
+    <div class="callout" style="background: #f0f9ff; border-left-color: #0ea5e9;">
+        <h4>⚡ Key Integration Points</h4>
+        <p><strong>WooCommerce → Integrate-LGL:</strong> Order completion triggers automatic processing. Plugin routes orders by product category (memberships, events) to appropriate handlers. <strong>This is the primary method for new user registration and membership purchases.</strong><br><br>
+        <strong>JetFormBuilder → Integrate-LGL:</strong> Form submissions trigger custom actions (lgl_renew_membership, lgl_edit_user, lgl_add_family_member, lgl_add_event_registration, lgl_deactivate_membership) that sync data to LGL. <strong>Note:</strong> User registration and membership updates via forms are deprecated in v2.0 - use WooCommerce checkout instead.<br><br>
+        <strong>Integrate-LGL → LGL:</strong> All WordPress/WooCommerce data flows to LGL via API. Creates constituents, records payments, updates membership status.<br><br>
+        <strong>CourseStorm → LGL:</strong> Direct integration (outside WordPress). CourseStorm reads membership status from LGL and writes class registrations back to LGL.</p>
+    </div>
+    </div>
+</div>
+
+<!-- STAFF OPERATIONS FLOW -->
+<div class="flow-section collapsed">
+    <h2>👨‍💼 UI Staff Operations Flow</h2>
+    
+    <div class="flow-content">
+    <div class="callout">
+        <h4>🎯 Staff Responsibilities Overview</h4>
+        <p>Staff manage the system through WordPress admin, WooCommerce, and CourseStorm. Most processes are automated, requiring minimal daily maintenance. Staff focus on content creation, event management, and member support.</p>
+    </div>
+    
+    <div class="timeline">
+        <div class="timeline-step">
+            <div class="timeline-number">A</div>
+            <div class="timeline-content">
+                <h4>Membership Product Management</h4>
+                <p>Configure and manage membership offerings</p>
+            </div>
+        </div>
+        
+        <div class="system-box admin-action">
+            <h3><span class="icon">⚙️</span> WooCommerce Admin</h3>
+            <p><strong>Initial Setup:</strong><br>
+            • Create membership products<br>
+            • Configure tier pricing<br>
+            • Set up product categories<br>
+            • Configure payment gateways<br>
+            • Set up subscription products (if using auto-renewal)</p>
+            <p><strong>Ongoing (minimal):</strong><br>
+            • Monitor new member signups<br>
+            • Review order reports<br>
+            • Handle payment issues<br>
+            • Update pricing as needed</p>
+            <small>Owner: Laura (primary), Linley (backup)</small>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">B</div>
+            <div class="timeline-content">
+                <h4>Event Management</h4>
+                <p>Create and manage event registrations</p>
+            </div>
+        </div>
+        
+        <div class="system-box admin-action">
+            <h3><span class="icon">🎉</span> WooCommerce Admin</h3>
+            <p><strong>Event Setup:</strong><br>
+            • Create event product<br>
+            • Set event date/time/location<br>
+            • Configure pricing<br>
+            • Set capacity limits<br>
+            • Add event metadata (ui_events_* fields)</p>
+            <p><strong>Ongoing:</strong><br>
+            • Monitor registrations<br>
+            • Export attendee lists<br>
+            • Manage waitlists<br>
+            • Send event reminders</p>
+            <small>Owner: Jamaica (events coordination), Linley (technical setup)</small>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">C</div>
+            <div class="timeline-content">
+                <h4>Website Forms Management</h4>
+                <p>Create and maintain JetFormBuilder forms</p>
+            </div>
+        </div>
+        
+        <div class="system-box admin-action">
+            <h3><span class="icon">📋</span> WordPress Admin</h3>
+            <p><strong>Form Creation (Limited Scope):</strong><br>
+            • Build forms using JetFormBuilder<br>
+            • Configure active actions:<br>
+            &nbsp;&nbsp;→ lgl_renew_membership<br>
+            &nbsp;&nbsp;→ lgl_edit_user<br>
+            &nbsp;&nbsp;→ lgl_add_family_member<br>
+            &nbsp;&nbsp;→ lgl_add_event_registration<br>
+            &nbsp;&nbsp;→ lgl_deactivate_membership<br>
+            • Set up form fields<br>
+            • Test form submissions</p>
+            <p><strong>Ongoing:</strong><br>
+            • Monitor form submissions<br>
+            • Update form fields as needed<br>
+            • Troubleshoot form issues</p>
+            <small><strong>Note:</strong> User registration and membership purchase forms are deprecated. Use WooCommerce checkout instead.</small>
+            <small>Owner: Andrew (technical), Staff (content)</small>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">D</div>
+            <div class="timeline-content">
+                <h4>Language Class Management</h4>
+                <p>Manage classes in CourseStorm platform</p>
+            </div>
+        </div>
+        
+        <div class="system-box admin-action">
+            <h3><span class="icon">📚</span> CourseStorm Admin</h3>
+            <p><strong>Class Setup:</strong><br>
+            • Create class catalog<br>
+            • Set class schedules<br>
+            • Configure pricing<br>
+            • Set up member discounts<br>
+            • Configure LGL integration</p>
+            <p><strong>Ongoing:</strong><br>
+            • Monitor registrations<br>
+            • Manage waitlists<br>
+            • Generate enrollment reports<br>
+            • Verify member discounts working</p>
+            <small>Owner: Linley (primary), Jamaica (coordination)</small>
+            <small><strong>Note:</strong> CourseStorm operates independently. Staff manage classes directly in CourseStorm admin panel.</small>
+        </div>
+        
+        <div class="arrow-down">↓</div>
+        
+        <div class="timeline-step">
+            <div class="timeline-number">E</div>
+            <div class="timeline-content">
+                <h4>CRM & System Monitoring</h4>
+                <p>Monitor integrations and data sync</p>
+            </div>
+        </div>
+        
+        <div class="system-box admin-action">
+            <h3><span class="icon">🔍</span> WordPress Admin - Integrate-LGL</h3>
+            <p><strong>Daily Check (5 min):</strong><br>
+            • Review plugin logs for errors<br>
+            • Verify new members synced to LGL<br>
+            • Check membership renewal status<br>
+            • Monitor automated email delivery</p>
+            <p><strong>Weekly Review (15 min):</strong><br>
+            • Cross-reference WooCommerce orders with LGL records<br>
+            • Review membership statistics dashboard<br>
+            • Check for sync issues<br>
+            • Review renewal reminders sent</p>
+            <p><strong>Monthly Report (30 min):</strong><br>
+            • Export membership reports from LGL<br>
+            • Calculate revenue by tier<br>
+            • Review renewal rates<br>
+            • Identify trends or issues</p>
+            <small>Owner: Andrew (Month 1-2), then Laura/Linley after training</small>
+        </div>
+    </div>
+    
+    <div class="callout">
+        <h4>⏱️ Time Savings Summary</h4>
+        <p><strong>Automated Processes:</strong><br>
+        • Membership processing: 100% automated<br>
+        • LGL sync: 100% automated<br>
+        • Renewal reminders: 100% automated<br>
+        • Email confirmations: 100% automated<br>
+        • Event registration processing: 100% automated<br><br>
+        <strong>Staff Time Focus:</strong><br>
+        • Content creation (events, newsletters)<br>
+        • Member support and communication<br>
+        • Class and event planning<br>
+        • System monitoring and optimization</p>
+    </div>
+    </div>
+</div>
+
+<!-- SUPPORT -->
+<div class="flow-section collapsed">
+    <h2>🆘 Support & Resources</h2>
+    
+    <div class="flow-content">
+    <div class="flow-row" style="align-items: stretch;">
+        <div class="callout" style="flex: 1;">
+            <h4>📚 Documentation</h4>
+            <p>• Integrate-LGL Plugin README<br>
+            • LGL API Logic Model<br>
+            • Manual Testing Guide<br>
+            • Troubleshooting FAQ<br>
+            • System Architecture Docs</p>
+        </div>
+        
+        <div class="callout" style="flex: 1;">
+            <h4>👨‍💻 Technical Support</h4>
+            <p><strong>Andrew Skinner</strong><br>
+            One Three Consulting<br>
+            info@21adsmedia.com</p>
+            <p style="margin-top: 10px;"><strong>Platform Support:</strong><br>
+            • WordPress: Community support<br>
+            • WooCommerce: Support portal<br>
+            • JetFormBuilder: Documentation<br>
+            • CourseStorm: integrations@coursestorm.com<br>
+            • Little Green Light: Support portal</p>
+        </div>
+        
+        <div class="callout" style="flex: 1;">
+            <h4>🔗 Quick Links</h4>
+            <p>• <a href="#" target="_blank">WordPress Admin</a><br>
+            • <a href="#" target="_blank">WooCommerce Orders</a><br>
+            • <a href="#" target="_blank">Little Green Light CRM</a><br>
+            • <a href="#" target="_blank">CourseStorm Admin</a><br>
+            • <a href="#" target="_blank">Integrate-LGL Settings</a></p>
+        </div>
+    </div>
+    
+    <div class="callout" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; text-align: center;">
+        <h4 style="color: white; font-size: 20px;">Questions or Issues?</h4>
+        <p style="color: rgba(255,255,255,0.9);">Contact Andrew immediately if you notice any system errors, integration failures, or member complaints.<br>The system is fully automated, but monitoring ensures everything runs smoothly.</p>
+    </div>
+    </div>
+</div>
