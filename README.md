@@ -89,11 +89,43 @@ A modern, enterprise-grade WordPress plugin that provides seamless integration w
 
 ## Installation
 
-1. Upload the plugin files to `/wp-content/plugins/Integrate-LGL/`
-2. Activate the plugin through the WordPress admin
-3. Go to **Settings > Little Green Light Settings**
-4. Enter your API key and configure membership levels
-5. Map your WooCommerce product categories as needed
+### From WordPress Admin (Recommended)
+
+1. **Package the plugin** (if deploying from source):
+   ```bash
+   cd wp-content/plugins/Integrate-LGL
+   ./package-plugin.sh
+   ```
+   This creates a production-ready zip file in `wp-content/plugins/`
+
+2. **Upload the zip file** via **WordPress Admin → Plugins → Add New → Upload Plugin**
+3. Click **Install Now**
+4. Click **Activate Plugin**
+5. Navigate to **Settings → Little Green Light Settings**
+6. Enter your API key and configure membership levels
+7. Map your WooCommerce product categories as needed
+
+### Manual Installation
+
+1. Extract the plugin files to: `/wp-content/plugins/Integrate-LGL/`
+2. **Install dependencies** (if vendor/ is missing):
+   ```bash
+   cd wp-content/plugins/Integrate-LGL
+   composer install --no-dev --optimize-autoloader
+   ```
+3. Ensure file permissions are correct (folders: 755, files: 644)
+4. Activate the plugin via WordPress Admin
+5. Configure settings
+
+### Via Composer (Development)
+
+```bash
+cd /path/to/wp-content/plugins/Integrate-LGL
+composer install
+composer dump-autoload -o
+```
+
+> **Note:** For production deployment, use the packaging script (`./package-plugin.sh`) which creates an optimized package excluding development files. See [PACKAGING.md](PACKAGING.md) for detailed packaging instructions.
 
 ## Requirements
 
@@ -125,70 +157,78 @@ Ensure your WooCommerce products are properly categorized:
 ### Custom Fields
 The plugin uses various custom fields for products and orders. Refer to the code documentation for specific field names and usage.
 
-## Modern Architecture
+### Membership Levels
+Configure membership levels and their corresponding LGL membership type IDs in the settings panel. The plugin supports tiered memberships with automatic renewal processing.
 
-### Plugin Structure
+### Email Templates
+Customize email templates in the `form-emails/` directory. Templates support dynamic content insertion and responsive design.
+
+## File Structure
+
 The plugin follows PSR-4 standards with enterprise-grade architecture and dependency injection:
 
 ```
 Integrate-LGL/
+├── lgl-api.php                   # Main plugin file
+├── composer.json                 # Composer configuration
+├── README.md                     # This file
+├── CHANGELOG.md                  # Version history
+├── PACKAGING.md                  # Packaging guide
+├── package-plugin.sh             # Production packaging script
+├── .packageignore                # Packaging exclusions
 ├── src/                          # Modern PHP classes (PSR-4)
 │   ├── Core/                     # Core functionality & DI container
-│   │   ├── Plugin.php            # Main plugin orchestrator with service initialization
-│   │   ├── ServiceContainer.php  # PSR-11 compliant DI container (28+ services)
-│   │   ├── HookManager.php       # Centralized WordPress hook management
-│   │   ├── CacheManager.php      # Multi-layer caching with smart invalidation
-│   │   ├── Utilities.php         # Shared utilities with type safety
-│   │   └── TestRequests.php      # Testing utilities and data generation
-│   ├── JetFormBuilder/           # JetFormBuilder integration
-│   │   ├── ActionRegistry.php    # Action registration with lazy loading
-│   │   ├── Actions/              # 8 dedicated action classes
-│   │   │   ├── UserRegistrationAction.php
-│   │   │   ├── MembershipUpdateAction.php
-│   │   │   ├── MembershipRenewalAction.php
-│   │   │   ├── ClassRegistrationAction.php
-│   │   │   ├── EventRegistrationAction.php
-│   │   │   ├── FamilyMemberAction.php
-│   │   │   ├── UserEditAction.php
-│   │   │   └── MembershipDeactivationAction.php
-│   │   └── JetFormActionInterface.php # Action contract
-│   ├── WooCommerce/              # WooCommerce integration
-│   │   ├── OrderProcessor.php    # Main order processing with routing
-│   │   ├── CheckOrderHandler.php # Offline payment handling
-│   │   ├── MembershipOrderHandler.php # Membership order processing
-│   │   ├── ClassOrderHandler.php # Class registration orders
-│   │   ├── EventOrderHandler.php # Event registration orders
-│   │   └── SubscriptionHandler.php # Subscription management
-│   ├── Memberships/              # Advanced membership system
-│   │   ├── MembershipRenewalManager.php # Renewal processing & notifications
-│   │   ├── MembershipNotificationMailer.php # Email system with templates
-│   │   ├── MembershipCronManager.php # WordPress cron integration
-│   │   └── MembershipUserManager.php # User role & status management
-│   ├── Email/                    # Email management
-│   │   ├── EmailBlocker.php      # Environment-aware email blocking
-│   │   ├── DailyEmailManager.php # Automated email summaries
-│   │   └── OrderEmailCustomizer.php # WooCommerce email customization
-│   ├── Shortcodes/               # Modern shortcode system
-│   │   ├── ShortcodeRegistry.php # Centralized shortcode management
-│   │   ├── LglShortcode.php      # Debug and testing shortcode
-│   │   └── UiMembershipsShortcode.php # Membership dashboard shortcode
+│   │   ├── Plugin.php            # Main plugin orchestrator
+│   │   ├── ServiceContainer.php  # PSR-11 DI container (28+ services)
+│   │   ├── HookManager.php       # Centralized hook management
+│   │   ├── CacheManager.php      # Multi-layer caching
+│   │   ├── Utilities.php         # Shared utilities
+│   │   └── TestRequests.php      # Testing utilities
 │   ├── Admin/                    # Admin interface
-│   │   └── DashboardWidgets.php  # Performance & statistics widgets
-│   └── LGL/                      # Little Green Light integration
-│       ├── ApiSettings.php       # API configuration with validation
-│       ├── Connection.php        # API connections with caching
-│       ├── Helper.php            # LGL utilities and debugging
-│       ├── Constituents.php      # Constituent management (417 lines)
-│       ├── Payments.php          # Payment processing (684 lines)
-│       ├── WpUsers.php           # WordPress user integration (715 lines)
-│       └── RelationsManager.php  # Relationship management
-├── includes/                     # Legacy classes (backward compatibility)
-│   └── ui_memberships/           # Legacy membership system (modernized)
-├── form-emails/                  # Professional HTML email templates
-├── vendor/                       # Composer dependencies (1425+ classes)
-├── composer.json                 # PSR-4 autoloading & dependency management
-└── lgl-api.php                   # Hybrid main plugin file with modern initialization
+│   │   ├── SettingsManager.php   # Settings management
+│   │   ├── AdminMenuManager.php  # Menu management
+│   │   ├── TestingToolsPage.php # Testing interface
+│   │   └── Views/                # Admin view templates
+│   ├── JetFormBuilder/           # JetFormBuilder integration
+│   │   ├── ActionRegistry.php    # Action registration
+│   │   └── Actions/              # 8 custom action classes
+│   ├── WooCommerce/              # WooCommerce integration
+│   │   ├── OrderProcessor.php    # Order routing
+│   │   └── [Order handlers]      # Product-type handlers
+│   ├── Memberships/              # Membership system
+│   │   ├── MembershipRenewalManager.php
+│   │   ├── MembershipNotificationMailer.php
+│   │   └── MembershipCronManager.php
+│   ├── Email/                    # Email management
+│   │   ├── EmailBlocker.php      # Dev email blocking
+│   │   └── OrderEmailCustomizer.php
+│   ├── LGL/                      # LGL API integration
+│   │   ├── Connection.php       # API connection
+│   │   ├── Constituents.php      # Constituent management
+│   │   ├── Payments.php          # Payment processing
+│   │   └── WpUsers.php           # User sync
+│   └── logs/                     # Log files (excluded from package)
+│       └── lgl-api.log
+├── includes/                     # Legacy compatibility
+│   ├── lgl-api-compat.php        # Compatibility shim
+│   └── [Legacy files]            # Backward compatibility
+├── assets/                       # Frontend assets
+│   ├── admin/                    # Admin CSS/JS
+│   └── css/                      # Frontend styles
+├── templates/                    # Template files
+│   └── emails/                   # Email templates
+├── form-emails/                  # HTML email templates
+├── vendor/                       # Composer dependencies
+├── docs/                         # Documentation (excluded from package)
+│   ├── Current Status/
+│   ├── Reference Documentation/
+│   ├── Security & Audits/
+│   └── Testing & Troubleshooting/
+├── test/                         # Test files (excluded from package)
+└── tests/                        # Unit tests (excluded from package)
 ```
+
+## Modern Architecture
 
 ### Performance Features
 - **Multi-Layer Caching**: WordPress Transients with smart invalidation and cache warming
@@ -257,6 +297,140 @@ Integrate-LGL/
 
 ---
 
+## Packaging & Deployment
+
+### Production Packaging
+
+To create a production-ready package:
+
+```bash
+cd wp-content/plugins/Integrate-LGL
+./package-plugin.sh
+```
+
+This creates a timestamped zip file (`integrate-lgl-production-YYYYMMDD-HHMMSS.zip`) in the parent directory, excluding:
+- Development files (`.git`, `.gitignore`, IDE files)
+- Documentation (`docs/` folder)
+- Test files (`test/`, `tests/`)
+- Log files (`src/logs/`, `*.log`)
+- Development scripts
+
+**Before packaging:**
+```bash
+composer install --no-dev --optimize-autoloader
+```
+
+See [PACKAGING.md](PACKAGING.md) for detailed packaging instructions and troubleshooting.
+
+## Troubleshooting
+
+### Plugin Not Activating
+
+- **Check PHP version**: Requires PHP 7.4+ (8.0+ recommended)
+- **Verify dependencies**: Ensure `vendor/autoload.php` exists
+- **Check error logs**: Review WordPress debug log for specific errors
+- **Composer autoloader missing**: Run `composer install --no-dev --optimize-autoloader`
+
+### API Connection Issues
+
+- **Verify API key**: Check that your LGL API key is correct in settings
+- **Test connection**: Use the "Test API Connection" button in settings
+- **Check network**: Ensure server can make outbound HTTPS requests
+- **Review logs**: Check `src/logs/lgl-api.log` for detailed error messages
+
+### Membership Renewals Not Processing
+
+- **Check cron**: Verify WordPress cron is running (`wp cron event list`)
+- **Review settings**: Ensure membership levels are properly configured
+- **Check logs**: Review membership renewal logs in admin dashboard
+- **Verify dates**: Check membership expiration dates in LGL CRM
+
+### Order Processing Issues
+
+- **Product categories**: Ensure products are categorized correctly (`memberships`, `language-class`, `events`)
+- **Payment status**: Orders must be "completed" or "processing" to trigger LGL sync
+- **Check logs**: Review order processing logs for specific errors
+- **WooCommerce status**: Verify WooCommerce and required plugins are active
+
+### Email Not Sending
+
+- **Development mode**: Emails are blocked in development environments (check `EmailBlocker.php`)
+- **SMTP configuration**: Verify WordPress email configuration
+- **Template files**: Ensure email templates exist in `form-emails/` directory
+- **Permissions**: Check file permissions on template files
+
+For more detailed troubleshooting, see `docs/Testing & Troubleshooting/TROUBLESHOOTING.md`.
+
+## Security
+
+This plugin implements industry-standard security measures:
+
+- **API Key Encryption**: API keys stored securely using WordPress encryption
+- **Input Sanitization**: All user inputs sanitized via WordPress Settings API
+- **Output Escaping**: All output properly escaped (`esc_html`, `esc_attr`, `esc_url`)
+- **CSRF Protection**: All AJAX requests require nonce verification
+- **SQL Injection Prevention**: Uses WordPress database API with prepared statements
+- **Capability Checks**: Admin functions require `manage_options` permission
+- **Secure File Access**: Direct file access protection on all PHP files
+- **XSS Prevention**: Multi-layer HTML sanitization
+- **Rate Limiting**: Built-in rate limiting for API requests
+
+For detailed security information, see `docs/Security & Audits/SECURITY.md`.
+
+**Security Vulnerability Reporting:**  
+Please email security@uihybrid.com - do not file public issues for security vulnerabilities.
+
+## Development
+
+### PSR-12 Coding Standards
+
+This plugin follows PSR-12 coding standards:
+
+```bash
+composer require --dev squizlabs/php_codesniffer
+./vendor/bin/phpcs --standard=PSR12 src/
+```
+
+### Regenerate Autoloader
+
+After adding new classes:
+
+```bash
+composer dump-autoload -o
+```
+
+Or use the provided script:
+```bash
+./refresh-autoloader.sh
+```
+
+### Testing
+
+- **Unit Tests**: Located in `tests/Unit/`
+- **Manual Testing**: See `docs/Testing & Troubleshooting/MANUAL-TESTING-GUIDE.md`
+- **Admin Testing Tools**: Available in WordPress Admin → Little Green Light → Testing Tools
+
+### Debugging
+
+- **Enable Debug Mode**: Set `WP_DEBUG` to `true` in `wp-config.php`
+- **View Logs**: Check `src/logs/lgl-api.log` for detailed operation logs
+- **Debug Shortcode**: Use `[lgl]` shortcode for debugging operations
+- **Service Container**: View registered services in Admin → Service Container Dashboard
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a complete version history.
+
+### Version 2.0.0 (Current)
+
+- Complete modernization to PSR-4 architecture
+- Service container with 28+ registered services
+- Advanced membership renewal system
+- Modern email template system
+- Production-ready performance optimizations
+- Comprehensive admin dashboard
+- Full JetFormBuilder integration
+
 ## Support & Development
 
 This plugin represents a complete modernization from legacy WordPress plugin architecture to enterprise-grade, modern PHP standards. The transformation includes:
@@ -268,3 +442,18 @@ This plugin represents a complete modernization from legacy WordPress plugin arc
 - **Production-ready performance** with multi-layer caching and optimization
 
 The plugin is now ready for production deployment and future enhancements can be easily built on this solid, modern foundation.
+
+### Additional Resources
+
+- **Documentation**: See `docs/` folder for comprehensive documentation
+- **API Reference**: `docs/Reference Documentation/API-REFERENCE.md`
+- **Production Status**: `docs/Current Status/PRODUCTION-READINESS-STATUS.md`
+- **Testing Guides**: `docs/Testing & Troubleshooting/`
+
+## License
+
+GPL-2.0+
+
+## Credits
+
+Developed by UI Hybrid following WordPress and PHP best practices.

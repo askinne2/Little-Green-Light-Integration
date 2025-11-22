@@ -1,0 +1,122 @@
+# Integrate-LGL Plugin - Production Package Exclusions
+# Files and directories excluded from production packages
+
+# ============================================
+# Version Control
+# ============================================
+.git/
+.gitignore
+
+# ============================================
+# Development & Testing
+# ============================================
+test/
+tests/
+*.test.php
+*.spec.php
+
+# ============================================
+# Documentation
+# ============================================
+docs/
+*.md
+!README.md
+!CHANGELOG.md
+
+# ============================================
+# Logs & Debug Files
+# ============================================
+*.log
+*.log.*
+src/logs/
+logs/
+*.debug
+
+# ============================================
+# Development Scripts
+# ============================================
+refresh-autoloader.sh
+package-plugin.sh
+debug.sh
+scripts/
+
+# ============================================
+# IDE & Editor Files
+# ============================================
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ============================================
+# OS Files
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ============================================
+# Environment & Configuration
+# ============================================
+.env
+.env.local
+.env.*.local
+*.env
+config.local.php
+API-key.php
+GitHubToken.json
+Paypalcards.txt
+
+# ============================================
+# Temporary Files
+# ============================================
+*.tmp
+*.temp
+*.cache
+.cache/
+tmp/
+temp/
+*.bak
+*.backup
+
+# ============================================
+# Build & Distribution
+# ============================================
+build/
+dist/
+*.zip
+*.tar
+*.tar.gz
+*.rar
+
+# ============================================
+# Migration & Legacy Files
+# ============================================
+MIGRATION-FROM-V1.md
+
+# ============================================
+# Composer (keep composer.json, exclude lock)
+# ============================================
+composer.lock
+
+# ============================================
+# Node.js (if any)
+# ============================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
