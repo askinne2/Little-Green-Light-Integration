@@ -512,8 +512,8 @@
             <ul>
                 {% assign manual_testing = site.pages | where_exp: "p", "p.path contains 'MANUAL-TESTING-GUIDE.md'" | first %}
                 {% if manual_testing %}<li><a href="{{ manual_testing.url | relative_url }}" {% if page.url == manual_testing.url %}class="active"{% endif %}>Manual Testing</a></li>{% endif %}
-                {% assign testing_guide = site.pages | where_exp: "p", "p.path contains 'TESTING-GUIDE.md' and p.path contains 'MANUAL-TESTING' == false" | first %}
-                {% unless testing_guide %}{% assign testing_guide = site.pages | where_exp: "p", "p.path == 'Testing & Troubleshooting/TESTING-GUIDE.md'" | first %}{% endunless %}
+                {% assign testing_guide_all = site.pages | where_exp: "p", "p.path contains 'TESTING-GUIDE.md'" %}
+                {% for p in testing_guide_all %}{% unless p.path contains 'MANUAL' %}{% assign testing_guide = p %}{% break %}{% endunless %}{% endfor %}
                 {% if testing_guide %}<li><a href="{{ testing_guide.url | relative_url }}" {% if page.url == testing_guide.url %}class="active"{% endif %}>Testing Guide</a></li>{% endif %}
                 {% assign testing_suite = site.pages | where_exp: "p", "p.path contains 'TESTING-SUITE-GUIDE.md'" | first %}
                 {% if testing_suite %}<li><a href="{{ testing_suite.url | relative_url }}" {% if page.url == testing_suite.url %}class="active"{% endif %}>Testing Suite</a></li>{% endif %}
