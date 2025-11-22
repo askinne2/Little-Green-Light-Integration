@@ -454,10 +454,14 @@
             <div class="nav-links">
                 <a href="{{ '/' | relative_url }}" {% if page.url == '/' %}class="active"{% endif %}>Home</a>
                 <a href="{{ '/flowchart.html' | relative_url }}" {% if page.url == '/flowchart.html' %}class="active"{% endif %}>System Flowchart</a>
-                <a href="{{ '/Reference Documentation/API-REFERENCE.html' | relative_url }}" {% if page.url contains 'API-REFERENCE' %}class="active"{% endif %}>API Reference</a>
-                <a href="{{ '/Reference Documentation/LGL API LOGIC MODEL.html' | relative_url }}" {% if page.url contains 'LOGIC MODEL' %}class="active"{% endif %}>Logic Model</a>
-                <a href="{{ '/Testing & Troubleshooting/MANUAL-TESTING-GUIDE.html' | relative_url }}" {% if page.url contains 'TESTING' %}class="active"{% endif %}>Testing</a>
-                <a href="{{ '/Testing & Troubleshooting/TROUBLESHOOTING.html' | relative_url }}" {% if page.url contains 'TROUBLESHOOTING' %}class="active"{% endif %}>Troubleshooting</a>
+                {% assign api_ref = site.pages | where_exp: "p", "p.path contains 'API-REFERENCE.md'" | first %}
+                {% if api_ref %}<a href="{{ api_ref.url | relative_url }}" {% if page.url == api_ref.url %}class="active"{% endif %}>API Reference</a>{% endif %}
+                {% assign logic_model = site.pages | where_exp: "p", "p.path contains 'LGL API LOGIC MODEL.md'" | first %}
+                {% if logic_model %}<a href="{{ logic_model.url | relative_url }}" {% if page.url == logic_model.url %}class="active"{% endif %}>Logic Model</a>{% endif %}
+                {% assign manual_testing = site.pages | where_exp: "p", "p.path contains 'MANUAL-TESTING-GUIDE.md'" | first %}
+                {% if manual_testing %}<a href="{{ manual_testing.url | relative_url }}" {% if page.url == manual_testing.url %}class="active"{% endif %}>Testing</a>{% endif %}
+                {% assign troubleshooting = site.pages | where_exp: "p", "p.path contains 'TROUBLESHOOTING.md'" | first %}
+                {% if troubleshooting %}<a href="{{ troubleshooting.url | relative_url }}" {% if page.url == troubleshooting.url %}class="active"{% endif %}>Troubleshooting</a>{% endif %}
             </div>
         </div>
     </nav>
@@ -492,32 +496,47 @@
             
             <h3>Reference</h3>
             <ul>
-                <li><a href="{{ '/Reference Documentation/API-REFERENCE.html' | relative_url }}" {% if page.url contains 'API-REFERENCE' %}class="active"{% endif %}>API Reference</a></li>
-                <li><a href="{{ '/Reference Documentation/LGL API LOGIC MODEL.html' | relative_url }}" {% if page.url contains 'LOGIC MODEL' %}class="active"{% endif %}>Logic Model</a></li>
-                <li><a href="{{ '/Reference Documentation/data-contracts.html' | relative_url }}" {% if page.url contains 'data-contracts' %}class="active"{% endif %}>Data Contracts</a></li>
-                <li><a href="{{ '/Reference Documentation/user-meta-fields.html' | relative_url }}" {% if page.url contains 'user-meta-fields' %}class="active"{% endif %}>User Meta Fields</a></li>
-                <li><a href="{{ '/Reference Documentation/0-standard-coding-prompt.html' | relative_url }}" {% if page.url contains 'standard-coding' %}class="active"{% endif %}>Coding Standards</a></li>
+                {% assign api_ref = site.pages | where_exp: "p", "p.path contains 'API-REFERENCE.md'" | first %}
+                {% if api_ref %}<li><a href="{{ api_ref.url | relative_url }}" {% if page.url == api_ref.url %}class="active"{% endif %}>API Reference</a></li>{% endif %}
+                {% assign logic_model = site.pages | where_exp: "p", "p.path contains 'LGL API LOGIC MODEL.md'" | first %}
+                {% if logic_model %}<li><a href="{{ logic_model.url | relative_url }}" {% if page.url == logic_model.url %}class="active"{% endif %}>Logic Model</a></li>{% endif %}
+                {% assign data_contracts = site.pages | where_exp: "p", "p.path contains 'data-contracts.md'" | first %}
+                {% if data_contracts %}<li><a href="{{ data_contracts.url | relative_url }}" {% if page.url == data_contracts.url %}class="active"{% endif %}>Data Contracts</a></li>{% endif %}
+                {% assign user_meta = site.pages | where_exp: "p", "p.path contains 'user-meta-fields.md'" | first %}
+                {% if user_meta %}<li><a href="{{ user_meta.url | relative_url }}" {% if page.url == user_meta.url %}class="active"{% endif %}>User Meta Fields</a></li>{% endif %}
+                {% assign coding_std = site.pages | where_exp: "p", "p.path contains '0-standard-coding-prompt.md'" | first %}
+                {% if coding_std %}<li><a href="{{ coding_std.url | relative_url }}" {% if page.url == coding_std.url %}class="active"{% endif %}>Coding Standards</a></li>{% endif %}
             </ul>
             
             <h3>Testing</h3>
             <ul>
-                <li><a href="{{ '/Testing & Troubleshooting/MANUAL-TESTING-GUIDE.html' | relative_url }}" {% if page.url contains 'MANUAL-TESTING' %}class="active"{% endif %}>Manual Testing</a></li>
-                <li><a href="{{ '/Testing & Troubleshooting/TESTING-GUIDE.html' | relative_url }}" {% if page.url contains 'TESTING-GUIDE' and page.url contains 'MANUAL' == false %}class="active"{% endif %}>Testing Guide</a></li>
-                <li><a href="{{ '/Testing & Troubleshooting/TESTING-SUITE-GUIDE.html' | relative_url }}" {% if page.url contains 'TESTING-SUITE' %}class="active"{% endif %}>Testing Suite</a></li>
-                <li><a href="{{ '/Testing & Troubleshooting/TROUBLESHOOTING.html' | relative_url }}" {% if page.url contains 'TROUBLESHOOTING' %}class="active"{% endif %}>Troubleshooting</a></li>
+                {% assign manual_testing = site.pages | where_exp: "p", "p.path contains 'MANUAL-TESTING-GUIDE.md'" | first %}
+                {% if manual_testing %}<li><a href="{{ manual_testing.url | relative_url }}" {% if page.url == manual_testing.url %}class="active"{% endif %}>Manual Testing</a></li>{% endif %}
+                {% assign testing_guide = site.pages | where_exp: "p", "p.path contains 'TESTING-GUIDE.md' and p.path contains 'MANUAL-TESTING' == false" | first %}
+                {% unless testing_guide %}{% assign testing_guide = site.pages | where_exp: "p", "p.path == 'Testing & Troubleshooting/TESTING-GUIDE.md'" | first %}{% endunless %}
+                {% if testing_guide %}<li><a href="{{ testing_guide.url | relative_url }}" {% if page.url == testing_guide.url %}class="active"{% endif %}>Testing Guide</a></li>{% endif %}
+                {% assign testing_suite = site.pages | where_exp: "p", "p.path contains 'TESTING-SUITE-GUIDE.md'" | first %}
+                {% if testing_suite %}<li><a href="{{ testing_suite.url | relative_url }}" {% if page.url == testing_suite.url %}class="active"{% endif %}>Testing Suite</a></li>{% endif %}
+                {% assign troubleshooting = site.pages | where_exp: "p", "p.path contains 'TROUBLESHOOTING.md'" | first %}
+                {% if troubleshooting %}<li><a href="{{ troubleshooting.url | relative_url }}" {% if page.url == troubleshooting.url %}class="active"{% endif %}>Troubleshooting</a></li>{% endif %}
             </ul>
             
             <h3>Status</h3>
             <ul>
-                <li><a href="{{ '/Current Status/PRODUCTION-READINESS-STATUS.html' | relative_url }}" {% if page.url contains 'PRODUCTION-READINESS' %}class="active"{% endif %}>Production Status</a></li>
-                <li><a href="{{ '/Current Status/SPRINT-PROGRESS.html' | relative_url }}" {% if page.url contains 'SPRINT-PROGRESS' %}class="active"{% endif %}>Sprint Progress</a></li>
+                {% assign prod_status = site.pages | where_exp: "p", "p.path contains 'PRODUCTION-READINESS-STATUS.md'" | first %}
+                {% if prod_status %}<li><a href="{{ prod_status.url | relative_url }}" {% if page.url == prod_status.url %}class="active"{% endif %}>Production Status</a></li>{% endif %}
+                {% assign sprint = site.pages | where_exp: "p", "p.path contains 'SPRINT-PROGRESS.md'" | first %}
+                {% if sprint %}<li><a href="{{ sprint.url | relative_url }}" {% if page.url == sprint.url %}class="active"{% endif %}>Sprint Progress</a></li>{% endif %}
             </ul>
             
             <h3>Security</h3>
             <ul>
-                <li><a href="{{ '/Security & Audits/SECURITY.html' | relative_url }}" {% if page.url contains 'SECURITY' and page.url contains 'AUDIT' == false %}class="active"{% endif %}>Security</a></li>
-                <li><a href="{{ '/Security & Audits/SECURITY-AUDIT-CHECKLIST.html' | relative_url }}" {% if page.url contains 'SECURITY-AUDIT-CHECKLIST' %}class="active"{% endif %}>Security Checklist</a></li>
-                <li><a href="{{ '/Security & Audits/DATABASE-QUERY-AUDIT.html' | relative_url }}" {% if page.url contains 'DATABASE-QUERY-AUDIT' %}class="active"{% endif %}>Database Audit</a></li>
+                {% assign security = site.pages | where_exp: "p", "p.path == 'Security & Audits/SECURITY.md'" | first %}
+                {% if security %}<li><a href="{{ security.url | relative_url }}" {% if page.url == security.url %}class="active"{% endif %}>Security</a></li>{% endif %}
+                {% assign sec_checklist = site.pages | where_exp: "p", "p.path contains 'SECURITY-AUDIT-CHECKLIST.md'" | first %}
+                {% if sec_checklist %}<li><a href="{{ sec_checklist.url | relative_url }}" {% if page.url == sec_checklist.url %}class="active"{% endif %}>Security Checklist</a></li>{% endif %}
+                {% assign db_audit = site.pages | where_exp: "p", "p.path contains 'DATABASE-QUERY-AUDIT.md'" | first %}
+                {% if db_audit %}<li><a href="{{ db_audit.url | relative_url }}" {% if page.url == db_audit.url %}class="active"{% endif %}>Database Audit</a></li>{% endif %}
             </ul>
         </aside>
         
