@@ -4,26 +4,31 @@ This documentation site uses **Jekyll** (built into GitHub Pages) to automatical
 
 ## Quick Setup Steps
 
-1. **Make Repository Public** (if currently private)
+1. **Configure `_config.yml`**
+   - Set `baseurl` to your repository name: `baseurl: "/Little-Green-Light-Integration"`
+   - Set `url` to your GitHub Pages URL: `url: "https://askinne2.github.io"`
+   - ⚠️ **Important:** The `baseurl` must match your repository name exactly (case-sensitive)
+
+2. **Make Repository Public** (if currently private)
    - Go to your GitHub repository settings
    - Scroll to "Danger Zone"
    - Click "Change visibility" → "Make public"
    - Confirm the change
 
-2. **Enable GitHub Pages**
+3. **Enable GitHub Pages**
    - Go to repository Settings → Pages
    - Under "Source", select "Deploy from a branch"
    - Choose branch: `main` (or your default branch)
    - Choose folder: `/docs`
    - Click "Save"
 
-3. **Wait for Build** (5-10 minutes)
+4. **Wait for Build** (5-10 minutes)
    - GitHub Pages will automatically build your Jekyll site
    - You'll see a green checkmark when it's ready
    - Access your documentation at:
    - `https://[your-username].github.io/[repository-name]/`
 
-4. **Access Your Documentation**
+5. **Access Your Documentation**
    - **Homepage:** `https://[your-username].github.io/[repository-name]/`
    - **Flowchart:** `https://[your-username].github.io/[repository-name]/flowchart.html`
    - **All markdown files** are automatically rendered as HTML pages
@@ -101,10 +106,26 @@ Integrate-LGL/
   ```
 - It will automatically appear in the sidebar navigation
 
+## Local Testing
+
+To test the documentation locally before pushing to GitHub:
+
+```bash
+cd docs
+bundle install --path vendor/bundle
+bundle exec jekyll serve --baseurl ""
+```
+
+**Note:** Use `--baseurl ""` for local testing to override the GitHub Pages baseurl. The site will be available at `http://localhost:4000/`.
+
 ## Troubleshooting
 
 - **Page not loading?** Wait 5-10 minutes after enabling GitHub Pages for initial deployment
-- **404 Error?** Make sure the repository is public and GitHub Pages is enabled for `/docs` folder
+- **404 Error?** 
+  - Make sure the repository is public and GitHub Pages is enabled for `/docs` folder
+  - **Check `baseurl` in `_config.yml`** - it must match your repository name exactly (case-sensitive)
+  - Verify the URL format: `https://[username].github.io/[repository-name]/`
+- **Links not working?** Ensure all links use `{{ '/path' | relative_url }}` filter in templates
 - **Notion embed not working?** Try the direct link instead, or use Notion's "Create Link" feature
 
 ## Features

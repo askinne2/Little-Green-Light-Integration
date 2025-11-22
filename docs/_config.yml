@@ -2,8 +2,8 @@
 title: Integrate-LGL Documentation
 description: Complete documentation for the Little Green Light WordPress integration plugin
 author: Upstate International
-baseurl: "" # Leave empty if using /docs folder
-url: "" # Will be set automatically by GitHub Pages
+baseurl: "/Little-Green-Light-Integration" # Repository name for GitHub Pages
+url: "https://askinne2.github.io" # GitHub Pages base URL
 
 # Markdown processor
 markdown: kramdown
