@@ -20,8 +20,8 @@ This document explains how to publish the interactive system flowchart to GitHub
 3. **Access Your Flowchart**
    - After a few minutes, your flowchart will be available at:
    - `https://[your-username].github.io/[repository-name]/flowchart.html`
-   - Or if you create an `index.html` in `/docs`, it will be at:
-   - `https://[your-username].github.io/[repository-name]/`
+   - Or visit the landing page at:
+   - `https://[your-username].github.io/[repository-name]/` (if `index.html` exists)
 
 ## Embedding in Notion
 
@@ -41,11 +41,14 @@ This document explains how to publish the interactive system flowchart to GitHub
 ```
 Integrate-LGL/
 ├── docs/
-│   ├── flowchart.html          ← Interactive flowchart (this file)
+│   ├── index.html              ← Landing page (optional but recommended)
+│   ├── flowchart.html          ← Interactive flowchart
 │   ├── GITHUB-PAGES-SETUP.md   ← This setup guide
 │   └── [other documentation files]
 └── [other plugin files]
 ```
+
+**Note:** `index.html` is optional. Without it, you can still access `flowchart.html` directly via its full URL. With `index.html`, visitors to the root URL get a nice landing page.
 
 ## Updating the Flowchart
 
