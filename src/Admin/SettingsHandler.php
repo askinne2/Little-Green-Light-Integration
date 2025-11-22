@@ -91,6 +91,9 @@ class SettingsHandler {
         add_action('admin_post_lgl_save_membership_settings', [$this, 'handleMembershipSettings']);
         add_action('admin_post_lgl_save_debug_settings', [$this, 'handleDebugSettings']);
         add_action('admin_post_lgl_save_fund_settings', [$this, 'handleFundSettings']);
+        add_action('admin_post_lgl_sync_ids', [$this, 'handleSyncIds']);
+        add_action('admin_post_lgl_sync_groups', [$this, 'handleSyncGroups']);
+        add_action('admin_post_lgl_save_role_mappings', [$this, 'handleRoleMappings']);
         
         //  error_log('LGL SettingsHandler: admin_post hooks registered - lgl_save_api_settings, lgl_save_membership_settings, lgl_save_debug_settings');
         
@@ -341,6 +344,229 @@ class SettingsHandler {
         } else {
             $this->redirectWithMessage('error', 'Failed to save fund settings.');
         }
+    }
+    
+    /**
+     * Handle sync IDs from LGL API
+     */
+    public function handleSyncIds(): void {
+        if (!current_user_can('manage_options')) {
+            wp_die('Insufficient permissions');
+        }
+        
+        // Verify nonce
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'lgl_sync_ids')) {
+            wp_die('Security check failed');
+        }
+        
+        $settingsManager = $this->getSettingsManager();
+        
+        if (!$settingsManager) {
+            $this->redirectWithMessage('error', 'Settings manager not available. Please try again.');
+            return;
+        }
+        
+        $results = $settingsManager->syncFundAndCampaignIds();
+        
+        if ($results['success']) {
+            $funds_count = count($results['funds']);
+            $campaigns_count = count($results['campaigns']);
+            $message = sprintf(
+                'Fund and Campaign IDs synced successfully! Found %d fund(s) and %d campaign(s).',
+                $funds_count,
+                $campaigns_count
+            );
+            $this->redirectWithMessage('updated', $message);
+        } else {
+            $error_message = 'Failed to sync IDs. ';
+            if (!empty($results['errors'])) {
+                $error_message .= implode(' ', $results['errors']);
+            } else {
+                $error_message .= 'Check API connection.';
+            }
+            $this->redirectWithMessage('error', $error_message);
+        }
+    }
+    
+    /**
+     * Handle sync groups request
+     * 
+     * @return void
+     */
+    public function handleSyncGroups(): void {
+        // Verify nonce
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'lgl_sync_groups')) {
+            $this->redirectWithMessage('error', 'Security check failed. Please try again.');
+            return;
+        }
+        
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            $this->redirectWithMessage('error', 'Insufficient permissions.');
+            return;
+        }
+        
+        $settingsManager = $this->getSettingsManager();
+        
+        if (!$settingsManager) {
+            $this->redirectWithMessage('error', 'Settings manager not available. Please try again.');
+            return;
+        }
+        
+        $results = $settingsManager->syncGroups();
+        
+        if ($results['success']) {
+            $groups_count = count($results['groups']);
+            $message = sprintf(
+                'Group IDs synced successfully! Found %d group(s).',
+                $groups_count
+            );
+            $this->redirectWithMessage('updated', $message);
+        } else {
+            $error_message = 'Failed to sync groups. ';
+            if (!empty($results['errors'])) {
+                $error_message .= implode(' ', $results['errors']);
+            } else {
+                $error_message .= 'Check API connection.';
+            }
+            $this->redirectWithMessage('error', $error_message);
+        }
+    }
+    
+    /**
+     * Handle role mappings settings save
+     */
+    public function handleRoleMappings(): void {
+        if (!current_user_can('manage_options')) {
+            wp_die('Insufficient permissions');
+        }
+        
+        // Verify nonce
+        if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'lgl_role_mappings_settings')) {
+            wp_die('Security check failed');
+        }
+        
+        $settingsManager = $this->getSettingsManager();
+        
+        if (!$settingsManager) {
+            $this->redirectWithMessage('error', 'Settings manager not available. Please try again.');
+            return;
+        }
+        
+        // Process role_group_mappings
+        // Get existing mappings to preserve group keys
+        $existing_mappings = $settingsManager->get('role_group_mappings') ?? [];
+        $role_group_mappings = [];
+        
+        if (isset($_POST['role_group_mappings']) && is_array($_POST['role_group_mappings'])) {
+            foreach ($_POST['role_group_mappings'] as $role => $config) {
+                if (isset($config['lgl_group_id']) && is_numeric($config['lgl_group_id'])) {
+                    $group_id = (int)$config['lgl_group_id'];
+                    // Preserve existing group_key if available, otherwise fetch dynamically
+                    $existing_key = $existing_mappings[$role]['lgl_group_key'] ?? null;
+                    $group_key = $existing_key ?: $this->getGroupKeyFromId($group_id);
+                    
+                    $role_group_mappings[$role] = [
+                        'wp_role' => $role,
+                        'lgl_group_id' => $group_id,
+                        'lgl_group_key' => $group_key
+                    ];
+                } else {
+                    // Preserve existing mapping if group_id not provided in form
+                    if (isset($existing_mappings[$role])) {
+                        $role_group_mappings[$role] = $existing_mappings[$role];
+                    }
+                }
+            }
+        }
+        
+        // Preserve any existing mappings not in the form
+        foreach ($existing_mappings as $role => $config) {
+            if (!isset($role_group_mappings[$role])) {
+                $role_group_mappings[$role] = $config;
+            }
+        }
+        
+        // Process coupon_role_mappings (legacy fallback - kept for backward compatibility)
+        // Note: Preferred method is now via WooCommerce coupon meta fields (CouponRoleMeta)
+        // This fallback is only used if coupon doesn't have role assignment in meta
+        $coupon_role_mappings = [];
+        if (isset($_POST['coupon_role_mappings']) && is_array($_POST['coupon_role_mappings'])) {
+            foreach ($_POST['coupon_role_mappings'] as $coupon => $role) {
+                $coupon_upper = strtoupper(trim($coupon));
+                $role_sanitized = sanitize_text_field($role);
+                if (!empty($coupon_upper) && !empty($role_sanitized)) {
+                    $coupon_role_mappings[$coupon_upper] = $role_sanitized;
+                }
+            }
+        }
+        
+        // Update settings
+        $role_settings = [
+            'role_group_mappings' => $role_group_mappings,
+            'coupon_role_mappings' => $coupon_role_mappings
+        ];
+        
+        if ($this->updateSettings($role_settings)) {
+            $this->redirectWithMessage('updated', 'Role mappings saved successfully!');
+        } else {
+            $this->redirectWithMessage('error', 'Failed to save role mappings.');
+        }
+    }
+    
+    /**
+     * Get group key from group ID (helper for mapping)
+     * 
+     * @param int $group_id LGL group ID
+     * @return string Group key
+     */
+    private function getGroupKeyFromId(int $group_id): string {
+        // First, try to get from stored role_group_mappings
+        $settingsManager = $this->getSettingsManager();
+        if ($settingsManager) {
+            $role_mappings = $settingsManager->get('role_group_mappings') ?? [];
+            foreach ($role_mappings as $role_config) {
+                if (isset($role_config['lgl_group_id']) && (int)$role_config['lgl_group_id'] === $group_id) {
+                    return $role_config['lgl_group_key'] ?? 'unknown';
+                }
+            }
+            
+            // Try fetching from LGL API
+            try {
+                $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
+                if ($container->has('lgl.connection')) {
+                    $connection = $container->get('lgl.connection');
+                    $response = $connection->makeRequest('groups.json', 'GET');
+                    
+                    if ($response['success']) {
+                        $groups_data = $response['data'] ?? [];
+                        $groups = $groups_data['items'] ?? (is_array($groups_data) && isset($groups_data[0]['id']) ? $groups_data : []);
+                        
+                        foreach ($groups as $group) {
+                            if ((int)($group['id'] ?? 0) === $group_id) {
+                                return $group['key'] ?? sanitize_title($group['name'] ?? 'unknown');
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // Fall back to default mapping
+            }
+        }
+        
+        // Fallback: Map known group IDs to keys (for backward compatibility)
+        $group_map = [
+            3287 => 'teacher',
+            3267 => 'board_member',
+            3272 => 'staff',
+            3277 => 'volunteer',
+            3282 => 'partner',
+            3262 => 'team_member',
+            3291 => 'iwg_committee',
+            3296 => 'language_student'
+        ];
+        
+        return $group_map[$group_id] ?? 'unknown';
     }
     
     /**

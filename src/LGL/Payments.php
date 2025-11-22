@@ -304,16 +304,43 @@ class Payments {
             $fund_id = $this->getFundIdByProductCategory($order, $product);
             $fund_name = ''; // Empty - LGL resolves it
             
-            // Find campaign (match legacy: 'Membership Fees')
-            $campaign_name = 'Membership Fees';
-            $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
+            // Get campaign ID from settings (preferred) or fallback to name lookup
+            $settingsManager = null;
+            if (function_exists('lgl_get_container')) {
+                try {
+                    $container = lgl_get_container();
+                    if ($container->has('admin.settings_manager')) {
+                        $settingsManager = $container->get('admin.settings_manager');
+                    }
+                } catch (\Exception $e) {
+                    // SettingsManager not available, will use fallback
+                }
+            }
             
-            // Find gift category - use "Membership Fees" under "Other Income" gift type
-            // This matches the gift_type_id of 5 (Other Income) and is more accurate than "Donation"
-            $category_name = 'Membership Fees';
+            $campaign_id = null;
+            if ($settingsManager) {
+                $campaign_id = $settingsManager->get('campaign_id_membership');
+            }
+            
+            // Fallback to name lookup for backward compatibility
+            if (empty($campaign_id)) {
+                $campaign_name = 'Membership';
+                $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
+                if (!$campaign_id) {
+                    // Legacy fallback
+                    $campaign_name = 'Membership Fees';
+                    $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
+                }
+            } else {
+                $campaign_name = 'Membership'; // Use synced campaign name
+            }
+            
+            // Find gift category - use "Memberships" under "Other Income" gift type
+            // Based on actual LGL structure: Other Income → Memberships
+            $category_name = 'Memberships';
             $category_id = $this->findLglObjectKey($category_name, 'display_name', $categories_items);
             
-            // Fallback to "Misc." if "Membership Fees" not found (both under Other Income)
+            // Fallback to "Misc." if "Memberships" not found (both under Other Income)
             if (empty($category_id)) {
                 $category_name = 'Misc.';
                 $category_id = $this->findLglObjectKey($category_name, 'display_name', $categories_items);
@@ -466,11 +493,47 @@ class Payments {
             $gift_type_name = 'Other Income';
             $gift_type_id = $this->findLglObjectKey($gift_type_name, 'name', $gift_types_items);
             
-            $category_name = 'Language Classes';  // Match your LGL setup
+            // Find gift category - use "Language Classes" under "Other Income" gift type
+            // Based on actual LGL structure: Other Income → Language Classes
+            $category_name = 'Language Classes';
             $category_id = $this->findLglObjectKey($category_name, 'display_name', $categories_items);
             
-            $campaign_name = 'Language Class';  // Match your LGL setup
-            $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
+            // Fallback to "Misc." if "Language Classes" not found (both under Other Income)
+            if (empty($category_id)) {
+                $category_name = 'Misc.';
+                $category_id = $this->findLglObjectKey($category_name, 'display_name', $categories_items);
+            }
+            
+            // Get campaign ID from settings (preferred) or fallback to name lookup
+            $settingsManager = null;
+            if (function_exists('lgl_get_container')) {
+                try {
+                    $container = lgl_get_container();
+                    if ($container->has('admin.settings_manager')) {
+                        $settingsManager = $container->get('admin.settings_manager');
+                    }
+                } catch (\Exception $e) {
+                    // SettingsManager not available, will use fallback
+                }
+            }
+            
+            $campaign_id = null;
+            if ($settingsManager) {
+                $campaign_id = $settingsManager->get('campaign_id_language_classes');
+            }
+            
+            // Fallback to name lookup for backward compatibility
+            if (empty($campaign_id)) {
+                $campaign_name = 'Language Programs';
+                $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
+                if (!$campaign_id) {
+                    // Legacy fallback
+                    $campaign_name = 'Language Class';
+                    $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
+                }
+            } else {
+                $campaign_name = 'Language Programs'; // Use synced campaign name
+            }
             
             // LGL API requires all amounts to be formatted with decimals
             $formatted_amount = number_format((float)$price, 2, '.', '');
@@ -607,11 +670,53 @@ class Payments {
             $gift_type_name = 'Other Income';
             $gift_type_id = $this->findLglObjectKey($gift_type_name, 'name', $gift_types_items);
             
-            $category_name = 'Event fee';  // Match your LGL setup
+            // Find gift category - use "Event Fee" under "Other Income" gift type
+            // Based on actual LGL structure: Other Income → Event Fee
+            $category_name = 'Event Fee';
             $category_id = $this->findLglObjectKey($category_name, 'display_name', $categories_items);
             
-            $campaign_name = 'WACU Programming';  // Match your LGL setup
-            $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
+            // Fallback to "Event fee" (lowercase) if "Event Fee" not found
+            if (empty($category_id)) {
+                $category_name = 'Event fee';
+                $category_id = $this->findLglObjectKey($category_name, 'display_name', $categories_items);
+            }
+            
+            // Final fallback to "Misc." if neither found (both under Other Income)
+            if (empty($category_id)) {
+                $category_name = 'Misc.';
+                $category_id = $this->findLglObjectKey($category_name, 'display_name', $categories_items);
+            }
+            
+            // Get campaign ID from settings (preferred) or fallback to name lookup
+            $settingsManager = null;
+            if (function_exists('lgl_get_container')) {
+                try {
+                    $container = lgl_get_container();
+                    if ($container->has('admin.settings_manager')) {
+                        $settingsManager = $container->get('admin.settings_manager');
+                    }
+                } catch (\Exception $e) {
+                    // SettingsManager not available, will use fallback
+                }
+            }
+            
+            $campaign_id = null;
+            if ($settingsManager) {
+                $campaign_id = $settingsManager->get('campaign_id_events');
+            }
+            
+            // Fallback to name lookup for backward compatibility
+            if (empty($campaign_id)) {
+                $campaign_name = 'Events';
+                $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
+                if (!$campaign_id) {
+                    // Legacy fallback
+                    $campaign_name = 'WACU Programming';
+                    $campaign_id = $this->findLglObjectKey($campaign_name, 'name', $campaigns_items);
+                }
+            } else {
+                $campaign_name = 'Events'; // Use synced campaign name
+            }
             
             // LGL API requires all amounts to be formatted with decimals
             $formatted_amount = number_format((float)$price, 2, '.', '');
@@ -1019,7 +1124,7 @@ class Payments {
                 
                 // Extract membership level from product name if not a family member product
                 if (!$is_family_member && $product_name) {
-                    $membership_names = ['Member', 'Supporter', 'Patron', 'Community Member', 'Community Supporter', 'Community Patron'];
+                    $membership_names = ['Gateway Member', 'Crossroads Collective', 'World Horizon Patron', 'Member', 'Supporter', 'Patron', 'Community Member', 'Community Supporter', 'Community Patron'];
                     foreach ($membership_names as $level) {
                         if (stripos($product_name, $level) !== false) {
                             $membership_level = $level;
@@ -1030,19 +1135,118 @@ class Payments {
             }
         }
         
-        // Generate note based on product type
+        // Generate base note based on product type
+        $base_note = '';
         if ($is_family_member) {
             if ($quantity > 1) {
-                return sprintf('Family Member Slot Purchase (%d slots), Order #%d', $quantity, $order_id);
+                $base_note = sprintf('Family Member Slot Purchase (%d slots), Order #%d', $quantity, $order_id);
             } else {
-                return sprintf('Family Member Slot Purchase, Order #%d', $order_id);
+                $base_note = sprintf('Family Member Slot Purchase, Order #%d', $order_id);
             }
         } elseif ($membership_level) {
-            return sprintf('Membership Purchase - %s - Order #%d', $membership_level, $order_id);
+            $base_note = sprintf('Membership Purchase - %s - Order #%d', $membership_level, $order_id);
         } else {
             // Default fallback
-            return sprintf('Membership Purchase, Order #%d', $order_id);
+            $base_note = sprintf('Membership Purchase, Order #%d', $order_id);
         }
+        
+        // Append coupon information if coupons were used
+        $coupon_info = $this->getCouponInfoForNote($order);
+        if (!empty($coupon_info)) {
+            $base_note .= ' | ' . $coupon_info;
+            $this->debug('📝 Payments: Added coupon info to payment note', [
+                'order_id' => $order_id,
+                'base_note' => $base_note,
+                'coupon_info' => $coupon_info,
+                'final_note' => $base_note
+            ]);
+        } else {
+            $this->debug('ℹ️ Payments: No coupon info to add to payment note', [
+                'order_id' => $order_id,
+                'base_note' => $base_note
+            ]);
+        }
+        
+        return $base_note;
+    }
+    
+    /**
+     * Get coupon information formatted for LGL gift note
+     * 
+     * @param \WC_Order $order WooCommerce order
+     * @return string Formatted coupon information or empty string
+     */
+    private function getCouponInfoForNote(\WC_Order $order): string {
+        $coupon_codes = $order->get_coupon_codes();
+        
+        if (empty($coupon_codes)) {
+            return '';
+        }
+        
+        // Get coupon role assignments
+        $coupon_info_parts = [];
+        
+        try {
+            // Try to get CouponRoleMeta service
+            $couponRoleMeta = null;
+            $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
+            
+            if ($container->has('woocommerce.coupon_role_meta')) {
+                $couponRoleMeta = $container->get('woocommerce.coupon_role_meta');
+            }
+            
+            // Format role labels
+            $role_labels = [
+                'ui_teacher' => 'Teacher',
+                'ui_board' => 'Board Member',
+                'ui_vip' => 'VIP',
+                'ui_member' => 'Member'
+            ];
+            
+            foreach ($coupon_codes as $coupon_code) {
+                $coupon_str = strtoupper($coupon_code);
+                
+                // Try to get role assignment if CouponRoleMeta is available
+                if ($couponRoleMeta) {
+                    $role_assignment = $couponRoleMeta->getCouponRoleAssignment($coupon_code);
+                    
+                    if ($role_assignment) {
+                        $role = $role_assignment['wp_role'] ?? null;
+                        $scholarship_type = $role_assignment['scholarship_type'] ?? null;
+                        
+                        if ($role) {
+                            $role_label = $role_labels[$role] ?? ucfirst(str_replace('ui_', '', $role));
+                            $coupon_str .= ' (' . $role_label;
+                            
+                            // Add scholarship type if applicable
+                            if (!empty($scholarship_type) && $scholarship_type !== 'none') {
+                                $scholarship_label = $scholarship_type === 'partial' 
+                                    ? 'Partial Scholarship' 
+                                    : 'Full Scholarship';
+                                $coupon_str .= ' - ' . $scholarship_label;
+                            }
+                            
+                            $coupon_str .= ')';
+                        }
+                    }
+                }
+                
+                $coupon_info_parts[] = $coupon_str;
+            }
+        } catch (\Exception $e) {
+            // Fallback: just list coupon codes if there's an error
+            $this->debug('Error getting coupon info for note', [
+                'error' => $e->getMessage(),
+                'coupon_codes' => $coupon_codes
+            ]);
+            $coupon_info_parts = array_map('strtoupper', $coupon_codes);
+        }
+        
+        if (empty($coupon_info_parts)) {
+            return '';
+        }
+        
+        return 'Coupon: ' . implode(', ', $coupon_info_parts);
     }
     
     /**

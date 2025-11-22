@@ -495,6 +495,32 @@ class ServiceContainer implements ContainerInterface {
             );
         });
         
+        // Register Group Membership Manager
+        $this->register('lgl.group_membership_manager', function($container) {
+            return new \UpstateInternational\LGL\LGL\GroupMembershipManager(
+                $container->get('lgl.connection'),
+                $container->get('lgl.helper')
+            );
+        });
+        
+        // Register Coupon Role Meta Handler
+        $this->register('woocommerce.coupon_role_meta', function($container) {
+            $handler = new \UpstateInternational\LGL\WooCommerce\CouponRoleMeta(
+                $container->get('lgl.helper')
+            );
+            $handler->init(); // Initialize hooks
+            return $handler;
+        });
+        
+        // Register Role Assignment Handler
+        $this->register('woocommerce.role_assignment_handler', function($container) {
+            return new \UpstateInternational\LGL\WooCommerce\RoleAssignmentHandler(
+                $container->get('lgl.helper'),
+                $container->get('lgl.group_membership_manager'),
+                $container->get('admin.settings_manager')
+            );
+        });
+        
         // Register Email services (with explicit dependency injection)
         $this->register('email.order_customizer', function($container) {
             return new \UpstateInternational\LGL\Email\OrderEmailCustomizer(

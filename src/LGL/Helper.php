@@ -494,13 +494,16 @@ class Helper {
         
         // Map WooCommerce variation names to LGL membership names
         $name_mapping = [
-            // NEW membership names (primary)
-            'Member' => 'Member',
-            'Supporter' => 'Supporter', 
-            'Patron' => 'Patron',
+            // NEW membership names (2025+ primary)
+            'Gateway Member' => 'Gateway Member',
+            'Crossroads Collective' => 'Crossroads Collective', 
+            'World Horizon Patron' => 'World Horizon Patron',
             'Family Member' => 'Family Member',
             
             // LEGACY names (sunset in 1 year - keep for backward compatibility)
+            'Member' => 'Gateway Member',
+            'Supporter' => 'Crossroads Collective',
+            'Patron' => 'World Horizon Patron',
             'Membership - Individual' => 'Individual Membership',
             'Membership - Family' => 'Family Membership', 
             'Membership - Patron' => 'Patron Membership',
@@ -508,10 +511,10 @@ class Helper {
             'Daily Membership - Daily' => 'Daily Plan',
             
             // Legacy fallbacks (convert old names to new)
-            'Individual Membership' => 'Member',
-            'Family Membership' => 'Member',
-            'Patron Membership' => 'Patron',
-            'Patron Family Membership' => 'Patron',
+            'Individual Membership' => 'Gateway Member',
+            'Family Membership' => 'Gateway Member',
+            'Patron Membership' => 'World Horizon Patron',
+            'Patron Family Membership' => 'World Horizon Patron',
         ];
         
         if (isset($name_mapping[$wc_product_name])) {
@@ -590,13 +593,16 @@ class Helper {
         
         // Name-to-price mapping (NEW system + legacy for backward compatibility)
         $name_mapping = [
-            // NEW membership names
-            'Member' => 75,
-            'Supporter' => 150,
-            'Patron' => 500,
+            // NEW membership names (2025+)
+            'Gateway Member' => 75,
+            'Crossroads Collective' => 150,
+            'World Horizon Patron' => 500,
             'Family Member' => 25,
             
             // LEGACY names (sunset in 1 year - keep for backward compatibility)
+            'Member' => 75,
+            'Supporter' => 150,
+            'Patron' => 500,
             'Individual Membership' => 75,
             'Family Membership' => 100,
             'Patron Membership' => 200,

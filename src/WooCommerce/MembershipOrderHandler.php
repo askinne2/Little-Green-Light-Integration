@@ -207,6 +207,15 @@ class MembershipOrderHandler {
                 $product
             );
             
+            // Process role assignments based on coupon codes
+            $this->helper->debug('🎫 MembershipOrderHandler: About to process role assignments', [
+                'order_id' => $order->get_id(),
+                'user_id' => $uid,
+                'coupon_codes' => $order->get_coupon_codes(),
+                'lgl_id' => $registrationResult['lgl_id'] ?? null
+            ]);
+            $this->processRoleAssignments($uid, $order, $registrationResult['lgl_id'] ?? null);
+            
             $this->helper->debug('✅ MembershipOrderHandler::processOrderLglSync() COMPLETED', [
                 'order_id' => $order->get_id(),
                 'user_id' => $uid,
@@ -310,6 +319,9 @@ class MembershipOrderHandler {
                 $request,
                 $membership_config
             );
+            
+            // Process role assignments based on coupon codes
+            $this->processRoleAssignments($uid, $order, $registrationResult['lgl_id'] ?? null);
             
             // Complete the order
             $this->helper->debug('✅ MembershipOrderHandler: Completing order...');
@@ -427,13 +439,16 @@ class MembershipOrderHandler {
             if (!empty($level_attribute)) {
                 // Convert attribute to membership name
                 $attribute_mapping = [
-                    // New membership model (2024+)
-                    'Member' => 'Member',
-                    'Supporter' => 'Supporter',
-                    'Patron' => 'Patron',
+                    // New membership model (2025+)
+                    'Gateway Member' => 'Gateway Member',
+                    'Crossroads Collective' => 'Crossroads Collective',
+                    'World Horizon Patron' => 'World Horizon Patron',
                     'Family Member' => 'Family Member',
                     
                     // Legacy membership model (for backwards compatibility)
+                    'Member' => 'Gateway Member',
+                    'Supporter' => 'Crossroads Collective',
+                    'Patron' => 'World Horizon Patron',
                     'Individual' => 'Individual Membership',
                     'Family' => 'Family Membership',
                     'Patron Family' => 'Patron Family Membership',
@@ -471,6 +486,41 @@ class MembershipOrderHandler {
             'membership_name' => $wc_product_name,
             'membership_config' => null
         ];
+    }
+    
+    /**
+     * Process role assignments based on coupon codes
+     * 
+     * @param int $uid User ID
+     * @param \WC_Order $order WooCommerce order
+     * @param string|null $lgl_id LGL constituent ID
+     * @return void
+     */
+    private function processRoleAssignments(int $uid, \WC_Order $order, ?string $lgl_id = null): void {
+        try {
+            $container = ServiceContainer::getInstance();
+            if ($container->has('woocommerce.role_assignment_handler')) {
+                $roleHandler = $container->get('woocommerce.role_assignment_handler');
+                $roleHandler->processRoleAssignments($uid, $order, $lgl_id);
+                
+                // Process pending group syncs if LGL ID was just created
+                if ($lgl_id) {
+                    $roleHandler->processPendingGroupSyncs($uid, $lgl_id);
+                }
+            } else {
+                $this->helper->debug('⚠️ MembershipOrderHandler: RoleAssignmentHandler not available', [
+                    'order_id' => $order->get_id(),
+                    'user_id' => $uid
+                ]);
+            }
+        } catch (\Exception $e) {
+            $this->helper->debug('❌ MembershipOrderHandler: Error processing role assignments', [
+                'error' => $e->getMessage(),
+                'order_id' => $order->get_id(),
+                'user_id' => $uid
+            ]);
+            // Don't throw - role assignment failure shouldn't break order processing
+        }
     }
     
     /**

@@ -174,6 +174,9 @@ class MembershipRegistrationService {
         // Save LGL ID to user meta (canonical field: lgl_id) - ensure it's set even if we found via order meta
         \update_user_meta($userId, 'lgl_id', $lglId);
         
+        // Process pending group syncs (from coupon-based role assignments)
+        $this->processPendingGroupSyncs($userId, $lglId);
+        
         // Only update membership type if NOT a family member product (family member = slot purchase only)
         if (!$isFamilyMember) {
             \update_user_meta($userId, 'user-membership-type', $membershipLevel);
@@ -187,7 +190,21 @@ class MembershipRegistrationService {
         $paymentId = null;
         $paymentResponse = null;
         // Create payment for all orders (including family member products)
-        if ($orderId > 0 && $price > 0) {
+        // Also create $0 payments when coupons are used (to record coupon info in gift note)
+        $hasCoupons = false;
+        if ($orderId > 0 && $order instanceof \WC_Order) {
+            $couponCodes = $order->get_coupon_codes();
+            $hasCoupons = !empty($couponCodes);
+            if ($hasCoupons) {
+                $this->helper->debug('🎫 MembershipRegistrationService: Order has coupons, will create payment even if $0', [
+                    'order_id' => $orderId,
+                    'coupon_codes' => $couponCodes,
+                    'price' => $price
+                ]);
+            }
+        }
+        
+        if ($orderId > 0 && ($price > 0 || $hasCoupons)) {
             $product = $context['product'] ?? null;
             $productItemId = $context['product_item_id'] ?? null;
             $paymentResult = $this->createPayment((string) $lglId, $orderId, $price, $paymentType ?? 'online', $product, $productItemId);
@@ -625,5 +642,29 @@ class MembershipRegistrationService {
 
         // Return full result array (includes 'id', 'success', 'data', etc.)
         return $result;
+    }
+    
+    /**
+     * Process pending group syncs (from coupon-based role assignments)
+     * 
+     * @param int $userId WordPress user ID
+     * @param string $lglId LGL constituent ID
+     * @return void
+     */
+    private function processPendingGroupSyncs(int $userId, string $lglId): void {
+        try {
+            $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
+            if ($container->has('woocommerce.role_assignment_handler')) {
+                $roleHandler = $container->get('woocommerce.role_assignment_handler');
+                $roleHandler->processPendingGroupSyncs($userId, $lglId);
+            }
+        } catch (\Exception $e) {
+            $this->helper->debug('❌ MembershipRegistrationService: Error processing pending group syncs', [
+                'error' => $e->getMessage(),
+                'user_id' => $userId,
+                'lgl_id' => $lglId
+            ]);
+            // Don't throw - group sync failure shouldn't break registration
+        }
     }
 }

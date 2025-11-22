@@ -706,6 +706,440 @@ class SettingsManager implements SettingsManagerInterface {
     }
     
     /**
+     * Sync Fund and Campaign IDs from LGL API
+     * 
+     * Fetches current funds and campaigns from LGL and updates settings
+     * with matching IDs based on expected names.
+     * 
+     * @return array Results with success status and matched IDs
+     */
+    public function syncFundAndCampaignIds(): array {
+        $results = [
+            'success' => false,
+            'funds' => [],
+            'campaigns' => [],
+            'errors' => []
+        ];
+        
+        try {
+            // Expected mappings (name → setting key)
+            $expected_funds = [
+                'Membership' => 'fund_id_membership',
+                'Language Classes' => 'fund_id_language_classes',
+                'Events' => 'fund_id_events',
+                'General Donation' => 'fund_id_general',
+            ];
+            
+            $expected_campaigns = [
+                'Membership' => 'campaign_id_membership',
+                'Language Programs' => 'campaign_id_language_classes',
+                'Events' => 'campaign_id_events',
+            ];
+            
+            // Fetch funds
+            $funds_response = $this->connection->makeRequest('funds.json', 'GET');
+            if ($funds_response['success'] && isset($funds_response['data']['items'])) {
+                foreach ($funds_response['data']['items'] as $fund) {
+                    $name = $fund['name'] ?? '';
+                    if (isset($expected_funds[$name])) {
+                        $results['funds'][$expected_funds[$name]] = [
+                            'id' => (int) ($fund['id'] ?? 0),
+                            'name' => $name
+                        ];
+                    }
+                }
+            } else {
+                $results['errors'][] = 'Failed to fetch funds: ' . ($funds_response['error'] ?? 'Unknown error');
+            }
+            
+            // Fetch campaigns
+            $campaigns_response = $this->connection->makeRequest('campaigns.json', 'GET');
+            if ($campaigns_response['success'] && isset($campaigns_response['data']['items'])) {
+                foreach ($campaigns_response['data']['items'] as $campaign) {
+                    $name = $campaign['name'] ?? '';
+                    if (isset($expected_campaigns[$name])) {
+                        $results['campaigns'][$expected_campaigns[$name]] = [
+                            'id' => (int) ($campaign['id'] ?? 0),
+                            'name' => $name
+                        ];
+                    }
+                }
+            } else {
+                $results['errors'][] = 'Failed to fetch campaigns: ' . ($campaigns_response['error'] ?? 'Unknown error');
+            }
+            
+            // Update settings with found IDs
+            $settings_to_update = [];
+            foreach ($results['funds'] as $key => $data) {
+                if ($data['id'] > 0) {
+                    $settings_to_update[$key] = $data['id'];
+                }
+            }
+            foreach ($results['campaigns'] as $key => $data) {
+                if ($data['id'] > 0) {
+                    $settings_to_update[$key] = $data['id'];
+                }
+            }
+            
+            if (!empty($settings_to_update)) {
+                $update_result = $this->update($settings_to_update);
+                $results['success'] = $update_result;
+                
+                if ($update_result) {
+                    $this->helper->debug('SettingsManager: Synced Fund and Campaign IDs', [
+                        'funds' => $results['funds'],
+                        'campaigns' => $results['campaigns']
+                    ]);
+                } else {
+                    $results['errors'][] = 'Failed to update settings';
+                }
+            } else {
+                $results['errors'][] = 'No matching funds or campaigns found';
+            }
+            
+        } catch (\Exception $e) {
+            $results['errors'][] = 'Exception: ' . $e->getMessage();
+            $this->helper->debug('SettingsManager: Sync error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+        
+        return $results;
+    }
+    
+    /**
+     * Sync Group IDs from LGL API
+     * 
+     * Fetches current groups from LGL and updates settings
+     * with matching IDs based on expected names/keys.
+     * 
+     * @return array Results with success status and matched IDs
+     */
+    public function syncGroups(): array {
+        $results = [
+            'success' => false,
+            'groups' => [],
+            'errors' => []
+        ];
+        
+        try {
+            // Clear cache for groups.json to ensure fresh data
+            // Cache key format: 'api_request_' . md5('groups.json' . serialize([]))
+            $groups_cache_key = 'api_request_' . md5('groups.json' . serialize([]));
+            $this->cacheManager->delete($groups_cache_key);
+            $this->helper->debug('🔍 SettingsManager: Cleared cache for groups.json', [
+                'cache_key' => $groups_cache_key
+            ]);
+            // Expected mappings (name or key → setting key)
+            // We'll match by both name and key for flexibility
+            $expected_groups = [
+                // Role-based groups (match by name)
+                'Teacher' => [
+                    'setting_key' => 'role_group_mappings',
+                    'role_key' => 'ui_teacher',
+                    'group_key' => 'teacher'
+                ],
+                'Board Member' => [
+                    'setting_key' => 'role_group_mappings',
+                    'role_key' => 'ui_board',
+                    'group_key' => 'board_member'
+                ],
+                'Staff' => [
+                    'setting_key' => 'role_group_mappings',
+                    'role_key' => 'ui_vip',
+                    'group_key' => 'staff'
+                ],
+                'VIP' => [
+                    'setting_key' => 'role_group_mappings',
+                    'role_key' => 'ui_vip',
+                    'group_key' => 'staff'
+                ],
+                // Scholarship groups (match by name variations)
+                'Partial Scholarship Recipients' => [
+                    'setting_key' => 'group_id_scholarship_partial',
+                    'group_key' => 'scholarship_partial'
+                ],
+                'Scholarship - Partial' => [
+                    'setting_key' => 'group_id_scholarship_partial',
+                    'group_key' => 'scholarship_partial'
+                ],
+                'Full Scholarship Recipients' => [
+                    'setting_key' => 'group_id_scholarship_full',
+                    'group_key' => 'scholarship_full'
+                ],
+                'Scholarship - Full' => [
+                    'setting_key' => 'group_id_scholarship_full',
+                    'group_key' => 'scholarship_full'
+                ],
+            ];
+            
+            // Also match by group key for additional flexibility
+            $expected_group_keys = [
+                'teacher' => [
+                    'setting_key' => 'role_group_mappings',
+                    'role_key' => 'ui_teacher',
+                    'group_key' => 'teacher'
+                ],
+                'board_member' => [
+                    'setting_key' => 'role_group_mappings',
+                    'role_key' => 'ui_board',
+                    'group_key' => 'board_member'
+                ],
+                'staff' => [
+                    'setting_key' => 'role_group_mappings',
+                    'role_key' => 'ui_vip',
+                    'group_key' => 'staff'
+                ],
+                'scholarship_partial' => [
+                    'setting_key' => 'group_id_scholarship_partial',
+                    'group_key' => 'scholarship_partial'
+                ],
+                'scholarship_full' => [
+                    'setting_key' => 'group_id_scholarship_full',
+                    'group_key' => 'scholarship_full'
+                ],
+            ];
+            
+            // Fetch groups from LGL API (bypass cache to get fresh data)
+            $groups_response = $this->connection->makeRequest('groups.json', 'GET', [], false);
+            
+            // Log raw response for debugging
+            $this->helper->debug('🔍 SettingsManager: Raw groups API response', [
+                'success' => $groups_response['success'] ?? false,
+                'http_code' => $groups_response['http_code'] ?? null,
+                'has_data' => isset($groups_response['data']),
+                'data_type' => gettype($groups_response['data'] ?? null),
+                'raw_response_keys' => is_array($groups_response) ? array_keys($groups_response) : [],
+                'full_response' => $groups_response
+            ]);
+            
+            if (!$groups_response['success']) {
+                $results['errors'][] = 'Failed to fetch groups: ' . ($groups_response['error'] ?? 'Unknown error');
+                return $results;
+            }
+            
+            // Handle different response formats
+            $groups_data = $groups_response['data'] ?? [];
+            $groups = $groups_data['items'] ?? (is_array($groups_data) && isset($groups_data[0]['id']) ? $groups_data : []);
+            
+            // Additional debug: log the parsed groups structure
+            $this->helper->debug('🔍 SettingsManager: Parsed groups structure', [
+                'groups_data_type' => gettype($groups_data),
+                'groups_data_keys' => is_array($groups_data) ? array_keys($groups_data) : [],
+                'groups_count' => count($groups),
+                'groups_is_array' => is_array($groups),
+                'first_group_structure' => $groups[0] ?? null
+            ]);
+            
+            // Debug: Log all groups received (force log even if cached)
+            $group_names_list = [];
+            $group_keys_list = [];
+            foreach ($groups as $g) {
+                $group_names_list[] = $g['name'] ?? 'N/A';
+                $group_keys_list[] = $g['key'] ?? 'N/A';
+            }
+            
+            $this->helper->debug('🔍 SettingsManager: Groups received from LGL API', [
+                'total_groups' => count($groups),
+                'group_names' => $group_names_list,
+                'group_keys' => $group_keys_list,
+                'expected_names' => array_keys($expected_groups),
+                'expected_keys' => array_keys($expected_group_keys),
+                'full_response_structure' => [
+                    'has_data' => isset($groups_response['data']),
+                    'has_items' => isset($groups_data['items']),
+                    'is_array' => is_array($groups_data),
+                    'first_item_has_id' => isset($groups_data[0]['id']) ?? false
+                ]
+            ]);
+            
+            if (empty($groups)) {
+                $results['errors'][] = 'No groups found in LGL response';
+                return $results;
+            }
+            
+            // Build normalized expected groups map for case-insensitive matching (once, outside loop)
+            $expected_groups_normalized = [];
+            foreach ($expected_groups as $expected_name => $config) {
+                $expected_groups_normalized[strtolower(trim($expected_name))] = $config;
+            }
+            
+            $settings_to_update = [];
+            $role_mappings_to_update = [];
+            
+            foreach ($groups as $group) {
+                $group_id = (int) ($group['id'] ?? 0);
+                $group_name = trim($group['name'] ?? '');
+                $group_key = trim(strtolower($group['key'] ?? ''));
+                
+                if ($group_id <= 0) {
+                    continue;
+                }
+                
+                // Normalize group name for case-insensitive matching (but keep original for display)
+                $group_name_normalized = trim($group_name);
+                $group_name_lower = strtolower($group_name_normalized);
+                
+                $this->helper->debug('🔍 SettingsManager: Checking group', [
+                    'group_id' => $group_id,
+                    'group_name' => $group_name,
+                    'group_name_normalized' => $group_name_normalized,
+                    'group_name_lower' => $group_name_lower,
+                    'group_key' => $group_key,
+                    'name_in_expected' => isset($expected_groups[$group_name]),
+                    'name_lower_in_expected' => isset($expected_groups_normalized[$group_name_lower]),
+                    'key_in_expected' => !empty($group_key) && isset($expected_group_keys[$group_key]),
+                    'all_expected_names' => array_keys($expected_groups)
+                ]);
+                
+                $matched = false;
+                $mapping = null;
+                
+                // Try to match by exact name first
+                if (isset($expected_groups[$group_name])) {
+                    $mapping = $expected_groups[$group_name];
+                    $matched = true;
+                    $this->helper->debug('✅ SettingsManager: Matched by exact name', [
+                        'group_name' => $group_name,
+                        'setting_key' => $mapping['setting_key']
+                    ]);
+                }
+                // Try case-insensitive name matching
+                elseif (isset($expected_groups_normalized[$group_name_lower])) {
+                    $mapping = $expected_groups_normalized[$group_name_lower];
+                    $matched = true;
+                    $this->helper->debug('✅ SettingsManager: Matched by normalized name', [
+                        'group_name' => $group_name,
+                        'group_name_lower' => $group_name_lower,
+                        'setting_key' => $mapping['setting_key']
+                    ]);
+                }
+                // Try to match by key
+                elseif (!empty($group_key) && isset($expected_group_keys[$group_key])) {
+                    $mapping = $expected_group_keys[$group_key];
+                    $matched = true;
+                    $this->helper->debug('✅ SettingsManager: Matched by key', [
+                        'group_key' => $group_key,
+                        'setting_key' => $mapping['setting_key']
+                    ]);
+                }
+                // Try fuzzy matching for scholarship groups (if not already matched)
+                elseif (stripos($group_name, 'scholarship') !== false) {
+                    $group_name_lower_for_match = strtolower($group_name);
+                    // Check for partial scholarship
+                    if (stripos($group_name_lower_for_match, 'partial') !== false) {
+                        $mapping = [
+                            'setting_key' => 'group_id_scholarship_partial',
+                            'group_key' => 'scholarship_partial'
+                        ];
+                        $matched = true;
+                        $this->helper->debug('✅ SettingsManager: Matched scholarship group by fuzzy name (partial)', [
+                            'group_name' => $group_name,
+                            'group_id' => $group_id
+                        ]);
+                    }
+                    // Check for full scholarship
+                    elseif (stripos($group_name_lower_for_match, 'full') !== false) {
+                        $mapping = [
+                            'setting_key' => 'group_id_scholarship_full',
+                            'group_key' => 'scholarship_full'
+                        ];
+                        $matched = true;
+                        $this->helper->debug('✅ SettingsManager: Matched scholarship group by fuzzy name (full)', [
+                            'group_name' => $group_name,
+                            'group_id' => $group_id
+                        ]);
+                    }
+                }
+                
+                if ($matched && $mapping) {
+                    if ($mapping['setting_key'] === 'role_group_mappings') {
+                        // Update role_group_mappings
+                        $role_mappings_to_update[$mapping['role_key']] = [
+                            'wp_role' => $mapping['role_key'],
+                            'lgl_group_id' => $group_id,
+                            'lgl_group_key' => $mapping['group_key']
+                        ];
+                        $results['groups'][$mapping['role_key']] = [
+                            'id' => $group_id,
+                            'name' => $group_name,
+                            'key' => $group_key
+                        ];
+                    } else {
+                        // Direct setting update (scholarship groups)
+                        $settings_to_update[$mapping['setting_key']] = $group_id;
+                        $results['groups'][$mapping['setting_key']] = [
+                            'id' => $group_id,
+                            'name' => $group_name,
+                            'key' => $group_key
+                        ];
+                        $this->helper->debug('✅ SettingsManager: Matched scholarship group', [
+                            'group_name' => $group_name,
+                            'group_key' => $group_key,
+                            'setting_key' => $mapping['setting_key'],
+                            'group_id' => $group_id
+                        ]);
+                    }
+                } else {
+                    // Log unmatched groups that might be scholarship groups
+                    if (stripos($group_name, 'scholarship') !== false) {
+                        $this->helper->debug('⚠️ SettingsManager: Scholarship group found but not matched', [
+                            'group_id' => $group_id,
+                            'group_name' => $group_name,
+                            'group_key' => $group_key,
+                            'expected_names' => ['Partial Scholarship Recipients', 'Scholarship - Partial', 'Full Scholarship Recipients', 'Scholarship - Full']
+                        ]);
+                    }
+                }
+            }
+            
+            $this->helper->debug('🔍 SettingsManager: Group matching summary', [
+                'settings_to_update' => array_keys($settings_to_update),
+                'role_mappings_to_update' => array_keys($role_mappings_to_update),
+                'total_matched' => count($settings_to_update) + count($role_mappings_to_update)
+            ]);
+            
+            // Update role_group_mappings if we found any
+            if (!empty($role_mappings_to_update)) {
+                $current_role_mappings = $this->get('role_group_mappings') ?? [];
+                
+                foreach ($role_mappings_to_update as $role_key => $mapping) {
+                    $current_role_mappings[$role_key] = $mapping;
+                }
+                
+                $settings_to_update['role_group_mappings'] = $current_role_mappings;
+            }
+            
+            // Update settings
+            if (!empty($settings_to_update)) {
+                $update_result = $this->update($settings_to_update);
+                $results['success'] = $update_result;
+                
+                if ($update_result) {
+                    $this->helper->debug('SettingsManager: Synced Group IDs', [
+                        'groups' => $results['groups'],
+                        'updated_settings' => array_keys($settings_to_update)
+                    ]);
+                } else {
+                    $results['errors'][] = 'Failed to update settings';
+                }
+            } else {
+                $results['errors'][] = 'No matching groups found';
+            }
+            
+        } catch (\Exception $e) {
+            $results['errors'][] = 'Exception: ' . $e->getMessage();
+            $this->helper->debug('SettingsManager: Sync Groups error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+        
+        return $results;
+    }
+    
+    /**
      * Reset all settings to defaults
      * 
      * @return bool True on success, false on failure
@@ -1096,7 +1530,7 @@ class SettingsManager implements SettingsManagerInterface {
             // Consolidated Fund IDs (Post-Remediation)
             'fund_id_membership' => [
                 'type' => 'integer',
-                'default' => 2437,
+                'default' => 2437, // Correct value for dev database
                 'validation' => ['integer', 'min:1'],
                 'sanitize' => 'intval',
                 'label' => 'Membership Fund ID',
@@ -1133,6 +1567,91 @@ class SettingsManager implements SettingsManagerInterface {
                 'sanitize' => 'intval',
                 'label' => 'Family Member Slots Fund ID',
                 'description' => 'LGL fund ID for Family Member slot purchases (separate from membership fund)'
+            ],
+            
+            // Campaign ID Settings (Post-Remediation)
+            'campaign_id_membership' => [
+                'type' => 'integer',
+                'default' => null, // Will be auto-populated from LGL
+                'validation' => ['integer', 'min:1'],
+                'sanitize' => 'intval',
+                'label' => 'Membership Campaign ID',
+                'description' => 'LGL campaign ID for membership payments (auto-synced from LGL)'
+            ],
+            'campaign_id_language_classes' => [
+                'type' => 'integer',
+                'default' => null,
+                'validation' => ['integer', 'min:1'],
+                'sanitize' => 'intval',
+                'label' => 'Language Programs Campaign ID',
+                'description' => 'LGL campaign ID for language class registrations (auto-synced from LGL)'
+            ],
+            'campaign_id_events' => [
+                'type' => 'integer',
+                'default' => null,
+                'validation' => ['integer', 'min:1'],
+                'sanitize' => 'intval',
+                'label' => 'Events Campaign ID',
+                'description' => 'LGL campaign ID for event registrations (auto-synced from LGL)'
+            ],
+            
+            // Group ID Settings (Auto-synced from LGL)
+            'group_id_scholarship_partial' => [
+                'type' => 'integer',
+                'default' => null,
+                'validation' => ['integer', 'min:1'],
+                'sanitize' => 'intval',
+                'label' => 'Partial Scholarship Group ID',
+                'description' => 'LGL group ID for Partial Scholarship recipients (100-200% poverty level). Auto-synced from LGL when group name matches "Partial Scholarship Recipients" or "Scholarship - Partial"'
+            ],
+            'group_id_scholarship_full' => [
+                'type' => 'integer',
+                'default' => null,
+                'validation' => ['integer', 'min:1'],
+                'sanitize' => 'intval',
+                'label' => 'Full Scholarship Group ID',
+                'description' => 'LGL group ID for Full Scholarship recipients (Below 100% poverty level). Auto-synced from LGL when group name matches "Full Scholarship Recipients" or "Scholarship - Full"'
+            ],
+            
+            // Role and Group Mapping Settings
+            // Note: lgl_group_id values are auto-synced from LGL API via syncGroups() method
+            'role_group_mappings' => [
+                'type' => 'array',
+                'default' => [
+                    'ui_teacher' => [
+                        'wp_role' => 'ui_teacher',
+                        'lgl_group_id' => null, // Will be auto-populated from LGL (looks for group name "Teacher")
+                        'lgl_group_key' => 'teacher'
+                    ],
+                    'ui_board' => [
+                        'wp_role' => 'ui_board',
+                        'lgl_group_id' => null, // Will be auto-populated from LGL (looks for group name "Board Member")
+                        'lgl_group_key' => 'board_member'
+                    ],
+                    'ui_vip' => [
+                        'wp_role' => 'ui_vip',
+                        'lgl_group_id' => null, // Will be auto-populated from LGL (looks for group name "Staff" or "VIP")
+                        'lgl_group_key' => 'staff'
+                    ],
+                ],
+                'validation' => ['array'],
+                'sanitize' => 'array',
+                'label' => 'Role to LGL Group Mappings',
+                'description' => 'Map WordPress roles to LGL Groups for automatic assignment. Group IDs are auto-synced from LGL API. Use the "Sync Groups" button to update IDs from your LGL instance.'
+            ],
+            'coupon_role_mappings' => [
+                'type' => 'array',
+                'default' => [
+                    'TEACHER2024' => 'ui_teacher',
+                    'BOARD2024' => 'ui_board',
+                    'VIP2024' => 'ui_vip',
+                    'SCHOLARSHIP25' => 'ui_member', // 100-200% poverty level
+                    'SCHOLARSHIP100' => 'ui_member', // Below 100% poverty level
+                ],
+                'validation' => ['array'],
+                'sanitize' => 'array',
+                'label' => 'Coupon Code to Role Mappings',
+                'description' => 'Map coupon codes (uppercase) to WordPress roles. Coupons trigger automatic role assignment and LGL group sync.'
             ],
             
             // Cart Validation Settings

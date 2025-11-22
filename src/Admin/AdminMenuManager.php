@@ -866,7 +866,198 @@ class AdminMenuManager {
                 <?php submit_button('Save Fund Settings'); ?>
             </form>
             
-            <!-- Reference Data Section - MOVED TO BOTTOM -->
+            <!-- Campaign IDs Section (Auto-Synced) -->
+            <h3 style="margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 8px;">
+                🎯 Campaign IDs (Auto-Synced from LGL)
+            </h3>
+            
+            <p class="description" style="margin-top: 15px;">
+                These campaign IDs are automatically synced from the LGL API. Click the sync button below to fetch the latest IDs.
+            </p>
+            
+            <table class="form-table" style="margin-top: 15px;">
+                <tr>
+                    <th><label>Membership Campaign ID</label></th>
+                    <td>
+                        <input type="text" value="<?php echo esc_attr($settings['campaign_id_membership'] ?? 'Not synced'); ?>" 
+                               class="regular-text" readonly style="background: #f0f0f0;" />
+                        <p class="description">Auto-synced from LGL campaign "Membership"</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label>Language Programs Campaign ID</label></th>
+                    <td>
+                        <input type="text" value="<?php echo esc_attr($settings['campaign_id_language_classes'] ?? 'Not synced'); ?>" 
+                               class="regular-text" readonly style="background: #f0f0f0;" />
+                        <p class="description">Auto-synced from LGL campaign "Language Programs"</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label>Events Campaign ID</label></th>
+                    <td>
+                        <input type="text" value="<?php echo esc_attr($settings['campaign_id_events'] ?? 'Not synced'); ?>" 
+                               class="regular-text" readonly style="background: #f0f0f0;" />
+                        <p class="description">Auto-synced from LGL campaign "Events"</p>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin-top: 20px;">
+                <a href="<?php echo admin_url('admin-post.php?action=lgl_sync_ids&_wpnonce=' . wp_create_nonce('lgl_sync_ids')); ?>" 
+                   class="button button-secondary">
+                    🔄 Sync Fund & Campaign IDs from LGL API
+                </a>
+                <span class="description" style="margin-left: 10px;">Syncs Fund and Campaign IDs only</span>
+                <span id="lgl-sync-ids-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
+            </p>
+            
+                    <!-- Role & Group Mappings Section -->
+                    <h3 style="margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 8px;">
+                        👥 Role & Group Mappings
+                    </h3>
+                    
+                    <p class="description" style="margin-top: 15px;">
+                        Configure how WordPress roles map to LGL Groups. When coupon codes are applied during checkout, 
+                        users are automatically assigned WordPress roles and synced to corresponding LGL Groups.
+                    </p>
+                    
+                    <?php
+                    $role_group_mappings = $settings['role_group_mappings'] ?? [];
+                    $coupon_role_mappings = $settings['coupon_role_mappings'] ?? [];
+                    ?>
+                    
+                    <form method="post" action="<?php echo admin_url('admin-post.php'); ?>" id="lgl-role-mappings-form">
+                        <?php wp_nonce_field('lgl_role_mappings_settings', '_wpnonce'); ?>
+                        <input type="hidden" name="action" value="lgl_save_role_mappings" />
+                        
+                        <h4 style="margin-top: 20px;">Role to LGL Group Mappings</h4>
+                        <p class="description">
+                            Map WordPress roles to LGL Groups. Users with these roles will be automatically added to the corresponding LGL Group.
+                            <strong>Group IDs are automatically synced from your LGL instance.</strong> Click the "Sync Groups" button below to fetch the latest group IDs.
+                        </p>
+                        
+                        <p style="margin-top: 15px; margin-bottom: 20px;">
+                            <a href="<?php echo admin_url('admin-post.php?action=lgl_sync_groups&_wpnonce=' . wp_create_nonce('lgl_sync_groups')); ?>" 
+                               class="button button-secondary">
+                                🔄 Sync Groups from LGL API
+                            </a>
+                            <span class="description" style="margin-left: 10px;">Fetches group IDs from your connected LGL instance</span>
+                        </p>
+                        
+                        <table class="form-table" style="margin-top: 15px;">
+                            <tr>
+                                <th><label>Teacher Role</label></th>
+                                <td>
+                                    <input type="number" name="role_group_mappings[ui_teacher][lgl_group_id]" 
+                                           value="<?php echo esc_attr($role_group_mappings['ui_teacher']['lgl_group_id'] ?? ''); ?>" 
+                                           class="regular-text" min="1" placeholder="Auto-synced from LGL" />
+                                    <p class="description">LGL Group ID for Teacher role (auto-synced from LGL group "Teacher")</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label>Board Member Role</label></th>
+                                <td>
+                                    <input type="number" name="role_group_mappings[ui_board][lgl_group_id]" 
+                                           value="<?php echo esc_attr($role_group_mappings['ui_board']['lgl_group_id'] ?? ''); ?>" 
+                                           class="regular-text" min="1" placeholder="Auto-synced from LGL" />
+                                    <p class="description">LGL Group ID for Board Member role (auto-synced from LGL group "Board Member")</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label>VIP Role</label></th>
+                                <td>
+                                    <input type="number" name="role_group_mappings[ui_vip][lgl_group_id]" 
+                                           value="<?php echo esc_attr($role_group_mappings['ui_vip']['lgl_group_id'] ?? ''); ?>" 
+                                           class="regular-text" min="1" placeholder="Auto-synced from LGL" />
+                                    <p class="description">LGL Group ID for VIP role (auto-synced from LGL group "Staff" or "VIP")</p>
+                                </td>
+                            </tr>
+                        </table>
+                        
+                        <h4 style="margin-top: 30px;">Scholarship Group IDs</h4>
+                        <p class="description">
+                            Group IDs for scholarship recipients. These are automatically synced from your LGL instance when groups are named "Partial Scholarship Recipients" / "Scholarship - Partial" or "Full Scholarship Recipients" / "Scholarship - Full".
+                        </p>
+                        
+                        <table class="form-table" style="margin-top: 15px;">
+                            <tr>
+                                <th><label>Partial Scholarship Group ID</label></th>
+                                <td>
+                                    <input type="text" value="<?php echo esc_attr($settings['group_id_scholarship_partial'] ?? 'Not synced'); ?>" 
+                                           class="regular-text" readonly style="background: #f0f0f0;" />
+                                    <p class="description">Auto-synced from LGL group "Partial Scholarship Recipients" or "Scholarship - Partial"</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label>Full Scholarship Group ID</label></th>
+                                <td>
+                                    <input type="text" value="<?php echo esc_attr($settings['group_id_scholarship_full'] ?? 'Not synced'); ?>" 
+                                           class="regular-text" readonly style="background: #f0f0f0;" />
+                                    <p class="description">Auto-synced from LGL group "Full Scholarship Recipients" or "Scholarship - Full"</p>
+                                </td>
+                            </tr>
+                        </table>
+                        
+                        <h4 style="margin-top: 30px;">Coupon Code to Role Mappings <span style="color: #d63638; font-size: 0.9em;">(Legacy Fallback)</span></h4>
+                        <div class="notice notice-info inline" style="margin: 15px 0; padding: 10px;">
+                            <p><strong>⚠️ Preferred Method:</strong> Configure role assignments directly on each WooCommerce coupon using the "Assign WordPress Role" field in the coupon edit screen. This provides more flexibility and allows you to set scholarship types per coupon.</p>
+                            <p><strong>Legacy Method:</strong> The settings below are kept for backward compatibility. They will only be used if a coupon doesn't have role assignment configured in its meta fields.</p>
+                            <p><strong>How to use the preferred method:</strong> Go to <a href="<?php echo admin_url('edit.php?post_type=shop_coupon'); ?>">WooCommerce → Coupons</a>, edit any coupon, and use the "Assign WordPress Role" dropdown field.</p>
+                        </div>
+                        <p class="description">Map coupon codes (uppercase) to WordPress roles. <strong>This is a fallback method</strong> - role assignments configured directly on coupons take precedence.</p>
+                        
+                        <table class="form-table" style="margin-top: 15px;">
+                            <tr>
+                                <th><label>Teacher Coupon</label></th>
+                                <td>
+                                    <input type="text" name="coupon_role_mappings[TEACHER2024]" 
+                                           value="<?php echo esc_attr($coupon_role_mappings['TEACHER2024'] ?? 'ui_teacher'); ?>" 
+                                           class="regular-text" placeholder="ui_teacher" />
+                                    <p class="description">Role assigned when coupon code "TEACHER2024" is used</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label>Board Member Coupon</label></th>
+                                <td>
+                                    <input type="text" name="coupon_role_mappings[BOARD2024]" 
+                                           value="<?php echo esc_attr($coupon_role_mappings['BOARD2024'] ?? 'ui_board'); ?>" 
+                                           class="regular-text" placeholder="ui_board" />
+                                    <p class="description">Role assigned when coupon code "BOARD2024" is used</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label>VIP Coupon</label></th>
+                                <td>
+                                    <input type="text" name="coupon_role_mappings[VIP2024]" 
+                                           value="<?php echo esc_attr($coupon_role_mappings['VIP2024'] ?? 'ui_vip'); ?>" 
+                                           class="regular-text" placeholder="ui_vip" />
+                                    <p class="description">Role assigned when coupon code "VIP2024" is used</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label>Partial Scholarship Coupon</label></th>
+                                <td>
+                                    <input type="text" name="coupon_role_mappings[SCHOLARSHIP25]" 
+                                           value="<?php echo esc_attr($coupon_role_mappings['SCHOLARSHIP25'] ?? 'ui_member'); ?>" 
+                                           class="regular-text" placeholder="ui_member" />
+                                    <p class="description">Role assigned when coupon code "SCHOLARSHIP25" is used (100-200% poverty level)</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label>Full Scholarship Coupon</label></th>
+                                <td>
+                                    <input type="text" name="coupon_role_mappings[SCHOLARSHIP100]" 
+                                           value="<?php echo esc_attr($coupon_role_mappings['SCHOLARSHIP100'] ?? 'ui_member'); ?>" 
+                                           class="regular-text" placeholder="ui_member" />
+                                    <p class="description">Role assigned when coupon code "SCHOLARSHIP100" is used (Below 100% poverty level)</p>
+                                </td>
+                            </tr>
+                        </table>
+                        
+                        <?php submit_button('Save Role Mappings', 'primary', 'submit', false, ['id' => 'save-role-mappings']); ?>
+                    </form>
+                    
+                    <!-- Reference Data Section - MOVED TO BOTTOM -->
             <div style="margin-top: 60px; padding-top: 30px; border-top: 2px solid #ddd;">
                 <h2 style="border-bottom: 1px solid #ccc; padding-bottom: 10px;">
                     📚 Reference Data (Read-Only)

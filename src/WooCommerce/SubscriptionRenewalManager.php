@@ -328,6 +328,9 @@ class SubscriptionRenewalManager {
             'product_name' => $product_name
         ]);
         
+        // Get user roles (ui_teacher, ui_board, ui_vip, etc.)
+        $user_roles = static::getUserRoles($user_id);
+        
         $status_data = [
             'user_id' => $user_id,
             'membership_level' => $membership_level ?: 'Member',
@@ -336,7 +339,8 @@ class SubscriptionRenewalManager {
             'renewal_date' => date('F j, Y', $renewal_timestamp),
             'days_remaining' => $days_remaining,
             'is_active' => true,
-            'status' => $days_remaining <= 30 ? 'expiring_soon' : 'active'
+            'status' => $days_remaining <= 30 ? 'expiring_soon' : 'active',
+            'roles' => $user_roles
         ];
         
         Helper::getInstance()->debug('✅ One-time membership status compiled', [
@@ -409,6 +413,74 @@ class SubscriptionRenewalManager {
     }
     
     /**
+     * Get user roles that are relevant for display (ui_teacher, ui_board, ui_vip, etc.)
+     * 
+     * @param int $user_id User ID
+     * @return array Array of role data with 'slug' and 'label' keys
+     */
+    private static function getUserRoles(int $user_id): array {
+        $user = get_user_by('id', $user_id);
+        if (!$user) {
+            return [];
+        }
+        
+        // Map of role slugs to display labels
+        $role_labels = [
+            'ui_teacher' => 'Teacher',
+            'ui_board' => 'Board Member',
+            'ui_vip' => 'VIP',
+            'ui_member' => 'Member',
+            'ui_patron_owner' => 'Family Owner'
+        ];
+        
+        $relevant_roles = [];
+        foreach ($user->roles as $role_slug) {
+            // Only include UI-specific roles (not WordPress default roles)
+            if (isset($role_labels[$role_slug])) {
+                $relevant_roles[] = [
+                    'slug' => $role_slug,
+                    'label' => $role_labels[$role_slug]
+                ];
+            }
+        }
+        
+        Helper::getInstance()->debug('👤 User roles retrieved', [
+            'user_id' => $user_id,
+            'all_roles' => $user->roles,
+            'relevant_roles' => $relevant_roles
+        ]);
+        
+        return $relevant_roles;
+    }
+    
+    /**
+     * Display roles only (when user has roles but no membership/subscription)
+     * 
+     * @param array $roles Array of role data
+     * @param int $user_id User ID
+     * @return string HTML output
+     */
+    private static function displayRolesOnly(array $roles, int $user_id): string {
+        $role_labels = [];
+        foreach ($roles as $role) {
+            $role_labels[] = esc_html($role['label']);
+        }
+        
+        $output = '<div class="lgl-subscription-status">';
+        $output .= '<div class="lgl-membership-card status-active">';
+        $output .= '<h4>Your Account Status</h4>';
+        $output .= '<table class="lgl-membership-details">';
+        $output .= '<tr><td>Roles:</td>';
+        $output .= '<td><strong>' . implode(', ', $role_labels) . '</strong></td></tr>';
+        $output .= '</table>';
+        $output .= '<p class="lgl-mt-15"><em>ℹ️ You have assigned roles but no active membership subscription.</em></p>';
+        $output .= '</div>'; // .lgl-membership-card
+        $output .= '</div>'; // .lgl-subscription-status
+        
+        return $output;
+    }
+    
+    /**
      * Display one-time membership status
      * 
      * @param array $status Membership status data
@@ -434,6 +506,18 @@ class SubscriptionRenewalManager {
         if (!empty($status['membership_level'])) {
             $output .= '<tr><td>Membership Level:</td>';
             $output .= '<td>' . esc_html($status['membership_level']) . '</td></tr>';
+        }
+        
+        // User Roles (ui_teacher, ui_board, ui_vip, etc.)
+        if (!empty($status['roles']) && is_array($status['roles'])) {
+            $role_labels = [];
+            foreach ($status['roles'] as $role) {
+                $role_labels[] = esc_html($role['label']);
+            }
+            if (!empty($role_labels)) {
+                $output .= '<tr><td>Roles:</td>';
+                $output .= '<td><strong>' . implode(', ', $role_labels) . '</strong></td></tr>';
+            }
         }
         
         // Start Date
@@ -537,8 +621,17 @@ class SubscriptionRenewalManager {
             'user_id' => $user_id
         ]);
         
+        // Check for user roles even if no membership/subscription found
+        $user_roles = static::getUserRoles($user_id);
+        
         if (empty($all_subscriptions)) {
             Helper::getInstance()->debug('❌ No WC subscriptions or one-time membership found', ['user_id' => $user_id]);
+            
+            // If user has roles, display them even without membership
+            if (!empty($user_roles)) {
+                return static::displayRolesOnly($user_roles, $user_id);
+            }
+            
             return '<div class="lgl-status-notice success">
                     ℹ️ <strong>No active membership found</strong> for user ID: ' . $user_id . '</div>';
         }
@@ -588,6 +681,17 @@ class SubscriptionRenewalManager {
         $output = '<div class="lgl-subscription-status">';
         $output .= '<h3>🔍 Your Subscription Status</h3>';
         $output .= '<p class="lgl-summary-stats"><strong>Active subscriptions:</strong> ' . count($subscriptions) . '</p>';
+        
+        // Display user roles if they exist
+        if (!empty($user_roles)) {
+            $role_labels = [];
+            foreach ($user_roles as $role) {
+                $role_labels[] = esc_html($role['label']);
+            }
+            if (!empty($role_labels)) {
+                $output .= '<p class="lgl-summary-stats"><strong>Your Roles:</strong> ' . implode(', ', $role_labels) . '</p>';
+            }
+        }
         
         if ($hidden_count > 0 && $atts['show_all'] !== 'yes') {
             $output .= '<p class="lgl-hidden-info">' . $hidden_count . ' inactive subscription(s) hidden</p>';

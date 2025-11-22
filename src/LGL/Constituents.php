@@ -332,30 +332,51 @@ class Constituents {
         $membership_renewal = get_user_meta($user_id, 'user-membership-renewal-date', true);
         $membership_status = get_user_meta($user_id, 'user-membership-status', true) ?: 'active';
         
+        // CRITICAL FIX: Prioritize lgl_membership_level_id over user-membership-type
+        // This ensures we use the correct membership level from the most recent order
+        // rather than stale user-membership-type meta
+        $membership_level_id_meta = (int) get_user_meta($user_id, 'lgl_membership_level_id', true);
+        if ($membership_level_id_meta > 0) {
+            $level_config_from_id = $this->lgl->getMembershipLevelByLglId($membership_level_id_meta);
+            if ($level_config_from_id && !empty($level_config_from_id['level_name'])) {
+                // Use the level name from the config, not stale user-membership-type
+                $membership_type = $level_config_from_id['level_name'];
+                $this->debug('✅ Using membership level from lgl_membership_level_id', [
+                    'membership_level_id' => $membership_level_id_meta,
+                    'membership_type' => $membership_type
+                ]);
+            }
+        }
+        
         // If no membership type is set, use the one from the current request/session
         if (!$membership_type) {
-            $membership_type = 'Individual Membership'; // Default fallback
+            $membership_type = 'Member'; // Updated default fallback (not "Individual Membership")
         }
         
         $this->debug('🔍 Looking up membership level config', [
             'membership_type' => $membership_type,
-            'user_id' => $user_id
+            'user_id' => $user_id,
+            'lgl_membership_level_id' => $membership_level_id_meta
         ]);
 
-        $membership_level_id_meta = (int) get_user_meta($user_id, 'lgl_membership_level_id', true);
-
-        // Get membership level configuration from the membership type name
+        // Get membership level configuration - prioritize ID lookup (already done above)
         $level_config = null;
         if ($membership_level_id_meta > 0) {
             $level_config = $this->lgl->getMembershipLevelByLglId($membership_level_id_meta);
-            $this->debug('🔍 Membership level config from user meta', [
+            $this->debug('🔍 Membership level config from lgl_membership_level_id', [
                 'membership_level_id' => $membership_level_id_meta,
-                'found' => $level_config ? 'YES' : 'NO'
+                'found' => $level_config ? 'YES' : 'NO',
+                'level_name' => $level_config['level_name'] ?? 'N/A'
             ]);
         }
 
+        // Fallback to name-based lookup if ID lookup failed
         if (!$level_config) {
             $level_config = $this->lgl->getMembershipLevel($membership_type);
+            $this->debug('🔍 Membership level config from name lookup', [
+                'membership_type' => $membership_type,
+                'found' => $level_config ? 'YES' : 'NO'
+            ]);
         }
         
         // Note: Price-based lookup removed - rely on _ui_lgl_sync_id on products instead

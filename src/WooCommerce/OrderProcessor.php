@@ -617,12 +617,16 @@ class OrderProcessor {
             return false;
         }
         
-        // New one-time membership products (2024+ model)
+        // New one-time membership products (2025+ model)
         $new_membership_names = [
+            'Gateway Member',
+            'Crossroads Collective', 
+            'World Horizon Patron',
+            'Family Member', // Token-based family slot product
+            // Legacy names (for backward compatibility)
             'Member',
-            'Supporter', 
-            'Patron',
-            'Family Member' // Token-based family slot product
+            'Supporter',
+            'Patron'
         ];
         
         foreach ($new_membership_names as $name) {

@@ -184,6 +184,9 @@ class Plugin {
                 // Initialize Cart Validator (registers validation hooks)
                 $this->container->get('woocommerce.cart_validator');
                 
+                // Initialize Coupon Role Meta (adds role assignment fields to coupons)
+                $this->container->get('woocommerce.coupon_role_meta');
+                
                 // Register custom WooCommerce email classes
                 $this->registerWooCommerceEmails();
             }
