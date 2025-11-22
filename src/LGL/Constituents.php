@@ -590,100 +590,114 @@ class Constituents {
         $connection = Connection::getInstance();
         $helper = Helper::getInstance();
         
-        // Sync email addresses (deduplicate before syncing)
+        // MAX 1 EMAIL, 1 PHONE, 1 ADDRESS - Delete all old ones first, then add new
+        
+        // Delete all existing emails first
+        $existing_emails = $connection->getConstituentEmailAddresses($lgl_id);
+        foreach ($existing_emails as $existing_email) {
+            $email_id = is_array($existing_email) ? ($existing_email['id'] ?? null) : ($existing_email->id ?? null);
+            if ($email_id) {
+                $connection->deleteEmailAddress($lgl_id, $email_id);
+                $helper->debug('🗑️ syncContactInfo: Deleted old email', [
+                    'lgl_id' => $lgl_id,
+                    'email_id' => $email_id
+                ]);
+            }
+        }
+        
+        // Delete all existing phones first
+        $existing_phones = $connection->getConstituentPhones($lgl_id);
+        foreach ($existing_phones as $existing_phone) {
+            $phone_id = is_array($existing_phone) ? ($existing_phone['id'] ?? null) : ($existing_phone->id ?? null);
+            if ($phone_id) {
+                $connection->deletePhoneNumber($lgl_id, $phone_id);
+                $helper->debug('🗑️ syncContactInfo: Deleted old phone', [
+                    'lgl_id' => $lgl_id,
+                    'phone_id' => $phone_id
+                ]);
+            }
+        }
+        
+        // Delete all existing addresses first
+        $existing_addresses = $connection->getConstituentAddresses($lgl_id);
+        foreach ($existing_addresses as $existing_address) {
+            $address_id = is_array($existing_address) ? ($existing_address['id'] ?? null) : ($existing_address->id ?? null);
+            if ($address_id) {
+                $connection->deleteStreetAddress($lgl_id, $address_id);
+                $helper->debug('🗑️ syncContactInfo: Deleted old address', [
+                    'lgl_id' => $lgl_id,
+                    'address_id' => $address_id
+                ]);
+            }
+        }
+        
+        // Now add the new ones (max 1 of each)
+        
+        // Add email (only first one if multiple provided)
         $emailData = $this->getEmailData();
         if (!empty($emailData)) {
-            // Deduplicate emails by address (case-insensitive)
-            $seen_emails = [];
-            $unique_emails = [];
-            foreach ($emailData as $email) {
-                $email_address = strtolower(trim($email['address'] ?? ''));
-                if (!empty($email_address) && !isset($seen_emails[$email_address])) {
-                    $seen_emails[$email_address] = true;
-                    $unique_emails[] = $email;
-                }
-            }
-            
-            foreach ($unique_emails as $email) {
-                $response = $connection->updateOrAddEmailAddress($lgl_id, $email);
-                if (isset($response['updated']) && $response['updated']) {
-                    $helper->debug('🔄 syncContactInfo: Email updated', [
-                        'lgl_id' => $lgl_id,
-                        'email' => $email['address'] ?? 'unknown'
-                    ]);
-                } elseif (isset($response['added']) && $response['added']) {
+            $email = $emailData[0]; // Only use first email
+            $email_address = strtolower(trim($email['address'] ?? ''));
+            if (!empty($email_address)) {
+                $response = $connection->addEmailAddress($lgl_id, $email);
+                if ($response['success'] ?? false) {
                     $helper->debug('➕ syncContactInfo: Email added', [
                         'lgl_id' => $lgl_id,
-                        'email' => $email['address'] ?? 'unknown'
+                        'email' => $email_address
                     ]);
-                } elseif (isset($response['skipped']) && $response['skipped']) {
-                    $helper->debug('✅ syncContactInfo: Email unchanged', [
+                } else {
+                    $helper->debug('❌ syncContactInfo: Failed to add email', [
                         'lgl_id' => $lgl_id,
-                        'email' => $email['address'] ?? 'unknown'
+                        'error' => $response['error'] ?? 'Unknown error'
                     ]);
                 }
             }
         }
         
-        // Sync phone numbers (deduplicate before syncing)
+        // Add phone (only first one if multiple provided)
         $phoneData = $this->getPhoneData();
         if (!empty($phoneData)) {
-            // Deduplicate phones by normalized number (digits only)
-            $seen_phones = [];
-            $unique_phones = [];
-            foreach ($phoneData as $phone) {
-                $phone_number = preg_replace('/\D/', '', $phone['number'] ?? '');
-                if (!empty($phone_number) && !isset($seen_phones[$phone_number])) {
-                    $seen_phones[$phone_number] = true;
-                    $unique_phones[] = $phone;
-                }
-            }
-            
-            foreach ($unique_phones as $phone) {
-                $response = $connection->updateOrAddPhoneNumber($lgl_id, $phone);
-                if (isset($response['updated']) && $response['updated']) {
-                    $helper->debug('🔄 syncContactInfo: Phone updated', [
-                        'lgl_id' => $lgl_id,
-                        'phone' => $phone['number'] ?? 'unknown'
-                    ]);
-                } elseif (isset($response['added']) && $response['added']) {
+            $phone = $phoneData[0]; // Only use first phone
+            $phone_number = preg_replace('/\D/', '', $phone['number'] ?? '');
+            if (!empty($phone_number)) {
+                $response = $connection->addPhoneNumber($lgl_id, $phone);
+                if ($response['success'] ?? false) {
                     $helper->debug('➕ syncContactInfo: Phone added', [
                         'lgl_id' => $lgl_id,
                         'phone' => $phone['number'] ?? 'unknown'
                     ]);
-                } elseif (isset($response['skipped']) && $response['skipped']) {
-                    $helper->debug('✅ syncContactInfo: Phone unchanged', [
+                } else {
+                    $helper->debug('❌ syncContactInfo: Failed to add phone', [
                         'lgl_id' => $lgl_id,
-                        'phone' => $phone['number'] ?? 'unknown'
+                        'error' => $response['error'] ?? 'Unknown error'
                     ]);
                 }
             }
         }
         
-        // Sync street addresses
+        // Add address (only first one if multiple provided, and only if not empty)
         $addressData = $this->getAddressData();
         if (!empty($addressData)) {
-            foreach ($addressData as $address) {
-                $response = $connection->updateOrAddStreetAddress($lgl_id, $address);
-                if (isset($response['updated']) && $response['updated']) {
-                    $helper->debug('🔄 syncContactInfo: Address updated', [
-                        'lgl_id' => $lgl_id,
-                        'street' => $address['street'] ?? 'unknown'
-                    ]);
-                } elseif (isset($response['added']) && $response['added']) {
+            $address = $addressData[0]; // Only use first address
+            $street = trim($address['street'] ?? '');
+            if (!empty($street)) {
+                $response = $connection->addStreetAddress($lgl_id, $address);
+                if ($response['success'] ?? false) {
                     $helper->debug('➕ syncContactInfo: Address added', [
                         'lgl_id' => $lgl_id,
-                        'street' => $address['street'] ?? 'unknown'
+                        'street' => $street
                     ]);
-                } elseif (isset($response['skipped']) && $response['skipped']) {
-                    $helper->debug('✅ syncContactInfo: Address unchanged', [
+                } else {
+                    $helper->debug('❌ syncContactInfo: Failed to add address', [
                         'lgl_id' => $lgl_id,
-                        'street' => $address['street'] ?? 'unknown'
+                        'error' => $response['error'] ?? 'Unknown error'
                     ]);
                 }
+            } else {
+                $helper->debug('⚠️ syncContactInfo: Skipping empty address', [
+                    'lgl_id' => $lgl_id
+                ]);
             }
-        } else {
-            $helper->debug('⚠️ syncContactInfo: No address data to sync', ['lgl_id' => $lgl_id]);
         }
     }
     

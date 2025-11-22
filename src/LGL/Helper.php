@@ -31,6 +31,16 @@ class Helper {
     const LOG_FILE = 'logs/lgl-api.log';
     
     /**
+     * Maximum log file size before rotation (10MB)
+     */
+    const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10MB
+    
+    /**
+     * Number of rotated log files to keep
+     */
+    const MAX_LOG_FILES = 5;
+    
+    /**
      * Maximum number of family members allowed per membership
      */
     const MAX_FAMILY_MEMBERS = 6;
@@ -81,6 +91,9 @@ class Helper {
             if (!file_exists($log_dir)) {
                 wp_mkdir_p($log_dir);
             }
+            
+            // Rotate log if it's too large
+            $this->rotateLogIfNeeded($log_file);
             
             file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
         }
@@ -135,8 +148,53 @@ class Helper {
                 wp_mkdir_p($log_dir);
             }
             
+            // Rotate log if it's too large
+            $this->rotateLogIfNeeded($log_file);
+            
             file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
         }
+    }
+    
+    /**
+     * Rotate log file if it exceeds maximum size
+     * 
+     * @param string $log_file Full path to log file
+     * @return void
+     */
+    private function rotateLogIfNeeded(string $log_file): void {
+        if (!file_exists($log_file)) {
+            return;
+        }
+        
+        $file_size = filesize($log_file);
+        if ($file_size < self::MAX_LOG_SIZE) {
+            return;
+        }
+        
+        $log_dir = dirname($log_file);
+        $log_basename = basename($log_file, '.log');
+        
+        // Rotate existing log files (lgl-api.log.1 -> lgl-api.log.2, etc.)
+        for ($i = self::MAX_LOG_FILES - 1; $i >= 1; $i--) {
+            $old_file = $log_dir . '/' . $log_basename . '.log.' . $i;
+            $new_file = $log_dir . '/' . $log_basename . '.log.' . ($i + 1);
+            
+            if (file_exists($old_file)) {
+                if ($i + 1 > self::MAX_LOG_FILES) {
+                    // Delete oldest log file
+                    @unlink($old_file);
+                } else {
+                    @rename($old_file, $new_file);
+                }
+            }
+        }
+        
+        // Move current log to .log.1
+        $rotated_file = $log_dir . '/' . $log_basename . '.log.1';
+        @rename($log_file, $rotated_file);
+        
+        // Log rotation event
+        error_log('LGL Helper: Log file rotated - size was ' . round($file_size / 1024 / 1024, 2) . 'MB');
     }
     
     /**

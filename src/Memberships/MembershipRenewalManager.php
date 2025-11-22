@@ -87,7 +87,22 @@ class MembershipRenewalManager {
     public function processAllMembers(): array {
         $this->helper->debug('Starting membership renewal processing');
         
-        $members = $this->getUiMembers();
+        // Memory check before processing
+        $memory_limit = $this->getMemoryLimitBytes();
+        $current_memory = memory_get_usage(true);
+        $memory_threshold = $memory_limit * 0.75; // Use 75% threshold
+        
+        if ($current_memory > $memory_threshold) {
+            $this->helper->debug('Warning: High memory usage before processing', [
+                'current_mb' => round($current_memory / 1024 / 1024, 2),
+                'limit_mb' => round($memory_limit / 1024 / 1024, 2),
+                'threshold_mb' => round($memory_threshold / 1024 / 1024, 2)
+            ]);
+        }
+        
+        // Process in batches to prevent memory exhaustion
+        $batch_size = 100; // Process 100 members at a time
+        $offset = 0;
         $results = [
             'processed' => 0,
             'notified' => 0,
@@ -96,30 +111,134 @@ class MembershipRenewalManager {
             'errors' => []
         ];
         
-        foreach ($members as $member) {
-            try {
-                $result = $this->processMemberRenewal($member->ID);
-                $results['processed']++;
-                
-                if ($result['action'] === 'notified') {
-                    $results['notified']++;
-                } elseif ($result['action'] === 'deactivated') {
-                    $results['deactivated']++;
-                } else {
-                    $results['skipped']++;
-                }
-                
-            } catch (\Exception $e) {
-                $results['errors'][] = [
-                    'user_id' => $member->ID,
-                    'error' => $e->getMessage()
-                ];
-                $this->helper->debug('Error processing member ' . $member->ID . ': ' . $e->getMessage());
+        do {
+            $members = $this->getUiMembersBatch($batch_size, $offset);
+            
+            if (empty($members)) {
+                break;
             }
+            
+            foreach ($members as $member) {
+                try {
+                    // Check memory before each member
+                    $current_memory = memory_get_usage(true);
+                    if ($current_memory > $memory_threshold) {
+                        $this->helper->debug('Memory threshold reached, pausing processing', [
+                            'current_mb' => round($current_memory / 1024 / 1024, 2),
+                            'processed' => $results['processed']
+                        ]);
+                        // Clear any caches if possible
+                        wp_cache_flush();
+                        // Reset memory check
+                        $current_memory = memory_get_usage(true);
+                    }
+                    
+                    $result = $this->processMemberRenewal($member->ID);
+                    $results['processed']++;
+                    
+                    if ($result['action'] === 'notified') {
+                        $results['notified']++;
+                    } elseif ($result['action'] === 'deactivated') {
+                        $results['deactivated']++;
+                    } else {
+                        $results['skipped']++;
+                    }
+                    
+                } catch (\Exception $e) {
+                    $results['errors'][] = [
+                        'user_id' => $member->ID,
+                        'error' => $this->getSafeErrorMessage($e)
+                    ];
+                    $this->helper->debug('Error processing member ' . $member->ID . ': ' . $e->getMessage(), [
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine()
+                    ]);
+                }
+            }
+            
+            $offset += $batch_size;
+            
+            // Small delay between batches to prevent overwhelming the system
+            if (!empty($members)) {
+                usleep(100000); // 0.1 second delay
+            }
+            
+        } while (count($members) === $batch_size);
+        
+        $final_memory = memory_get_usage(true);
+        $this->helper->debug('Membership renewal processing completed', [
+            'results' => $results,
+            'memory_used_mb' => round(($final_memory - $current_memory) / 1024 / 1024, 2)
+        ]);
+        
+        return $results;
+    }
+    
+    /**
+     * Get UI members in batches
+     * 
+     * @param int $limit Number of members to retrieve
+     * @param int $offset Offset for pagination
+     * @return array Array of WP_User objects
+     */
+    private function getUiMembersBatch(int $limit = 100, int $offset = 0): array {
+        return get_users([
+            'role__in' => ['ui_member', 'ui_patron_owner'],
+            'meta_query' => [
+                [
+                    'key' => 'user-membership-renewal-date',
+                    'value' => '',
+                    'compare' => '!='
+                ]
+            ],
+            'number' => $limit,
+            'offset' => $offset,
+            'orderby' => 'ID',
+            'order' => 'ASC'
+        ]);
+    }
+    
+    /**
+     * Get memory limit in bytes
+     * 
+     * @return int Memory limit in bytes
+     */
+    private function getMemoryLimitBytes(): int {
+        $limit = ini_get('memory_limit');
+        if ($limit == -1) {
+            return PHP_INT_MAX; // Unlimited
         }
         
-        $this->helper->debug('Membership renewal processing completed', $results);
-        return $results;
+        $limit = trim($limit);
+        $last = strtolower($limit[strlen($limit) - 1]);
+        $value = (int) $limit;
+        
+        switch ($last) {
+            case 'g':
+                $value *= 1024;
+            case 'm':
+                $value *= 1024;
+            case 'k':
+                $value *= 1024;
+        }
+        
+        return $value;
+    }
+    
+    /**
+     * Get safe error message for production (no stack traces)
+     * 
+     * @param \Exception $e Exception
+     * @return string Safe error message
+     */
+    private function getSafeErrorMessage(\Exception $e): string {
+        // In production, return generic message
+        if (!defined('WP_DEBUG') || !WP_DEBUG) {
+            return 'An error occurred while processing. Please contact support if this persists.';
+        }
+        
+        // In debug mode, return full message
+        return $e->getMessage();
     }
     
     /**

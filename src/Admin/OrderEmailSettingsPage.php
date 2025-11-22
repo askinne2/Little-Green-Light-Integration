@@ -72,8 +72,8 @@ class OrderEmailSettingsPage {
         $settings = $this->settingsManager->getAll();
         
         // Check for success/error messages
-        $updated = isset($_GET['updated']) ? $_GET['updated'] : null;
-        $test_sent = isset($_GET['test_sent']) ? $_GET['test_sent'] : null;
+        $updated = isset($_GET['updated']) ? sanitize_text_field($_GET['updated']) : null;
+        $test_sent = isset($_GET['test_sent']) ? sanitize_text_field($_GET['test_sent']) : null;
         
         ?>
         <div class="wrap">
@@ -99,7 +99,7 @@ class OrderEmailSettingsPage {
             
             <?php if ($test_sent === 'true'): ?>
                 <div class="notice notice-success is-dismissible">
-                    <p>Test email sent successfully to <?php echo esc_html(urldecode($_GET['test_email'] ?? '')); ?>!</p>
+                    <p>Test email sent successfully to <?php echo esc_html(sanitize_email(urldecode($_GET['test_email'] ?? ''))); ?>!</p>
                 </div>
             <?php elseif ($test_sent === 'false'): ?>
                 <div class="notice notice-error is-dismissible">

@@ -1970,7 +1970,55 @@ class Connection {
                     'new_phone' => $phone_number
                 ]);
                 $result = $this->updatePhoneNumber($lgl_id, $preferred_phone_id, $phone_data);
-                return array_merge($result, ['updated' => true]);
+                if (!empty($result['success'])) {
+                    return array_merge($result, ['updated' => true]);
+                } else {
+                    $http_code = $result['http_code'] ?? null;
+                    $error = $result['error'] ?? 'Unknown error';
+                    
+                    // If update failed with 404, re-check if phone exists before adding
+                    if ($http_code === 404) {
+                        $helper->debug('❌ updateOrAddPhoneNumber: Update failed with 404, re-checking if phone exists', [
+                            'error' => $error,
+                            'phone' => $phone_number
+                        ]);
+                        
+                        // Re-fetch phones to check current state
+                        $current_phones = $this->getConstituentPhones($lgl_id);
+                        $phone_exists = false;
+                        foreach ($current_phones as $current_phone) {
+                            $current_number_raw = is_array($current_phone) ? ($current_phone['number'] ?? '') : ($current_phone->number ?? '');
+                            $current_number = $this->normalizePhoneNumber($current_number_raw);
+                            if ($current_number && $current_number === $phone_number) {
+                                $phone_exists = true;
+                                $helper->debug('✅ updateOrAddPhoneNumber: Phone already exists, skipping add', [
+                                    'phone' => $phone_number
+                                ]);
+                                break;
+                            }
+                        }
+                        
+                        if ($phone_exists) {
+                            return ['success' => true, 'skipped' => true, 'message' => 'Phone already exists'];
+                        }
+                    }
+                    
+                    // Only add if phone number is not empty
+                    if (empty($phone_number)) {
+                        $helper->debug('⚠️ updateOrAddPhoneNumber: Cannot add empty phone number', [
+                            'error' => $error
+                        ]);
+                        return ['success' => false, 'error' => 'Cannot add empty phone number', 'update_failed' => true];
+                    }
+                    
+                    $helper->debug('❌ updateOrAddPhoneNumber: Update failed, will try adding instead', [
+                        'error' => $error,
+                        'http_code' => $http_code
+                    ]);
+                    // If update failed, try adding as new (only if not empty and doesn't exist)
+                    $result = $this->addPhoneNumber($lgl_id, $phone_data);
+                    return array_merge($result, ['added' => true, 'update_failed' => true]);
+                }
             }
         }
         
@@ -1986,7 +2034,7 @@ class Connection {
      * @param string $lgl_id LGL constituent ID
      * @return array Array of phone number records
      */
-    private function getConstituentPhones(string $lgl_id): array {
+    public function getConstituentPhones(string $lgl_id): array {
         $helper = Helper::getInstance();
         try {
             $response = $this->makeRequest("constituents/{$lgl_id}/phone_numbers", 'GET', [], false);
@@ -2264,10 +2312,50 @@ class Connection {
                 if (!empty($result['success'])) {
                     return array_merge($result, ['updated' => true]);
                 } else {
+                    $http_code = $result['http_code'] ?? null;
+                    $error = $result['error'] ?? 'Unknown error';
+                    
+                    // If update failed with 404, the address ID might not exist anymore
+                    // Re-check if address already exists before adding to prevent duplicates
+                    if ($http_code === 404) {
+                        $helper->debug('❌ updateOrAddStreetAddress: Update failed with 404, re-checking if address exists', [
+                            'error' => $error,
+                            'street' => $street
+                        ]);
+                        
+                        // Re-fetch addresses to check current state
+                        $current_addresses = $this->getConstituentAddresses($lgl_id);
+                        $address_exists = false;
+                        foreach ($current_addresses as $current_addr) {
+                            $current_street = is_array($current_addr) ? ($current_addr['street'] ?? '') : ($current_addr->street ?? '');
+                            $current_city = is_array($current_addr) ? ($current_addr['city'] ?? '') : ($current_addr->city ?? '');
+                            if ($current_street === $street && $current_city === ($address_data['city'] ?? '')) {
+                                $address_exists = true;
+                                $helper->debug('✅ updateOrAddStreetAddress: Address already exists, skipping add', [
+                                    'street' => $street
+                                ]);
+                                break;
+                            }
+                        }
+                        
+                        if ($address_exists) {
+                            return ['success' => true, 'skipped' => true, 'message' => 'Address already exists'];
+                        }
+                    }
+                    
+                    // Only add if address data is not empty
+                    if (empty($street)) {
+                        $helper->debug('⚠️ updateOrAddStreetAddress: Cannot add empty address', [
+                            'error' => $error
+                        ]);
+                        return ['success' => false, 'error' => 'Cannot add empty address', 'update_failed' => true];
+                    }
+                    
                     $helper->debug('❌ updateOrAddStreetAddress: Update failed, will try adding instead', [
-                        'error' => $result['error'] ?? 'Unknown error'
+                        'error' => $error,
+                        'http_code' => $http_code
                     ]);
-                    // If update failed, try adding as new
+                    // If update failed, try adding as new (only if not empty and doesn't exist)
                     $result = $this->addStreetAddress($lgl_id, $address_data);
                     return array_merge($result, ['added' => true, 'update_failed' => true]);
                 }
@@ -2298,10 +2386,49 @@ class Connection {
             if (!empty($result['success'])) {
                 return array_merge($result, ['updated' => true]);
             } else {
+                $http_code = $result['http_code'] ?? null;
+                $error = $result['error'] ?? 'Unknown error';
+                
+                // If update failed with 404, re-check if address exists before adding
+                if ($http_code === 404) {
+                    $helper->debug('❌ updateOrAddStreetAddress: Update failed with 404, re-checking if address exists', [
+                        'error' => $error,
+                        'street' => $street
+                    ]);
+                    
+                    // Re-fetch addresses to check current state
+                    $current_addresses = $this->getConstituentAddresses($lgl_id);
+                    $address_exists = false;
+                    foreach ($current_addresses as $current_addr) {
+                        $current_street = is_array($current_addr) ? ($current_addr['street'] ?? '') : ($current_addr->street ?? '');
+                        $current_city = is_array($current_addr) ? ($current_addr['city'] ?? '') : ($current_addr->city ?? '');
+                        if ($current_street === $street && $current_city === ($address_data['city'] ?? '')) {
+                            $address_exists = true;
+                            $helper->debug('✅ updateOrAddStreetAddress: Address already exists, skipping add', [
+                                'street' => $street
+                            ]);
+                            break;
+                        }
+                    }
+                    
+                    if ($address_exists) {
+                        return ['success' => true, 'skipped' => true, 'message' => 'Address already exists'];
+                    }
+                }
+                
+                // Only add if address data is not empty
+                if (empty($street)) {
+                    $helper->debug('⚠️ updateOrAddStreetAddress: Cannot add empty address', [
+                        'error' => $error
+                    ]);
+                    return ['success' => false, 'error' => 'Cannot add empty address', 'update_failed' => true];
+                }
+                
                 $helper->debug('❌ updateOrAddStreetAddress: Update failed, will try adding instead', [
-                    'error' => $result['error'] ?? 'Unknown error'
+                    'error' => $error,
+                    'http_code' => $http_code
                 ]);
-                // If update failed, try adding as new
+                // If update failed, try adding as new (only if not empty and doesn't exist)
                 $result = $this->addStreetAddress($lgl_id, $address_data);
                 return array_merge($result, ['added' => true, 'update_failed' => true]);
             }
@@ -2314,12 +2441,50 @@ class Connection {
     }
 
     /**
+     * Get all email addresses for a constituent
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @return array Array of email address records
+     */
+    public function getConstituentEmailAddresses(string $lgl_id): array {
+        $helper = Helper::getInstance();
+        try {
+            $response = $this->makeRequest("constituents/{$lgl_id}/email_addresses", 'GET', [], false);
+            if ($response['success'] && isset($response['data'])) {
+                $data = $response['data'];
+                
+                // Handle different response formats (same as phones/addresses)
+                if (is_array($data)) {
+                    if (!empty($data) && (isset($data[0]['address']) || (is_object($data[0]) && isset($data[0]->address)))) {
+                        return $data;
+                    }
+                    if (isset($data['items']) && is_array($data['items'])) {
+                        return $data['items'];
+                    }
+                } elseif (is_object($data)) {
+                    if (isset($data->items) && is_array($data->items)) {
+                        return $data->items;
+                    }
+                }
+                
+                return $this->extractConstituentsFromResponse($data);
+            }
+        } catch (\Exception $e) {
+            $helper->debug('❌ getConstituentEmailAddresses: Error fetching emails', [
+                'lgl_id' => $lgl_id,
+                'error' => $e->getMessage()
+            ]);
+        }
+        return [];
+    }
+    
+    /**
      * Get all street addresses for a constituent
      * 
      * @param string $lgl_id LGL constituent ID
      * @return array Array of address records
      */
-    private function getConstituentAddresses(string $lgl_id): array {
+    public function getConstituentAddresses(string $lgl_id): array {
         $helper = Helper::getInstance();
         try {
             $response = $this->makeRequest("constituents/{$lgl_id}/street_addresses", 'GET', [], false);
@@ -2361,6 +2526,87 @@ class Connection {
             ]);
         }
         return [];
+    }
+    
+    /**
+     * Delete email address from constituent
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param int $email_id Email address ID
+     * @return array API response
+     */
+    public function deleteEmailAddress(string $lgl_id, int $email_id): array {
+        $helper = Helper::getInstance();
+        $endpoint = "email_addresses/{$email_id}";
+        
+        $helper->debug('🗑️ deleteEmailAddress: Making DELETE request', [
+            'endpoint' => $endpoint,
+            'email_id' => $email_id
+        ]);
+        
+        $response = $this->makeRequest($endpoint, 'DELETE', [], false);
+        
+        $helper->debug('📥 deleteEmailAddress: API response', [
+            'success' => $response['success'] ?? false,
+            'http_code' => $response['http_code'] ?? null,
+            'error' => $response['error'] ?? null
+        ]);
+        
+        return $response;
+    }
+    
+    /**
+     * Delete phone number from constituent
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param int $phone_id Phone number ID
+     * @return array API response
+     */
+    public function deletePhoneNumber(string $lgl_id, int $phone_id): array {
+        $helper = Helper::getInstance();
+        $endpoint = "phone_numbers/{$phone_id}";
+        
+        $helper->debug('🗑️ deletePhoneNumber: Making DELETE request', [
+            'endpoint' => $endpoint,
+            'phone_id' => $phone_id
+        ]);
+        
+        $response = $this->makeRequest($endpoint, 'DELETE', [], false);
+        
+        $helper->debug('📥 deletePhoneNumber: API response', [
+            'success' => $response['success'] ?? false,
+            'http_code' => $response['http_code'] ?? null,
+            'error' => $response['error'] ?? null
+        ]);
+        
+        return $response;
+    }
+    
+    /**
+     * Delete street address from constituent
+     * 
+     * @param string $lgl_id LGL constituent ID
+     * @param int $address_id Street address ID
+     * @return array API response
+     */
+    public function deleteStreetAddress(string $lgl_id, int $address_id): array {
+        $helper = Helper::getInstance();
+        $endpoint = "street_addresses/{$address_id}";
+        
+        $helper->debug('🗑️ deleteStreetAddress: Making DELETE request', [
+            'endpoint' => $endpoint,
+            'address_id' => $address_id
+        ]);
+        
+        $response = $this->makeRequest($endpoint, 'DELETE', [], false);
+        
+        $helper->debug('📥 deleteStreetAddress: API response', [
+            'success' => $response['success'] ?? false,
+            'http_code' => $response['http_code'] ?? null,
+            'error' => $response['error'] ?? null
+        ]);
+        
+        return $response;
     }
 }
 

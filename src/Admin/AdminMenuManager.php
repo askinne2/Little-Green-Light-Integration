@@ -248,10 +248,10 @@ class AdminMenuManager {
         $settingsManager = $this->getSettingsManager();
         
         // Show success/error messages
-        if (isset($_GET['stats_populated']) && $_GET['stats_populated'] === '1') {
-            $constituents = $_GET['constituents'] ?? 0;
-            $memberships = $_GET['memberships'] ?? 0;
-            $payments = $_GET['payments'] ?? 0;
+        if (isset($_GET['stats_populated']) && sanitize_text_field($_GET['stats_populated']) === '1') {
+            $constituents = isset($_GET['constituents']) ? absint($_GET['constituents']) : 0;
+            $memberships = isset($_GET['memberships']) ? absint($_GET['memberships']) : 0;
+            $payments = isset($_GET['payments']) ? absint($_GET['payments']) : 0;
             echo '<div class="notice notice-success is-dismissible"><p>';
             echo '✅ Historical statistics populated successfully! ';
             echo sprintf('Found %d constituents, %d memberships, and %d payments.', 
@@ -262,7 +262,7 @@ class AdminMenuManager {
             echo '</p></div>';
         }
         
-        if (isset($_GET['stats_error']) && $_GET['stats_error'] === '1') {
+        if (isset($_GET['stats_error']) && sanitize_text_field($_GET['stats_error']) === '1') {
             echo '<div class="notice notice-error is-dismissible"><p>';
             echo '❌ Failed to populate historical statistics. Check debug logs for details.';
             echo '</p></div>';

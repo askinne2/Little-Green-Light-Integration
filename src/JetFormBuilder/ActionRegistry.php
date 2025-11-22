@@ -266,16 +266,19 @@ class ActionRegistry {
                         // Silently fail if logging fails
                     }
                     
+                    // Get production-safe error message
+                    $error_message = $this->getProductionSafeErrorMessage($e);
+                    
                     // Use Action_Exception if available for proper error handling
                     if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
-                        throw new \Jet_Form_Builder\Exceptions\Action_Exception($e->getMessage());
+                        throw new \Jet_Form_Builder\Exceptions\Action_Exception($error_message);
                     } elseif (class_exists('\JFB_Modules\Actions\V2\Action_Exception')) {
-                        throw new \JFB_Modules\Actions\V2\Action_Exception($e->getMessage());
+                        throw new \JFB_Modules\Actions\V2\Action_Exception($error_message);
                     } else {
                         // Fallback: use wp_die to show error message
                         if (function_exists('wp_die')) {
                             wp_die(
-                                esc_html($e->getMessage()),
+                                esc_html($error_message),
                                 'Form Submission Error',
                                 ['response' => 400, 'back_link' => true]
                             );
@@ -286,6 +289,22 @@ class ActionRegistry {
             $action->getPriority(),
             $action->getAcceptedArgs()
         );
+    }
+    
+    /**
+     * Get production-safe error message (no stack traces in production)
+     * 
+     * @param \Exception $e Exception
+     * @return string Safe error message
+     */
+    private function getProductionSafeErrorMessage(\Exception $e): string {
+        // In production, return generic message
+        if (!defined('WP_DEBUG') || !WP_DEBUG) {
+            return 'An error occurred while processing your request. Please try again or contact support if the problem persists.';
+        }
+        
+        // In debug mode, return full message
+        return $e->getMessage();
     }
     
     /**

@@ -325,14 +325,29 @@ class MembershipCronManager {
     private function cleanupTransients(): void {
         global $wpdb;
         
-        // Clean up expired transients older than 30 days
-        $wpdb->query($wpdb->prepare("
-            DELETE FROM {$wpdb->options} 
-            WHERE option_name LIKE '_transient_timeout_ui_membership_%' 
-            AND option_value < %d
-        ", time() - (30 * DAY_IN_SECONDS)));
+        // Clean up expired transients older than 30 days in batches to prevent memory issues
+        $batch_size = 1000;
+        $deleted_total = 0;
         
-        $this->helper->debug('Old membership transients cleaned up');
+        do {
+            $deleted = $wpdb->query($wpdb->prepare("
+                DELETE FROM {$wpdb->options} 
+                WHERE option_name LIKE '_transient_timeout_ui_membership_%' 
+                AND option_value < %d
+                LIMIT %d
+            ", time() - (30 * DAY_IN_SECONDS), $batch_size));
+            
+            $deleted_total += $deleted;
+            
+            // Small delay between batches
+            if ($deleted > 0) {
+                usleep(50000); // 0.05 second delay
+            }
+        } while ($deleted === $batch_size);
+        
+        $this->helper->debug('Old membership transients cleaned up', [
+            'deleted_count' => $deleted_total
+        ]);
     }
     
     /**

@@ -337,8 +337,12 @@ class MembershipUserManager {
         
         $table_name = $wpdb->prefix . 'ueqdu6vhs3_jet_fb_subscriptions';
         
-        // Check if table exists
-        if ($wpdb->get_var("SHOW TABLES LIKE '{$table_name}'") !== $table_name) {
+        // Check if table exists (using prepared statement for security)
+        $table_check = $wpdb->get_var($wpdb->prepare(
+            "SHOW TABLES LIKE %s",
+            $table_name
+        ));
+        if ($table_check !== $table_name) {
             $this->helper->debug('JetFormBuilder subscriptions table not found');
             return null;
         }
