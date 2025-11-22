@@ -1,3 +1,8 @@
+---
+layout: default
+title: Data Contracts
+---
+
 # LGL Data Contracts Reference
 
 ## WordPress User Meta Keys
@@ -481,17 +486,45 @@
 - Relation endpoint IDs are stored in `LGL_Relations_Manager` and must match live JetEngine REST endpoints.
 
 ## JetForm Builder Action Payloads
-- `lgl_register_user`
+
+### ⚠️ Deprecated Actions (v2.0+)
+These actions are maintained for backward compatibility only. **New implementations should use WooCommerce checkout instead.**
+
+- `lgl_register_user` **@deprecated** - Use WooCommerce membership purchase instead
   - Required keys: `user_firstname`, `user_lastname`, `user_email`, `user_id`, `ui-membership-type`, `price`, `inserted_post_id`.
   - Optional: `payment_type`, `user_phone`, `user-address-1/2`, `user-country-of-origin`, `family_member_parent_id`.
-- `lgl_add_family_member`
-  - Mirrors registration payload but includes `parent_user_id` and `method = family_member`.
-- `lgl_update_membership` / `lgl_renew_membership`
+  
+- `lgl_update_membership` **@deprecated** - Use WooCommerce checkout for tier changes instead
   - Require `user_id`, `ui-membership-type`, `membership_expiration`, `price`, `inserted_post_id`.
-- `lgl_add_class_registration` / `lgl_add_event_registration`
+  
+- `lgl_add_class_registration` **@deprecated** - CourseStorm handles new language class registrations externally
   - Include `order_id`, `product_id`, attendee lists, fund override IDs, and any JetEngine repeater fields.
 
-All actions expect sanitized arrays and will fail if the WooCommerce order or user meta is missing. Maintain identical key names to retain JetForm compatibility.
+### ✅ Active Actions (Current Use)
+These actions are actively used for member management tasks that don't require payment processing.
+
+- `lgl_renew_membership` **✅ Active**
+  - Require `user_id`, `ui-membership-type`, `membership_expiration`, `price`, `inserted_post_id`.
+  - Used for membership renewals without payment (e.g., staff-processed renewals)
+  
+- `lgl_add_family_member` **✅ Active**
+  - Mirrors registration payload but includes `parent_user_id` and `method = family_member`.
+  - Used to add family members to existing household memberships
+  
+- `lgl_add_event_registration` **✅ Active**
+  - Include `order_id`, `product_id`, attendee lists, fund override IDs, and any JetEngine repeater fields.
+  - Used for event registrations via forms
+  
+- `lgl_edit_user` **✅ Active**
+  - Used for profile updates and member information changes
+  
+- `lgl_deactivate_membership` **✅ Active**
+  - Used for membership cancellation/deactivation requests
+  
+- `lgl_deactivate_family_member` **✅ Active**
+  - Used to remove family members from household memberships
+
+**Note:** All actions expect sanitized arrays and will fail if the WooCommerce order or user meta is missing. Maintain identical key names to retain JetForm compatibility.
 
 ## WooCommerce Category → LGL Mapping
 - `memberships`

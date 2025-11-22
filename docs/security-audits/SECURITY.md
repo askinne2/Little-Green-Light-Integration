@@ -1,3 +1,8 @@
+---
+layout: default
+title: Security
+---
+
 # Security Considerations
 
 This document outlines the security measures implemented in the Little Green Light Integration plugin and best practices for secure deployment.

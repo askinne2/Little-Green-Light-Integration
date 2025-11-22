@@ -616,7 +616,7 @@
 <body>
     <header class="header">
         <div class="header-content">
-            <h1><a href="{{ '/' | relative_url }}" style="color: white; text-decoration: none;">🌐 Integrate-LGL</a></h1>
+            <h1><a href="{% if site.baseurl == '' %}/{% else %}{{ site.baseurl }}/{% endif %}" style="color: white; text-decoration: none;">🌐 Integrate-LGL</a></h1>
             <p>{{ site.description }}</p>
         </div>
     </header>
@@ -624,11 +624,11 @@
     <nav class="nav">
         <div class="nav-content">
             <div class="nav-links">
-                <a href="{{ '/' | relative_url }}" {% if page.url == '/' %}class="active"{% endif %}>Home</a>
-                <a href="{{ '/flowchart.html' | relative_url }}" {% if page.url == '/flowchart.html' %}class="active"{% endif %}>System Flowchart</a>
+                <a href="{% if site.baseurl == '' %}/{% else %}{{ site.baseurl }}/{% endif %}" {% if page.url == '/' %}class="active"{% endif %}>Home</a>
+                <a href="{% if site.baseurl == '' %}/flowchart.html{% else %}{{ site.baseurl }}/flowchart.html{% endif %}" {% if page.url == '/flowchart.html' %}class="active"{% endif %}>System Flowchart</a>
                 {% assign api_ref = site.pages | where_exp: "p", "p.path contains 'API-REFERENCE.md'" | first %}
                 {% if api_ref %}<a href="{{ api_ref.url | relative_url }}" {% if page.url == api_ref.url %}class="active"{% endif %}>API Reference</a>{% endif %}
-                {% assign logic_model = site.pages | where_exp: "p", "p.path contains 'LGL API LOGIC MODEL.md'" | first %}
+                {% assign logic_model = site.pages | where_exp: "p", "p.path contains 'lgl-api-logic-model.md'" | first %}
                 {% if logic_model %}<a href="{{ logic_model.url | relative_url }}" {% if page.url == logic_model.url %}class="active"{% endif %}>Logic Model</a>{% endif %}
                 {% assign manual_testing = site.pages | where_exp: "p", "p.path contains 'MANUAL-TESTING-GUIDE.md'" | first %}
                 {% if manual_testing %}<a href="{{ manual_testing.url | relative_url }}" {% if page.url == manual_testing.url %}class="active"{% endif %}>Testing</a>{% endif %}

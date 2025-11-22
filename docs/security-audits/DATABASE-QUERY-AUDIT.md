@@ -1,3 +1,8 @@
+---
+layout: default
+title: Database Query Audit
+---
+
 # Database Query Audit
 
 This document audits all database queries in the Integrate-LGL plugin to ensure performance, security, and best practices.

@@ -56,11 +56,11 @@ Integrate-LGL/
 │   │   └── default.html        ← Page layout template
 │   ├── index.md                ← Homepage (Jekyll renders as HTML)
 │   ├── flowchart.html          ← Interactive flowchart (standalone)
-│   ├── Reference Documentation/
+│   ├── reference-documentation/
 │   │   ├── API-REFERENCE.md    ← Renders as HTML automatically
-│   │   ├── LGL API LOGIC MODEL.md
+│   │   ├── lgl-api-logic-model.md
 │   │   └── [other .md files]
-│   ├── Testing & Troubleshooting/
+│   ├── testing-troubleshooting/
 │   │   ├── MANUAL-TESTING-GUIDE.md
 │   │   └── [other .md files]
 │   └── [other documentation folders]
@@ -76,8 +76,8 @@ Integrate-LGL/
 - URLs are automatically generated from file paths
 
 **Example:**
-- `Reference Documentation/API-REFERENCE.md` → `/Reference%20Documentation/API-REFERENCE.html`
-- `Testing & Troubleshooting/MANUAL-TESTING-GUIDE.md` → `/Testing%20&%20Troubleshooting/MANUAL-TESTING-GUIDE.html`
+- `reference-documentation/API-REFERENCE.md` → `/reference-documentation/API-REFERENCE.html`
+- `testing-troubleshooting/MANUAL-TESTING-GUIDE.md` → `/testing-troubleshooting/MANUAL-TESTING-GUIDE.html`
 
 **Standalone HTML Files:**
 - `flowchart.html` is served as-is (no Jekyll processing)

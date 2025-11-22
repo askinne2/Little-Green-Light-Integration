@@ -88,10 +88,11 @@ PRODUCT CATEGORY?
 - CourseStorm has **direct LGL integration** (outside this plugin's scope)
 - Membership verification for CourseStorm discounts may require new API endpoint
 
-**New Membership Structure:**
-- **Free/Basic Tier** - Minimal cost entry level
-- **Standard Tier** - Mid-level benefits
-- **Premium Tier** - Full benefits package
+**Current Membership Structure:**
+- **Gateway Member** ($75) - Entry level membership with access to events, meetups, cultural programming, and member discounts
+- **Crossroads Collective** ($150) - Mid-level membership with "Get One, Give One" subsidized membership program, plus all Gateway benefits
+- **World Horizon Patron** ($500) - Premium membership with patron-only events, recognition, and all Crossroads benefits
+- **Family Member** ($25) - Additional family member add-on (requires primary membership)
 - Membership is **decoupled** from language class registration
 - Members receive **discounted rates** in CourseStorm (verified externally)
 
@@ -112,9 +113,10 @@ SUBSCRIPTION PRODUCT?
     └─ NO → Continue
     ↓
 EXTRACT MEMBERSHIP TIER
-    ├─ Free/Basic Tier
-    ├─ Standard Tier
-    └─ Premium Tier
+    ├─ Gateway Member ($75)
+    ├─ Crossroads Collective ($150)
+    ├─ World Horizon Patron ($500)
+    └─ Family Member ($25 add-on)
     ↓
 LGL USER EXISTS?
     ├─ NO → CREATE LGL USER
@@ -150,12 +152,12 @@ SEND MEMBERSHIP CONFIRMATION EMAIL
 
 **Data Captured:**
 - User ID
-- **Membership Tier** (Free/Basic/Standard/Premium)
+- **Membership Tier** (Gateway Member, Crossroads Collective, World Horizon Patron, or Family Member)
 - WordPress User Data
 - Order Total
 - LGL Fund ID (tier-specific)
 - Subscription Status (if applicable)
-- Renewal Date (tier-based duration)
+- Renewal Date (tier-based duration - typically 1 year for all tiers)
 
 ---
 
@@ -192,9 +194,9 @@ COURSESTORM VERIFIES MEMBERSHIP STATUS
     └─ Option 3: Manual verification by staff
     ↓
 COURSESTORM APPLIES MEMBER DISCOUNT
-    ├─ Free/Basic Member: X% discount
-    ├─ Standard Member: Y% discount
-    └─ Premium Member: Z% discount
+    ├─ Gateway Member: Member discount rate
+    ├─ Crossroads Collective: Member discount rate
+    └─ World Horizon Patron: Member discount rate (may include additional benefits)
     ↓
 COURSESTORM PROCESSES REGISTRATION & PAYMENT
     ↓
@@ -378,9 +380,10 @@ FOR EACH USER:
         └─ NO → Calculate Days Until Renewal
     ↓
     MEMBERSHIP TIER?
-        ├─ Free/Basic → Check renewal requirements
-        ├─ Standard → Standard renewal flow
-        └─ Premium → Premium renewal flow
+        ├─ Gateway Member → Standard renewal flow
+        ├─ Crossroads Collective → Standard renewal flow
+        ├─ World Horizon Patron → Premium renewal flow (may include additional reminders)
+        └─ Family Member → Inherits from primary membership
     ↓
     DAYS UNTIL RENEWAL?
         ├─ DAYS == 30 → SEND UPCOMING RENEWAL REMINDER
@@ -433,23 +436,23 @@ FOR EACH USER:
 
 ### Tiered Renewal Timeline
 
-**Free/Basic Tier:**
+**Gateway Member & Crossroads Collective:**
 | Days Until Renewal | Action | Handler Method |
 |-------------------|--------|----------------|
-| **30 days before** | Send "Upcoming Renewal - Free Tier" | `sendUpcomingRenewal()` |
-| **14 days before** | Send "Reminder - Free Tier Benefits" | `sendWeeklyReminder()` |
-| **7 days before** | Send "Final Week Reminder" | `sendWeeklyReminder()` |
-| **0 days (today)** | Send "Renew Today - Free Tier" | `sendRenewTodayReminder()` |
+| **30 days before** | Send "Upcoming Renewal" email | `sendUpcomingRenewal()` |
+| **14 days before** | Send "Weekly Reminder" email | `sendWeeklyReminder()` |
+| **7 days before** | Send "Final Week Reminder" email | `sendWeeklyReminder()` |
+| **0 days (today)** | Send "Renew Today" email | `sendRenewTodayReminder()` |
 | **-1 to -29 days** | Grace period with -7 day reminder | `sendGracePeriodReminder()` |
-| **-30 days** | Deactivate membership | `deactivateMembership()` |
+| **-30 days** | Deactivate membership (unless subscription active) | `deactivateMembership()` |
 
-**Standard/Premium Tiers:**
+**World Horizon Patron:**
 | Days Until Renewal | Action | Handler Method |
 |-------------------|--------|----------------|
-| **30 days before** | Send "Upcoming Renewal - Standard/Premium" | `sendUpcomingRenewal()` |
-| **14 days before** | Send "Weekly Reminder - Benefits Review" | `sendWeeklyReminder()` |
-| **7 days before** | Send "Final Week Reminder" | `sendWeeklyReminder()` |
-| **0 days (today)** | Send "Renew Today - Maintain Benefits" | `sendRenewTodayReminder()` |
+| **30 days before** | Send "Upcoming Renewal - Patron" email | `sendUpcomingRenewal()` |
+| **14 days before** | Send "Weekly Reminder - Patron Benefits" email | `sendWeeklyReminder()` |
+| **7 days before** | Send "Final Week Reminder" email | `sendWeeklyReminder()` |
+| **0 days (today)** | Send "Renew Today - Maintain Patron Status" email | `sendRenewTodayReminder()` |
 | **-1 to -29 days** | Grace period with -7 day reminder | `sendGracePeriodReminder()` |
 | **-30 days** | Deactivate membership (unless subscription active) | `deactivateMembership()` |
 
@@ -636,18 +639,19 @@ SEND RENEWAL CONFIRMATION EMAIL
 **Recommendation:** Determine CourseStorm's technical capabilities first. If they have robust LGL integration, Option A avoids WordPress entirely. If not, Option B provides real-time verification.
 
 ### 2. Tiered Membership Structure
-**Decision Required:** Finalize tier names, pricing, and renewal durations
+**Status:** ✅ **COMPLETED** - Membership tiers finalized and implemented
 
-**Needs Definition:**
-- Free/Basic tier: Price, duration, benefits
-- Standard tier: Price, duration, benefits, discount percentages
-- Premium tier: Price, duration, benefits, discount percentages
+**Current Membership Tiers:**
+- **Gateway Member** ($75/year) - Entry level with event access and member discounts
+- **Crossroads Collective** ($150/year) - Mid-level with "Get One, Give One" program
+- **World Horizon Patron** ($500/year) - Premium with patron-only events and recognition
+- **Family Member** ($25/year) - Add-on for additional family members
 
-**Implementation Impact:**
-- Product metadata in WooCommerce
-- Email template customization per tier
-- LGL fund mapping per tier
-- CourseStorm discount configuration
+**Implementation Status:**
+- ✅ Product metadata configured in WooCommerce
+- ✅ Email templates customized per tier
+- ✅ LGL fund mapping configured per tier
+- ✅ CourseStorm discount configuration (handled externally)
 
 ### 3. Legacy Language Class Products
 **Decision Required:** Timeline for phasing out WooCommerce language class products

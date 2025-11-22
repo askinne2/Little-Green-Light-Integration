@@ -1,3 +1,8 @@
+---
+layout: default
+title: User Meta Fields
+---
+
 # WordPress User Meta Fields - LGL Integration
 
 This document describes custom WordPress user meta fields used by the Integrate-LGL plugin for managing family member relationships and LGL CRM synchronization.

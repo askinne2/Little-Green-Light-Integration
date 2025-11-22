@@ -1,3 +1,8 @@
+---
+layout: default
+title: Sprint Progress
+---
+
 # Production Readiness Sprint - Progress Report
 
 **Date:** November 22, 2025  

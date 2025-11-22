@@ -1,3 +1,8 @@
+---
+layout: default
+title: Testing Suite Guide
+---
+
 # LGL Testing Suite Guide
 
 **Version:** 2.1.0  

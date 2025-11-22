@@ -27,20 +27,24 @@ defaults:
     values:
       layout: "default"
 
-# Navigation structure
+# Navigation structure (used for reference, actual nav is dynamically generated from site.pages)
 navigation:
   - title: Home
     url: /
   - title: System Flowchart
     url: /flowchart.html
   - title: API Reference
-    url: /Reference%20Documentation/API-REFERENCE.html
+    url: /reference-documentation/API-REFERENCE.html
   - title: Logic Model
-    url: /Reference%20Documentation/LGL%20API%20LOGIC%20MODEL.html
+    url: /reference-documentation/lgl-api-logic-model.html
+  - title: Data Contracts
+    url: /reference-documentation/data-contracts.html
   - title: Testing Guide
-    url: /Testing%20&%20Troubleshooting/MANUAL-TESTING-GUIDE.html
+    url: /testing-troubleshooting/MANUAL-TESTING-GUIDE.html
   - title: Troubleshooting
-    url: /Testing%20&%20Troubleshooting/TROUBLESHOOTING.html
+    url: /testing-troubleshooting/TROUBLESHOOTING.html
+  - title: Security
+    url: /security-audits/SECURITY.html
 
 # Site metadata
 timezone: America/New_York

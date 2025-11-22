@@ -1,3 +1,8 @@
+---
+layout: default
+title: Security Audit Checklist
+---
+
 # Security Audit Checklist
 
 This checklist should be completed before deploying the Integrate-LGL plugin to production or after any significant code changes.

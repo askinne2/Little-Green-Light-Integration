@@ -1,3 +1,8 @@
+---
+layout: default
+title: Production Readiness Status
+---
+
 # Production Readiness Status Report
 
 **Date:** November 22, 2025  
