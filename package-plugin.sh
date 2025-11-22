@@ -224,3 +224,4 @@ echo -e "   ✗ Development scripts"
 echo -e "   ✗ Git files (.git/, .gitignore)"
 echo ""
 
+
