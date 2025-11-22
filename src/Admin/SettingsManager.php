@@ -78,6 +78,13 @@ class SettingsManager implements SettingsManagerInterface {
     private ?array $settings = null;
     
     /**
+     * Flag to prevent recursion during settings loading
+     * 
+     * @var bool
+     */
+    private bool $isLoadingSettings = false;
+    
+    /**
      * Constructor
      * 
      * @param Helper $helper Helper service
@@ -100,8 +107,9 @@ class SettingsManager implements SettingsManagerInterface {
             return $this->settings;
         }
         
-        // Run migration check on first load
+        // Run migration checks on first load
         $this->migrateFromCarbonFields();
+        $this->migrateLegacyApiSettings();
         
         $this->settings = $this->loadSettings();
         return $this->settings;
@@ -175,8 +183,11 @@ class SettingsManager implements SettingsManagerInterface {
             'option_name' => self::OPTION_NAME
         ]);
         
-        // Always clear cache and consider it successful if the data matches what we wanted to save
-        $this->cacheManager->delete(self::CACHE_KEY);
+        // Always clear cache for BOTH environments to ensure correct cache is used
+        // Clear both dev and live caches since environment might have changed
+        $cache_prefix = 'lgl_cache_';
+        delete_transient($cache_prefix . 'dev_' . self::CACHE_KEY);
+        delete_transient($cache_prefix . 'live_' . self::CACHE_KEY);
         $this->settings = null; // Clear memory cache
         
         // Verify the save by reading back (bypass cache)
@@ -253,8 +264,13 @@ class SettingsManager implements SettingsManagerInterface {
                     // Custom callback
                     $sanitized[$key] = $callback($value);
                 } elseif (is_string($callback) && function_exists($callback)) {
-                    // Built-in PHP function
-                    $sanitized[$key] = $callback($value);
+                    // Built-in PHP function - handle empty strings specially for URLs
+                    if ($callback === 'sanitize_url' && $value === '') {
+                        // Preserve empty strings for URL fields
+                        $sanitized[$key] = '';
+                    } else {
+                        $sanitized[$key] = $callback($value);
+                    }
                 } else {
                     // No valid sanitization, use raw value
                     $sanitized[$key] = $value;
@@ -722,12 +738,19 @@ class SettingsManager implements SettingsManagerInterface {
         ];
         
         try {
+            // Clear cache for funds.json and campaigns.json endpoints before fetching
+            $this->cacheManager->delete('api_request_' . md5('funds.json' . serialize(['limit' => 100, 'offset' => 0])));
+            $this->cacheManager->delete('api_request_' . md5('campaigns.json' . serialize(['limit' => 100, 'offset' => 0])));
+            $this->helper->debug('SettingsManager: Cleared cache for funds.json and campaigns.json endpoints before sync');
+            
             // Expected mappings (name → setting key)
+            // Note: These are the target names after remediation
             $expected_funds = [
                 'Membership' => 'fund_id_membership',
                 'Language Classes' => 'fund_id_language_classes',
                 'Events' => 'fund_id_events',
                 'General Donation' => 'fund_id_general',
+                'Family Member Slots' => 'fund_id_family_member_slots',
             ];
             
             $expected_campaigns = [
@@ -736,65 +759,463 @@ class SettingsManager implements SettingsManagerInterface {
                 'Events' => 'campaign_id_events',
             ];
             
-            // Fetch funds
-            $funds_response = $this->connection->makeRequest('funds.json', 'GET');
-            if ($funds_response['success'] && isset($funds_response['data']['items'])) {
-                foreach ($funds_response['data']['items'] as $fund) {
-                    $name = $fund['name'] ?? '';
-                    if (isset($expected_funds[$name])) {
-                        $results['funds'][$expected_funds[$name]] = [
-                            'id' => (int) ($fund['id'] ?? 0),
-                            'name' => $name
-                        ];
-                    }
-                }
-            } else {
-                $results['errors'][] = 'Failed to fetch funds: ' . ($funds_response['error'] ?? 'Unknown error');
-            }
+            // Fetch funds with pagination support (bypass cache)
+            // LGL API uses limit/offset pagination with .json endpoints
+            $all_funds = [];
+            $limit = 100;
+            $offset = 0;
+            $has_more = true;
             
-            // Fetch campaigns
-            $campaigns_response = $this->connection->makeRequest('campaigns.json', 'GET');
-            if ($campaigns_response['success'] && isset($campaigns_response['data']['items'])) {
-                foreach ($campaigns_response['data']['items'] as $campaign) {
-                    $name = $campaign['name'] ?? '';
-                    if (isset($expected_campaigns[$name])) {
-                        $results['campaigns'][$expected_campaigns[$name]] = [
-                            'id' => (int) ($campaign['id'] ?? 0),
-                            'name' => $name
-                        ];
-                    }
-                }
-            } else {
-                $results['errors'][] = 'Failed to fetch campaigns: ' . ($campaigns_response['error'] ?? 'Unknown error');
-            }
-            
-            // Update settings with found IDs
-            $settings_to_update = [];
-            foreach ($results['funds'] as $key => $data) {
-                if ($data['id'] > 0) {
-                    $settings_to_update[$key] = $data['id'];
-                }
-            }
-            foreach ($results['campaigns'] as $key => $data) {
-                if ($data['id'] > 0) {
-                    $settings_to_update[$key] = $data['id'];
-                }
-            }
-            
-            if (!empty($settings_to_update)) {
-                $update_result = $this->update($settings_to_update);
-                $results['success'] = $update_result;
+            while ($has_more) {
+                // Bypass cache to ensure fresh data
+                // Use 'funds.json' endpoint with limit/offset parameters
+                $funds_response = $this->connection->makeRequest('funds.json', 'GET', [
+                    'limit' => $limit,
+                    'offset' => $offset
+                ], false);
                 
-                if ($update_result) {
-                    $this->helper->debug('SettingsManager: Synced Fund and Campaign IDs', [
-                        'funds' => $results['funds'],
-                        'campaigns' => $results['campaigns']
+                $this->helper->debug('SettingsManager: Fetching funds', [
+                    'success' => $funds_response['success'] ?? false,
+                    'has_data' => isset($funds_response['data']),
+                    'limit' => $limit,
+                    'offset' => $offset
+                ]);
+                
+                if (!($funds_response['success'] ?? false)) {
+                    if ($offset === 0) {
+                        // First page failed - return error
+                        $results['errors'][] = 'Failed to fetch funds from LGL API';
+                        break;
+                    }
+                    // Subsequent page failed - stop pagination
+                    break;
+                }
+                
+                // LGL API returns pagination info and items at top level of data
+                $data = $funds_response['data'] ?? [];
+                $items = $data['items'] ?? [];
+                
+                if (empty($items) || !is_array($items)) {
+                    $has_more = false;
+                    break;
+                }
+                
+                $all_funds = array_merge($all_funds, $items);
+                
+                // Get pagination info from top-level response data
+                $items_count = $data['items_count'] ?? count($items);
+                $total_items = $data['total_items'] ?? null;
+                $next_item = $data['next_item'] ?? null;
+                
+                $this->helper->debug('SettingsManager: Funds pagination check', [
+                    'offset' => $offset,
+                    'limit' => $limit,
+                    'items_count' => $items_count,
+                    'total_items_so_far' => count($all_funds),
+                    'total_items' => $total_items,
+                    'next_item' => $next_item,
+                    'has_next_link' => !empty($data['next_link'])
+                ]);
+                
+                // Determine if there are more pages
+                if ($total_items !== null) {
+                    // Use total_items to determine if we've fetched everything
+                    $has_more = count($all_funds) < $total_items;
+                    $this->helper->debug('SettingsManager: Using total_items for pagination', [
+                        'total_items' => $total_items,
+                        'items_fetched' => count($all_funds),
+                        'has_more' => $has_more
+                    ]);
+                } elseif ($next_item !== null) {
+                    // Use next_item to determine if there are more pages
+                    $has_more = $next_item < ($total_items ?? PHP_INT_MAX);
+                    $this->helper->debug('SettingsManager: Using next_item for pagination', [
+                        'next_item' => $next_item,
+                        'has_more' => $has_more
+                    ]);
+                } elseif (!empty($data['next_link'])) {
+                    // If next_link exists, there are more pages
+                    $has_more = true;
+                    $this->helper->debug('SettingsManager: Using next_link for pagination', [
+                        'next_link' => $data['next_link'],
+                        'has_more' => $has_more
                     ]);
                 } else {
-                    $results['errors'][] = 'Failed to update settings';
+                    // No pagination metadata - if we got fewer items than limit, we're done
+                    $has_more = count($items) >= $limit;
+                    $this->helper->debug('SettingsManager: Using item count for pagination', [
+                        'items_count' => count($items),
+                        'limit' => $limit,
+                        'has_more' => $has_more
+                    ]);
+                }
+                
+                // Update offset for next iteration
+                $offset = $next_item ?? ($offset + $items_count);
+                
+                // Safety limit - prevent infinite loops (max 1000 items = 10 pages of 100)
+                if ($offset >= 1000 || count($all_funds) >= 1000) {
+                    $this->helper->debug('SettingsManager: Pagination safety limit reached for funds');
+                    break;
+                }
+            }
+            
+            if (!empty($all_funds)) {
+                // Log all funds received for debugging
+                $fund_details = array_map(function($f) { 
+                    return ['id' => $f['id'] ?? 'N/A', 'name' => $f['name'] ?? 'N/A']; 
+                }, $all_funds);
+                $fund_ids = array_column($fund_details, 'id');
+                $this->helper->debug('SettingsManager: All funds from LGL API', [
+                    'total_funds' => count($all_funds),
+                    'final_offset' => $offset,
+                    'fund_names' => array_column($fund_details, 'name'),
+                    'fund_ids' => $fund_ids,
+                    'expected_fund_names' => array_keys($expected_funds),
+                    'looking_for_ids' => [2747, 4126, 4141],
+                    'found_target_ids' => [
+                        '2747' => in_array(2747, $fund_ids),
+                        '4126' => in_array(4126, $fund_ids),
+                        '4141' => in_array(4141, $fund_ids)
+                    ]
+                ]);
+                
+                // Build normalized expected funds map for case-insensitive matching
+                $expected_funds_normalized = [];
+                foreach ($expected_funds as $expected_name => $setting_key) {
+                    $expected_funds_normalized[strtolower(trim($expected_name))] = [
+                        'original_name' => $expected_name,
+                        'setting_key' => $setting_key
+                    ];
+                }
+                
+                // Also add common variations/aliases based on remediation CSV
+                // "Unknown Language Class" → "Language Classes"
+                $expected_funds_normalized[strtolower('Unknown Language Class')] = [
+                    'original_name' => 'Language Classes',
+                    'setting_key' => 'fund_id_language_classes'
+                ];
+                // "Cultural Event" → "Events"
+                $expected_funds_normalized[strtolower('Cultural Event')] = [
+                    'original_name' => 'Events',
+                    'setting_key' => 'fund_id_events'
+                ];
+                
+                // Match funds by NAME from API response - use whatever ID the API returns for that name
+                // This is the correct approach since the API response contains the authoritative name-to-ID mapping
+                foreach ($all_funds as $fund) {
+                    $fund_id = (int) ($fund['id'] ?? 0);
+                    $name = trim($fund['name'] ?? '');
+                    $name_lower = strtolower($name);
+                    
+                    // Try exact match first
+                    if (isset($expected_funds[$name])) {
+                        $setting_key = $expected_funds[$name];
+                        if (!isset($results['funds'][$setting_key])) {
+                            $results['funds'][$setting_key] = [
+                                'id' => $fund_id,
+                                'name' => $name
+                            ];
+                            $this->helper->debug('✅ SettingsManager: Matched fund by exact name', [
+                                'fund_name' => $name,
+                                'fund_id' => $fund_id,
+                                'setting_key' => $setting_key
+                            ]);
+                        }
+                    }
+                    // Try case-insensitive match or alias
+                    elseif (isset($expected_funds_normalized[$name_lower])) {
+                        $mapping = $expected_funds_normalized[$name_lower];
+                        $setting_key = $mapping['setting_key'];
+                        if (!isset($results['funds'][$setting_key])) {
+                            $results['funds'][$setting_key] = [
+                                'id' => $fund_id,
+                                'name' => $name
+                            ];
+                            $this->helper->debug('✅ SettingsManager: Matched fund by case-insensitive/alias', [
+                                'fund_name' => $name,
+                                'expected_name' => $mapping['original_name'],
+                                'fund_id' => $fund_id,
+                                'setting_key' => $setting_key
+                            ]);
+                        }
+                    }
+                }
+                
+                // Fallback: ID-based matching only if name matching failed (for funds with different names)
+                // This should rarely be needed, but provides a safety net
+                $fund_id_mapping_fallback = [
+                    4147 => 'fund_id_family_member_slots', // Family Member Slots (if name doesn't match)
+                ];
+                
+                foreach ($all_funds as $fund) {
+                    $fund_id = (int) ($fund['id'] ?? 0);
+                    $name = trim($fund['name'] ?? '');
+                    
+                    // Only use ID mapping if name matching didn't find it
+                    if (isset($fund_id_mapping_fallback[$fund_id])) {
+                        $setting_key = $fund_id_mapping_fallback[$fund_id];
+                        if (!isset($results['funds'][$setting_key])) {
+                            $results['funds'][$setting_key] = [
+                                'id' => $fund_id,
+                                'name' => $name
+                            ];
+                            $this->helper->debug('✅ SettingsManager: Matched fund by ID (fallback - name not found)', [
+                                'fund_name' => $name,
+                                'fund_id' => $fund_id,
+                                'setting_key' => $setting_key
+                            ]);
+                        }
+                    }
                 }
             } else {
-                $results['errors'][] = 'No matching funds or campaigns found';
+                $results['errors'][] = 'Failed to fetch funds: No funds returned from API';
+            }
+            
+            // Fetch campaigns with pagination support (bypass cache)
+            // LGL API uses limit/offset pagination with .json endpoints
+            $all_campaigns = [];
+            $limit = 100;
+            $offset = 0;
+            $has_more = true;
+            
+            while ($has_more) {
+                // Bypass cache to ensure fresh data
+                // Use 'campaigns.json' endpoint with limit/offset parameters
+                $campaigns_response = $this->connection->makeRequest('campaigns.json', 'GET', [
+                    'limit' => $limit,
+                    'offset' => $offset
+                ], false);
+                
+                $this->helper->debug('SettingsManager: Fetching campaigns', [
+                    'success' => $campaigns_response['success'] ?? false,
+                    'has_data' => isset($campaigns_response['data']),
+                    'limit' => $limit,
+                    'offset' => $offset
+                ]);
+                
+                if (!($campaigns_response['success'] ?? false)) {
+                    if ($offset === 0) {
+                        // First page failed - return error
+                        $results['errors'][] = 'Failed to fetch campaigns from LGL API';
+                        break;
+                    }
+                    // Subsequent page failed - stop pagination
+                    break;
+                }
+                
+                // LGL API returns pagination info and items at top level of data
+                $data = $campaigns_response['data'] ?? [];
+                $items = $data['items'] ?? [];
+                
+                if (empty($items) || !is_array($items)) {
+                    $has_more = false;
+                    break;
+                }
+                
+                $all_campaigns = array_merge($all_campaigns, $items);
+                
+                // Get pagination info from top-level response data
+                $items_count = $data['items_count'] ?? count($items);
+                $total_items = $data['total_items'] ?? null;
+                $next_item = $data['next_item'] ?? null;
+                
+                $this->helper->debug('SettingsManager: Campaigns pagination check', [
+                    'offset' => $offset,
+                    'limit' => $limit,
+                    'items_count' => $items_count,
+                    'total_items_so_far' => count($all_campaigns),
+                    'total_items' => $total_items,
+                    'next_item' => $next_item,
+                    'has_next_link' => !empty($data['next_link'])
+                ]);
+                
+                // Determine if there are more pages
+                if ($total_items !== null) {
+                    // Use total_items to determine if we've fetched everything
+                    $has_more = count($all_campaigns) < $total_items;
+                    $this->helper->debug('SettingsManager: Using total_items for campaigns pagination', [
+                        'total_items' => $total_items,
+                        'items_fetched' => count($all_campaigns),
+                        'has_more' => $has_more
+                    ]);
+                } elseif ($next_item !== null) {
+                    // Use next_item to determine if there are more pages
+                    $has_more = $next_item < ($total_items ?? PHP_INT_MAX);
+                    $this->helper->debug('SettingsManager: Using next_item for campaigns pagination', [
+                        'next_item' => $next_item,
+                        'has_more' => $has_more
+                    ]);
+                } elseif (!empty($data['next_link'])) {
+                    // If next_link exists, there are more pages
+                    $has_more = true;
+                    $this->helper->debug('SettingsManager: Using next_link for campaigns pagination', [
+                        'next_link' => $data['next_link'],
+                        'has_more' => $has_more
+                    ]);
+                } else {
+                    // No pagination metadata - if we got fewer items than limit, we're done
+                    $has_more = count($items) >= $limit;
+                    $this->helper->debug('SettingsManager: Using item count for campaigns pagination', [
+                        'items_count' => count($items),
+                        'limit' => $limit,
+                        'has_more' => $has_more
+                    ]);
+                }
+                
+                // Update offset for next iteration
+                $offset = $next_item ?? ($offset + $items_count);
+                
+                // Safety limit - prevent infinite loops (max 1000 items = 10 pages of 100)
+                if ($offset >= 1000 || count($all_campaigns) >= 1000) {
+                    $this->helper->debug('SettingsManager: Pagination safety limit reached for campaigns');
+                    break;
+                }
+            }
+            
+            if (!empty($all_campaigns)) {
+                // Log all campaigns received for debugging
+                $campaign_details = array_map(function($c) { 
+                    return ['id' => $c['id'] ?? 'N/A', 'name' => $c['name'] ?? 'N/A']; 
+                }, $all_campaigns);
+                $campaign_ids = array_column($campaign_details, 'id');
+                $this->helper->debug('SettingsManager: All campaigns from LGL API', [
+                    'total_campaigns' => count($all_campaigns),
+                    'final_offset' => $offset,
+                    'campaign_names' => array_column($campaign_details, 'name'),
+                    'campaign_ids' => $campaign_ids,
+                    'expected_campaign_names' => array_keys($expected_campaigns),
+                    'looking_for_ids' => [842, 852, 927],
+                    'found_target_ids' => [
+                        '842' => in_array(842, $campaign_ids),
+                        '852' => in_array(852, $campaign_ids),
+                        '927' => in_array(927, $campaign_ids)
+                    ]
+                ]);
+                
+                // Build normalized expected campaigns map for case-insensitive matching
+                $expected_campaigns_normalized = [];
+                foreach ($expected_campaigns as $expected_name => $setting_key) {
+                    $expected_campaigns_normalized[strtolower(trim($expected_name))] = [
+                        'original_name' => $expected_name,
+                        'setting_key' => $setting_key
+                    ];
+                }
+                
+                // Add common variations/aliases
+                // "Membership Fees" → "Membership"
+                $expected_campaigns_normalized[strtolower('Membership Fees')] = [
+                    'original_name' => 'Membership',
+                    'setting_key' => 'campaign_id_membership'
+                ];
+                // "Language Class" → "Language Programs"
+                $expected_campaigns_normalized[strtolower('Language Class')] = [
+                    'original_name' => 'Language Programs',
+                    'setting_key' => 'campaign_id_language_classes'
+                ];
+                // "WACU Programming" → "Events"
+                $expected_campaigns_normalized[strtolower('WACU Programming')] = [
+                    'original_name' => 'Events',
+                    'setting_key' => 'campaign_id_events'
+                ];
+                
+                // Match campaigns by NAME from API response - use whatever ID the API returns for that name
+                // This is the correct approach since the API response contains the authoritative name-to-ID mapping
+                foreach ($all_campaigns as $campaign) {
+                    $campaign_id = (int) ($campaign['id'] ?? 0);
+                    $name = trim($campaign['name'] ?? '');
+                    $name_lower = strtolower($name);
+                    
+                    // Try exact match first
+                    if (isset($expected_campaigns[$name])) {
+                        $setting_key = $expected_campaigns[$name];
+                        if (!isset($results['campaigns'][$setting_key])) {
+                            $results['campaigns'][$setting_key] = [
+                                'id' => $campaign_id,
+                                'name' => $name
+                            ];
+                            $this->helper->debug('✅ SettingsManager: Matched campaign by exact name', [
+                                'campaign_name' => $name,
+                                'campaign_id' => $campaign_id,
+                                'setting_key' => $setting_key
+                            ]);
+                        }
+                    }
+                    // Try case-insensitive match or alias
+                    elseif (isset($expected_campaigns_normalized[$name_lower])) {
+                        $mapping = $expected_campaigns_normalized[$name_lower];
+                        $setting_key = $mapping['setting_key'];
+                        if (!isset($results['campaigns'][$setting_key])) {
+                            $results['campaigns'][$setting_key] = [
+                                'id' => $campaign_id,
+                                'name' => $name
+                            ];
+                            $this->helper->debug('✅ SettingsManager: Matched campaign by case-insensitive/alias', [
+                                'campaign_name' => $name,
+                                'expected_name' => $mapping['original_name'],
+                                'campaign_id' => $campaign_id,
+                                'setting_key' => $setting_key
+                            ]);
+                        }
+                    }
+                }
+            } else {
+                $results['errors'][] = 'Failed to fetch campaigns: No campaigns returned from API';
+            }
+            
+            // Log summary of what was matched vs what wasn't
+            $fund_setting_to_name = array_flip($expected_funds);
+            $campaign_setting_to_name = array_flip($expected_campaigns);
+            
+            $matched_fund_keys = array_keys($results['funds']);
+            $matched_campaign_keys = array_keys($results['campaigns']);
+            
+            $matched_fund_names = array_filter(array_map(function($key) use ($fund_setting_to_name) {
+                return $fund_setting_to_name[$key] ?? null;
+            }, $matched_fund_keys));
+            
+            $matched_campaign_names = array_filter(array_map(function($key) use ($campaign_setting_to_name) {
+                return $campaign_setting_to_name[$key] ?? null;
+            }, $matched_campaign_keys));
+            
+            $unmatched_funds = array_diff(array_keys($expected_funds), $matched_fund_names);
+            $unmatched_campaigns = array_diff(array_keys($expected_campaigns), $matched_campaign_names);
+            
+            $this->helper->debug('SettingsManager: Sync summary', [
+                'matched_funds' => array_values($matched_fund_names),
+                'matched_campaigns' => array_values($matched_campaign_names),
+                'unmatched_funds' => array_values($unmatched_funds),
+                'unmatched_campaigns' => array_values($unmatched_campaigns),
+                'total_expected_funds' => count($expected_funds),
+                'total_expected_campaigns' => count($expected_campaigns),
+                'total_matched_funds' => count($matched_fund_keys),
+                'total_matched_campaigns' => count($matched_campaign_keys)
+            ]);
+            
+            // Don't save here - let the caller handle environment-specific mapping
+            // Just return the results
+            if (!empty($results['funds']) || !empty($results['campaigns'])) {
+                $results['success'] = true;
+                $this->helper->debug('SettingsManager: Synced Fund and Campaign IDs (returning results for environment-specific mapping)', [
+                    'funds' => $results['funds'],
+                    'campaigns' => $results['campaigns']
+                ]);
+            } else {
+                $results['success'] = false;
+            }
+            
+            // Add warnings for unmatched items
+            if (!empty($unmatched_funds)) {
+                $results['errors'][] = sprintf(
+                    'Warning: Could not find matching funds for: %s. Check that fund names in LGL match expected names.',
+                    implode(', ', $unmatched_funds)
+                );
+            }
+            if (!empty($unmatched_campaigns)) {
+                $results['errors'][] = sprintf(
+                    'Warning: Could not find matching campaigns for: %s. Check that campaign names in LGL match expected names.',
+                    implode(', ', $unmatched_campaigns)
+                );
             }
             
         } catch (\Exception $e) {
@@ -1224,28 +1645,52 @@ class SettingsManager implements SettingsManagerInterface {
      * @return array Settings array
      */
     private function loadSettings(): array {
-        // 1. Try cache
-        $cached = $this->cacheManager->get(self::CACHE_KEY);
-        if ($cached !== false && is_array($cached)) {
-            return $cached;
+        // Prevent infinite recursion
+        if ($this->isLoadingSettings) {
+            // Return minimal settings to break the cycle
+            return get_option(self::OPTION_NAME, []);
         }
         
-        // 2. Load from WP option
-        $settings = get_option(self::OPTION_NAME, []);
+        $this->isLoadingSettings = true;
         
-        // 3. Apply defaults from schema
-        $schema = $this->getSchema();
-        foreach ($schema as $key => $field) {
-            if (!isset($settings[$key])) {
-                $default = $field['default'];
-                $settings[$key] = is_callable($default) ? $default() : $default;
+        try {
+            // 1. Load from WP option first to determine environment
+            // This must be done BEFORE checking cache to know which cache to check
+            $settings = get_option(self::OPTION_NAME, []);
+            
+            // 2. Determine environment from settings (before applying defaults)
+            $env = $settings['environment'] ?? 'live';
+            if (!in_array($env, ['dev', 'live'])) {
+                $env = 'live';
             }
+            
+            // 3. Try cache for the CORRECT environment (not both)
+            $cache_prefix = 'lgl_cache_';
+            $cache_key = $cache_prefix . $env . '_' . self::CACHE_KEY;
+            $cached = get_transient($cache_key);
+            
+            if ($cached !== false && is_array($cached)) {
+                $this->isLoadingSettings = false;
+                return $cached;
+            }
+            
+            // 4. Apply defaults from schema (only for missing keys)
+            $schema = $this->getSchema();
+            foreach ($schema as $key => $field) {
+                if (!isset($settings[$key])) {
+                    $default = $field['default'];
+                    $settings[$key] = is_callable($default) ? $default() : $default;
+                }
+            }
+            
+            // 5. Cache the result (use direct transient to avoid recursion)
+            set_transient($cache_key, $settings, self::CACHE_TTL);
+            
+            return $settings;
+            
+        } finally {
+            $this->isLoadingSettings = false;
         }
-        
-        // 4. Cache the result
-        $this->cacheManager->set(self::CACHE_KEY, $settings, self::CACHE_TTL);
-        
-        return $settings;
     }
     
     /**
@@ -1321,16 +1766,59 @@ class SettingsManager implements SettingsManagerInterface {
     }
     
     /**
+     * Migrate legacy single API key to environment-based keys
+     * 
+     * Called automatically on first load if legacy keys exist
+     */
+    private function migrateLegacyApiSettings(): void {
+        // Check if migration already done
+        if (get_option('lgl_environment_migration_done')) {
+            return;
+        }
+        
+        // Load settings directly from database to avoid recursion (don't use getAll())
+        $settings = get_option(self::OPTION_NAME, []);
+        
+        // If legacy keys exist but environment keys don't, migrate to live
+        // BUT: Don't overwrite environment if it's already set (user may have set it to dev)
+        if (!empty($settings['api_key']) && empty($settings['live_api_key'])) {
+            // Update directly to avoid triggering getAll() again
+            $settings['live_api_key'] = $settings['api_key'];
+            $settings['live_api_url'] = $settings['api_url'] ?? '';
+            
+            // Only set environment to 'live' if it's not already set
+            if (empty($settings['environment'])) {
+                $settings['environment'] = 'live';
+            }
+            
+            update_option(self::OPTION_NAME, $settings);
+            
+            // Clear both caches
+            $cache_prefix = 'lgl_cache_';
+            delete_transient($cache_prefix . 'dev_' . self::CACHE_KEY);
+            delete_transient($cache_prefix . 'live_' . self::CACHE_KEY);
+            
+            $this->helper->debug('SettingsManager: Migrated legacy API settings to live environment');
+        }
+        
+        // Mark migration as complete
+        update_option('lgl_environment_migration_done', true);
+    }
+    
+    /**
      * Get default schema definition
      * 
      * @return array Schema definition
      */
     private function getDefaultSchema(): array {
+        // Default LGL API endpoint URL
+        $default_api_url = 'https://api.littlegreenlight.com/api/v1';
+        
         return [
-            // API Configuration
+            // API Configuration (legacy - kept for backward compatibility)
             'api_url' => [
                 'type' => 'string',
-                'default' => '',
+                'default' => $default_api_url,
                 'validation' => ['required', 'url'],
                 'sanitize' => 'sanitize_url'
             ],
@@ -1339,6 +1827,50 @@ class SettingsManager implements SettingsManagerInterface {
                 'default' => '',
                 'validation' => ['required', 'min:32'],
                 'sanitize' => 'sanitize_text_field'
+            ],
+            
+            // Environment Configuration
+            'environment' => [
+                'type' => 'string',
+                'default' => 'live',
+                'validation' => ['in:dev,live'],
+                'sanitize' => 'sanitize_text_field',
+                'label' => 'Environment',
+                'description' => 'Select the LGL environment to use (dev or live)'
+            ],
+            
+            // Dev Environment API Configuration
+            'dev_api_url' => [
+                'type' => 'string',
+                'default' => $default_api_url,
+                'validation' => ['url'],
+                'sanitize' => 'sanitize_url',
+                'label' => 'Dev API URL',
+                'description' => 'LGL API URL for development environment'
+            ],
+            'dev_api_key' => [
+                'type' => 'string',
+                'default' => '',
+                'sanitize' => 'sanitize_text_field',
+                'label' => 'Dev API Key',
+                'description' => 'LGL API key for development environment'
+            ],
+            
+            // Live Environment API Configuration  
+            'live_api_url' => [
+                'type' => 'string',
+                'default' => $default_api_url,
+                'validation' => ['url'],
+                'sanitize' => 'sanitize_url',
+                'label' => 'Live API URL',
+                'description' => 'LGL API URL for live/production environment'
+            ],
+            'live_api_key' => [
+                'type' => 'string',
+                'default' => '',
+                'sanitize' => 'sanitize_text_field',
+                'label' => 'Live API Key',
+                'description' => 'LGL API key for live/production environment'
             ],
             
             // System Settings
@@ -1593,6 +2125,126 @@ class SettingsManager implements SettingsManagerInterface {
                 'sanitize' => 'intval',
                 'label' => 'Events Campaign ID',
                 'description' => 'LGL campaign ID for event registrations (auto-synced from LGL)'
+            ],
+            
+            // Dev Environment Fund IDs
+            'dev_fund_id_membership' => [
+                'type' => 'integer',
+                'default' => 2437,  // Dev Membership Fund ID
+                'sanitize' => 'intval',
+                'label' => 'Dev Membership Fund ID',
+                'description' => 'LGL fund ID for membership payments (dev environment)'
+            ],
+            'dev_fund_id_language_classes' => [
+                'type' => 'integer',
+                'default' => 2747,
+                'sanitize' => 'intval',
+                'label' => 'Dev Language Classes Fund ID',
+                'description' => 'LGL fund ID for language class registrations (dev environment)'
+            ],
+            'dev_fund_id_events' => [
+                'type' => 'integer',
+                'default' => 4141,
+                'sanitize' => 'intval',
+                'label' => 'Dev Events Fund ID',
+                'description' => 'LGL fund ID for event registrations (dev environment)'
+            ],
+            'dev_fund_id_general' => [
+                'type' => 'integer',
+                'default' => 4126,
+                'sanitize' => 'intval',
+                'label' => 'Dev General Fund ID',
+                'description' => 'LGL fund ID for general donations (dev environment)'
+            ],
+            'dev_fund_id_family_member_slots' => [
+                'type' => 'integer',
+                'default' => 4147,
+                'sanitize' => 'intval',
+                'label' => 'Dev Family Member Slots Fund ID',
+                'description' => 'LGL fund ID for Family Member slot purchases (dev environment)'
+            ],
+            
+            // Live Environment Fund IDs
+            'live_fund_id_membership' => [
+                'type' => 'integer',
+                'default' => 2432,  // Live Membership Fund ID (corrected)
+                'sanitize' => 'intval',
+                'label' => 'Live Membership Fund ID',
+                'description' => 'LGL fund ID for membership payments (live environment)'
+            ],
+            'live_fund_id_language_classes' => [
+                'type' => 'integer',
+                'default' => 4132,
+                'sanitize' => 'intval',
+                'label' => 'Live Language Classes Fund ID',
+                'description' => 'LGL fund ID for language class registrations (live environment)'
+            ],
+            'live_fund_id_events' => [
+                'type' => 'integer',
+                'default' => 4142,
+                'sanitize' => 'intval',
+                'label' => 'Live Events Fund ID',
+                'description' => 'LGL fund ID for event registrations (live environment)'
+            ],
+            'live_fund_id_general' => [
+                'type' => 'integer',
+                'default' => 4127,
+                'sanitize' => 'intval',
+                'label' => 'Live General Fund ID',
+                'description' => 'LGL fund ID for general donations (live environment)'
+            ],
+            'live_fund_id_family_member_slots' => [
+                'type' => 'integer',
+                'default' => 4147,
+                'sanitize' => 'intval',
+                'label' => 'Live Family Member Slots Fund ID',
+                'description' => 'LGL fund ID for Family Member slot purchases (live environment)'
+            ],
+            
+            // Dev Environment Campaign IDs
+            'dev_campaign_id_membership' => [
+                'type' => 'integer',
+                'default' => null,
+                'sanitize' => 'intval',
+                'label' => 'Dev Membership Campaign ID',
+                'description' => 'LGL campaign ID for membership payments (dev environment, auto-synced)'
+            ],
+            'dev_campaign_id_language_classes' => [
+                'type' => 'integer',
+                'default' => null,
+                'sanitize' => 'intval',
+                'label' => 'Dev Language Programs Campaign ID',
+                'description' => 'LGL campaign ID for language class registrations (dev environment, auto-synced)'
+            ],
+            'dev_campaign_id_events' => [
+                'type' => 'integer',
+                'default' => null,
+                'sanitize' => 'intval',
+                'label' => 'Dev Events Campaign ID',
+                'description' => 'LGL campaign ID for event registrations (dev environment, auto-synced)'
+            ],
+            
+            // Live Environment Campaign IDs
+            'live_campaign_id_membership' => [
+                'type' => 'integer',
+                'default' => null,
+                'sanitize' => 'intval',
+                'label' => 'Live Membership Campaign ID',
+                'description' => 'LGL campaign ID for membership payments (live environment, auto-synced)'
+            ],
+            'live_campaign_id_language_classes' => [
+                'type' => 'integer',
+                'default' => null,
+                'sanitize' => 'intval',
+                'label' => 'Live Language Programs Campaign ID',
+                'description' => 'LGL campaign ID for language class registrations (live environment, auto-synced)'
+            ],
+            'live_campaign_id_events' => [
+                'type' => 'integer',
+                'default' => null,
+                'sanitize' => 'intval',
+                'label' => 'Live Events Campaign ID',
+                'description' => 'LGL campaign ID for event registrations (live environment, auto-synced)'
             ],
             
             // Group ID Settings (Auto-synced from LGL)
@@ -1888,6 +2540,111 @@ class SettingsManager implements SettingsManagerInterface {
                 'label' => 'General Orders - Content'
             ]
         ];
+    }
+    
+    /**
+     * Get current environment (dev or live)
+     * 
+     * @return string 'dev' or 'live'
+     */
+    public function getEnvironment(): string {
+        return $this->get('environment', 'live');
+    }
+    
+    /**
+     * Get environment-specific API URL
+     * 
+     * @return string API URL for current environment
+     */
+    public function getApiUrlForEnvironment(): string {
+        $env = $this->getEnvironment();
+        $key = $env . '_api_url';
+        $url = $this->get($key, '');
+        
+        // Fallback to legacy api_url if environment-specific key is empty
+        if (empty($url)) {
+            $url = $this->get('api_url', '');
+        }
+        
+        return $url;
+    }
+    
+    /**
+     * Get environment-specific API key
+     * 
+     * @return string API key for current environment
+     */
+    public function getApiKeyForEnvironment(): string {
+        $env = $this->getEnvironment();
+        $key = $env . '_api_key';
+        $api_key = $this->get($key, '');
+        
+        // Fallback to legacy api_key if environment-specific key is empty
+        if (empty($api_key)) {
+            $api_key = $this->get('api_key', '');
+        }
+        
+        return $api_key;
+    }
+    
+    /**
+     * Get environment-specific fund ID
+     * 
+     * @param string $fund_type 'membership', 'language_classes', 'events', 'general', 'family_member_slots'
+     * @return int Fund ID for current environment
+     */
+    public function getFundIdForEnvironment(string $fund_type): int {
+        $env = $this->getEnvironment();
+        $key = $env . '_fund_id_' . $fund_type;
+        $fund_id = $this->get($key);
+        
+        // Fallback to legacy fund_id_* if environment-specific key is empty
+        if (empty($fund_id)) {
+            $legacy_key = 'fund_id_' . $fund_type;
+            $fund_id = $this->get($legacy_key, $this->getDefaultFundId($fund_type));
+        }
+        
+        return (int) $fund_id;
+    }
+    
+    /**
+     * Get environment-specific campaign ID
+     * 
+     * @param string $campaign_type 'membership', 'language_classes', 'events'
+     * @return int|null Campaign ID for current environment
+     */
+    public function getCampaignIdForEnvironment(string $campaign_type): ?int {
+        $env = $this->getEnvironment();
+        $key = $env . '_campaign_id_' . $campaign_type;
+        $campaign_id = $this->get($key);
+        
+        // Fallback to legacy campaign_id_* if environment-specific key is empty
+        if (empty($campaign_id)) {
+            $legacy_key = 'campaign_id_' . $campaign_type;
+            $campaign_id = $this->get($legacy_key);
+        }
+        
+        return $campaign_id ? (int) $campaign_id : null;
+    }
+    
+    /**
+     * Get default fund ID (fallback)
+     * 
+     * @param string $fund_type Fund type
+     * @return int Default fund ID
+     */
+    private function getDefaultFundId(string $fund_type): int {
+        // These defaults are fallbacks only - actual IDs come from API sync
+        // Live environment defaults (used as fallback)
+        $defaults = [
+            'membership' => 2432,  // Live Membership Fund ID (corrected)
+            'language_classes' => 4132,
+            'events' => 4142,
+            'general' => 4127,
+            'family_member_slots' => 4147
+        ];
+        
+        return $defaults[$fund_type] ?? 4127;
     }
     
     /**

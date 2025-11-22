@@ -123,14 +123,23 @@ class ApiSettings {
      * Get API URL
      */
     public function getApiUrl(): string {
-        $url = $this->getSetting('lgl_api_url');
-        return $url ? rtrim($url, '/') : '';
+        $this->ensureSettingsManager();
+        if ($this->settingsManager) {
+            return $this->settingsManager->getApiUrlForEnvironment();
+        }
+        // Fallback to legacy
+        return $this->getSetting('lgl_api_url') ?: '';
     }
     
     /**
      * Get API Key
      */
     public function getApiKey(): string {
+        $this->ensureSettingsManager();
+        if ($this->settingsManager) {
+            return $this->settingsManager->getApiKeyForEnvironment();
+        }
+        // Fallback to legacy
         return $this->getSetting('lgl_api_key') ?: '';
     }
     

@@ -319,7 +319,7 @@ class Payments {
             
             $campaign_id = null;
             if ($settingsManager) {
-                $campaign_id = $settingsManager->get('campaign_id_membership');
+                $campaign_id = $settingsManager->getCampaignIdForEnvironment('membership');
             }
             
             // Fallback to name lookup for backward compatibility
@@ -519,7 +519,7 @@ class Payments {
             
             $campaign_id = null;
             if ($settingsManager) {
-                $campaign_id = $settingsManager->get('campaign_id_language_classes');
+                $campaign_id = $settingsManager->getCampaignIdForEnvironment('language_classes');
             }
             
             // Fallback to name lookup for backward compatibility
@@ -702,7 +702,7 @@ class Payments {
             
             $campaign_id = null;
             if ($settingsManager) {
-                $campaign_id = $settingsManager->get('campaign_id_events');
+                $campaign_id = $settingsManager->getCampaignIdForEnvironment('events');
             }
             
             // Fallback to name lookup for backward compatibility
@@ -866,7 +866,7 @@ class Payments {
         }
         
         // Get Family Member Slots fund ID from settings (for comparison)
-        $family_member_fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_family_member_slots', 4147) : 4147;
+        $family_member_fund_id = $settingsManager ? $settingsManager->getFundIdForEnvironment('family_member_slots') : 4147;
         
         // CRITICAL FIX: If a specific product is provided, only check that product
         // This ensures correct fund ID for mixed carts
@@ -940,21 +940,21 @@ class Payments {
                 
                 // Check for membership category (use 'memberships' plural as that's the actual slug)
                 if (in_array('memberships', $categories) || in_array('membership', $categories)) {
-                    $fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_membership', 2437) : 2437;
+                    $fund_id = $settingsManager ? $settingsManager->getFundIdForEnvironment('membership') : 2437;
                     $this->debug('Membership category detected', ['fund_id' => $fund_id]);
                     return $fund_id;
                 }
                 
                 // Check for language class category
                 if (in_array('language-class', $categories)) {
-                    $fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_language_classes', 4132) : 4132;
+                    $fund_id = $settingsManager ? $settingsManager->getFundIdForEnvironment('language_classes') : 4132;
                     $this->debug('Language class category detected', ['fund_id' => $fund_id]);
                     return $fund_id;
                 }
                 
                 // Check for events category
                 if (in_array('events', $categories)) {
-                    $fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_events', 4142) : 4142;
+                    $fund_id = $settingsManager ? $settingsManager->getFundIdForEnvironment('events') : 4142;
                     $this->debug('Events category detected', ['fund_id' => $fund_id]);
                     return $fund_id;
                 }
@@ -1019,21 +1019,21 @@ class Payments {
                 
                 // Check for membership category (use 'memberships' plural as that's the actual slug)
                 if (in_array('memberships', $categories) || in_array('membership', $categories)) {
-                    $fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_membership', 2437) : 2437;
+                    $fund_id = $settingsManager ? $settingsManager->getFundIdForEnvironment('membership') : 2437;
                     $this->debug('Membership category detected', ['fund_id' => $fund_id]);
                     return $fund_id;
                 }
                 
                 // Check for language class category
                 if (in_array('language-class', $categories)) {
-                    $fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_language_classes', 4132) : 4132;
+                    $fund_id = $settingsManager ? $settingsManager->getFundIdForEnvironment('language_classes') : 4132;
                     $this->debug('Language class category detected', ['fund_id' => $fund_id]);
                     return $fund_id;
                 }
                 
                 // Check for events category
                 if (in_array('events', $categories)) {
-                    $fund_id = $settingsManager ? (int) $settingsManager->get('fund_id_events', 4142) : 4142;
+                    $fund_id = $settingsManager ? $settingsManager->getFundIdForEnvironment('events') : 4142;
                     $this->debug('Events category detected', ['fund_id' => $fund_id]);
                     return $fund_id;
                 }
@@ -1042,7 +1042,7 @@ class Payments {
         
         // Default to general fund if no category matched
         $this->debug('No category matched, using general fund', []);
-        return $settingsManager ? (int) $settingsManager->get('fund_id_general', 4127) : 4127;
+        return $settingsManager ? $settingsManager->getFundIdForEnvironment('general') : 4127;
     }
     
     /**
@@ -1067,7 +1067,7 @@ class Payments {
                 $container = lgl_get_container();
                 if ($container->has('admin.settings_manager')) {
                     $settingsManager = $container->get('admin.settings_manager');
-                    $family_member_fund_id = (int) $settingsManager->get('fund_id_family_member_slots', 4147);
+                    $family_member_fund_id = $settingsManager->getFundIdForEnvironment('family_member_slots');
                 }
             } catch (\Exception $e) {
                 $family_member_fund_id = 4147;

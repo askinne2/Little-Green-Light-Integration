@@ -35,6 +35,15 @@ class SyncLogPage {
         ?>
         <div class="wrap lgl-admin-page">
             <h1>📜 LGL Sync Log</h1>
+            
+            <?php 
+            // Display environment notice
+            echo lgl_render_environment_notice();
+            if (function_exists('lgl_render_environment_notice_script')) {
+                echo lgl_render_environment_notice_script();
+            }
+            ?>
+            
             <p>Review the latest WooCommerce orders and JetForm submissions synchronized with Little Green Light.</p>
 
             <form method="get" class="lgl-sync-filter">

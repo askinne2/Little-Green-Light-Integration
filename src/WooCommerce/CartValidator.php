@@ -220,6 +220,7 @@ class CartValidator {
         $cart_items = WC()->cart->get_cart();
         $family_member_count = 0;
         $membership_count = 0;
+        $membership_products = [];
         
         // Count family member and membership products in cart
         foreach ($cart_items as $cart_item_key => $cart_item) {
@@ -229,7 +230,23 @@ class CartValidator {
                 $family_member_count += $cart_item['quantity'];
             } elseif ($this->isMembershipProduct($product)) {
                 $membership_count += $cart_item['quantity'];
+                $membership_products[] = $product->get_name();
             }
+        }
+        
+        // CRITICAL FIX: Prevent multiple different membership products in cart
+        // Users should only have ONE active membership at a time
+        if (count($membership_products) > 1) {
+            $unique_memberships = array_unique($membership_products);
+            $membership_list = implode('", "', $unique_memberships);
+            wc_add_notice(
+                sprintf(
+                    'You have multiple membership products in your cart ("%s"). You can only purchase one membership at a time. Please remove all but one membership from your cart before proceeding to checkout.',
+                    $membership_list
+                ),
+                'error'
+            );
+            return;
         }
         
         // Guest + Family Member validation
@@ -250,9 +267,6 @@ class CartValidator {
         if ($family_member_count > 0) {
             $this->validateTotalFamilyMemberQuantity($family_member_count);
         }
-        
-        // Validate membership quantity (should be max 1 per type, but WooCommerce handles this)
-        // This is a placeholder for future mixed cart validations
     }
     
     /**
@@ -316,7 +330,10 @@ class CartValidator {
     }
     
     /**
-     * Check if product is a membership product (Member, Supporter, Patron)
+     * Check if product is a membership product
+     * 
+     * Recognizes both new membership products (Gateway Member, Crossroads Collective, World Horizon Patron)
+     * and legacy products (Member, Supporter, Patron, or containing "membership")
      * 
      * @param \WC_Product $product Product object
      * @return bool
@@ -334,17 +351,33 @@ class CartValidator {
             return false;
         }
         
-        // Membership products: Member, Supporter, Patron
+        // New membership product names (2025+ model)
         $product_name = $product->get_name();
-        $membership_names = ['Member', 'Supporter', 'Patron'];
+        $new_membership_names = [
+            'Gateway Member',
+            'Crossroads Collective',
+            'World Horizon Patron',
+            // Legacy names (for backward compatibility)
+            'Member',
+            'Supporter',
+            'Patron'
+        ];
         
-        foreach ($membership_names as $name) {
+        foreach ($new_membership_names as $name) {
             if (stripos($product_name, $name) !== false) {
                 return true;
             }
         }
         
-        return false;
+        // Legacy subscription products (contains "membership")
+        if (stripos($product_name, 'membership') !== false) {
+            return true;
+        }
+        
+        // If in memberships category but name doesn't match known patterns,
+        // still treat as membership (category is authoritative)
+        // This ensures any product in the memberships category is validated
+        return true;
     }
     
     /**
@@ -534,7 +567,8 @@ class CartValidator {
             return false;
         }
         
-        // Check if user already has this membership type in cart
+        // CRITICAL FIX: Check if user already has ANY membership product in cart
+        // Users should only have ONE active membership at a time (not multiple different types)
         if (!function_exists('WC') || !WC()->cart) {
             return true; // Can't validate without cart
         }
@@ -546,7 +580,21 @@ class CartValidator {
             $cart_product = $cart_item['data'];
             if ($this->isMembershipProduct($cart_product)) {
                 $cart_product_name = $cart_product->get_name();
-                // Check if same membership type (exact name match)
+                
+                // Prevent adding ANY other membership if one already exists
+                // This prevents "Member" + "Supporter" or any other combination
+                if ($cart_product_name !== $product_name) {
+                    wc_add_notice(
+                        sprintf(
+                            'You already have a "%s" membership in your cart. You can only purchase one membership at a time. Please remove the existing membership from your cart before adding a different one.',
+                            $cart_product_name
+                        ),
+                        'error'
+                    );
+                    return false;
+                }
+                
+                // Also prevent duplicate same-type memberships (existing check)
                 if ($cart_product_name === $product_name) {
                     wc_add_notice(
                         sprintf(

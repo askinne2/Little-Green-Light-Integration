@@ -712,6 +712,8 @@ class AdminMenuManager {
      * Render API settings form
      */
     private function renderApiSettingsForm(array $settings, string $nonce): string {
+        $current_environment = $settings['environment'] ?? 'live';
+        
         ob_start();
         ?>
         <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
@@ -720,21 +722,57 @@ class AdminMenuManager {
             
             <table class="form-table">
                 <tr>
-                    <th><label for="lgl_api_url">API URL</label></th>
+                    <th><label for="lgl_environment">Environment</label></th>
                     <td>
-                        <input type="url" name="lgl_api_url" id="lgl_api_url" 
-                               value="<?php echo esc_attr($settings['api_url'] ?? ''); ?>" 
-                               class="regular-text" required />
-                        <p class="description">Your Little Green Light API endpoint URL</p>
+                        <select name="lgl_environment" id="lgl_environment" class="regular-text">
+                            <option value="live" <?php selected($current_environment, 'live'); ?>>Live</option>
+                            <option value="dev" <?php selected($current_environment, 'dev'); ?>>Development</option>
+                        </select>
+                        <p class="description">Select which LGL environment to use for API calls.</p>
+                    </td>
+                </tr>
+            </table>
+            
+            <h3>Development Environment</h3>
+            <table class="form-table">
+                <tr>
+                    <th><label for="dev_api_url">Dev API URL</label></th>
+                    <td>
+                        <input type="url" name="dev_api_url" id="dev_api_url" 
+                               value="<?php echo esc_attr($settings['dev_api_url'] ?? 'https://api.littlegreenlight.com/api/v1'); ?>" 
+                               class="regular-text" placeholder="https://api.littlegreenlight.com/api/v1" />
+                        <p class="description">LGL API URL for development environment</p>
                     </td>
                 </tr>
                 <tr>
-                    <th><label for="lgl_api_key">API Key</label></th>
+                    <th><label for="dev_api_key">Dev API Key</label></th>
                     <td>
-                        <input type="password" name="lgl_api_key" id="lgl_api_key" 
-                               value="<?php echo esc_attr($settings['api_key'] ?? ''); ?>" 
-                               class="regular-text" required />
-                        <p class="description">Your API authentication key</p>
+                        <input type="password" name="dev_api_key" id="dev_api_key" 
+                               value="<?php echo esc_attr($settings['dev_api_key'] ?? ''); ?>" 
+                               class="regular-text" />
+                        <p class="description">LGL API key for development environment</p>
+                    </td>
+                </tr>
+            </table>
+            
+            <h3>Live Environment</h3>
+            <table class="form-table">
+                <tr>
+                    <th><label for="live_api_url">Live API URL</label></th>
+                    <td>
+                        <input type="url" name="live_api_url" id="live_api_url" 
+                               value="<?php echo esc_attr($settings['live_api_url'] ?? 'https://api.littlegreenlight.com/api/v1'); ?>" 
+                               class="regular-text" placeholder="https://api.littlegreenlight.com/api/v1" />
+                        <p class="description">LGL API URL for live/production environment</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="live_api_key">Live API Key</label></th>
+                    <td>
+                        <input type="password" name="live_api_key" id="live_api_key" 
+                               value="<?php echo esc_attr($settings['live_api_key'] ?? ''); ?>" 
+                               class="regular-text" />
+                        <p class="description">LGL API key for live/production environment</p>
                     </td>
                 </tr>
             </table>
@@ -753,17 +791,24 @@ class AdminMenuManager {
         $events = $settings['lgl_events'] ?? [];
         $funds = $settings['lgl_funds'] ?? [];
         
+        // Get current environment to read/write environment-specific fund IDs
+        $settingsManager = $this->getSettingsManager();
+        $current_env = $settingsManager ? $settingsManager->getEnvironment() : 'live';
+        $env_prefix = $current_env . '_';
+        $current_env_label = ucfirst($current_env);
+        
         ob_start();
         ?>
         <div class="lgl-sync-data-container">
             <!-- Consolidated Fund IDs Section - MOVED TO TOP -->
             <h2 style="margin-top: 0; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">
-                ⚙️ Consolidated Fund IDs
+                ⚙️ Consolidated Fund IDs (<?php echo esc_html($current_env_label); ?> Environment)
             </h2>
             
             <p class="description" style="margin-top: 15px;">
                 Configure the LGL fund IDs used for different order types. These replace individual product-level fund assignments.
                 After the LGL fund consolidation, all orders of each type will use these centralized fund IDs. Settings always override product meta fields.
+                <strong>Current environment: <?php echo esc_html($current_env_label); ?></strong>
             </p>
             
             <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
@@ -775,51 +820,137 @@ class AdminMenuManager {
                         <th><label for="fund_id_membership">Membership Fund ID</label></th>
                         <td>
                             <input type="number" id="fund_id_membership" name="fund_id_membership" 
-                                   value="<?php echo esc_attr($settings['fund_id_membership'] ?? 2437); ?>" 
+                                   value="<?php 
+                                       // Read from environment-specific key, fallback to legacy key, then default
+                                       $value = $settings[$env_prefix . 'fund_id_membership'] ?? $settings['fund_id_membership'] ?? ($current_env === 'live' ? 2432 : 2437);
+                                       echo esc_attr($value); 
+                                   ?>" 
                                    class="regular-text" min="1" />
-                            <p class="description">LGL fund ID for membership payments (default: 2437)</p>
+                            <p class="description">LGL fund ID for membership payments (<?php echo esc_html($current_env_label); ?> environment)</p>
                         </td>
                     </tr>
                     <tr>
                         <th><label for="fund_id_language_classes">Language Classes Fund ID</label></th>
                         <td>
                             <input type="number" id="fund_id_language_classes" name="fund_id_language_classes" 
-                                   value="<?php echo esc_attr($settings['fund_id_language_classes'] ?? 4132); ?>" 
+                                   value="<?php 
+                                       $value = $settings[$env_prefix . 'fund_id_language_classes'] ?? $settings['fund_id_language_classes'] ?? ($current_env === 'live' ? 4132 : 2747);
+                                       echo esc_attr($value); 
+                                   ?>" 
                                    class="regular-text" min="1" />
-                            <p class="description">LGL fund ID for language class registrations (default: 4132)</p>
+                            <p class="description">LGL fund ID for language class registrations (<?php echo esc_html($current_env_label); ?> environment)</p>
                         </td>
                     </tr>
                     <tr>
                         <th><label for="fund_id_events">Events Fund ID</label></th>
                         <td>
                             <input type="number" id="fund_id_events" name="fund_id_events" 
-                                   value="<?php echo esc_attr($settings['fund_id_events'] ?? 4142); ?>" 
+                                   value="<?php 
+                                       $value = $settings[$env_prefix . 'fund_id_events'] ?? $settings['fund_id_events'] ?? ($current_env === 'live' ? 4142 : 4141);
+                                       echo esc_attr($value); 
+                                   ?>" 
                                    class="regular-text" min="1" />
-                            <p class="description">LGL fund ID for event registrations (default: 4142)</p>
+                            <p class="description">LGL fund ID for event registrations (<?php echo esc_html($current_env_label); ?> environment)</p>
                         </td>
                     </tr>
                     <tr>
                         <th><label for="fund_id_general">General Fund ID</label></th>
                         <td>
                             <input type="number" id="fund_id_general" name="fund_id_general" 
-                                   value="<?php echo esc_attr($settings['fund_id_general'] ?? 4127); ?>" 
+                                   value="<?php 
+                                       $value = $settings[$env_prefix . 'fund_id_general'] ?? $settings['fund_id_general'] ?? ($current_env === 'live' ? 4127 : 4126);
+                                       echo esc_attr($value); 
+                                   ?>" 
                                    class="regular-text" min="1" />
-                            <p class="description">LGL fund ID for general donations (default: 4127)</p>
+                            <p class="description">LGL fund ID for general donations (<?php echo esc_html($current_env_label); ?> environment)</p>
                         </td>
                     </tr>
                     <tr>
                         <th><label for="fund_id_family_member_slots">Family Member Slots Fund ID</label></th>
                         <td>
                             <input type="number" id="fund_id_family_member_slots" name="fund_id_family_member_slots" 
-                                   value="<?php echo esc_attr($settings['fund_id_family_member_slots'] ?? 4147); ?>" 
+                                   value="<?php 
+                                       $value = $settings[$env_prefix . 'fund_id_family_member_slots'] ?? $settings['fund_id_family_member_slots'] ?? 4147;
+                                       echo esc_attr($value); 
+                                   ?>" 
                                    class="regular-text" min="1" />
-                            <p class="description">LGL fund ID for Family Member slot purchases - separate from membership fund (default: 4147)</p>
+                            <p class="description">LGL fund ID for Family Member slot purchases - separate from membership fund (<?php echo esc_html($current_env_label); ?> environment)</p>
                         </td>
                     </tr>
                 </table>
                 
-                <h3 style="margin-top: 30px;">Cart Validation Rules</h3>
-                <table class="form-table">
+                <?php submit_button('Save Fund Settings'); ?>
+            </form>
+            
+            <!-- Campaign IDs Section (Auto-Synced) - MOVED RIGHT AFTER FUND IDs -->
+            <h2 style="margin-top: 40px; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">
+                🎯 Campaign IDs (<?php echo esc_html($current_env_label); ?> Environment)
+            </h2>
+            
+            <p class="description" style="margin-top: 15px;">
+                These campaign IDs are automatically synced from the LGL API. They are read-only and updated when you click the sync button below.
+                <strong>Current environment: <?php echo esc_html($current_env_label); ?></strong>
+            </p>
+            
+            <table class="form-table" style="margin-top: 15px;">
+                <tr>
+                    <th><label>Membership Campaign ID</label></th>
+                    <td>
+                        <input type="text" value="<?php 
+                            $value = $settings[$env_prefix . 'campaign_id_membership'] ?? $settings['campaign_id_membership'] ?? 'Not synced';
+                            echo esc_attr($value); 
+                        ?>" 
+                               class="regular-text" readonly style="background: #f0f0f0;" />
+                        <p class="description">Auto-synced from LGL campaign "Membership" (<?php echo esc_html($current_env_label); ?> environment)</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label>Language Programs Campaign ID</label></th>
+                    <td>
+                        <input type="text" value="<?php 
+                            $value = $settings[$env_prefix . 'campaign_id_language_classes'] ?? $settings['campaign_id_language_classes'] ?? 'Not synced';
+                            echo esc_attr($value); 
+                        ?>" 
+                               class="regular-text" readonly style="background: #f0f0f0;" />
+                        <p class="description">Auto-synced from LGL campaign "Language Programs" (<?php echo esc_html($current_env_label); ?> environment)</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label>Events Campaign ID</label></th>
+                    <td>
+                        <input type="text" value="<?php 
+                            $value = $settings[$env_prefix . 'campaign_id_events'] ?? $settings['campaign_id_events'] ?? 'Not synced';
+                            echo esc_attr($value); 
+                        ?>" 
+                               class="regular-text" readonly style="background: #f0f0f0;" />
+                        <p class="description">Auto-synced from LGL campaign "Events" (<?php echo esc_html($current_env_label); ?> environment)</p>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin-top: 20px;">
+                <a href="<?php echo admin_url('admin-post.php?action=lgl_sync_ids&_wpnonce=' . wp_create_nonce('lgl_sync_ids')); ?>" 
+                   class="button button-secondary">
+                    🔄 Sync Fund & Campaign IDs from LGL API
+                </a>
+                <span class="description" style="margin-left: 10px;">Syncs Fund and Campaign IDs for the <strong><?php echo esc_html($current_env_label); ?></strong> environment</span>
+                <span id="lgl-sync-ids-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
+            </p>
+            
+            <!-- Cart Validation Rules Section - MOVED AFTER CAMPAIGN IDs -->
+            <h2 style="margin-top: 40px; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">
+                🛒 Cart Validation Rules
+            </h2>
+            
+            <p class="description" style="margin-top: 15px;">
+                Configure validation rules for the shopping cart, particularly for family member slot purchases.
+            </p>
+            
+            <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
+                <?php wp_nonce_field('lgl_fund_settings', '_wpnonce'); ?>
+                <input type="hidden" name="action" value="lgl_save_fund_settings" />
+                
+                <table class="form-table" style="margin-top: 15px;">
                     <tr>
                         <th><label>Cart Validation Settings</label></th>
                         <td>
@@ -863,53 +994,8 @@ class AdminMenuManager {
                     </tr>
                 </table>
                 
-                <?php submit_button('Save Fund Settings'); ?>
+                <?php submit_button('Save Cart Validation Settings'); ?>
             </form>
-            
-            <!-- Campaign IDs Section (Auto-Synced) -->
-            <h3 style="margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 8px;">
-                🎯 Campaign IDs (Auto-Synced from LGL)
-            </h3>
-            
-            <p class="description" style="margin-top: 15px;">
-                These campaign IDs are automatically synced from the LGL API. Click the sync button below to fetch the latest IDs.
-            </p>
-            
-            <table class="form-table" style="margin-top: 15px;">
-                <tr>
-                    <th><label>Membership Campaign ID</label></th>
-                    <td>
-                        <input type="text" value="<?php echo esc_attr($settings['campaign_id_membership'] ?? 'Not synced'); ?>" 
-                               class="regular-text" readonly style="background: #f0f0f0;" />
-                        <p class="description">Auto-synced from LGL campaign "Membership"</p>
-                    </td>
-                </tr>
-                <tr>
-                    <th><label>Language Programs Campaign ID</label></th>
-                    <td>
-                        <input type="text" value="<?php echo esc_attr($settings['campaign_id_language_classes'] ?? 'Not synced'); ?>" 
-                               class="regular-text" readonly style="background: #f0f0f0;" />
-                        <p class="description">Auto-synced from LGL campaign "Language Programs"</p>
-                    </td>
-                </tr>
-                <tr>
-                    <th><label>Events Campaign ID</label></th>
-                    <td>
-                        <input type="text" value="<?php echo esc_attr($settings['campaign_id_events'] ?? 'Not synced'); ?>" 
-                               class="regular-text" readonly style="background: #f0f0f0;" />
-                        <p class="description">Auto-synced from LGL campaign "Events"</p>
-                    </td>
-                </tr>
-            </table>
-            
-            <p style="margin-top: 20px;">
-                <a href="<?php echo admin_url('admin-post.php?action=lgl_sync_ids&_wpnonce=' . wp_create_nonce('lgl_sync_ids')); ?>" 
-                   class="button button-secondary">
-                    🔄 Sync Fund & Campaign IDs from LGL API
-                </a>
-                <span class="description" style="margin-left: 10px;">Syncs Fund and Campaign IDs only</span>
-                <span id="lgl-sync-ids-status" style="margin-left: 15px; display: inline-block; min-width: 200px;"></span>
-            </p>
             
                     <!-- Role & Group Mappings Section -->
                     <h3 style="margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 8px;">
@@ -941,7 +1027,7 @@ class AdminMenuManager {
                                class="button button-secondary">
                                 🔄 Sync Groups from LGL API
                             </a>
-                            <span class="description" style="margin-left: 10px;">Fetches group IDs from your connected LGL instance</span>
+                            <span class="description" style="margin-left: 10px;">Fetches group IDs from your connected LGL instance (<strong><?php echo esc_html($current_env_label); ?></strong> environment)</span>
                         </p>
                         
                         <table class="form-table" style="margin-top: 15px;">

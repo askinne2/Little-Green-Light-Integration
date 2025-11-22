@@ -72,7 +72,7 @@ class CacheManager {
      * @return mixed Cached or fresh data
      */
     public static function remember($key, $callback, $ttl = self::DEFAULT_TTL) {
-        $cache_key = self::CACHE_PREFIX . $key;
+        $cache_key = self::CACHE_PREFIX . self::getEnvironmentPrefix() . $key;
         
         // Try to get from transient cache first
         $cached_data = get_transient($cache_key);
@@ -110,7 +110,7 @@ class CacheManager {
      * @return bool Success/failure
      */
     public static function set($key, $data, $ttl = self::DEFAULT_TTL) {
-        $cache_key = self::CACHE_PREFIX . $key;
+        $cache_key = self::CACHE_PREFIX . self::getEnvironmentPrefix() . $key;
         
         $result = set_transient($cache_key, $data, $ttl);
         
@@ -130,7 +130,7 @@ class CacheManager {
      * @return mixed|false Cached data or false if not found
      */
     public static function get($key) {
-        $cache_key = self::CACHE_PREFIX . $key;
+        $cache_key = self::CACHE_PREFIX . self::getEnvironmentPrefix() . $key;
         $data = get_transient($cache_key);
         
         if (false !== $data) {
@@ -149,7 +149,7 @@ class CacheManager {
      * @return bool Success/failure
      */
     public static function delete($key) {
-        $cache_key = self::CACHE_PREFIX . $key;
+        $cache_key = self::CACHE_PREFIX . self::getEnvironmentPrefix() . $key;
         $result = delete_transient($cache_key);
         
         if ($result) {
@@ -157,6 +157,46 @@ class CacheManager {
         }
         
         return $result;
+    }
+    
+    /**
+     * Get environment prefix for cache keys
+     * 
+     * @return string Environment prefix ('dev_' or 'live_')
+     */
+    private static function getEnvironmentPrefix(): string {
+        // Use static cache to avoid repeated option lookups and prevent recursion
+        static $cached_prefix = null;
+        if ($cached_prefix !== null) {
+            return $cached_prefix;
+        }
+        
+        // CRITICAL: Read directly from database WITHOUT going through SettingsManager or any caching
+        // This prevents circular dependency: CacheManager -> SettingsManager -> CacheManager
+        // Direct DB query bypasses WordPress option cache and transient system
+        global $wpdb;
+        $option_value = $wpdb->get_var($wpdb->prepare(
+            "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+            'lgl_integration_settings'
+        ));
+        
+        $env = 'live'; // Default fallback
+        
+        if ($option_value) {
+            $settings = maybe_unserialize($option_value);
+            if (is_array($settings) && isset($settings['environment'])) {
+                $env = $settings['environment'];
+            }
+        }
+        
+        // Validate environment value (must be 'dev' or 'live')
+        if (!in_array($env, ['dev', 'live'])) {
+            $env = 'live';
+        }
+        
+        // Cache prefix in static variable for this request
+        $cached_prefix = $env . '_';
+        return $cached_prefix;
     }
     
     /**

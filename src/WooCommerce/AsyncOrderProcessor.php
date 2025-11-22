@@ -181,6 +181,16 @@ class AsyncOrderProcessor {
         
         if (!empty($queued_orders)) {
             foreach ($queued_orders as $order) {
+                $order_id = $order->get_id();
+                
+                // Check if order is currently being processed (lock mechanism)
+                if ($this->isOrderProcessing($order_id)) {
+                    $this->helper->debug('🔒 AsyncOrderProcessor: Order is currently being processed, skipping', [
+                        'order_id' => $order_id
+                    ]);
+                    continue;
+                }
+                
                 $queued_at = $order->get_meta('_lgl_async_queued_at');
                 if ($queued_at) {
                     $queued_timestamp = strtotime($queued_at);
@@ -189,13 +199,13 @@ class AsyncOrderProcessor {
                     // Process if queued more than 1 minute ago
                     if ($minutes_ago > 1) {
                         $this->helper->debug('🔧 AsyncOrderProcessor: Found stuck order, processing now', [
-                            'order_id' => $order->get_id(),
+                            'order_id' => $order_id,
                             'queued_at' => $queued_at,
                             'minutes_ago' => round($minutes_ago, 2)
                         ]);
                         
                         // Process directly (bypass cron)
-                        $this->handleAsyncRequest($order->get_id());
+                        $this->handleAsyncRequest($order_id);
                     }
                 }
             }
@@ -257,6 +267,20 @@ class AsyncOrderProcessor {
             return;
         }
         
+        // Check if order is currently being processed (prevent concurrent processing)
+        if ($this->isOrderProcessing($order_id)) {
+            $processing_started = $order->get_meta('_lgl_async_processing_started');
+            $this->helper->debug('🔒 AsyncOrderProcessor: Order is currently being processed, skipping', [
+                'order_id' => $order_id,
+                'processing_started' => $processing_started,
+                'note' => 'Another process is handling this order'
+            ]);
+            return;
+        }
+        
+        // Set processing lock (both meta and transient for redundancy)
+        $this->setOrderProcessingLock($order_id);
+        
         // Check if user exists (critical validation)
         $user_id = $order->get_customer_id();
         
@@ -286,6 +310,9 @@ class AsyncOrderProcessor {
                 $order->update_meta_data('_lgl_async_failed_at', current_time('mysql'));
                 $order->save();
                 
+                // Clear processing lock
+                $this->clearOrderProcessingLock($order_id);
+                
                 $this->helper->debug('🛑 AsyncOrderProcessor: Membership product requires user_id but customer_id is 0', [
                     'order_id' => $order_id,
                     'has_membership_products' => true
@@ -301,6 +328,9 @@ class AsyncOrderProcessor {
                 $order->update_meta_data('_lgl_async_permanent_failure_reason', 'User deleted from WordPress');
                 $order->update_meta_data('_lgl_async_failed_at', current_time('mysql'));
                 $order->save();
+                
+                // Clear processing lock
+                $this->clearOrderProcessingLock($order_id);
                 
                 $this->helper->debug('🛑 AsyncOrderProcessor: User deleted, marking as permanently failed', [
                     'order_id' => $order_id,
@@ -319,6 +349,9 @@ class AsyncOrderProcessor {
                     $order->update_meta_data('_lgl_async_failed_at', current_time('mysql'));
                     $order->save();
                     
+                    // Clear processing lock
+                    $this->clearOrderProcessingLock($order_id);
+                    
                     $this->helper->debug('🛑 AsyncOrderProcessor: User deleted, marking as permanently failed', [
                         'order_id' => $order_id,
                         'user_id' => $user_id
@@ -334,6 +367,9 @@ class AsyncOrderProcessor {
                     $order->update_meta_data('_lgl_async_permanent_failure_reason', 'No customer ID and no billing email');
                     $order->update_meta_data('_lgl_async_failed_at', current_time('mysql'));
                     $order->save();
+                    
+                    // Clear processing lock
+                    $this->clearOrderProcessingLock($order_id);
                     
                     $this->helper->debug('🛑 AsyncOrderProcessor: No customer ID or email, marking as permanently failed', [
                         'order_id' => $order_id
@@ -357,6 +393,9 @@ class AsyncOrderProcessor {
             // Unschedule any pending cron events
             wp_unschedule_event(wp_next_scheduled(self::CRON_HOOK, [$order_id]), self::CRON_HOOK, [$order_id]);
             
+            // Clear processing lock
+            $this->clearOrderProcessingLock($order_id);
+            
             $this->helper->debug('🛑 AsyncOrderProcessor: Max retries reached, marking as permanently failed', [
                 'order_id' => $order_id,
                 'retry_count' => $retry_count
@@ -375,6 +414,9 @@ class AsyncOrderProcessor {
             $order->delete_meta_data('_lgl_async_failed');
             $order->delete_meta_data('_lgl_async_error');
             $order->save();
+            
+            // Clear processing lock
+            $this->clearOrderProcessingLock($order_id);
             
             $this->helper->debug('✅ AsyncOrderProcessor: Async processing completed', [
                 'order_id' => $order_id
@@ -424,6 +466,9 @@ class AsyncOrderProcessor {
                     wp_unschedule_event($next_scheduled, self::CRON_HOOK, [$order_id]);
                 }
                 
+                // Clear processing lock
+                $this->clearOrderProcessingLock($order_id);
+                
                 $this->helper->debug('🛑 AsyncOrderProcessor: Marking as permanently failed', [
                     'order_id' => $order_id,
                     'reason' => $is_non_retryable ? 'Non-retryable error' : 'Max retries',
@@ -437,6 +482,9 @@ class AsyncOrderProcessor {
                 $order->update_meta_data('_lgl_async_retry_count', $retry_count);
                 $order->save();
                 
+                // Clear processing lock (will be re-locked when retry starts)
+                $this->clearOrderProcessingLock($order_id);
+                
                 // Re-schedule for retry (in 5 minutes)
                 wp_schedule_single_event(time() + (5 * MINUTE_IN_SECONDS), self::CRON_HOOK, [$order_id]);
                 
@@ -447,6 +495,104 @@ class AsyncOrderProcessor {
                 ]);
             }
         }
+    }
+    
+    /**
+     * Check if an order is currently being processed
+     * 
+     * Uses both order meta and transient for redundancy
+     * 
+     * @param int $order_id Order ID
+     * @return bool True if order is being processed
+     */
+    private function isOrderProcessing(int $order_id): bool {
+        // Check transient first (faster, auto-expires)
+        $transient_key = 'lgl_processing_order_' . $order_id;
+        $transient_lock = get_transient($transient_key);
+        if ($transient_lock) {
+            return true;
+        }
+        
+        // Check order meta (more persistent)
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            return false;
+        }
+        
+        $processing_started = $order->get_meta('_lgl_async_processing_started');
+        if (!$processing_started) {
+            return false;
+        }
+        
+        // Check if lock is stale (older than 5 minutes = likely crashed process)
+        $processing_timestamp = strtotime($processing_started);
+        $minutes_processing = (time() - $processing_timestamp) / 60;
+        
+        if ($minutes_processing > 5) {
+            // Lock is stale - clear it
+            $this->helper->debug('🔓 AsyncOrderProcessor: Clearing stale processing lock', [
+                'order_id' => $order_id,
+                'processing_started' => $processing_started,
+                'minutes_processing' => round($minutes_processing, 2)
+            ]);
+            $this->clearOrderProcessingLock($order_id);
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Set processing lock for an order
+     * 
+     * Sets both order meta and transient for redundancy
+     * 
+     * @param int $order_id Order ID
+     * @return void
+     */
+    private function setOrderProcessingLock(int $order_id): void {
+        $now = current_time('mysql');
+        
+        // Set order meta lock
+        $order = wc_get_order($order_id);
+        if ($order) {
+            $order->update_meta_data('_lgl_async_processing_started', $now);
+            $order->save();
+        }
+        
+        // Set transient lock (5 minute timeout - auto-expires if process crashes)
+        $transient_key = 'lgl_processing_order_' . $order_id;
+        set_transient($transient_key, time(), 5 * MINUTE_IN_SECONDS);
+        
+        $this->helper->debug('🔒 AsyncOrderProcessor: Set processing lock', [
+            'order_id' => $order_id,
+            'started_at' => $now
+        ]);
+    }
+    
+    /**
+     * Clear processing lock for an order
+     * 
+     * Clears both order meta and transient
+     * 
+     * @param int $order_id Order ID
+     * @return void
+     */
+    private function clearOrderProcessingLock(int $order_id): void {
+        // Clear order meta lock
+        $order = wc_get_order($order_id);
+        if ($order) {
+            $order->delete_meta_data('_lgl_async_processing_started');
+            $order->save();
+        }
+        
+        // Clear transient lock
+        $transient_key = 'lgl_processing_order_' . $order_id;
+        delete_transient($transient_key);
+        
+        $this->helper->debug('🔓 AsyncOrderProcessor: Cleared processing lock', [
+            'order_id' => $order_id
+        ]);
     }
     
     /**

@@ -91,6 +91,14 @@ class RenewalSettingsPage {
         <div class="wrap">
             <h1>Membership Renewal Settings</h1>
             
+            <?php 
+            // Display environment notice
+            echo lgl_render_environment_notice();
+            if (function_exists('lgl_render_environment_notice_script')) {
+                echo lgl_render_environment_notice_script();
+            }
+            ?>
+            
             <div class="notice notice-info">
                 <p><strong>🧪 Need to Test?</strong> Use the <a href="<?php echo admin_url('admin.php?page=lgl-test-renewals'); ?>">Membership Testing Tools</a> to safely test renewal emails without sending to real members. Features include dry-run reports, email previews, and test emails to your admin address.</p>
             </div>

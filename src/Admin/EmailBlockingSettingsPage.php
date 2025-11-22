@@ -91,6 +91,12 @@ class EmailBlockingSettingsPage {
             <h1>Email Blocking Configuration</h1>
             
             <?php 
+            // Display environment notice
+            echo lgl_render_environment_notice();
+            if (function_exists('lgl_render_environment_notice_script')) {
+                echo lgl_render_environment_notice_script();
+            }
+            
             // Display any settings errors/notices
             settings_errors('lgl_email_blocking');
             

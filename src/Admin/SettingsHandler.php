@@ -187,31 +187,50 @@ class SettingsHandler {
             wp_die('Insufficient permissions');
         }
         
-        $api_url = sanitize_url($_POST['lgl_api_url']);
-        $api_key = sanitize_text_field($_POST['lgl_api_key']);
+        // Get environment selection (CRITICAL - must be saved first)
+        $environment = isset($_POST['lgl_environment']) ? sanitize_text_field($_POST['lgl_environment']) : 'live';
+        if (!in_array($environment, ['dev', 'live'])) {
+            $environment = 'live';
+        }
         
-        // Validate required fields
-        if (empty($api_url) || empty($api_key)) {
-            $this->redirectWithMessage('error', 'API URL and API Key are required.');
+        // Get environment-specific API credentials
+        $dev_api_url = isset($_POST['dev_api_url']) ? sanitize_url($_POST['dev_api_url']) : '';
+        $dev_api_key = isset($_POST['dev_api_key']) ? sanitize_text_field($_POST['dev_api_key']) : '';
+        $live_api_url = isset($_POST['live_api_url']) ? sanitize_url($_POST['live_api_url']) : '';
+        $live_api_key = isset($_POST['live_api_key']) ? sanitize_text_field($_POST['live_api_key']) : '';
+        
+        // Validate URLs if provided
+        if (!empty($dev_api_url) && !filter_var($dev_api_url, FILTER_VALIDATE_URL)) {
+            $this->redirectWithMessage('error', 'Please enter a valid Dev API URL.', 'api');
             return;
         }
         
-        // Validate URL format
-        if (!filter_var($api_url, FILTER_VALIDATE_URL)) {
-            $this->redirectWithMessage('error', 'Please enter a valid API URL.');
+        if (!empty($live_api_url) && !filter_var($live_api_url, FILTER_VALIDATE_URL)) {
+            $this->redirectWithMessage('error', 'Please enter a valid Live API URL.', 'api');
             return;
         }
         
-        // Save settings
+        // Save settings - environment must be saved first!
         $settings = [
-            'api_url' => rtrim($api_url, '/'),
-            'api_key' => $api_key
+            'environment' => $environment, // CRITICAL: Save environment first
+            'dev_api_url' => !empty($dev_api_url) ? rtrim($dev_api_url, '/') : '',
+            'dev_api_key' => $dev_api_key,
+            'live_api_url' => !empty($live_api_url) ? rtrim($live_api_url, '/') : '',
+            'live_api_key' => $live_api_key
         ];
         
+        $this->helper->debug('SettingsHandler: Saving API settings', [
+            'environment' => $environment,
+            'dev_api_url_set' => !empty($dev_api_url),
+            'dev_api_key_set' => !empty($dev_api_key),
+            'live_api_url_set' => !empty($live_api_url),
+            'live_api_key_set' => !empty($live_api_key)
+        ]);
+        
         if ($this->updateSettings($settings)) {
-            $this->redirectWithMessage('updated', 'API settings saved successfully!');
+            $this->redirectWithMessage('updated', 'API settings saved successfully!', 'api');
         } else {
-            $this->redirectWithMessage('error', 'Failed to save API settings.');
+            $this->redirectWithMessage('error', 'Failed to save API settings.', 'api');
         }
     }
     
@@ -348,6 +367,7 @@ class SettingsHandler {
     
     /**
      * Handle sync IDs from LGL API
+     * Maps results to environment-specific keys (dev_* or live_*)
      */
     public function handleSyncIds(): void {
         if (!current_user_can('manage_options')) {
@@ -362,21 +382,74 @@ class SettingsHandler {
         $settingsManager = $this->getSettingsManager();
         
         if (!$settingsManager) {
-            $this->redirectWithMessage('error', 'Settings manager not available. Please try again.');
+            $this->redirectWithMessage('error', 'Settings manager not available. Please try again.', 'memberships');
             return;
         }
+        
+        // Get current environment
+        $current_env = $settingsManager->getEnvironment();
+        $env_prefix = $current_env . '_';
+        
+        $this->helper->debug('🔍 SettingsHandler: handleSyncIds called', [
+            'environment' => $current_env,
+            'env_prefix' => $env_prefix
+        ]);
         
         $results = $settingsManager->syncFundAndCampaignIds();
         
         if ($results['success']) {
-            $funds_count = count($results['funds']);
-            $campaigns_count = count($results['campaigns']);
-            $message = sprintf(
-                'Fund and Campaign IDs synced successfully! Found %d fund(s) and %d campaign(s).',
-                $funds_count,
-                $campaigns_count
-            );
-            $this->redirectWithMessage('updated', $message);
+            // Map results to environment-specific keys
+            $settings_to_update = [];
+            
+            // Map funds: fund_id_membership → dev_fund_id_membership or live_fund_id_membership
+            foreach ($results['funds'] as $legacy_key => $data) {
+                if ($data['id'] > 0) {
+                    $env_key = $env_prefix . $legacy_key;
+                    $settings_to_update[$env_key] = $data['id'];
+                    $this->helper->debug('📥 SettingsHandler: Mapping fund', [
+                        'legacy_key' => $legacy_key,
+                        'env_key' => $env_key,
+                        'fund_id' => $data['id'],
+                        'fund_name' => $data['name']
+                    ]);
+                }
+            }
+            
+            // Map campaigns: campaign_id_membership → dev_campaign_id_membership or live_campaign_id_membership
+            foreach ($results['campaigns'] as $legacy_key => $data) {
+                if ($data['id'] > 0) {
+                    $env_key = $env_prefix . $legacy_key;
+                    $settings_to_update[$env_key] = $data['id'];
+                    $this->helper->debug('📥 SettingsHandler: Mapping campaign', [
+                        'legacy_key' => $legacy_key,
+                        'env_key' => $env_key,
+                        'campaign_id' => $data['id'],
+                        'campaign_name' => $data['name']
+                    ]);
+                }
+            }
+            
+            // Save environment-specific settings
+            if (!empty($settings_to_update)) {
+                $update_result = $settingsManager->update($settings_to_update);
+                
+                if ($update_result) {
+                    $funds_count = count($results['funds']);
+                    $campaigns_count = count($results['campaigns']);
+                    $env_label = strtoupper($current_env);
+                    $message = sprintf(
+                        '%s environment: Fund and Campaign IDs synced successfully! Found %d fund(s) and %d campaign(s).',
+                        $env_label,
+                        $funds_count,
+                        $campaigns_count
+                    );
+                    $this->redirectWithMessage('updated', $message, 'memberships');
+                } else {
+                    $this->redirectWithMessage('error', 'Failed to save synced IDs to settings.', 'memberships');
+                }
+            } else {
+                $this->redirectWithMessage('error', 'No valid IDs found to sync.', 'memberships');
+            }
         } else {
             $error_message = 'Failed to sync IDs. ';
             if (!empty($results['errors'])) {
@@ -384,52 +457,72 @@ class SettingsHandler {
             } else {
                 $error_message .= 'Check API connection.';
             }
-            $this->redirectWithMessage('error', $error_message);
+            $this->redirectWithMessage('error', $error_message, 'memberships');
         }
     }
     
     /**
-     * Handle sync groups request
-     * 
-     * @return void
+     * Handle sync groups from LGL API
+     * Uses the current environment's API connection
      */
     public function handleSyncGroups(): void {
-        // Verify nonce
-        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'lgl_sync_groups')) {
-            $this->redirectWithMessage('error', 'Security check failed. Please try again.');
-            return;
+        if (!current_user_can('manage_options')) {
+            wp_die('Insufficient permissions');
         }
         
-        // Check permissions
-        if (!current_user_can('manage_options')) {
-            $this->redirectWithMessage('error', 'Insufficient permissions.');
-            return;
+        // Verify nonce
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'lgl_sync_groups')) {
+            wp_die('Security check failed');
         }
         
         $settingsManager = $this->getSettingsManager();
         
         if (!$settingsManager) {
-            $this->redirectWithMessage('error', 'Settings manager not available. Please try again.');
+            $this->redirectWithMessage('error', 'Settings manager not available. Please try again.', 'memberships');
             return;
         }
         
+        // Get current environment - groups will be fetched using this environment's API credentials
+        $current_env = $settingsManager->getEnvironment();
+        $current_env_label = ucfirst($current_env);
+        
+        $this->helper->debug('🔍 SettingsHandler: handleSyncGroups called', [
+            'environment' => $current_env,
+            'environment_label' => $current_env_label
+        ]);
+        
+        // Sync groups - this will use the current environment's API connection
         $results = $settingsManager->syncGroups();
         
         if ($results['success']) {
             $groups_count = count($results['groups']);
             $message = sprintf(
-                'Group IDs synced successfully! Found %d group(s).',
+                '%s environment: Groups synced successfully! Found %d group(s).',
+                $current_env_label,
                 $groups_count
             );
-            $this->redirectWithMessage('updated', $message);
+            
+            $this->helper->debug('✅ SettingsHandler: Groups synced successfully', [
+                'environment' => $current_env,
+                'groups_count' => $groups_count,
+                'groups' => $results['groups']
+            ]);
+            
+            $this->redirectWithMessage('updated', $message, 'memberships');
         } else {
-            $error_message = 'Failed to sync groups. ';
+            $error_message = sprintf('%s environment: Failed to sync groups. ', $current_env_label);
             if (!empty($results['errors'])) {
                 $error_message .= implode(' ', $results['errors']);
             } else {
                 $error_message .= 'Check API connection.';
             }
-            $this->redirectWithMessage('error', $error_message);
+            
+            $this->helper->debug('❌ SettingsHandler: Groups sync failed', [
+                'environment' => $current_env,
+                'errors' => $results['errors']
+            ]);
+            
+            $this->redirectWithMessage('error', $error_message, 'memberships');
         }
     }
     
@@ -454,36 +547,16 @@ class SettingsHandler {
         }
         
         // Process role_group_mappings
-        // Get existing mappings to preserve group keys
-        $existing_mappings = $settingsManager->get('role_group_mappings') ?? [];
         $role_group_mappings = [];
-        
         if (isset($_POST['role_group_mappings']) && is_array($_POST['role_group_mappings'])) {
             foreach ($_POST['role_group_mappings'] as $role => $config) {
                 if (isset($config['lgl_group_id']) && is_numeric($config['lgl_group_id'])) {
-                    $group_id = (int)$config['lgl_group_id'];
-                    // Preserve existing group_key if available, otherwise fetch dynamically
-                    $existing_key = $existing_mappings[$role]['lgl_group_key'] ?? null;
-                    $group_key = $existing_key ?: $this->getGroupKeyFromId($group_id);
-                    
                     $role_group_mappings[$role] = [
                         'wp_role' => $role,
-                        'lgl_group_id' => $group_id,
-                        'lgl_group_key' => $group_key
+                        'lgl_group_id' => (int)$config['lgl_group_id'],
+                        'lgl_group_key' => $this->getGroupKeyFromId((int)$config['lgl_group_id'])
                     ];
-                } else {
-                    // Preserve existing mapping if group_id not provided in form
-                    if (isset($existing_mappings[$role])) {
-                        $role_group_mappings[$role] = $existing_mappings[$role];
-                    }
                 }
-            }
-        }
-        
-        // Preserve any existing mappings not in the form
-        foreach ($existing_mappings as $role => $config) {
-            if (!isset($role_group_mappings[$role])) {
-                $role_group_mappings[$role] = $config;
             }
         }
         
@@ -521,40 +594,7 @@ class SettingsHandler {
      * @return string Group key
      */
     private function getGroupKeyFromId(int $group_id): string {
-        // First, try to get from stored role_group_mappings
-        $settingsManager = $this->getSettingsManager();
-        if ($settingsManager) {
-            $role_mappings = $settingsManager->get('role_group_mappings') ?? [];
-            foreach ($role_mappings as $role_config) {
-                if (isset($role_config['lgl_group_id']) && (int)$role_config['lgl_group_id'] === $group_id) {
-                    return $role_config['lgl_group_key'] ?? 'unknown';
-                }
-            }
-            
-            // Try fetching from LGL API
-            try {
-                $container = \UpstateInternational\LGL\Core\ServiceContainer::getInstance();
-                if ($container->has('lgl.connection')) {
-                    $connection = $container->get('lgl.connection');
-                    $response = $connection->makeRequest('groups.json', 'GET');
-                    
-                    if ($response['success']) {
-                        $groups_data = $response['data'] ?? [];
-                        $groups = $groups_data['items'] ?? (is_array($groups_data) && isset($groups_data[0]['id']) ? $groups_data : []);
-                        
-                        foreach ($groups as $group) {
-                            if ((int)($group['id'] ?? 0) === $group_id) {
-                                return $group['key'] ?? sanitize_title($group['name'] ?? 'unknown');
-                            }
-                        }
-                    }
-                }
-            } catch (\Exception $e) {
-                // Fall back to default mapping
-            }
-        }
-        
-        // Fallback: Map known group IDs to keys (for backward compatibility)
+        // Map known group IDs to keys
         $group_map = [
             3287 => 'teacher',
             3267 => 'board_member',
@@ -716,12 +756,18 @@ class SettingsHandler {
     /**
      * Redirect with admin message
      */
-    private function redirectWithMessage(string $type, string $message): void {
-        $redirect_url = add_query_arg([
+    private function redirectWithMessage(string $type, string $message, string $tab = ''): void {
+        $args = [
             'page' => 'lgl-settings', // Use the correct page slug
             'message' => urlencode($message),
             'type' => $type
-        ], admin_url('admin.php'));
+        ];
+        
+        if (!empty($tab)) {
+            $args['tab'] = $tab;
+        }
+        
+        $redirect_url = add_query_arg($args, admin_url('admin.php'));
         
         wp_redirect($redirect_url);
         exit;

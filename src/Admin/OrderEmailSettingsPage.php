@@ -79,6 +79,14 @@ class OrderEmailSettingsPage {
         <div class="wrap">
             <h1>Order Confirmation Email Templates</h1>
             
+            <?php 
+            // Display environment notice
+            echo lgl_render_environment_notice();
+            if (function_exists('lgl_render_environment_notice_script')) {
+                echo lgl_render_environment_notice_script();
+            }
+            ?>
+            
             <?php if ($updated === 'true'): ?>
                 <div class="notice notice-success is-dismissible">
                     <p>Settings saved successfully!</p>
