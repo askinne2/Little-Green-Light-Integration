@@ -301,5 +301,8 @@ class LGL_Daily_Email_Manager {
     }
 }
 
-// Initialize the daily email manager
-LGL_Daily_Email_Manager::init();
+// Initialize the daily email manager only if modern version doesn't exist
+// The modern version (DailyEmailManager) is initialized via ServiceContainer and HookManager
+if (!class_exists('\UpstateInternational\LGL\Email\DailyEmailManager')) {
+    LGL_Daily_Email_Manager::init();
+}
