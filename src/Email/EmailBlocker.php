@@ -42,7 +42,9 @@ class EmailBlocker {
         '.dev',
         '.test',
         'staging',
-        'development'
+        'development',
+        'tempurl.host',  // WPMU Dev staging URLs
+        'tempurl',       // WPMU Dev staging URLs (shorter variant)
     ];
     
     /**
@@ -84,16 +86,30 @@ class EmailBlocker {
      */
     public function init(): void {
         $blockingLevel = $this->getBlockingLevel();
+        $isEnabled = $this->isBlockingEnabled();
+        
+        // Debug initialization
+        $this->helper->debug('LGL Email Blocker: init() called', [
+            'blocking_level' => $blockingLevel,
+            'is_enabled' => $isEnabled,
+            'is_force_blocking' => $this->isForceBlocking(),
+            'is_dev_env' => $this->isDevelopmentEnvironment(),
+        ]);
         
         // Only initialize if blocking is enabled (not 'none' or empty)
         if ($blockingLevel && $blockingLevel !== 'none') {
+            // Register wp_mail filter with highest priority to catch all emails
             add_filter('wp_mail', [$this, 'blockEmails'], 999);
+            
+            // Also hook into PHPMailer to catch emails that might bypass wp_mail
+            add_action('phpmailer_init', [$this, 'interceptPhpmailer'], 999);
+            
             add_action('admin_notices', [$this, 'showEmailBlockingNotice']);
             
             $mode = $this->isForceBlocking() ? 'MANUAL OVERRIDE ENABLED' : 'Development environment detected';
-            $this->helper->debug('LGL Email Blocker: ACTIVE - ' . $mode . ' (Level: ' . $blockingLevel . ')');
+            $this->helper->debug('LGL Email Blocker: ACTIVE - ' . $mode . ' (Level: ' . $blockingLevel . ') - Filter registered at priority 999');
         } else {
-            $this->helper->debug('LGL Email Blocker: INACTIVE - Blocking disabled');
+            $this->helper->debug('LGL Email Blocker: INACTIVE - Blocking disabled (Level: ' . $blockingLevel . ', Enabled: ' . ($isEnabled ? 'YES' : 'NO') . ')');
         }
     }
     
@@ -173,8 +189,18 @@ class EmailBlocker {
      * @return false|array Returns false to block, or modified args to allow
      */
     public function blockEmails($args) {
+        // CRITICAL DEBUG: Log that filter was called
+        $this->helper->debug('LGL Email Blocker: blockEmails() FILTER CALLED', [
+            'args_type' => gettype($args),
+            'is_array' => is_array($args),
+            'blocking_enabled' => $this->isBlockingEnabled(),
+            'blocking_level' => $this->getBlockingLevel(),
+            'force_blocking' => $this->isForceBlocking(),
+        ]);
+        
         // If another filter already blocked this email, respect that
         if ($args === false) {
+            $this->helper->debug('LGL Email Blocker: Email already blocked by another filter');
             return false;
         }
         
@@ -203,13 +229,25 @@ class EmailBlocker {
         }
         
         // Check whitelist (for admin testing)
-        if ($this->isWhitelisted($to)) {
+        // When force blocking is enabled, admin email whitelist is bypassed by default
+        // This ensures ALL emails are blocked when force blocking is active
+        $isWhitelisted = $this->isWhitelisted($to);
+        $shouldRespectWhitelist = !$this->isForceBlocking(); // Don't respect whitelist when force blocking
+        
+        if ($isWhitelisted && $shouldRespectWhitelist) {
             $this->helper->debug(sprintf(
                 'LGL Email Blocker: ALLOWED (whitelisted) - To: %s | Subject: %s',
                 $to,
                 $subject
             ));
             return $args; // Allow email to send
+        } elseif ($isWhitelisted && !$shouldRespectWhitelist) {
+            $this->helper->debug(sprintf(
+                'LGL Email Blocker: WHITELIST BYPASSED (force blocking active) - To: %s | Subject: %s - Will be blocked',
+                $to,
+                $subject
+            ));
+            // Continue to blocking logic below - force blocking overrides whitelist
         }
         
         // Get blocking level and determine if this email should be blocked
@@ -261,6 +299,78 @@ class EmailBlocker {
         
         // Return false to prevent email sending
         return false;
+    }
+    
+    /**
+     * Intercept PHPMailer to block emails that might bypass wp_mail filter
+     * This catches WooCommerce emails and other emails sent directly via PHPMailer
+     * 
+     * @param \PHPMailer\PHPMailer\PHPMailer $phpmailer PHPMailer instance
+     * @return void
+     */
+    public function interceptPhpmailer($phpmailer): void {
+        // Only intercept if blocking is enabled
+        if (!$this->isBlockingEnabled() || $this->getBlockingLevel() === 'none') {
+            return;
+        }
+        
+        // Get email details from PHPMailer
+        $to = is_array($phpmailer->getToAddresses()) 
+            ? implode(', ', array_column($phpmailer->getToAddresses(), 0))
+            : ($phpmailer->getToAddresses()[0][0] ?? 'Unknown');
+        
+        $subject = $phpmailer->Subject ?? 'No Subject';
+        
+        // Check if temporarily disabled
+        if ($this->operationalData->isEmailBlockingPaused()) {
+            $this->helper->debug('LGL Email Blocker (PHPMailer): ALLOWED (temporarily disabled) - To: ' . $to . ' | Subject: ' . $subject);
+            return; // Allow email
+        }
+        
+        // Check whitelist (but respect force blocking override)
+        $shouldRespectWhitelist = !$this->isForceBlocking() || $this->settingsManager->get('email_blocking_respect_whitelist', true);
+        if ($shouldRespectWhitelist && $this->isWhitelisted($to)) {
+            $this->helper->debug('LGL Email Blocker (PHPMailer): ALLOWED (whitelisted) - To: ' . $to . ' | Subject: ' . $subject);
+            return; // Allow email
+        }
+        
+        // Build args array for shouldBlockEmail check
+        $args = [
+            'to' => $to,
+            'subject' => $subject,
+            'message' => $phpmailer->Body ?? '',
+            'headers' => $phpmailer->getCustomHeaders() ?? [],
+        ];
+        
+        $blockingLevel = $this->getBlockingLevel();
+        $shouldBlock = $this->shouldBlockEmail($args, $blockingLevel);
+        
+        if ($shouldBlock) {
+            $this->helper->debug('LGL Email Blocker (PHPMailer): BLOCKED - To: ' . $to . ' | Subject: ' . $subject . ' | Level: ' . $blockingLevel);
+            
+            // Store blocked email
+            $this->operationalData->addBlockedEmail([
+                'to' => $to,
+                'subject' => $subject,
+                'message_preview' => substr(strip_tags($phpmailer->Body ?? ''), 0, 200),
+                'headers' => $phpmailer->getCustomHeaders() ?? [],
+                'email_type' => $this->identifyEmailType($args),
+                'blocking_level' => $blockingLevel,
+            ]);
+            
+            // Clear recipients to prevent sending
+            $phpmailer->clearAddresses();
+            $phpmailer->clearCCs();
+            $phpmailer->clearBCCs();
+            $phpmailer->clearReplyTos();
+            
+            // Set a flag to prevent sending
+            $phpmailer->isHTML(false);
+            $phpmailer->Body = '';
+            $phpmailer->Subject = '';
+        } else {
+            $this->helper->debug('LGL Email Blocker (PHPMailer): ALLOWED - To: ' . $to . ' | Subject: ' . $subject . ' | Level: ' . $blockingLevel);
+        }
     }
     
     /**

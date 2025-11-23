@@ -146,12 +146,21 @@ if (class_exists('UpstateInternational\\LGL\\LGL\\ApiSettings')) {
 }
 
 if ($lgl_debug_enabled) {
-    // Load core testing utilities
-    require_once LGL_PLUGIN_DIR . 'test/test-shortcode.php';
-    require_once LGL_PLUGIN_DIR . 'test/debug-membership-test.php';
-    require_once LGL_PLUGIN_DIR . 'test/test-lgl-connection.php';
-    require_once LGL_PLUGIN_DIR . 'test/test-order-processing-flow.php';
-    require_once LGL_PLUGIN_DIR . 'test/test-phase5-memberships.php';
+    // Load core testing utilities (only if files exist - they're excluded from production packages)
+    $test_files = [
+        'test/test-shortcode.php',
+        'test/debug-membership-test.php',
+        'test/test-lgl-connection.php',
+        'test/test-order-processing-flow.php',
+        'test/test-phase5-memberships.php',
+    ];
+    
+    foreach ($test_files as $test_file) {
+        $file_path = LGL_PLUGIN_DIR . $test_file;
+        if (file_exists($file_path)) {
+            require_once $file_path;
+        }
+    }
     
     /*
     add_action('admin_notices', function() {

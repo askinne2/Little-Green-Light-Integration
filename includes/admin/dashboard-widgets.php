@@ -569,5 +569,5 @@ class LGL_Dashboard_Widgets {
 // Initialize the dashboard widgets only if modern version doesn't exist
 // The modern version (DashboardWidgets) is initialized via ServiceContainer and HookManager
 if (!class_exists('\UpstateInternational\LGL\Admin\DashboardWidgets')) {
-    LGL_Dashboard_Widgets::init();
+LGL_Dashboard_Widgets::init();
 }

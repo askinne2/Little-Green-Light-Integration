@@ -290,5 +290,5 @@ class LGL_Subscription_Renewal_Manager {
 // Initialize the subscription renewal manager only if modern version doesn't exist
 // The modern version (SubscriptionRenewalManager) is initialized via Plugin.php
 if (!class_exists('\UpstateInternational\LGL\WooCommerce\SubscriptionRenewalManager')) {
-    LGL_Subscription_Renewal_Manager::init();
+LGL_Subscription_Renewal_Manager::init();
 }
