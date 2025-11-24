@@ -928,6 +928,13 @@ class SubscriptionRenewalManager {
 
         // Safety check - require confirmation parameter
         if (!isset($_GET['confirm']) || $_GET['confirm'] !== 'yes') {
+            // Get current admin page URL or use subscription management page
+            $current_page = isset($_GET['page']) ? sanitize_text_field($_GET['page']) : 'lgl-subscription-management';
+            $confirm_url = add_query_arg(
+                ['page' => $current_page, 'confirm' => 'yes'],
+                admin_url('admin.php')
+            );
+            
             return '<div style="padding: 20px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
                     <h3 style="margin: 0 0 15px 0;">⚠️ Comprehensive Subscription Update</h3>
                     <p>This will update ALL subscriptions (across all statuses) to require manual renewal.</p>
@@ -939,7 +946,7 @@ class SubscriptionRenewalManager {
                         <li>Pending subscriptions</li>
                         <li>All other subscription statuses</li>
                     </ul>
-                    <p><a href="' . add_query_arg('confirm', 'yes') . '" style="display: inline-block; padding: 12px 24px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">⚠️ Confirm and Run Update</a></p>
+                    <p><a href="' . esc_url($confirm_url) . '" style="display: inline-block; padding: 12px 24px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">⚠️ Confirm and Run Update</a></p>
                     </div>';
         }
 

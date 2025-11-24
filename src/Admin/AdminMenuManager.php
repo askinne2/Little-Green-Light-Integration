@@ -231,6 +231,18 @@ class AdminMenuManager {
             'lgl-sync-log',
             [$this, 'renderSyncLog']
         );
+
+        // Subscription Management
+        if (class_exists('WC_Subscriptions')) {
+            add_submenu_page(
+                self::MAIN_MENU_SLUG,
+                'Subscription Management',
+                'Subscription Management',
+                'manage_options',
+                'lgl-subscription-management',
+                [$this, 'renderSubscriptionManagement']
+            );
+        }
     }
     
     /**
@@ -558,6 +570,25 @@ class AdminMenuManager {
      */
     public function renderSyncLog(): void {
         $this->syncLogPage->render();
+    }
+    
+    /**
+     * Render subscription management page
+     */
+    public function renderSubscriptionManagement(): void {
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die('Sorry, you are not allowed to access this page.');
+        }
+
+        // Use the existing shortcode functionality
+        $content = \UpstateInternational\LGL\WooCommerce\SubscriptionRenewalManager::adminUpdateAllSubscriptionsShortcode();
+        
+        lgl_render_view('layouts/admin-page', [
+            'title' => 'Subscription Management',
+            'description' => 'Comprehensive subscription renewal update tool.',
+            'content' => $content
+        ]);
     }
     
     // ========================================
