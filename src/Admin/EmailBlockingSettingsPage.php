@@ -85,6 +85,7 @@ class EmailBlockingSettingsPage {
         $blocked_emails = $this->operationalData->getBlockedEmails();
         $blocked_emails = array_reverse($blocked_emails); // Show newest first
         $status = $this->emailBlocker->getBlockingStatus();
+        $status['env_detection_disabled'] = !empty($settings['disable_email_blocking_env_detection']);
         
         ?>
         <div class="wrap lgl-admin-page ">
@@ -129,11 +130,17 @@ class EmailBlockingSettingsPage {
     private function handleFormSubmissions(): void {
         // Handle force blocking toggle and blocking level
         if (isset($_POST['save_email_blocking']) && check_admin_referer('lgl_email_blocking_settings')) {
+            // CRITICAL: Set flag to temporarily disable email blocking during settings save
+            // This prevents hangs when WordPress sends emails during the save process
+            set_transient('lgl_email_blocking_saving', true, 30);
+            
             $force_blocking = isset($_POST['force_email_blocking']);
             $blocking_level = sanitize_text_field($_POST['email_blocking_level'] ?? EmailBlocker::LEVEL_BLOCK_ALL);
+            $disable_env_detection = isset($_POST['disable_email_blocking_env_detection']);
             
             // Validate blocking level
             $validLevels = [
+                EmailBlocker::LEVEL_NONE,
                 EmailBlocker::LEVEL_BLOCK_ALL,
                 EmailBlocker::LEVEL_WOOCOMMERCE_ALLOWED,
                 EmailBlocker::LEVEL_CRON_ONLY
@@ -145,16 +152,22 @@ class EmailBlockingSettingsPage {
             // Debug logging
             $this->helper->debug('EmailBlockingSettingsPage: Saving settings', [
                 'force_email_blocking' => $force_blocking,
-                'email_blocking_level' => $blocking_level
+                'email_blocking_level' => $blocking_level,
+                'disable_env_detection' => $disable_env_detection
             ]);
             
-            // Update both settings in a single call for efficiency
+            // Update all settings in a single call for efficiency
             $this->settingsManager->update([
                 'force_email_blocking' => $force_blocking,
-                'email_blocking_level' => $blocking_level
+                'email_blocking_level' => $blocking_level,
+                'disable_email_blocking_env_detection' => $disable_env_detection
             ]);
             
+            // Clear the flag after saving
+            delete_transient('lgl_email_blocking_saving');
+            
             $levelDescriptions = [
+                EmailBlocker::LEVEL_NONE => 'Disabled',
                 EmailBlocker::LEVEL_BLOCK_ALL => 'All emails',
                 EmailBlocker::LEVEL_WOOCOMMERCE_ALLOWED => 'Non-WooCommerce emails',
                 EmailBlocker::LEVEL_CRON_ONLY => 'WP Cron emails only',
@@ -218,6 +231,7 @@ class EmailBlockingSettingsPage {
         $border_color = $status['is_actively_blocking'] ? '#d63638' : '#72aee6';
         
         $levelDescriptions = [
+            EmailBlocker::LEVEL_NONE => 'Disabled',
             EmailBlocker::LEVEL_BLOCK_ALL => 'All emails',
             EmailBlocker::LEVEL_WOOCOMMERCE_ALLOWED => 'Non-WooCommerce emails',
             EmailBlocker::LEVEL_CRON_ONLY => 'WP Cron emails only',
@@ -237,10 +251,22 @@ class EmailBlockingSettingsPage {
                 <tr>
                     <th>Development Environment</th>
                     <td>
-                        <?php if ($status['is_development']): ?>
+                        <?php if ($status['env_detection_disabled'] ?? false): ?>
+                            <span style="color: #666;">⏸ Detection Disabled</span> (manual control only)
+                        <?php elseif ($status['is_development']): ?>
                             <span style="color: #d63638;">✗ Detected</span> (blocking active)
                         <?php else: ?>
                             <span style="color: #00a32a;">✓ Production</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Environment Detection</th>
+                    <td>
+                        <?php if ($status['env_detection_disabled'] ?? false): ?>
+                            <span style="color: #666;">Disabled</span> - Blocking controlled manually only
+                        <?php else: ?>
+                            <span style="color: #00a32a;">Enabled</span> - Auto-detects dev environments
                         <?php endif; ?>
                     </td>
                 </tr>
@@ -274,7 +300,9 @@ class EmailBlockingSettingsPage {
                 <tr>
                     <th><strong>Blocking Status</strong></th>
                     <td>
-                        <?php if ($status['is_actively_blocking']): ?>
+                        <?php if ($currentLevel === EmailBlocker::LEVEL_NONE): ?>
+                            <span style="color: #00a32a; font-weight: bold;">✓ DISABLED - Email blocking is disabled. All emails will send normally.</span>
+                        <?php elseif ($status['is_actively_blocking']): ?>
                             <span style="color: #d63638; font-weight: bold;">🚫 ACTIVE - <?php echo esc_html($levelDescription); ?> are being blocked</span>
                         <?php else: ?>
                             <span style="color: #00a32a; font-weight: bold;">✓ INACTIVE - Emails are being sent normally</span>
@@ -356,6 +384,7 @@ class EmailBlockingSettingsPage {
     private function renderSettingsForm(array $settings): void {
         $force_checked = !empty($settings['force_email_blocking']) ? 'checked="checked"' : '';
         $blocking_level = $settings['email_blocking_level'] ?? EmailBlocker::LEVEL_BLOCK_ALL;
+        $disable_env_checked = !empty($settings['disable_email_blocking_env_detection']) ? 'checked="checked"' : '';
         ?>
         <div class="card" style="max-width: inherit;">
             <h2>Email Blocking Control</h2>
@@ -363,6 +392,20 @@ class EmailBlockingSettingsPage {
                 <?php wp_nonce_field('lgl_email_blocking_settings'); ?>
                 
                 <table class="form-table">
+                    <tr>
+                        <th scope="row">Disable Environment Detection</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="disable_email_blocking_env_detection" value="1" <?php echo $disable_env_checked; ?>>
+                                <strong>Disable automatic environment detection</strong>
+                            </label>
+                            <p class="description">
+                                When enabled, the plugin will NOT automatically detect development environments. 
+                                Blocking will be controlled ONLY by the "Force Block All Emails" checkbox and "Blocking Level" dropdown below.
+                                This gives you full manual control over email blocking.
+                            </p>
+                        </td>
+                    </tr>
                     <tr>
                         <th scope="row">Force Block All Emails</th>
                         <td>
@@ -380,6 +423,9 @@ class EmailBlockingSettingsPage {
                         <th scope="row">Blocking Level</th>
                         <td>
                             <select name="email_blocking_level" id="email_blocking_level">
+                                <option value="<?php echo esc_attr(EmailBlocker::LEVEL_NONE); ?>" <?php selected($blocking_level, EmailBlocker::LEVEL_NONE); ?>>
+                                    Disabled (Allow All Emails)
+                                </option>
                                 <option value="<?php echo esc_attr(EmailBlocker::LEVEL_BLOCK_ALL); ?>" <?php selected($blocking_level, EmailBlocker::LEVEL_BLOCK_ALL); ?>>
                                     Block All Emails
                                 </option>
@@ -391,9 +437,10 @@ class EmailBlockingSettingsPage {
                                 </option>
                             </select>
                             <p class="description">
+                                <strong>Disabled:</strong> Email blocking is completely disabled. All emails will send normally (except WP Cron emails which are always blocked for safety).<br>
                                 <strong>Block All Emails:</strong> Blocks every email sent via <code>wp_mail()</code> (except whitelisted).<br>
                                 <strong>Allow WooCommerce Emails Only:</strong> Allows WooCommerce order/transaction emails to send, blocks all other emails. <em>Note: WP Cron emails are always blocked regardless of level.</em><br>
-                                <strong>Block WP Cron Emails Only:</strong> Only blocks emails sent from WP Cron jobs (scheduled tasks). All other emails send normally. <em>Note: This is the default behavior - cron emails are always blocked.</em>
+                                <strong>Block WP Cron Emails Only:</strong> Only blocks emails sent from WP Cron jobs (scheduled tasks). All other emails send normally. <em>Note: WP Cron emails are always blocked for safety.</em>
                             </p>
                         </td>
                     </tr>

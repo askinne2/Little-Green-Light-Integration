@@ -28,6 +28,7 @@ class EmailBlocker {
     /**
      * Blocking levels
      */
+    const LEVEL_NONE = 'none';
     const LEVEL_BLOCK_ALL = 'all';
     const LEVEL_WOOCOMMERCE_ALLOWED = 'woocommerce_allowed';
     const LEVEL_CRON_ONLY = 'cron_only';
@@ -98,50 +99,330 @@ class EmailBlocker {
      * Initialize email blocker
      */
     public function init(): void {
+        // Get all relevant settings and states
         $blockingLevel = $this->getBlockingLevel();
         $isEnabled = $this->isBlockingEnabled();
         $isForceBlocking = $this->isForceBlocking();
+        $isDevEnv = $this->isDevelopmentEnvironment();
+        $envDetectionDisabled = $this->isEnvironmentDetectionDisabled();
+        $dropdownLevel = $this->settingsManager->get('email_blocking_level', self::LEVEL_BLOCK_ALL);
         
         // Build status signature to detect changes
-        $statusSignature = sprintf('%s:%d:%d', $blockingLevel, $isEnabled ? 1 : 0, $isForceBlocking ? 1 : 0);
+        $statusSignature = sprintf('%s:%d:%d:%d', $blockingLevel, $isEnabled ? 1 : 0, $isForceBlocking ? 1 : 0, $envDetectionDisabled ? 1 : 0);
         
-        // Only log initialization once per request (DEBUG level - technical detail)
-        if (!self::$initLogged) {
-            $this->helper->debug('LGL Email Blocker: Initializing', [
-                'blocking_level' => $blockingLevel,
-                'is_enabled' => $isEnabled,
-                'is_force_blocking' => $isForceBlocking,
-                'is_dev_env' => $this->isDevelopmentEnvironment(),
-            ]);
-            self::$initLogged = true;
-        }
-        
-        // Only log status changes at INFO level (when blocking state actually changes)
-        // Use transient to persist status between requests
-        $lastLoggedStatus = get_transient(self::STATUS_LOG_TRANSIENT);
-        if ($lastLoggedStatus !== $statusSignature) {
-            if ($blockingLevel && $blockingLevel !== 'none') {
-                $mode = $isForceBlocking ? 'MANUAL OVERRIDE ENABLED' : 'Development environment detected';
-                $this->helper->info('LGL Email Blocker: ACTIVE - ' . $mode . ' (Level: ' . $blockingLevel . ')');
-            } else {
-                $this->helper->info('LGL Email Blocker: INACTIVE - Blocking disabled (Level: ' . $blockingLevel . ')');
+        // Only log initialization and status changes when blocking is actually enabled
+        // This reduces log noise when blocking is disabled
+        if ($blockingLevel && $blockingLevel !== 'none') {
+            // Only log status changes at INFO level (when blocking state actually changes)
+            // Use transient to persist status between requests
+            $lastLoggedStatus = get_transient(self::STATUS_LOG_TRANSIENT);
+            if ($lastLoggedStatus !== $statusSignature) {
+                $mode = $isForceBlocking ? 'MANUAL OVERRIDE ENABLED' : ($envDetectionDisabled ? 'Environment detection disabled' : 'Development environment detected');
+                $this->helper->info('LGL Email Blocker: ACTIVE - ' . $mode . ' (Level: ' . $blockingLevel . ')', [
+                    'dropdown_selection' => $dropdownLevel,
+                    'force_blocking' => $isForceBlocking,
+                    'env_detection_disabled' => $envDetectionDisabled,
+                    'dev_env_detected' => $isDevEnv,
+                ]);
+                // Store status for 1 hour (long enough to prevent repeated logs, short enough to catch real changes)
+                set_transient(self::STATUS_LOG_TRANSIENT, $statusSignature, HOUR_IN_SECONDS);
             }
-            // Store status for 1 hour (long enough to prevent repeated logs, short enough to catch real changes)
-            set_transient(self::STATUS_LOG_TRANSIENT, $statusSignature, HOUR_IN_SECONDS);
+        } else {
+            // Blocking is disabled - only log initialization once per request, and only in debug mode
+            $logLevel = $this->settingsManager->get('log_level', 'info');
+            if (!self::$initLogged && $logLevel === 'debug') {
+                $this->helper->debug('LGL Email Blocker: Disabled (blocking not active)', [
+                    'blocking_level' => $blockingLevel,
+                ]);
+                self::$initLogged = true;
+            }
         }
         
         // Register filters if blocking is enabled (always check, not just on first init)
+        // CRITICAL: Don't register hooks during settings save to prevent hangs
+        if (isset($_POST['save_email_blocking']) || isset($_POST['lgl_email_blocking_settings'])) {
+            return;
+        }
+        
+        // Always check if hooks should be registered or removed based on current blocking level
+        $hasWpMailFilter = has_filter('wp_mail', [$this, 'blockEmails']);
+        // Note: has_action() is an alias for has_filter() in WordPress
+        $hasPhpmailerAction = has_action('phpmailer_init', [$this, 'interceptPhpmailer']);
+        
         if ($blockingLevel && $blockingLevel !== 'none') {
-            if (!has_filter('wp_mail', [$this, 'blockEmails'])) {
+            // Blocking is enabled - register hooks if not already registered
+            if (!$hasWpMailFilter) {
                 // Register wp_mail filter with highest priority to catch all emails
                 add_filter('wp_mail', [$this, 'blockEmails'], 999);
                 
                 // Also hook into PHPMailer to catch emails that might bypass wp_mail
-                add_action('phpmailer_init', [$this, 'interceptPhpmailer'], 999);
+                // Use priority 9999 (AFTER Branda's SMTP init at 999) to prevent sending
+                // This allows SMTP plugins to configure first, then we block if needed
+                add_action('phpmailer_init', [$this, 'interceptPhpmailer'], 9999);
                 
                 add_action('admin_notices', [$this, 'showEmailBlockingNotice']);
             }
+        } else {
+            // Blocking is disabled - remove hooks if they're registered (silently, no logging)
+            if ($hasWpMailFilter) {
+                remove_filter('wp_mail', [$this, 'blockEmails'], 999);
+            }
+            if ($hasPhpmailerAction) {
+                remove_action('phpmailer_init', [$this, 'interceptPhpmailer'], 9999);
+            }
+            
+            // Only verify and warn if hooks weren't removed (this is a real problem)
+            $stillHasWpMail = has_filter('wp_mail', [$this, 'blockEmails']);
+            $stillHasPhpmailer = has_action('phpmailer_init', [$this, 'interceptPhpmailer']);
+            
+            if ($stillHasWpMail || $stillHasPhpmailer) {
+                $this->helper->warning('LGL Email Blocker: WARNING - Hooks still registered after removal attempt', [
+                    'wp_mail_still_registered' => $stillHasWpMail,
+                    'phpmailer_still_registered' => $stillHasPhpmailer,
+                    'blocking_level' => $blockingLevel,
+                ]);
+            }
         }
+        
+        // Fix invalid SMTP configs (runs on all environments)
+        // This prevents emails failing when SMTP is configured but server doesn't exist
+        if (!has_action('phpmailer_init', [$this, 'fixInvalidSMTPConfig'])) {
+            add_action('phpmailer_init', [$this, 'fixInvalidSMTPConfig'], 2); // Priority 2 (before Mailpit at 1, but after other plugins)
+        }
+        
+        // Configure Mailpit for local development (if no SMTP is configured)
+        // This ensures emails work in local environments without Branda
+        if (!has_action('phpmailer_init', [$this, 'configureMailpit'])) {
+            add_action('phpmailer_init', [$this, 'configureMailpit'], 1); // Priority 1 (before other hooks)
+        }
+        
+        // DIAGNOSTIC: Register diagnostic hooks only in debug mode AND when blocking is enabled
+        // This helps debug hangs and email flow issues without cluttering production logs
+        // NOTE: Only enable in debug mode, not just dev environments (QA/staging shouldn't have verbose logs)
+        $logLevel = $this->settingsManager->get('log_level', 'info');
+        $isDebugMode = ($logLevel === 'debug');
+        if ($isDebugMode && $blockingLevel && $blockingLevel !== 'none') {
+            $hasDiagnosticPhpmailer = has_action('phpmailer_init', [$this, 'diagnosticPhpmailerLog']);
+            $hasDiagnosticWpMail = has_filter('wp_mail', [$this, 'diagnosticWpMailLog']);
+            
+            if (!$hasDiagnosticPhpmailer) {
+                add_action('phpmailer_init', [$this, 'diagnosticPhpmailerLog'], 10); // Priority 10 (AFTER Mailpit config at 1)
+            }
+            if (!$hasDiagnosticWpMail) {
+                add_filter('wp_mail', [$this, 'diagnosticWpMailLog'], 1); // Priority 1 (before blocking at 999)
+            }
+        }
+    }
+    
+    /**
+     * Fix invalid SMTP configurations that would cause email failures
+     * Runs on all environments to prevent emails failing due to bad SMTP config
+     */
+    public function fixInvalidSMTPConfig($phpmailer): void {
+        // Check if SMTP is configured (check both isSMTP() method AND Mailer property)
+        // Sometimes Mailer property is set to 'smtp' but isSMTP() hasn't been called yet
+        $isSMTPMethod = false;
+        $mailerProperty = null;
+        
+        if (method_exists($phpmailer, 'isSMTP')) {
+            $isSMTPMethod = $phpmailer->isSMTP();
+        }
+        
+        if (property_exists($phpmailer, 'Mailer')) {
+            $mailerProperty = $phpmailer->Mailer;
+        }
+        
+        // Consider it SMTP if either the method returns true OR the Mailer property is 'smtp'
+        $isSMTP = $isSMTPMethod || ($mailerProperty === 'smtp');
+        
+        // Only log diagnostic info in debug mode if we're actually fixing something
+        // (reduces log noise when SMTP is properly configured)
+        
+        if (!$isSMTP) {
+            return; // Not in SMTP mode, nothing to fix
+        }
+        
+        $host = $phpmailer->Host ?? '';
+        $port = $phpmailer->Port ?? 25;
+        $isLocalhost = (
+            $host === 'localhost' ||
+            $host === '127.0.0.1' ||
+            empty($host)
+        );
+        
+        // Check if we're actually on localhost (where Mailpit might be available)
+        $serverHost = $_SERVER['HTTP_HOST'] ?? '';
+        $isActuallyLocalhost = (
+            strpos($serverHost, 'localhost') !== false ||
+            strpos($serverHost, '127.0.0.1') !== false ||
+            strpos($serverHost, '.local') !== false ||
+            (isset($_SERVER['SERVER_ADDR']) && $_SERVER['SERVER_ADDR'] === '127.0.0.1')
+        );
+        
+        // If SMTP is configured for localhost but we're NOT on localhost, reset to mail() mode
+        if ($isLocalhost && !$isActuallyLocalhost) {
+            // Store original values for logging
+            $originalHost = $host;
+            $originalPort = $port;
+            $originalMailer = $mailerProperty;
+            
+            // Reset to mail() mode - localhost SMTP won't work on staging/QA/production
+            if (method_exists($phpmailer, 'isMail')) {
+                $phpmailer->isMail();
+            } else {
+                $phpmailer->Mailer = 'mail';
+            }
+            
+            // Clear SMTP-specific properties to ensure clean state
+            $phpmailer->Host = '';
+            $phpmailer->SMTPAuth = false;
+            
+            // Log at info level so it's visible (this is important - emails were failing)
+            $this->helper->info('LGL Email Blocker: Fixed invalid SMTP config (localhost on non-localhost server)', [
+                'server_host' => $serverHost,
+                'original_host' => $originalHost,
+                'original_port' => $originalPort,
+            ]);
+        }
+    }
+    
+    /**
+     * Configure Mailpit for local development
+     * Only applies if no other SMTP is already configured
+     */
+    public function configureMailpit($phpmailer): void {
+        // CRITICAL: Only configure Mailpit on actual localhost, not staging/QA servers
+        // Check for localhost/127.0.0.1 specifically, not just dev environment detection
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        $isLocalhost = (
+            strpos($host, 'localhost') !== false ||
+            strpos($host, '127.0.0.1') !== false ||
+            strpos($host, '.local') !== false ||
+            (isset($_SERVER['SERVER_ADDR']) && $_SERVER['SERVER_ADDR'] === '127.0.0.1')
+        );
+        
+        // Also check if we're in a local development environment AND it's actually localhost
+        $isLocal = $isLocalhost && $this->isDevelopmentEnvironment();
+        if (!$isLocal) {
+            return; // Only configure Mailpit on actual localhost, not staging/QA
+        }
+        
+        // Only configure if SMTP is not already set up
+        // Check BEFORE configuring to avoid overriding existing SMTP configs
+        $alreadySMTP = method_exists($phpmailer, 'isSMTP') && $phpmailer->isSMTP();
+        $hasValidSMTPHost = !empty($phpmailer->Host) && $phpmailer->Host !== 'localhost' && $phpmailer->Host !== '127.0.0.1';
+        
+        if ($alreadySMTP && $hasValidSMTPHost) {
+            // SMTP already configured with a real host (likely by Branda or another plugin)
+            $logLevel = $this->settingsManager->get('log_level', 'info');
+            if ($logLevel === 'debug') {
+                $this->helper->debug('LGL Email Blocker: SMTP already configured, skipping Mailpit', [
+                    'existing_host' => $phpmailer->Host,
+                    'existing_port' => $phpmailer->Port,
+                ]);
+            }
+            return;
+        }
+        
+        // If SMTP is set but host is localhost/empty, reset to mail() mode for production
+        // This prevents trying to use non-existent localhost SMTP servers
+        if ($alreadySMTP && ($phpmailer->Host === 'localhost' || $phpmailer->Host === '127.0.0.1' || empty($phpmailer->Host))) {
+            // Reset to mail() mode - no SMTP server available
+            if (method_exists($phpmailer, 'isMail')) {
+                $phpmailer->isMail();
+            } else {
+                $phpmailer->Mailer = 'mail';
+            }
+            $logLevel = $this->settingsManager->get('log_level', 'info');
+            if ($logLevel === 'debug') {
+                $this->helper->debug('LGL Email Blocker: Reset PHPMailer from invalid SMTP config to mail() mode', [
+                    'previous_host' => $phpmailer->Host,
+                    'previous_port' => $phpmailer->Port,
+                ]);
+            }
+            return; // Don't configure Mailpit, just reset to mail() mode
+        }
+        
+        // Configure Mailpit (LocalWP Mailpit settings)
+        // IMPORTANT: Set Mailer property directly to ensure SMTP mode is enabled
+        $phpmailer->Mailer = 'smtp';
+        $phpmailer->Host = 'localhost';
+        $phpmailer->Port = 10092; // LocalWP Mailpit SMTP port (10092 = SMTP, 10091 = Web UI)
+        $phpmailer->SMTPAuth = false;
+        $phpmailer->SMTPSecure = false;
+        $phpmailer->SMTPAutoTLS = false;
+        $phpmailer->Timeout = 10;
+        
+        // Also call isSMTP() to ensure PHPMailer is in SMTP mode
+        if (method_exists($phpmailer, 'isSMTP')) {
+            $phpmailer->isSMTP();
+        }
+        
+        // Only log in debug mode to avoid cluttering production logs
+        $logLevel = $this->settingsManager->get('log_level', 'info');
+        if ($logLevel === 'debug') {
+            $this->helper->info('LGL Email Blocker: Configured Mailpit for local development', [
+                'host' => $phpmailer->Host,
+                'port' => $phpmailer->Port,
+                'was_already_smtp' => $alreadySMTP,
+            ]);
+        }
+    }
+    
+    /**
+     * Diagnostic: Log all PHPMailer activity (even when blocking is disabled)
+     * This helps debug hangs and email flow issues
+     */
+    public function diagnosticPhpmailerLog($phpmailer): void {
+        $toAddresses = $phpmailer->getToAddresses();
+        $to = is_array($toAddresses) && !empty($toAddresses)
+            ? implode(', ', array_column($toAddresses, 0))
+            : 'Unknown';
+        $subject = $phpmailer->Subject ?? 'No Subject';
+        
+        // Check if SMTP is configured (Branda runs at priority 999, Mailpit at priority 1)
+        // Use reflection to check Mailer property since isSMTP() might not be reliable
+        $isSMTP = false;
+        if (method_exists($phpmailer, 'isSMTP')) {
+            $isSMTP = $phpmailer->isSMTP();
+        } elseif (property_exists($phpmailer, 'Mailer')) {
+            $isSMTP = ($phpmailer->Mailer === 'smtp');
+        }
+        
+        $this->helper->debug('LGL Email Blocker: DIAGNOSTIC - PHPMailer initialized', [
+            'to' => $to,
+            'subject' => $subject,
+            'is_smtp' => $isSMTP,
+            'mailer_type' => property_exists($phpmailer, 'Mailer') ? $phpmailer->Mailer : 'unknown',
+            'smtp_host' => $phpmailer->Host ?? 'N/A',
+            'smtp_port' => $phpmailer->Port ?? 'N/A',
+            'smtp_auth' => $phpmailer->SMTPAuth ?? false,
+            'smtp_secure' => $phpmailer->SMTPSecure ?? 'N/A',
+            'from_email' => $phpmailer->From ?? 'N/A',
+            'blocking_enabled' => $this->isBlockingEnabled(),
+            'blocking_level' => $this->getBlockingLevel(),
+        ]);
+    }
+    
+    /**
+     * Diagnostic: Log all wp_mail activity (even when blocking is disabled)
+     * This helps debug hangs and email flow issues
+     */
+    public function diagnosticWpMailLog($args) {
+        if (is_array($args)) {
+            $to = is_array($args['to'] ?? []) ? implode(', ', $args['to']) : ($args['to'] ?? 'Unknown');
+            $subject = $args['subject'] ?? 'No Subject';
+            
+            $this->helper->debug('LGL Email Blocker: DIAGNOSTIC - wp_mail called', [
+                'to' => $to,
+                'subject' => $subject,
+                'message_length' => strlen($args['message'] ?? ''),
+                'blocking_enabled' => $this->isBlockingEnabled(),
+                'blocking_level' => $this->getBlockingLevel(),
+            ]);
+        }
+        
+        return $args; // Always pass through - this is diagnostic only
     }
     
     /**
@@ -150,20 +431,26 @@ class EmailBlocker {
      * @return string Blocking level
      */
     public function getBlockingLevel(): string {
-        // Check if blocking is explicitly disabled
-        if (!$this->isBlockingEnabled()) {
-            return 'none';
-        }
-        
         // Get blocking level from settings, default to 'all' for backward compatibility
         $level = $this->settingsManager->get('email_blocking_level', self::LEVEL_BLOCK_ALL);
         
         // Validate level
-        $validLevels = [self::LEVEL_BLOCK_ALL, self::LEVEL_WOOCOMMERCE_ALLOWED, self::LEVEL_CRON_ONLY];
+        $validLevels = [self::LEVEL_NONE, self::LEVEL_BLOCK_ALL, self::LEVEL_WOOCOMMERCE_ALLOWED, self::LEVEL_CRON_ONLY];
         if (!in_array($level, $validLevels, true)) {
             return self::LEVEL_BLOCK_ALL;
         }
         
+        // If user explicitly set to 'none', return 'none' (overrides environment detection)
+        if ($level === self::LEVEL_NONE) {
+            return self::LEVEL_NONE;
+        }
+        
+        // If blocking is not enabled (no force blocking and not dev environment), return 'none'
+        if (!$this->isBlockingEnabled()) {
+            return 'none';
+        }
+        
+        // Otherwise return the selected level
         return $level;
     }
     
@@ -194,14 +481,74 @@ class EmailBlocker {
     /**
      * Determine whether email blocking should be active
      * 
+     * IMPORTANT: This does NOT check for LEVEL_NONE - that's handled in getBlockingLevel()
+     * This method only checks if blocking should be enabled based on force blocking or environment.
+     * 
      * @return bool
      */
     public function isBlockingEnabled(): bool {
+        // Force blocking overrides everything
         if ($this->isForceBlocking()) {
             return true;
         }
 
+        // If environment detection is disabled, only force blocking enables blocking
+        if ($this->isEnvironmentDetectionDisabled()) {
+            return false;
+        }
+
+        // Otherwise, check environment
         return $this->isDevelopmentEnvironment();
+    }
+    
+    /**
+     * Check if environment detection is disabled
+     * 
+     * @return bool True if environment detection is disabled
+     */
+    public function isEnvironmentDetectionDisabled(): bool {
+        return (bool) $this->settingsManager->get('disable_email_blocking_env_detection', false);
+    }
+    
+    /**
+     * Get decision path for debugging
+     * 
+     * @return string Human-readable decision path
+     */
+    private function getDecisionPath(): string {
+        $dropdownLevel = $this->settingsManager->get('email_blocking_level', self::LEVEL_BLOCK_ALL);
+        $isForceBlocking = $this->isForceBlocking();
+        $envDetectionDisabled = $this->isEnvironmentDetectionDisabled();
+        $isDevEnv = $this->isDevelopmentEnvironment();
+        
+        $path = [];
+        $path[] = "Dropdown: {$dropdownLevel}";
+        
+        if ($dropdownLevel === self::LEVEL_NONE) {
+            $path[] = "→ Blocking DISABLED (dropdown override)";
+            return implode(' | ', $path);
+        }
+        
+        if ($isForceBlocking) {
+            $path[] = "→ Force blocking ENABLED";
+            return implode(' | ', $path);
+        }
+        
+        if ($envDetectionDisabled) {
+            $path[] = "→ Environment detection DISABLED";
+            $path[] = "→ Blocking DISABLED (no force, no env detection)";
+            return implode(' | ', $path);
+        }
+        
+        if ($isDevEnv) {
+            $path[] = "→ Dev environment DETECTED";
+            $path[] = "→ Blocking ENABLED";
+        } else {
+            $path[] = "→ Production environment";
+            $path[] = "→ Blocking DISABLED (production, no force)";
+        }
+        
+        return implode(' | ', $path);
     }
 
     /**
@@ -220,8 +567,51 @@ class EmailBlocker {
      * @return false|array Returns false to block, or modified args to allow
      */
     public function blockEmails($args) {
+        // VERBOSE LOGGING: Log every email that comes through wp_mail filter
+        $this->helper->debug('LGL Email Blocker: wp_mail filter called', [
+            'args_type' => gettype($args),
+            'is_array' => is_array($args),
+            'is_false' => ($args === false),
+            'doing_ajax' => defined('DOING_AJAX') && DOING_AJAX,
+            'is_admin' => is_admin(),
+            'post_keys' => isset($_POST) ? array_keys($_POST) : [],
+        ]);
+        
+        // CRITICAL: Double-check if blocking is actually enabled before processing
+        // This prevents blocking when hooks weren't properly removed
+        $blockingLevel = $this->getBlockingLevel();
+        $isEnabled = $this->isBlockingEnabled();
+        
+        if ($blockingLevel === self::LEVEL_NONE || !$isEnabled) {
+            $this->helper->debug('LGL Email Blocker: Blocking disabled, allowing email through wp_mail', [
+                'blocking_level' => $blockingLevel,
+                'is_enabled' => $isEnabled,
+            ]);
+            return $args; // Blocking disabled, allow email
+        }
+        
+        // CRITICAL: Skip processing during settings save operations
+        // Check transient flag set by EmailBlockingSettingsPage
+        if (get_transient('lgl_email_blocking_saving')) {
+            $this->helper->debug('LGL Email Blocker: Settings save in progress, allowing email');
+            return $args; // Allow emails during settings save to prevent hangs
+        }
+        
+        // CRITICAL: Skip processing during admin POST requests (settings saves, etc.)
+        // This prevents hangs when saving email blocking settings
+        if (defined('DOING_AJAX') && DOING_AJAX) {
+            $this->helper->debug('LGL Email Blocker: AJAX request, allowing email');
+            return $args;
+        }
+        
+        if (isset($_POST['save_email_blocking']) || isset($_POST['lgl_email_blocking_settings'])) {
+            $this->helper->debug('LGL Email Blocker: Email blocking settings save detected, allowing email');
+            return $args; // Allow emails during settings save to prevent hangs
+        }
+        
         // If another filter already blocked this email, respect that
         if ($args === false) {
+            $this->helper->debug('LGL Email Blocker: Email already blocked by another filter');
             return false;
         }
         
@@ -238,8 +628,20 @@ class EmailBlocker {
         $to = is_array($args['to']) ? implode(', ', $args['to']) : ($args['to'] ?? 'Unknown');
         $message = $args['message'] ?? 'No Message';
         
+        // VERBOSE LOGGING: Log email details
+        $this->helper->debug('LGL Email Blocker: Processing email via wp_mail', [
+            'to' => $to,
+            'subject' => $subject,
+            'message_length' => strlen($message),
+            'headers_count' => is_array($args['headers'] ?? []) ? count($args['headers']) : 0,
+        ]);
+        
         // Check if temporarily disabled
         if ($this->operationalData->isEmailBlockingPaused()) {
+            $this->helper->debug('LGL Email Blocker: Blocking temporarily paused, allowing email', [
+                'to' => $to,
+                'subject' => $subject,
+            ]);
             return $args; // Allow email to send
         }
         
@@ -250,6 +652,11 @@ class EmailBlocker {
         $shouldRespectWhitelist = !$this->isForceBlocking(); // Don't respect whitelist when force blocking
         
         if ($isWhitelisted && $shouldRespectWhitelist) {
+            $this->helper->debug('LGL Email Blocker: Email whitelisted, allowing through', [
+                'to' => $to,
+                'subject' => $subject,
+                'is_admin_email' => ($to === get_option('admin_email')),
+            ]);
             return $args; // Allow email to send
         }
         
@@ -258,7 +665,22 @@ class EmailBlocker {
         $emailType = $this->identifyEmailType($args);
         $shouldBlock = $this->shouldBlockEmail($args, $blockingLevel);
         
+        $this->helper->debug('LGL Email Blocker: Email blocking decision', [
+            'to' => $to,
+            'subject' => $subject,
+            'email_type' => $emailType,
+            'blocking_level' => $blockingLevel,
+            'should_block' => $shouldBlock,
+            'is_whitelisted' => $isWhitelisted,
+            'respect_whitelist' => $shouldRespectWhitelist,
+        ]);
+        
         if (!$shouldBlock) {
+            $this->helper->debug('LGL Email Blocker: Email allowed (not blocked)', [
+                'to' => $to,
+                'subject' => $subject,
+                'email_type' => $emailType,
+            ]);
             return $args; // Allow email to send
         }
         
@@ -288,30 +710,125 @@ class EmailBlocker {
      * Intercept PHPMailer to block emails that might bypass wp_mail filter
      * This catches WooCommerce emails and other emails sent directly via PHPMailer
      * 
+     * IMPORTANT: This runs at priority 9999 (AFTER Branda's SMTP init at 999) to prevent
+     * SMTP connection attempts when emails are blocked. This allows SMTP plugins to
+     * configure first, then we block if needed.
+     * 
      * @param \PHPMailer\PHPMailer\PHPMailer $phpmailer PHPMailer instance
      * @return void
      */
     public function interceptPhpmailer($phpmailer): void {
-        // Only intercept if blocking is enabled
-        if (!$this->isBlockingEnabled() || $this->getBlockingLevel() === 'none') {
+        // VERBOSE LOGGING: Log every PHPMailer initialization at the very start
+        $toAddresses = $phpmailer->getToAddresses();
+        $to = is_array($toAddresses) && !empty($toAddresses)
+            ? implode(', ', array_column($toAddresses, 0))
+            : 'Unknown';
+        $subject = $phpmailer->Subject ?? 'No Subject';
+        
+        $this->helper->debug('LGL Email Blocker: phpmailer_init hook called', [
+            'to' => $to,
+            'subject' => $subject,
+            'recipient_count' => is_array($toAddresses) ? count($toAddresses) : 0,
+            'is_smtp' => method_exists($phpmailer, 'isSMTP') && $phpmailer->isSMTP(),
+            'smtp_host' => $phpmailer->Host ?? 'N/A',
+            'already_blocked_flag' => isset($phpmailer->lgl_blocked),
+            'doing_ajax' => defined('DOING_AJAX') && DOING_AJAX,
+            'is_admin' => is_admin(),
+            'post_keys' => isset($_POST) ? array_keys($_POST) : [],
+        ]);
+        
+        // CRITICAL: Double-check if blocking is actually enabled before processing
+        // This prevents blocking when hooks weren't properly removed
+        $blockingLevel = $this->getBlockingLevel();
+        $isEnabled = $this->isBlockingEnabled();
+        
+        if ($blockingLevel === self::LEVEL_NONE || !$isEnabled) {
+            $this->helper->debug('LGL Email Blocker: Blocking disabled, allowing email through PHPMailer', [
+                'to' => $to,
+                'subject' => $subject,
+                'blocking_level' => $blockingLevel,
+                'is_enabled' => $isEnabled,
+            ]);
+            return; // Blocking disabled, allow email
+        }
+        
+        // CRITICAL: Skip processing during settings save operations
+        // Check transient flag set by EmailBlockingSettingsPage
+        if (get_transient('lgl_email_blocking_saving')) {
+            $this->helper->debug('LGL Email Blocker: Settings save in progress, allowing email through PHPMailer');
             return;
         }
         
-        // Get email details from PHPMailer
-        $to = is_array($phpmailer->getToAddresses()) 
-            ? implode(', ', array_column($phpmailer->getToAddresses(), 0))
-            : ($phpmailer->getToAddresses()[0][0] ?? 'Unknown');
+        // CRITICAL: Skip processing during admin POST requests (settings saves, etc.)
+        // This prevents hangs when saving email blocking settings
+        if (defined('DOING_AJAX') && DOING_AJAX) {
+            $this->helper->debug('LGL Email Blocker: AJAX request, allowing email through PHPMailer');
+            return;
+        }
         
-        $subject = $phpmailer->Subject ?? 'No Subject';
+        // Skip during settings save operations (check POST data)
+        if (isset($_POST['save_email_blocking']) || isset($_POST['lgl_email_blocking_settings'])) {
+            $this->helper->debug('LGL Email Blocker: Email blocking settings save detected, allowing email through PHPMailer');
+            return;
+        }
+        
+        // Skip if we're in admin and this might be a settings save
+        if (is_admin() && isset($_POST) && !empty($_POST)) {
+            // Check if this is likely a settings save (but allow other admin POSTs)
+            $post_keys = array_keys($_POST);
+            foreach ($post_keys as $key) {
+                if (strpos($key, 'email_blocking') !== false || strpos($key, 'lgl_email') !== false) {
+                    $this->helper->debug('LGL Email Blocker: Likely settings save detected in POST data, allowing email');
+                    return;
+                }
+            }
+        }
+        
+        // Check if we've already processed this PHPMailer instance (prevent duplicate processing)
+        if (isset($phpmailer->lgl_blocked)) {
+            $this->helper->debug('LGL Email Blocker: PHPMailer instance already processed, skipping', [
+                'to' => $to,
+                'subject' => $subject,
+            ]);
+            return;
+        }
+        
+        // If no recipients, skip (already blocked or invalid)
+        if (empty($toAddresses) || $to === 'Unknown') {
+            $this->helper->debug('LGL Email Blocker: No recipients found in PHPMailer, skipping', [
+                'to_addresses' => $toAddresses,
+            ]);
+            return;
+        }
+        
+        // VERBOSE LOGGING: Log PHPMailer email details before processing
+        $this->helper->debug('LGL Email Blocker: Processing email via PHPMailer', [
+            'to' => $to,
+            'subject' => $subject,
+            'body_length' => strlen($phpmailer->Body ?? ''),
+            'is_smtp' => method_exists($phpmailer, 'isSMTP') && $phpmailer->isSMTP(),
+            'smtp_host' => $phpmailer->Host ?? 'N/A',
+        ]);
         
         // Check if temporarily disabled
         if ($this->operationalData->isEmailBlockingPaused()) {
+            $this->helper->debug('LGL Email Blocker: Blocking temporarily paused, allowing email through PHPMailer', [
+                'to' => $to,
+                'subject' => $subject,
+            ]);
             return; // Allow email
         }
         
         // Check whitelist (but respect force blocking override)
         $shouldRespectWhitelist = !$this->isForceBlocking() || $this->settingsManager->get('email_blocking_respect_whitelist', true);
-        if ($shouldRespectWhitelist && $this->isWhitelisted($to)) {
+        $isWhitelisted = $this->isWhitelisted($to);
+        
+        if ($shouldRespectWhitelist && $isWhitelisted) {
+            $this->helper->debug('LGL Email Blocker: Email whitelisted, allowing through PHPMailer', [
+                'to' => $to,
+                'subject' => $subject,
+                'is_admin_email' => ($to === get_option('admin_email')),
+            ]);
             return; // Allow email
         }
         
@@ -324,9 +841,31 @@ class EmailBlocker {
         ];
         
         $blockingLevel = $this->getBlockingLevel();
+        $emailType = $this->identifyEmailType($args);
         $shouldBlock = $this->shouldBlockEmail($args, $blockingLevel);
         
+        $this->helper->debug('LGL Email Blocker: PHPMailer blocking decision', [
+            'to' => $to,
+            'subject' => $subject,
+            'email_type' => $emailType,
+            'blocking_level' => $blockingLevel,
+            'should_block' => $shouldBlock,
+            'is_whitelisted' => $isWhitelisted,
+            'respect_whitelist' => $shouldRespectWhitelist,
+        ]);
+        
         if ($shouldBlock) {
+            // Mark as blocked to prevent duplicate processing
+            $phpmailer->lgl_blocked = true;
+            
+            // Log the blocked email
+            $this->helper->info(sprintf(
+                'LGL Email Blocker: BLOCKED (PHPMailer) - To: %s | Subject: %s | Type: %s',
+                $to,
+                $subject,
+                $this->identifyEmailType($args)
+            ));
+            
             // Store blocked email (logging happens in operationalData)
             $this->operationalData->addBlockedEmail([
                 'to' => $to,
@@ -337,18 +876,50 @@ class EmailBlocker {
                 'blocking_level' => $blockingLevel,
             ]);
             
-            // Clear recipients to prevent sending
+            // CRITICAL: Prevent SMTP connection by disabling SMTP mode
+            // This prevents Branda from trying to connect when there are no recipients
+            $wasSMTP = method_exists($phpmailer, 'isSMTP') && $phpmailer->isSMTP();
+            if ($wasSMTP) {
+                // Switch back to mail() to prevent SMTP connection attempt
+                $phpmailer->isMail();
+                $this->helper->debug('LGL Email Blocker: Switched PHPMailer from SMTP to mail() mode to prevent connection', [
+                    'to' => $to,
+                    'subject' => $subject,
+                    'smtp_host' => $phpmailer->Host ?? 'N/A',
+                ]);
+            }
+            
+            // Clear all recipients to prevent sending
             $phpmailer->clearAddresses();
             $phpmailer->clearCCs();
             $phpmailer->clearBCCs();
             $phpmailer->clearReplyTos();
             
-            // Set a flag to prevent sending
-            $phpmailer->isHTML(false);
+            // Clear body and subject to prevent sending empty emails
             $phpmailer->Body = '';
+            $phpmailer->AltBody = '';
             $phpmailer->Subject = '';
+            
+            // Set an error to prevent PHPMailer from attempting to send
+            if (method_exists($phpmailer, 'setError')) {
+                $phpmailer->setError('Email blocked by LGL Email Blocker');
+            } else {
+                $phpmailer->ErrorInfo = 'Email blocked by LGL Email Blocker';
+            }
+            
+            $this->helper->debug('LGL Email Blocker: PHPMailer email blocked - recipients cleared, SMTP disabled', [
+                'to' => $to,
+                'subject' => $subject,
+                'was_smtp' => $wasSMTP,
+                'email_type' => $emailType,
+            ]);
         } else {
-            // Email allowed - no need to log every allowed email
+            // Email allowed - log for debugging
+            $this->helper->debug('LGL Email Blocker: Email allowed through PHPMailer (not blocked)', [
+                'to' => $to,
+                'subject' => $subject,
+                'email_type' => $emailType,
+            ]);
         }
     }
     
@@ -367,6 +938,10 @@ class EmailBlocker {
         }
         
         switch ($blockingLevel) {
+            case self::LEVEL_NONE:
+                // Blocking disabled - allow all emails (except cron which is always blocked)
+                return false;
+                
             case self::LEVEL_BLOCK_ALL:
                 // Block everything (cron already handled above)
                 return true;
@@ -612,6 +1187,12 @@ class EmailBlocker {
      * Show admin notice about email blocking
      */
     public function showEmailBlockingNotice(): void {
+        // Only show notice if blocking is actually active (not disabled)
+        $blockingLevel = $this->getBlockingLevel();
+        if ($blockingLevel === self::LEVEL_NONE) {
+            return; // Blocking disabled, don't show notice
+        }
+        
         if (!$this->isBlockingEnabled()) {
             return;
         }
@@ -626,9 +1207,8 @@ class EmailBlocker {
         }
         
         $blocked_count = $this->operationalData->getBlockedEmailsCount();
-        
-        $blockingLevel = $this->getBlockingLevel();
         $levelDescriptions = [
+            self::LEVEL_NONE => 'Disabled',
             self::LEVEL_BLOCK_ALL => 'All emails',
             self::LEVEL_WOOCOMMERCE_ALLOWED => 'Non-WooCommerce emails',
             self::LEVEL_CRON_ONLY => 'WP Cron emails only',
@@ -733,13 +1313,24 @@ class EmailBlocker {
      * @return array Status information
      */
     public function getBlockingStatus(): array {
+        $blockingLevel = $this->getBlockingLevel();
+        $isEnabled = $this->isBlockingEnabled();
+        $isPaused = $this->operationalData->isEmailBlockingPaused();
+        
+        // Blocking is actively blocking if:
+        // 1. Blocking level is NOT 'none'
+        // 2. Blocking is enabled (force or env detection)
+        // 3. Not temporarily paused
+        $isActivelyBlocking = ($blockingLevel !== self::LEVEL_NONE) && $isEnabled && !$isPaused;
+        
         return [
             'is_development' => $this->isDevelopmentEnvironment(),
-            'is_temporarily_disabled' => $this->operationalData->isEmailBlockingPaused(),
-            'is_actively_blocking' => $this->isBlockingEnabled() && !$this->operationalData->isEmailBlockingPaused(),
+            'is_temporarily_disabled' => $isPaused,
+            'is_actively_blocking' => $isActivelyBlocking,
             'is_force_blocking' => $this->isForceBlocking(),
-            'blocking_level' => $this->getBlockingLevel(),
-            'environment_info' => $this->getEnvironmentInfo()
+            'blocking_level' => $blockingLevel,
+            'environment_info' => $this->getEnvironmentInfo(),
+            'env_detection_disabled' => $this->isEnvironmentDetectionDisabled()
         ];
     }
 }

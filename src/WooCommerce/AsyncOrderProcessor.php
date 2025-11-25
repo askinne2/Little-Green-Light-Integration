@@ -56,9 +56,17 @@ class AsyncOrderProcessor {
         add_action(self::CRON_HOOK, [$this, 'handleAsyncRequest'], 10, 1);
         
         // Register fallback mechanism to check for stuck orders
-        // This ensures processing happens even if WP Cron doesn't fire
-        add_action('admin_init', [$this, 'checkStuckOrders'], 999);
-        add_action('wp_loaded', [$this, 'checkStuckOrders'], 999);
+        // Use WP Cron instead of every page load to prevent memory exhaustion
+        // This ensures processing happens even if WP Cron doesn't fire, but less frequently
+        // Register custom cron schedule for 5-minute intervals
+        add_filter('cron_schedules', [$this, 'addFiveMinuteSchedule']);
+        if (!wp_next_scheduled('lgl_check_stuck_orders')) {
+            wp_schedule_event(time(), 'lgl_five_minutes', 'lgl_check_stuck_orders');
+        }
+        add_action('lgl_check_stuck_orders', [$this, 'checkStuckOrders']);
+        
+        // Also check on admin pages only, but with stricter throttling (5 minutes)
+        add_action('admin_init', [$this, 'checkStuckOrdersAdmin'], 999);
     }
     
     /**
@@ -69,6 +77,20 @@ class AsyncOrderProcessor {
      */
     public function setOrderProcessor(OrderProcessor $orderProcessor): void {
         $this->orderProcessor = $orderProcessor;
+    }
+    
+    /**
+     * Add custom 5-minute cron schedule
+     * 
+     * @param array $schedules Existing cron schedules
+     * @return array Modified schedules
+     */
+    public function addFiveMinuteSchedule(array $schedules): array {
+        $schedules['lgl_five_minutes'] = [
+            'interval' => 300, // 5 minutes in seconds
+            'display' => __('Every 5 Minutes', 'integrate-lgl')
+        ];
+        return $schedules;
     }
     
     /**
@@ -116,21 +138,23 @@ class AsyncOrderProcessor {
     /**
      * Check for orders that are queued but not yet processed
      * Fallback mechanism if WP Cron doesn't fire
+     * Called by WP Cron hook 'lgl_check_stuck_orders' (every 5 minutes)
      * 
      * @return void
      */
     public function checkStuckOrders(): void {
-        // Only check occasionally (every 30 seconds) to avoid performance issues
+        // Only check occasionally (every 5 minutes) to avoid performance issues
         $last_check = get_transient('lgl_async_order_check');
-        if ($last_check && (time() - $last_check) < 30) {
+        if ($last_check && (time() - $last_check) < 300) { // 5 minutes
             return;
         }
         
-        set_transient('lgl_async_order_check', time(), 60);
+        set_transient('lgl_async_order_check', time(), 600); // 10 minute expiry
         
         // Find orders queued more than 1 minute ago but not processed
+        // Limit to 5 orders per check to prevent memory exhaustion
         $args = [
-            'limit' => 10,
+            'limit' => 5,
             'status' => 'any',
             'date_created' => '>' . (time() - DAY_IN_SECONDS),
             'meta_query' => [
@@ -148,17 +172,25 @@ class AsyncOrderProcessor {
                     'key' => '_lgl_async_permanently_failed',
                     'compare' => 'NOT EXISTS'
                 ]
-            ]
+            ],
+            'orderby' => 'date',
+            'order' => 'ASC' // Process oldest first
         ];
         
-        $queued_orders = wc_get_orders($args);
+        // Use return format 'ids' to reduce memory usage
+        $args['return'] = 'ids';
+        $queued_order_ids = wc_get_orders($args);
         
-        if (!empty($queued_orders)) {
-            foreach ($queued_orders as $order) {
-                $order_id = $order->get_id();
-                
+        if (!empty($queued_order_ids)) {
+            foreach ($queued_order_ids as $order_id) {
                 // Check if order is currently being processed (lock mechanism)
                 if ($this->isOrderProcessing($order_id)) {
+                    continue;
+                }
+                
+                // Load order only when needed
+                $order = wc_get_order($order_id);
+                if (!$order) {
                     continue;
                 }
                 
@@ -169,9 +201,85 @@ class AsyncOrderProcessor {
                     
                     // Process if queued more than 1 minute ago
                     if ($minutes_ago > 1) {
-                        // Process directly (bypass cron)
-                        $this->handleAsyncRequest($order_id);
+                        // Schedule via cron instead of processing directly to avoid memory issues
+                        // This prevents recursive processing and memory exhaustion
+                        wp_schedule_single_event(time(), self::CRON_HOOK, [$order_id]);
                     }
+                }
+                
+                // Clear order from memory
+                unset($order);
+            }
+        }
+    }
+    
+    /**
+     * Check for stuck orders on admin pages only
+     * More restrictive version that only runs in admin with 5-minute throttling
+     * 
+     * @return void
+     */
+    public function checkStuckOrdersAdmin(): void {
+        // Only run in admin
+        if (!is_admin()) {
+            return;
+        }
+        
+        // Only check occasionally (every 5 minutes) to avoid performance issues
+        $last_check = get_transient('lgl_async_order_check_admin');
+        if ($last_check && (time() - $last_check) < 300) { // 5 minutes
+            return;
+        }
+        
+        set_transient('lgl_async_order_check_admin', time(), 600); // 10 minute expiry
+        
+        // Only process 1 order per admin page load to prevent memory issues
+        $args = [
+            'limit' => 1,
+            'status' => 'any',
+            'date_created' => '>' . (time() - DAY_IN_SECONDS),
+            'meta_query' => [
+                'relation' => 'AND',
+                [
+                    'key' => '_lgl_async_queued',
+                    'value' => '1',
+                    'compare' => '='
+                ],
+                [
+                    'key' => '_lgl_async_processed',
+                    'compare' => 'NOT EXISTS'
+                ],
+                [
+                    'key' => '_lgl_async_permanently_failed',
+                    'compare' => 'NOT EXISTS'
+                ]
+            ],
+            'orderby' => 'date',
+            'order' => 'ASC',
+            'return' => 'ids'
+        ];
+        
+        $queued_order_ids = wc_get_orders($args);
+        
+        if (!empty($queued_order_ids)) {
+            $order_id = reset($queued_order_ids);
+            
+            // Check if order is currently being processed
+            if (!$this->isOrderProcessing($order_id)) {
+                $order = wc_get_order($order_id);
+                if ($order) {
+                    $queued_at = $order->get_meta('_lgl_async_queued_at');
+                    if ($queued_at) {
+                        $queued_timestamp = strtotime($queued_at);
+                        $minutes_ago = (time() - $queued_timestamp) / 60;
+                        
+                        // Process if queued more than 5 minutes ago (more lenient for admin)
+                        if ($minutes_ago > 5) {
+                            // Schedule via cron instead of processing directly
+                            wp_schedule_single_event(time(), self::CRON_HOOK, [$order_id]);
+                        }
+                    }
+                    unset($order);
                 }
             }
         }

@@ -132,6 +132,7 @@ class DebugLogPage {
             <div class="lgl-log-actions">
                 <a href="<?php echo esc_url(add_query_arg('action', 'refresh')); ?>" class="button">🔄 Refresh</a>
                 <?php if ($log_exists && $log_size > 0) : ?>
+                    <button type="button" id="lgl-copy-log" class="button">📋 Copy Log</button>
                     <a href="<?php echo esc_url(add_query_arg(['action' => 'download', '_wpnonce' => wp_create_nonce('lgl_download_log')])); ?>" class="button">📥 Download Log</a>
                     <a href="<?php echo esc_url(add_query_arg(['action' => 'clear', '_wpnonce' => wp_create_nonce('lgl_clear_log')])); ?>" 
                        class="button button-link-delete" 
@@ -290,7 +291,71 @@ class DebugLogPage {
             .lgl-log-warning {
                 background: #fcf9e8;
             }
+            #lgl-copy-log {
+                position: relative;
+            }
+            #lgl-copy-log.copied::after {
+                content: ' ✓ Copied!';
+                color: #00a32a;
+                font-weight: 600;
+            }
         </style>
+        <script>
+        (function() {
+            var copyButton = document.getElementById('lgl-copy-log');
+            if (!copyButton) return;
+            
+            copyButton.addEventListener('click', function() {
+                // Get all log entries
+                var logEntries = document.querySelectorAll('.lgl-log-entry');
+                var logText = '';
+                
+                logEntries.forEach(function(entry) {
+                    var time = entry.querySelector('.lgl-log-time')?.textContent || '';
+                    var level = entry.querySelector('.lgl-log-level')?.textContent || '';
+                    var message = entry.querySelector('.lgl-log-message');
+                    
+                    if (message) {
+                        // Get text content, preserving formatting
+                        var messageText = message.textContent || message.innerText || '';
+                        logText += time + ' ' + level + ' ' + messageText + '\n';
+                    }
+                });
+                
+                // Copy to clipboard
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(logText).then(function() {
+                        copyButton.classList.add('copied');
+                        setTimeout(function() {
+                            copyButton.classList.remove('copied');
+                        }, 2000);
+                    }).catch(function(err) {
+                        console.error('Failed to copy log:', err);
+                        alert('Failed to copy log. Please try selecting and copying manually.');
+                    });
+                } else {
+                    // Fallback for older browsers
+                    var textArea = document.createElement('textarea');
+                    textArea.value = logText;
+                    textArea.style.position = 'fixed';
+                    textArea.style.opacity = '0';
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                        copyButton.classList.add('copied');
+                        setTimeout(function() {
+                            copyButton.classList.remove('copied');
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Failed to copy log:', err);
+                        alert('Failed to copy log. Please try selecting and copying manually.');
+                    }
+                    document.body.removeChild(textArea);
+                }
+            });
+        })();
+        </script>
         <?php
     }
 

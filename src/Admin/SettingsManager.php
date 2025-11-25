@@ -59,6 +59,14 @@ class SettingsManager implements SettingsManagerInterface {
     const CACHE_TTL = 3600;
     
     /**
+     * Static cache version for request-level cache invalidation
+     * Incremented when settings are updated to force cache refresh
+     * 
+     * @var int
+     */
+    private static int $cacheVersion = 0;
+    
+    /**
      * Migration flag option name
      */
     const MIGRATION_FLAG = 'lgl_carbon_fields_migrated';
@@ -171,7 +179,11 @@ class SettingsManager implements SettingsManagerInterface {
         $cache_prefix = 'lgl_cache_';
         delete_transient($cache_prefix . 'dev_' . self::CACHE_KEY);
         delete_transient($cache_prefix . 'live_' . self::CACHE_KEY);
-        // Note: No in-memory cache to clear - we always load fresh from DB/transient
+        
+        // CRITICAL: Clear static request cache in loadSettings() to ensure fresh data
+        // This prevents stale settings from being used immediately after save
+        // We do this by setting a cache invalidation flag that loadSettings() checks
+        $this->invalidateRequestCache();
         
         // Verify the save by reading back (bypass cache)
         global $wpdb;
@@ -1328,6 +1340,14 @@ class SettingsManager implements SettingsManagerInterface {
         // This prevents memory exhaustion from repeated database queries
         static $request_cache = null;
         static $request_cache_env = null;
+        static $cached_version = -1;
+        
+        // Check if cache was invalidated (version mismatch means cache is stale)
+        if ($cached_version !== self::$cacheVersion) {
+            $request_cache = null;
+            $request_cache_env = null;
+            $cached_version = self::$cacheVersion;
+        }
         
         // Prevent infinite recursion
         if ($this->isLoadingSettings) {
@@ -1406,6 +1426,28 @@ class SettingsManager implements SettingsManagerInterface {
         } finally {
             $this->isLoadingSettings = false;
         }
+    }
+    
+    /**
+     * Invalidate the static request cache
+     * This forces loadSettings() to reload from database/transient on next call
+     * 
+     * MEMORY SAFETY ANALYSIS:
+     * - self::$cacheVersion is a single integer (8 bytes) - minimal memory footprint
+     * - Function-level statics ($request_cache, $cached_version) reset each request
+     * - When cache is invalidated, $request_cache is explicitly set to null, freeing memory
+     * - Integer overflow is not a practical concern (PHP_INT_MAX is ~9 quintillion)
+     * - Even saving settings once per second would take 292 billion years to overflow
+     * 
+     * @return void
+     */
+    private function invalidateRequestCache(): void {
+        // Increment static cache version to invalidate cache
+        // This is checked in loadSettings() to clear the static cache
+        self::$cacheVersion++;
+        
+        // Also clear WordPress object cache if available
+        wp_cache_delete(self::OPTION_NAME, 'options');
     }
     
     /**
@@ -1646,10 +1688,17 @@ class SettingsManager implements SettingsManagerInterface {
             'email_blocking_level' => [
                 'type' => 'string',
                 'default' => 'all',
-                'validation' => ['in:all,woocommerce_allowed,cron_only'],
+                'validation' => ['in:none,all,woocommerce_allowed,cron_only'],
                 'sanitize' => 'sanitize_text_field',
                 'label' => 'Email Blocking Level',
-                'description' => 'Level of email blocking: all, woocommerce_allowed, or cron_only'
+                'description' => 'Level of email blocking: none (disabled), all, woocommerce_allowed, or cron_only'
+            ],
+            'disable_email_blocking_env_detection' => [
+                'type' => 'boolean',
+                'default' => false,
+                'sanitize' => 'boolval',
+                'label' => 'Disable Environment Detection',
+                'description' => 'When enabled, environment detection is disabled and blocking is controlled only by Force Blocking checkbox and Blocking Level dropdown'
             ],
             'email_whitelist' => [
                 'type' => 'array',
