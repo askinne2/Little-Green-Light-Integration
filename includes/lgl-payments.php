@@ -1,10 +1,10 @@
 <?php
 /**
-* File Name => lgl-payments.php
-* Version => 1.0
-* Plugin URI =>  https =>//github.com/askinne2/Little-Green-Light-API
-* Description => This class defines a Class for LGL Payment Management
-* Author URI => http =>//github.com/askinne2
+* File Name: lgl-payments.php
+* Version: 1.0
+* Plugin URI: https://github.com/askinne2/Little-Green-Light-API
+* Description: This class defines a Class for LGL Payment Management
+* Author URI: http://github.com/askinne2
 */
 
 if (!defined('ABSPATH')) {
@@ -18,8 +18,8 @@ require_once PAYMENT_FILE_PATH . 'lgl-api-settings.php';
 
 if (!class_exists("LGL_Payments")) {
 	/**
-	* class =>   Little Green Light_API_Payments
-	* desc =>    Creates the settings pages for the Little Green Light API plugin
+	* class:   Little Green Light_API_Payments
+	* desc:    Creates the settings pages for the Little Green Light API plugin
 	*/
 	class LGL_Payments
 	{
@@ -112,21 +112,18 @@ if (!class_exists("LGL_Payments")) {
 		
 		public function find_lgl_object_key($itemNameToFind, $listColumnName, $list) {
 			if (!$list) {
-				$this->lgl->helper->debug('The list is empty. Nothing to search.'); 
+				$this->lgl->helper->warning('LGL Payments: Empty list provided for search', ['item' => $itemNameToFind]); 
 				return; 
 			}
 			
 			$foundItem = (object) array();
 			
 			$itemIndex = array_search($itemNameToFind, array_column($list, $listColumnName));
-			$this->lgl->helper->debug('Looking for ' . $itemNameToFind); // . ' in this object: ', $list);
 			
 			if ($itemIndex !== false) {
 				$foundItem = $list[$itemIndex];
-				$this->lgl->helper->debug('Item Index' , $itemIndex);
-				
 			} else {
-				$this->lgl->helper->debug('Couldn\'t find ' . $itemNameToFind);
+				$this->lgl->helper->warning('LGL Payments: Could not find payment type', ['item' => $itemNameToFind, 'column' => $listColumnName]);
 			}
 			
 			if ($foundItem) {
@@ -151,15 +148,10 @@ if (!class_exists("LGL_Payments")) {
 				
 				$transient = get_transient('lgl_funds');
 				if (!empty($transient)) {
-					$this->lgl->helper->debug('FOUND TRANSIENT for FUNDS!');
 					$funds = $transient;
-					//$this->lgl->helper->debug('funds: ', $funds);
-					
 				} else {
-					$this->lgl->helper->debug('no transient, connecting to LGL...');
 					$funds = $this->lgl->connection->get_all_funds();
 					set_transient('lgl_funds', $funds, DAY_IN_SECONDS);
-					$this->lgl->helper->debug('transient set!');
 				}
 				
 				
@@ -211,15 +203,10 @@ if (!class_exists("LGL_Payments")) {
 				
 				$transient = get_transient('lgl_funds');
 				if (!empty($transient)) {
-					$this->lgl->helper->debug('FOUND TRANSIENT for FUNDS!');
 					$funds = $transient;
-					//$this->lgl->helper->debug('funds: ', $funds);
-					
 				} else {
-					$this->lgl->helper->debug('no transient, connecting to LGL...');
 					$funds = $this->lgl->connection->get_all_funds();
 					set_transient('lgl_funds', $funds, DAY_IN_SECONDS);
-					$this->lgl->helper->debug('transient set!');
 				}
 				
 				if (!$payment_type || $payment_type === 'credit-card') {
@@ -267,15 +254,10 @@ if (!class_exists("LGL_Payments")) {
 				
 				$transient = get_transient('lgl_funds');
 				if (!empty($transient)) {
-					$this->lgl->helper->debug('FOUND TRANSIENT for FUNDS!');
 					$funds = $transient;
-					//$this->lgl->helper->debug('funds: ', $funds);
-					
 				} else {
-					$this->lgl->helper->debug('no transient, connecting to LGL...');
 					$funds = $this->lgl->connection->get_all_funds();
 					set_transient('lgl_funds', $funds, DAY_IN_SECONDS);
-					$this->lgl->helper->debug('transient set!');
 				}
 				
 				
@@ -308,8 +290,7 @@ if (!class_exists("LGL_Payments")) {
 				
 				
 			} else {
-				
-				$this->lgl->helper->debug('Improper call to retrieve_payment_types()');
+				$this->lgl->helper->error('LGL Payments: Improper call to retrieve_payment_types()', ['method' => $method, 'fund' => $fund]);
 			}
 		}
 		
@@ -330,15 +311,9 @@ if (!class_exists("LGL_Payments")) {
 			
 			// Retrieve the payment method ID (e.g., 'paypal', 'stripe').
 			$payment_gateway = $order->get_payment_method();
-			$payment_gateway_title = $order->get_payment_method_title();
-			
-			$this->lgl->helper->debug('Payment Gateway ID: ' . $payment_gateway);
-			$this->lgl->helper->debug('Payment Gateway Title: ' . $payment_gateway_title);
 			
 			$transient = get_transient('lgl_membership_payment');
 			if (!empty($transient)) {
-				$this->lgl->helper->debug('TRANSIENT FOUND', $transient);
-				
 				$this->payment = $transient->payment_type;
 				$this->gift = $transient->gift_type;
 				$this->category = $transient->gift_category;
@@ -348,13 +323,10 @@ if (!class_exists("LGL_Payments")) {
 				$this->retrieve_payment_types('Memberships', null, $payment_type, null, $payment_gateway);
 			}
 			
-			$this->lgl->helper->debug('From LGL id: ', print_r($this->payment, true));
-			
 			if ($this->gift && $this->category && $this->campaign && $this->fund) {
 				
 				$order = wc_get_order($order_id);
 				$customer_notes = $order->get_customer_note();
-				$this->lgl->helper->debug('Order Notes: ', $customer_notes);
 				
 				$notes = 'Website Registration, Order #' . $order_id;
 				if ($customer_notes) {
@@ -393,14 +365,15 @@ if (!class_exists("LGL_Payments")) {
 				);
 				
 			} else {
-				$lgl->helper->debug('Missing Necessary Payment Info', $this->gift->name);
+				$lgl->helper->error('LGL Payments: Missing necessary payment info for membership payment', ['order_id' => $order_id, 'gift' => isset($this->gift) ? $this->gift->name : null]);
 			}
 			
 			if ($p) {
 				$this->payment_data = $p;
+				$this->lgl->helper->info('LGL Payments: Membership payment setup completed', ['order_id' => $order_id, 'amount' => $price]);
 				return $p;
 			} else {
-				$lgl->helper->debug('no payment to return in lgl_setup_payment()');
+				$lgl->helper->error('LGL Payments: Failed to setup membership payment', ['order_id' => $order_id]);
 				return false;
 			}
 		}
@@ -417,7 +390,6 @@ if (!class_exists("LGL_Payments")) {
 			
 			$order = wc_get_order($order_id);
 			$customer_notes = $order->get_customer_note();
-			$this->lgl->helper->debug('Order Notes: ', $customer_notes);
 			
 			$notes = 'Website Registration, Order #' . $order_id;
 			if ($customer_notes) {
@@ -426,15 +398,9 @@ if (!class_exists("LGL_Payments")) {
 			
 			// Retrieve the payment method ID (e.g., 'paypal', 'stripe').
 			$payment_gateway = $order->get_payment_method();
-			$payment_gateway_title = $order->get_payment_method_title();
-			
-			$this->lgl->helper->debug('Payment Gateway ID: ' . $payment_gateway);
-			$this->lgl->helper->debug('Payment Gateway Title: ' . $payment_gateway_title);
 			
 			$transient = get_transient('lgl_class_payment');
 			if (!empty($transient)) {
-				$this->lgl->helper->debug('TRANSIENT FOUND', $transient);
-				
 				$this->payment = $transient->payment_type;
 				$this->gift = $transient->gift_type;
 				$this->category = $transient->gift_category;
@@ -442,8 +408,6 @@ if (!class_exists("LGL_Payments")) {
 				$funds = $this->lgl->connection->get_lgl_data('FUNDS');
 				if ($funds) $funds = $funds->items;
 				$this->fund = $this->find_lgl_object_key((int)$lgl_class_id, 'id', $funds);
-				
-				//$this->fund = $transient->fund;
 			} else {
 				$this->retrieve_payment_types('Language Class', $class_type, null, $lgl_class_id, $payment_gateway);
 			}
@@ -488,14 +452,15 @@ if (!class_exists("LGL_Payments")) {
 				);
 				
 			} else {
-				$lgl->helper->debug('Missing Necessary Payment Info', $order_id);
+				$lgl->helper->error('LGL Payments: Missing necessary payment info for class payment', ['order_id' => $order_id]);
 			}
 			
 			if ($p) {
 				$this->payment_data = $p;
+				$this->lgl->helper->info('LGL Payments: Class payment setup completed', ['order_id' => $order_id, 'amount' => $price, 'class_id' => $lgl_class_id]);
 				return $p;
 			} else {
-				$lgl->helper->debug('no payment to return in lgl_setup_payment()');
+				$lgl->helper->error('LGL Payments: Failed to setup class payment', ['order_id' => $order_id]);
 				return false;
 			}
 		}
@@ -513,7 +478,6 @@ if (!class_exists("LGL_Payments")) {
 			
 			$order = wc_get_order($order_id);
 			$customer_notes = $order->get_customer_note();
-			$this->lgl->helper->debug('Order Notes: ', $customer_notes);
 			
 			$notes = 'Website Event Registration, Order #' . $order_id;
 			if ($customer_notes) {
@@ -522,15 +486,9 @@ if (!class_exists("LGL_Payments")) {
 			
 			// Retrieve the payment method ID (e.g., 'paypal', 'stripe').
 			$payment_gateway = $order->get_payment_method();
-			$payment_gateway_title = $order->get_payment_method_title();
-			
-			$this->lgl->helper->debug('Payment Gateway ID: ' . $payment_gateway);
-			$this->lgl->helper->debug('Payment Gateway Title: ' . $payment_gateway_title);
 			
 			$transient = get_transient('lgl_class_payment');
 			if (!empty($transient)) {
-				$this->lgl->helper->debug('TRANSIENT FOUND', $transient);
-				
 				$this->payment = $transient->payment_type;
 				$this->gift = $transient->gift_type;
 				$this->category = $transient->gift_category;
@@ -538,8 +496,6 @@ if (!class_exists("LGL_Payments")) {
 				$funds = $this->lgl->connection->get_lgl_data('FUNDS');
 				if ($funds) $funds = $funds->items;
 				$this->fund = $this->find_lgl_object_key((int)$lgl_class_id, 'id', $funds);
-				
-				//$this->fund = $transient->fund;
 			} else {
 				$this->retrieve_payment_types('Event', $event_name, null, $lgl_class_id, $payment_gateway);
 			}
@@ -584,14 +540,15 @@ if (!class_exists("LGL_Payments")) {
 				);
 				
 			} else {
-				$lgl->helper->debug('Missing Necessary Payment Info', $order_id);
+				$lgl->helper->error('LGL Payments: Missing necessary payment info for event payment', ['order_id' => $order_id]);
 			}
 			
 			if ($p) {
 				$this->payment_data = $p;
+				$this->lgl->helper->info('LGL Payments: Event payment setup completed', ['order_id' => $order_id, 'amount' => $price, 'event_name' => $event_name]);
 				return $p;
 			} else {
-				$lgl->helper->debug('no payment to return in lgl_setup_payment()');
+				$lgl->helper->error('LGL Payments: Failed to setup event payment', ['order_id' => $order_id]);
 				return false;
 			}
 		}
@@ -676,7 +633,7 @@ if (!class_exists("LGL_Payments")) {
 				$this->payment_data = $p;
 				return $p;
 			} else {
-				$lgl->helper->debug('no payment to return in lgl_setup_payment()');
+				$lgl->helper->error('LGL Payments: Failed to setup manual class payment');
 				return false;
 			}
 		}

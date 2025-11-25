@@ -78,22 +78,14 @@ if (!class_exists("LGL_WP_Users")) {
         
         function ui_family_user_deactivation($request, $action_handler) {
             
-            // CRITICAL: Debug at the very start to confirm function is being called
-            $this->lgl->helper->debug('🔴 ui_family_user_deactivation: FUNCTION CALLED', [
-                'request_keys' => array_keys($request),
-                'request_data' => $request,
-                'is_user_logged_in' => is_user_logged_in(),
-                'current_user_id' => get_current_user_id()
-            ]);
-            
             // Validate required fields
             if (empty($request['parent_user_id'])) {
-                $this->lgl->helper->debug('ui_family_user_deactivation: Missing parent_user_id');
+                $this->lgl->helper->warning('LGL WP Users: Missing parent_user_id in family deactivation request');
                 return;
             }
             
             if (empty($request['child_users'])) {
-                $this->lgl->helper->debug('ui_family_user_deactivation: Missing child_users');
+                $this->lgl->helper->warning('LGL WP Users: Missing child_users in family deactivation request');
                 return;
             }
             
@@ -120,54 +112,40 @@ if (!class_exists("LGL_WP_Users")) {
             $children_ids = array_map('intval', array_filter($children_ids));
             
             if (empty($children_ids)) {
-                $this->lgl->helper->debug('ui_family_user_deactivation: No valid child user IDs to remove');
+                $this->lgl->helper->warning('LGL WP Users: No valid child user IDs to remove', ['parent_id' => $user_id]);
                 return;
             }
             
-            $this->lgl->helper->debug('ui_family_user_deactivation: Processing removal', [
-                'parent_user_id' => $user_id,
-                'child_users' => $children_ids
-            ]);
-            
             // Check if the user is logged in
             if (!is_user_logged_in()) {
-                $this->lgl->helper->debug('ui_family_user_deactivation: User not logged in');
+                $this->lgl->helper->warning('LGL WP Users: User not logged in for family deactivation');
                 return;
             }
             
             // Verify parent user exists and has correct role
             $user = get_user_by('ID', $user_id);
             if (!$user) {
-                $this->lgl->helper->debug('ui_family_user_deactivation: Parent user not found', ['user_id' => $user_id]);
+                $this->lgl->helper->error('LGL WP Users: Parent user not found for family deactivation', ['user_id' => $user_id]);
                 return;
             }
             
             $current_role = $user->roles;
-            $this->lgl->helper->debug('ui_family_user_deactivation: Current User Role', [
-                'user_id' => $user_id,
-                'roles' => $current_role
-            ]);
             
             // Check if the user has the correct role
             if (!in_array('ui_patron_owner', $current_role)) {
-                $this->lgl->helper->debug('ui_family_user_deactivation: User does not have ui_patron_owner role');
+                $this->lgl->helper->warning('LGL WP Users: User does not have ui_patron_owner role', ['user_id' => $user_id, 'roles' => $current_role]);
                 return;
             }
             
             // Initialize relation object
             $this->relation = jet_engine()->relations->get_active_relations(24);
             if (!$this->relation) {
-                $this->lgl->helper->debug('ui_family_user_deactivation: Could not get JetEngine relation 24');
+                $this->lgl->helper->error('LGL WP Users: Could not get JetEngine relation 24');
                 return;
             }
             
             // Get actual child relations to verify they exist
             $actual_child_relations = $this->ui_get_child_relations($user_id);
-            $this->lgl->helper->debug('ui_family_user_deactivation: Actual child relations', [
-                'parent_id' => $user_id,
-                'actual_children' => $actual_child_relations,
-                'requested_children' => $children_ids
-            ]);
             
             // Remove only the selected children
             $removed_count = 0;
@@ -176,17 +154,12 @@ if (!class_exists("LGL_WP_Users")) {
                 
                 // Verify this child actually belongs to this parent
                 if (!in_array($child_id, $actual_child_relations)) {
-                    $this->lgl->helper->debug('ui_family_user_deactivation: Child does not belong to parent', [
+                    $this->lgl->helper->warning('LGL WP Users: Child does not belong to parent', [
                         'child_id' => $child_id,
                         'parent_id' => $user_id
                     ]);
                     continue;
                 }
-                
-                $this->lgl->helper->debug('ui_family_user_deactivation: Removing Child', [
-                    'child_id' => $child_id,
-                    'parent_id' => $user_id
-                ]);
                 
                 // Deactivate/delete the child user
                 $this->ui_deactivate_user($child_id, true);
@@ -198,11 +171,6 @@ if (!class_exists("LGL_WP_Users")) {
                 $removed_count++;
             }
             
-            $this->lgl->helper->debug('ui_family_user_deactivation: Removed children count', [
-                'removed_count' => $removed_count,
-                'requested_count' => count($children_ids)
-            ]);
-            
             // Final sync after all removals (belt and suspenders)
             if ($this->lgl && $this->lgl->helper) {
                 $this->lgl->helper->syncUsedFamilySlotsMeta($user_id);
@@ -212,11 +180,8 @@ if (!class_exists("LGL_WP_Users")) {
                 $new_available = $total_purchased - $actual_used;
                 update_user_meta($user_id, 'user_available_family_slots', max(0, $new_available));
                 
-                $this->lgl->helper->debug('ui_family_user_deactivation: Final family slots sync after deactivation', [
+                $this->lgl->helper->info('LGL WP Users: Family user deactivation completed', [
                     'parent_id' => $user_id,
-                    'total_purchased' => $total_purchased,
-                    'actual_used' => $actual_used,
-                    'new_available' => $new_available,
                     'removed_count' => $removed_count
                 ]);
             }
@@ -226,25 +191,16 @@ if (!class_exists("LGL_WP_Users")) {
             
             // Check if the user is logged in
             if (is_user_logged_in()) {
-                /* $current_user = wp_get_current_user();
-                $user_id = $current_user->ID;*/
                 $current_role = $this->ui_get_user_role($uid);
-                $this->lgl->helper->debug('Current User: ' . $uid . ' Current Role: ' . $current_role);
                 
                 // Check if the user has one of the roles to deactivate
                 if ($current_role == 'ui_member' || $current_role == 'ui_patron_owner') {
                     
-                    
                     // If the user is 'ui_patron_owner', handle child deactivation
                     if ($current_role == 'ui_patron_owner') {
-                        $this->lgl->helper->debug('Deactivating Family Owner children... ');
-                        
                         $child_relations = $this->ui_get_child_relations($uid);
-                        $this->lgl->helper->debug('Child relations: ', $child_relations);
                         
                         foreach ($child_relations as $child_id) {
-                            $this->lgl->helper->debug('Removing Child: ' . $child_id);
-                            
                             $this->ui_deactivate_user($child_id);
                             $this->ui_remove_relation($this->relation, $uid, $child_id);
                             // Note: ui_remove_relation() now handles slot syncing internally
@@ -258,39 +214,28 @@ if (!class_exists("LGL_WP_Users")) {
                             $actual_used = $this->lgl->helper->getActualUsedFamilySlots($uid);
                             $new_available = $total_purchased - $actual_used;
                             update_user_meta($uid, 'user_available_family_slots', max(0, $new_available));
-                            
-                            $this->lgl->helper->debug('Final family slots sync after user deactivation', [
-                                'parent_id' => $uid,
-                                'total_purchased' => $total_purchased,
-                                'actual_used' => $actual_used,
-                                'new_available' => $new_available
-                            ]);
                         }
                     }
                     
                     // Log the user out, reset the password, and redirect
                     // Deactivate the user and set the new role
                     $this->ui_deactivate_user($uid);
+                    $this->lgl->helper->info('LGL WP Users: User deactivated', ['user_id' => $uid, 'role' => $current_role]);
                     //wp_logout($user_id);           
                     wp_redirect(home_url());
                     
                 }
             } else if ($cron_job) {
                 $current_role = $this->ui_get_user_role($uid);
-                $this->lgl->helper->debug('Current User: ' . $uid . ' Current Role: ' . print_r($current_role));
                 
                 // Check if the user has one of the roles to deactivate
                 if ($current_role == 'ui_member' || $current_role == 'ui_patron_owner') {
                     
-                    
                     // If the user is 'ui_patron_owner', handle child deactivation
                     if ($current_role == 'ui_patron_owner') {
                         $child_relations = $this->ui_get_child_relations($uid);
-                        $this->lgl->helper->debug('Child relations: ', $child_relations);
                         
                         foreach ($child_relations as $child_id) {
-                            $this->lgl->helper->debug('Removing Child: ' . $child_id);
-                            
                             $this->ui_deactivate_user($child_id);
                             $this->ui_remove_relation($this->relation, $uid, $child_id);
                             // Note: ui_remove_relation() now handles slot syncing internally
@@ -304,19 +249,13 @@ if (!class_exists("LGL_WP_Users")) {
                             $actual_used = $this->lgl->helper->getActualUsedFamilySlots($uid);
                             $new_available = $total_purchased - $actual_used;
                             update_user_meta($uid, 'user_available_family_slots', max(0, $new_available));
-                            
-                            $this->lgl->helper->debug('Final family slots sync after cron deactivation', [
-                                'parent_id' => $uid,
-                                'total_purchased' => $total_purchased,
-                                'actual_used' => $actual_used,
-                                'new_available' => $new_available
-                            ]);
                         }
                     }
                     
                     // Log the user out, reset the password, and redirect
                     // Deactivate the user and set the new role
                     $this->ui_deactivate_user($uid);
+                    $this->lgl->helper->info('LGL WP Users: User deactivated via cron', ['user_id' => $uid, 'role' => $current_role]);
                 }
             }
         }
@@ -326,12 +265,11 @@ if (!class_exists("LGL_WP_Users")) {
             if ($delete) {
                 require_once(ABSPATH.'wp-admin/includes/user.php');
                 wp_delete_user($user_id);
-                $this->lgl->helper->debug('User: ' . $user_id . ' DELETED!');
+                $this->lgl->helper->info('LGL WP Users: User deleted', ['user_id' => $user_id]);
             } else {
                 $user = new WP_User($user_id);
                 $user->add_role('ui_inactive_member');
                 wp_set_password($this->generate_random_password(), $user_id);
-                $this->lgl->helper->debug('User: ' . $user_id . ' set to UI Inactive'); // & Password RESET');
             }
             
         }
@@ -363,62 +301,143 @@ if (!class_exists("LGL_WP_Users")) {
         
         public function run_monthly_update() {
             // Check if it's the first day of the month
-            //            if (date('j') === '4') {
             if (date('j') === '4' && date('n') % 2 === 0) {
-                
-                // Your monthly update logic goes here
-                $this->lgl->helper->debug('-----RUNNING INACTIVE USER MONTHLY UPDATE ------');
+                $this->lgl->helper->info('LGL WP Users: Running monthly inactive user update');
                 require_once(ABSPATH.'wp-admin/includes/user.php');
                 if (DELETE_MEMBERS) $this->user_deletion();
             }
         }
         
         public function user_deletion() {
-            $blogusers = get_users( array( 
-                'role__in' => array( 'ui_inactive_member')
-            ));
-            if (!$blogusers) {
-                $this->lgl->helper->debug('no inactive users found');
-                return;
-            }
-            foreach ( $blogusers as $user ) {
-                $user_id = $user->ID;
-                $this->family_member_deletion($user_id);
-                $user_posts = get_posts(array('author' => $user_id, 'posts_per_page' => -1));
-                $this->lgl->helper->debug('Deleting User: ' . $user_id);
+            // MEMORY FIX: Process users in batches to prevent memory exhaustion
+            $batch_size = 50;
+            $page = 1;
+            $has_more = true;
+            $deleted_count = 0;
+            
+            while ($has_more) {
+                $blogusers = get_users(array( 
+                    'role__in' => array('ui_inactive_member'),
+                    'number' => $batch_size,
+                    'offset' => ($page - 1) * $batch_size
+                ));
                 
-                foreach ($user_posts as $post) {
-                    // Delete each post
-                    wp_delete_post($post->ID, true); // Set the second parameter to true to bypass the trash
+                if (empty($blogusers)) {
+                    $has_more = false;
+                    break;
                 }
                 
-                // Delete the user
-                require_once(ABSPATH.'wp-admin/includes/user.php');
-                wp_delete_user($user_id); 
+                foreach ($blogusers as $user) {
+                    $user_id = $user->ID;
+                    $this->family_member_deletion($user_id);
+                    
+                    // MEMORY FIX: Process posts in batches instead of loading all at once
+                    $post_page = 1;
+                    $has_posts = true;
+                    while ($has_posts) {
+                        $user_posts = get_posts(array(
+                            'author' => $user_id,
+                            'posts_per_page' => 50, // Process 50 posts at a time
+                            'paged' => $post_page,
+                            'fields' => 'ids' // Only get IDs to save memory
+                        ));
+                        
+                        if (empty($user_posts)) {
+                            $has_posts = false;
+                            break;
+                        }
+                        
+                        foreach ($user_posts as $post_id) {
+                            // Delete each post
+                            wp_delete_post($post_id, true); // Set the second parameter to true to bypass the trash
+                        }
+                        
+                        if (count($user_posts) < 50) {
+                            $has_posts = false;
+                        } else {
+                            $post_page++;
+                        }
+                        
+                        unset($user_posts);
+                        
+                        // Safety limit
+                        if ($post_page > 100) {
+                            break;
+                        }
+                    }
+                    
+                    // Delete the user
+                    require_once(ABSPATH.'wp-admin/includes/user.php');
+                    wp_delete_user($user_id);
+                    $deleted_count++;
+                    
+                    // Free memory
+                    unset($user);
+                }
+                
+                if (count($blogusers) < $batch_size) {
+                    $has_more = false;
+                } else {
+                    $page++;
+                }
+                
+                unset($blogusers);
+                
+                // Safety limit
+                if ($page > 100) {
+                    $this->lgl->helper->warning('LGL WP Users: user_deletion hit safety limit', ['page' => $page]);
+                    break;
+                }
             }
+            
+            $this->lgl->helper->info('LGL WP Users: Monthly user deletion completed', ['deleted_count' => $deleted_count]);
         }
         
         function family_member_deletion($user_id) {
             
             $current_role = $this->ui_get_user_role($user_id);
-            $this->lgl->helper->debug('Current User: ' . $user_id . ' Current Role: ' . $current_role);
             
             // If the user is 'ui_patron_owner', handle child deactivation
             if ($current_role == 'ui_patron_owner') {
                 $child_relations = $this->ui_get_child_relations($user_id);
-                $this->lgl->helper->debug('Child relations: ', $child_relations);
                 
                 foreach ($child_relations as $child_id) {
-                    $this->lgl->helper->debug('Deleting Child: ' . $child_id);
-                    
                     $this->ui_remove_relation($this->relation, $user_id, $child_id);
                     // Note: ui_remove_relation() now handles slot syncing internally
                     
-                    $user_posts = get_posts(array('author' => $child_id, 'posts_per_page' => -1));
-                    
-                    foreach ($user_posts as $post) {
-                        // Delete each post
-                        wp_delete_post($post->ID, true); // Set the second parameter to true to bypass the trash
+                    // MEMORY FIX: Process posts in batches instead of loading all at once
+                    $post_page = 1;
+                    $has_posts = true;
+                    while ($has_posts) {
+                        $user_posts = get_posts(array(
+                            'author' => $child_id,
+                            'posts_per_page' => 50, // Process 50 posts at a time
+                            'paged' => $post_page,
+                            'fields' => 'ids' // Only get IDs to save memory
+                        ));
+                        
+                        if (empty($user_posts)) {
+                            $has_posts = false;
+                            break;
+                        }
+                        
+                        foreach ($user_posts as $post_id) {
+                            // Delete each post
+                            wp_delete_post($post_id, true); // Set the second parameter to true to bypass the trash
+                        }
+                        
+                        if (count($user_posts) < 50) {
+                            $has_posts = false;
+                        } else {
+                            $post_page++;
+                        }
+                        
+                        unset($user_posts);
+                        
+                        // Safety limit
+                        if ($post_page > 100) {
+                            break;
+                        }
                     }
                     
                     // Delete the user
@@ -434,13 +453,6 @@ if (!class_exists("LGL_WP_Users")) {
                     $actual_used = $this->lgl->helper->getActualUsedFamilySlots($user_id);
                     $new_available = $total_purchased - $actual_used;
                     update_user_meta($user_id, 'user_available_family_slots', max(0, $new_available));
-                    
-                    $this->lgl->helper->debug('Final family slots sync after member deletion', [
-                        'parent_id' => $user_id,
-                        'total_purchased' => $total_purchased,
-                        'actual_used' => $actual_used,
-                        'new_available' => $new_available
-                    ]);
                 }
             }
             
@@ -461,7 +473,6 @@ if (!class_exists("LGL_WP_Users")) {
         // Helper function to remove a relationship
         function ui_remove_relation($relation, $parent_id, $child_id) {
             
-            $this->lgl->helper->debug('Removing User: ' . $child_id . ' from ' . $parent_id);
             $this->relation->delete_rows( $parent_id, $child_id, true );
             
             // Sync family slots after relationship removal
@@ -473,14 +484,6 @@ if (!class_exists("LGL_WP_Users")) {
                 $actual_used = $this->lgl->helper->getActualUsedFamilySlots($parent_id);
                 $new_available = $total_purchased - $actual_used;
                 update_user_meta($parent_id, 'user_available_family_slots', max(0, $new_available));
-                
-                $this->lgl->helper->debug('Family slots synced after relationship removal', [
-                    'parent_id' => $parent_id,
-                    'child_id' => $child_id,
-                    'total_purchased' => $total_purchased,
-                    'actual_used' => $actual_used,
-                    'new_available' => $new_available
-                ]);
             }
         }        
         
@@ -505,8 +508,6 @@ if (!class_exists("LGL_WP_Users")) {
         
         // Create a WP Cron Event
         function schedule_user_deletion_event($user_id) {
-            
-            $this->lgl->helper->debug('inside schedule_user_deletion_event()');
             // Schedule the event to run once after PAYMENT_TIME_WINDOW minutes
             if (!wp_next_scheduled('ui_check_user_orders_event')) {
                 if ($user_id) {
@@ -514,7 +515,6 @@ if (!class_exists("LGL_WP_Users")) {
                 } else {
                     wp_schedule_single_event(time() + PAYMENT_TIME_WINDOW * MINUTE_IN_SECONDS, 'ui_check_user_orders_event');
                 }
-                $this->lgl->helper->debug('event scheduled!');
             }
         }
         
@@ -531,12 +531,11 @@ if (!class_exists("LGL_WP_Users")) {
         
         public function update_user_data($request, $order, $order_meta) {
             if (!$request['user_id']) {
-                $this->lgl->helper->debug('No user ID in request, LGL_WP_USERS::update_user_data()');
+                $this->lgl->helper->warning('LGL WP Users: No user ID in request for update_user_data()');
                 return;
             }
             
             $uid = $request['user_id'];
-            $this->lgl->helper->debug('UPDATING USER META FOR: ', $uid);
             update_user_meta( $uid, 'user-phone', $order->get_billing_phone());
             update_user_meta( $uid, 'user-company', $order->get_billing_company());
             update_user_meta( $uid, 'user-address-1', $order->get_billing_address_1());
@@ -568,40 +567,38 @@ if (!class_exists("LGL_WP_Users")) {
                 // Now you can use $most_recent_subscription as the most recent subscription object
                 if ($most_recent_subscription) {
                     $subscription_id = $most_recent_subscription->get_id();
-                    $this->lgl->helper->debug('---- UPDATE_USER_SUBSCRIPTION_INFO(), order ID: '. $order_id . '   subscription ID: ', $subscription_id);
                     // Get the subscription object
                     if ($subscription_id) {
                         
                         $subscription = wcs_get_subscription($subscription_id);
-                        //$this->lgl->helper->debug('subscription_id: ', $subscription);				
                         
                         if ($subscription) {
                             // Retrieve subscription details
                             $status = $subscription->get_status(); // Subscription status (e.g., active, on-hold, cancelled)
-                            $this->lgl->helper->debug('status: ', $status);				
                             
                             $start_date = $subscription->get_time('start'); // Subscription start date
-                            $this->lgl->helper->debug('start: ', $start_date);				
                             $renewal_date = $subscription->get_time('next_payment');
-                            $this->lgl->helper->debug('end: ', $renewal_date);		
                             if ($renewal_date === 0) { 
                                 $renewal_date = strtotime('today');
                             }
                             
                             $billing_interval = $subscription->get_billing_interval(); // Billing interval (e.g., 1 for annual subscription)
-                            $this->lgl->helper->debug('interval: ', $billing_interval);				
                             $billing_period = $subscription->get_billing_period(); // Billing period (e.g., year)
-                            $this->lgl->helper->debug('period: ', $billing_period);				
                             
                             // Update user meta with subscription details
                             update_user_meta($uid, 'user-subscription-status', $status);
                             update_user_meta($uid, 'user-membership-start-date', $start_date);
                             update_user_meta($uid, 'user-membership-renewal-date', $renewal_date);
                             update_user_meta($uid, 'user-subscription-id', $subscription_id);
+                            
+                            $this->lgl->helper->info('LGL WP Users: User subscription info updated', [
+                                'user_id' => $uid,
+                                'order_id' => $order_id,
+                                'subscription_id' => $subscription_id,
+                                'status' => $status
+                            ]);
                         }
                         
-                    } else {
-                        $this->lgl->helper->debug('no subscription ID to update, LGL_WP_Users::update_user_subscription_info()');
                     }
                 }
             }
@@ -619,18 +616,15 @@ if (!class_exists("LGL_WP_Users")) {
             foreach ($order->get_items() as $item_id => $item) {
                 $product_id = $item->get_product_id();
                 $product_variation_id = $item->get_variation_id();
-                $this->lgl->helper->debug('in create_CCT(), product ID - ', $product_id);
                 
                 // Get the correct product object
                 $product = wc_get_product($product_variation_id ? $product_variation_id : $product_id);
-                $this->lgl->helper->debug('in create_CCT(), Product Type - ', $product->get_type());
                 
                 // Check if the product is of type 'language_class'
                 if (has_term('language-class', 'product_cat', $product_id)) {
                     // Extract relevant data from the product
                     $class_name = $item->get_name();
                     $class_level = get_post_meta($product_id, '_lc_class_level', true); // Replace with the actual meta key
-                    $this->lgl->helper->debug('Class Level:', $class_level);
                     
                     // Add more meta data as needed
                     $product_meta = get_post_meta($product_id);
@@ -659,7 +653,7 @@ if (!class_exists("LGL_WP_Users")) {
                     // Insert the new post using JetEngine's function
                     $post_id = jet_cct_api_update_item('class_registrations', $post_data);
                     if ($post_id) {
-                        $this->lgl->helper->debug('New CCT from WC Order:', $post_id);
+                        $this->lgl->helper->info('LGL WP Users: Class registration CCT created', ['order_id' => $order_id, 'cct_id' => $post_id, 'class_name' => $class_name]);
                     }
                 }
             }
@@ -667,7 +661,7 @@ if (!class_exists("LGL_WP_Users")) {
 
         public function create_event_registration_cct($order, $attendees) {
             if (!$order) {
-                $this->lgl->helper->debug('Invalid order object');
+                $this->lgl->helper->error('LGL WP Users: Invalid order object for event registration CCT');
                 return;
             }
 
@@ -697,11 +691,14 @@ if (!class_exists("LGL_WP_Users")) {
 
                 );
         
-                $this->lgl->helper->debug('Event CCT Creation Data:', $post_data);
-        
                 $post_id = jet_cct_api_update_item('_ui_event_registrations', $post_data);
                 if ($post_id) {
-                    $this->lgl->helper->debug('New CCT from WC Order:', $post_id);
+                    $this->lgl->helper->info('LGL WP Users: Event registration CCT created', [
+                        'order_id' => $order->get_id(),
+                        'cct_id' => $post_id,
+                        'attendee_name' => $attendee['attendee_name'],
+                        'event_name' => $product->get_name()
+                    ]);
                 }
             }
         }
@@ -713,124 +710,156 @@ if (!class_exists("LGL_WP_Users")) {
             $date_from = $date_from ?: '2024-12-17'; // Last known sync date
             $date_to = $date_to ?: date('Y-m-d'); // Current date
         
-            // Query WooCommerce orders
-            $args = [
-                'status' => 'completed', // Only completed orders
-                'date_created' => $date_from . '...' . $date_to,
-                'limit' => -1 // Retrieve all orders in the range
-            ];
-            $orders = wc_get_orders($args);
-        
-            if (empty($orders)) {
-                return 'No orders found to sync.';
-            }
-
+            // MEMORY FIX: Process orders in batches to prevent memory exhaustion
+            $batch_size = 50; // Process 50 orders at a time
+            $page = 1;
+            $has_more = true;
+            
             $event_orders_synced = [];
             $language_orders_synced = [];
-
-        
-            foreach ($orders as $order) {
-
-                // Skip refunds
-                if (is_a($order, 'WC_Order_Refund')) {
-                    $this->lgl->helper->debug('Skipping refund order: ' . $order->get_id());
-                    continue;
-                }                
-                
-                $order_id = $order->get_id();
-
-                // Check if a CCT for this order_id already exists using jet_cct_api_query()
-                $existing_ccts = jet_cct_api_query('_ui_event_registrations', [
-                    [
-                        'field'    => 'event_associated_order',
-                        'operator' => '=',
-                        'value'    => $order_id,
-                    ],
-                ]);
-
-                if (!empty($existing_ccts)) {
-                    $this->lgl->helper->debug('CCT already exists for Order ID: ' . $order_id);
-                    continue; // Skip this order
-                }
-        
-                // Check if order has already been synced (additional layer of safety)
-                if ($order->get_meta('_cct_synced')) {
-                    $this->lgl->helper->debug('Order already synced: ' . $order->get_id());
-                    continue; // Skip already-synced orders
-                }
-        
-                $create_attendee_cct_flag = false;
-                $attendee_index = 0;
-                $attendees = [];
-                $uid = $order->get_customer_id();
-                $order_meta = [
-                    'languages' => $order->get_meta('_order_languages_spoken'),
-                    'country' => $order->get_meta('_order_country_of_origin'),
-                    'referral' => $order->get_meta('_order_referral_source'),
-                    'reason' => $order->get_meta('_order_reason_for_membership'),
-                    'about' => $order->get_meta('_order_tell_us_about_yourself'),
+            
+            while ($has_more) {
+                // Query WooCommerce orders in batches
+                $args = [
+                    'status' => 'completed', // Only completed orders
+                    'date_created' => $date_from . '...' . $date_to,
+                    'limit' => $batch_size, // Process in batches
+                    'page' => $page,
+                    'orderby' => 'date',
+                    'order' => 'ASC'
                 ];
+                $orders = wc_get_orders($args);
         
+                if (empty($orders)) {
+                    $has_more = false;
+                    break;
+                }
+                
+                // Process this batch
+                foreach ($orders as $order) {
+                    // Skip refunds
+                    if (is_a($order, 'WC_Order_Refund')) {
+                        continue;
+                    }                
+                    
+                    $order_id = $order->get_id();
 
-                // Iterate through each product in the order
-                foreach ($order->get_items() as $product) {
-                    $product_name = $product->get_name();
-                    $quantity = $product->get_quantity();
-                    $product_id = $product->get_variation_id() ?: $product->get_product_id();
-                    $parent_id = $product->get_variation_id() ? $product->get_product_id() : $product_id;
-        
-                    $this->lgl->helper->debug('Product Name: ', $product_name);
-                    $this->lgl->helper->debug('Quantity: ', $quantity);
-        
-                    if (has_term('language-class', 'product_cat', $parent_id)) {
-                        // Sync Language Class Registration
-                        $this->create_jetengine_post_on_order_completion($order->get_id(), $order_meta, $product);
-                        $language_orders_synced[] = $order->get_id();
+                    // Check if a CCT for this order_id already exists using jet_cct_api_query()
+                    $existing_ccts = jet_cct_api_query('_ui_event_registrations', [
+                        [
+                            'field'    => 'event_associated_order',
+                            'operator' => '=',
+                            'value'    => $order_id,
+                        ],
+                    ]);
 
-                    } elseif (has_term('events', 'product_cat', $parent_id)) {
-                        // Sync Event Registration
-                        $create_attendee_cct_flag = true;
-        
-                        for ($j = 0; $j < $quantity; $j++) {
-                            $suffix = $attendee_index === 0 ? '' : '_' . $attendee_index;
-                            $attendee_name = $order->get_meta('attendee_name' . $suffix);
-                            $attendee_email = $order->get_meta('attendee_email' . $suffix);
-        
-                            if (empty($attendee_name) || empty($attendee_email)) {
-                                continue; // Skip if the meta fields are empty
+                    if (!empty($existing_ccts)) {
+                        continue; // Skip this order
+                    }
+            
+                    // Check if order has already been synced (additional layer of safety)
+                    if ($order->get_meta('_cct_synced')) {
+                        continue; // Skip already-synced orders
+                    }
+            
+                    $create_attendee_cct_flag = false;
+                    $attendee_index = 0;
+                    $attendees = [];
+                    $uid = $order->get_customer_id();
+                    $order_meta = [
+                        'languages' => $order->get_meta('_order_languages_spoken'),
+                        'country' => $order->get_meta('_order_country_of_origin'),
+                        'referral' => $order->get_meta('_order_referral_source'),
+                        'reason' => $order->get_meta('_order_reason_for_membership'),
+                        'about' => $order->get_meta('_order_tell_us_about_yourself'),
+                    ];
+            
+
+                    // Iterate through each product in the order
+                    foreach ($order->get_items() as $product) {
+                        $product_name = $product->get_name();
+                        $quantity = $product->get_quantity();
+                        $product_id = $product->get_variation_id() ?: $product->get_product_id();
+                        $parent_id = $product->get_variation_id() ? $product->get_product_id() : $product_id;
+            
+                        if (has_term('language-class', 'product_cat', $parent_id)) {
+                            // Sync Language Class Registration
+                            $this->create_jetengine_post_on_order_completion($order->get_id(), $order_meta, $product);
+                            $language_orders_synced[] = $order->get_id();
+
+                        } elseif (has_term('events', 'product_cat', $parent_id)) {
+                            // Sync Event Registration
+                            $create_attendee_cct_flag = true;
+            
+                            for ($j = 0; $j < $quantity; $j++) {
+                                $suffix = $attendee_index === 0 ? '' : '_' . $attendee_index;
+                                $attendee_name = $order->get_meta('attendee_name' . $suffix);
+                                $attendee_email = $order->get_meta('attendee_email' . $suffix);
+            
+                                if (empty($attendee_name) || empty($attendee_email)) {
+                                    continue; // Skip if the meta fields are empty
+                                }
+            
+                                $attendee = [
+                                    'attendee_name' => $attendee_name,
+                                    'attendee_email' => $attendee_email,
+                                    'product' => $product,
+                                    'product_id' => $product_id,
+                                    'parent_id' => $parent_id,
+                                    'variation_name' => $this->lgl->helper->get_variation_name($product_id),
+                                ];
+                                $attendees[] = $attendee;
+                                $attendee_index++; // Increment the counter
                             }
-        
-                            $attendee = [
-                                'attendee_name' => $attendee_name,
-                                'attendee_email' => $attendee_email,
-                                'product' => $product,
-                                'product_id' => $product_id,
-                                'parent_id' => $parent_id,
-                                'variation_name' => $this->lgl->helper->get_variation_name($product_id),
-                            ];
-                            $this->lgl->helper->debug('Adding new attendee -----------', $attendee['attendee_email']);
-                            $attendees[] = $attendee;
-                            $attendee_index++; // Increment the counter
-                        }
-        
-                        if ($create_attendee_cct_flag) {
-                            $this->create_event_registration_cct($order, $attendees);
-                            // add the given order to an $orders_synced array so we can tell how many orders have been synced.
-                            $event_orders_synced[] = $order->get_id();
+            
+                            if ($create_attendee_cct_flag) {
+                                $this->create_event_registration_cct($order, $attendees);
+                                // add the given order to an $orders_synced array so we can tell how many orders have been synced.
+                                $event_orders_synced[] = $order->get_id();
+                            }
+                            
                         }
                         
                     }
+            
+                    // Mark the order as synced
+                    $order->update_meta_data('_cct_synced', true);
+                    $order->save();
                     
+                    // Free memory by unsetting order object
+                    unset($order);
                 }
-        
-                // Mark the order as synced
-                $order->update_meta_data('_cct_synced', true);
-                $order->save();
+                
+                // Check if we got fewer orders than requested (last page)
+                if (count($orders) < $batch_size) {
+                    $has_more = false;
+                } else {
+                    $page++;
+                }
+                
+                // Free memory by unsetting orders array
+                unset($orders);
+                
+                // Safety limit to prevent infinite loops
+                if ($page > 1000) {
+                    $this->lgl->helper->warning('LGL WP Users: sync_orders_to_ccts hit safety limit', ['page' => $page]);
+                    break;
+                }
+            }
+            
+            $event_count = count($event_orders_synced);
+            $language_count = count($language_orders_synced);
+            
+            if ($event_count > 0 || $language_count > 0) {
+                $this->lgl->helper->info('LGL WP Users: Orders synced to CCTs', [
+                    'event_orders' => $event_count,
+                    'language_orders' => $language_count
+                ]);
             }
             
             $output = '';
-            $output = count($event_orders_synced) . ' event orders synced successfully.   ';
-            $output .= count($language_orders_synced) . ' language orders synced successfully.';
+            $output = $event_count . ' event orders synced successfully.   ';
+            $output .= $language_count . ' language orders synced successfully.';
 
             return $output;
         }
@@ -876,23 +905,55 @@ if (!class_exists("LGL_WP_Users")) {
         
 
         function reset_cct_sync_status() {
-            // Query all WooCommerce orders
-            $args = [
-                'limit' => -1, // Retrieve all orders
-            ];
-            $orders = wc_get_orders($args);
+            // MEMORY FIX: Process orders in batches to prevent memory exhaustion
+            $batch_size = 50; // Process 50 orders at a time
+            $page = 1;
+            $has_more = true;
+            $total_reset = 0;
+            
+            while ($has_more) {
+                // Query WooCommerce orders in batches
+                $args = [
+                    'limit' => $batch_size,
+                    'page' => $page,
+                    'orderby' => 'date',
+                    'order' => 'DESC'
+                ];
+                $orders = wc_get_orders($args);
         
-            if (empty($orders)) {
-                return 'No orders found to reset.';
+                if (empty($orders)) {
+                    $has_more = false;
+                    break;
+                }
+        
+                foreach ($orders as $order) {
+                    // Reset the '_cct_synced' meta field
+                    $order->update_meta_data('_cct_synced', false);
+                    $order->save();
+                    $total_reset++;
+                    
+                    // Free memory
+                    unset($order);
+                }
+                
+                // Check if we got fewer orders than requested (last page)
+                if (count($orders) < $batch_size) {
+                    $has_more = false;
+                } else {
+                    $page++;
+                }
+                
+                // Free memory
+                unset($orders);
+                
+                // Safety limit to prevent infinite loops
+                if ($page > 1000) {
+                    $this->lgl->helper->warning('LGL WP Users: reset_cct_sync_status hit safety limit', ['page' => $page]);
+                    break;
+                }
             }
         
-            foreach ($orders as $order) {
-                // Reset the '_cct_synced' meta field
-                $order->update_meta_data('_cct_synced', false);
-                $order->save();
-            }
-        
-            return count($orders) . ' orders reset successfully.';
+            return $total_reset . ' orders reset successfully.';
         }
         
     } // end class defintion

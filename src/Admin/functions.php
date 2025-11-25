@@ -107,10 +107,22 @@ if (!function_exists('lgl_log')) {
             $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
             $helper->debug($message, $data);
         } catch (\Exception $e) {
-            // Fallback: Only log errors, not debug messages
+            // Fallback: Only log critical errors to PHP error log if Helper is unavailable
             // This prevents PHP error log spam if Helper is unavailable
-            if (strpos(strtolower($message), 'error') !== false || strpos(strtolower($message), 'fail') !== false) {
-                error_log("LGL Log [ERROR]: {$message}");
+            // Only log messages that contain error/fail/critical keywords
+            $message_lower = strtolower($message);
+            if (strpos($message_lower, 'error') !== false || 
+                strpos($message_lower, 'fail') !== false || 
+                strpos($message_lower, 'critical') !== false ||
+                strpos($message_lower, 'exception') !== false) {
+                // Use Helper's error() method if available, otherwise fallback to error_log
+                try {
+                    $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
+                    $helper->error($message, $data);
+                } catch (\Exception $e2) {
+                    // Last resort: direct error_log for critical errors only
+                    error_log("LGL Log [ERROR]: {$message}");
+                }
             }
         }
     }

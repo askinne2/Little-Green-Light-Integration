@@ -103,16 +103,19 @@ class SettingsManager implements SettingsManagerInterface {
      * @return array Complete settings array with defaults
      */
     public function getAll(): array {
-        if ($this->settings !== null) {
-            return $this->settings;
+        // CRITICAL: Always call loadSettings() to ensure fresh data
+        // Do NOT use in-memory cache as it can cause stale data and memory issues
+        // The transient cache in loadSettings() provides sufficient caching
+        
+        // Run migration checks on first load (only once per request)
+        static $migrations_run = false;
+        if (!$migrations_run) {
+            $this->migrateFromCarbonFields();
+            $this->migrateLegacyApiSettings();
+            $migrations_run = true;
         }
         
-        // Run migration checks on first load
-        $this->migrateFromCarbonFields();
-        $this->migrateLegacyApiSettings();
-        
-        $this->settings = $this->loadSettings();
-        return $this->settings;
+        return $this->loadSettings();
     }
     
     /**
@@ -168,7 +171,7 @@ class SettingsManager implements SettingsManagerInterface {
         $cache_prefix = 'lgl_cache_';
         delete_transient($cache_prefix . 'dev_' . self::CACHE_KEY);
         delete_transient($cache_prefix . 'live_' . self::CACHE_KEY);
-        $this->settings = null; // Clear memory cache
+        // Note: No in-memory cache to clear - we always load fresh from DB/transient
         
         // Verify the save by reading back (bypass cache)
         global $wpdb;
@@ -698,16 +701,40 @@ class SettingsManager implements SettingsManagerInterface {
                 'Events' => 'campaign_id_events',
             ];
             
+            // MEMORY FIX: Build normalized expected funds map once (outside loop)
+            $expected_funds_normalized = [];
+            foreach ($expected_funds as $expected_name => $setting_key) {
+                $expected_funds_normalized[strtolower(trim($expected_name))] = [
+                    'original_name' => $expected_name,
+                    'setting_key' => $setting_key
+                ];
+            }
+            
+            // Also add common variations/aliases based on remediation CSV
+            $expected_funds_normalized[strtolower('Unknown Language Class')] = [
+                'original_name' => 'Language Classes',
+                'setting_key' => 'fund_id_language_classes'
+            ];
+            $expected_funds_normalized[strtolower('Cultural Event')] = [
+                'original_name' => 'Events',
+                'setting_key' => 'fund_id_events'
+            ];
+            
+            // Fallback: ID-based matching only if name matching failed
+            $fund_id_mapping_fallback = [
+                4147 => 'fund_id_family_member_slots', // Family Member Slots (if name doesn't match)
+            ];
+            
             // Fetch funds with pagination support (bypass cache)
-            // LGL API uses limit/offset pagination with .json endpoints
-            $all_funds = [];
+            // MEMORY FIX: Process items incrementally instead of accumulating all in memory
             $limit = 100;
             $offset = 0;
             $has_more = true;
+            $total_funds_processed = 0;
+            $funds_found = false;
             
             while ($has_more) {
                 // Bypass cache to ensure fresh data
-                // Use 'funds.json' endpoint with limit/offset parameters
                 $funds_response = $this->connection->makeRequest('funds.json', 'GET', [
                     'limit' => $limit,
                     'offset' => $offset
@@ -715,15 +742,12 @@ class SettingsManager implements SettingsManagerInterface {
                 
                 if (!($funds_response['success'] ?? false)) {
                     if ($offset === 0) {
-                        // First page failed - return error
                         $results['errors'][] = 'Failed to fetch funds from LGL API';
                         break;
                     }
-                    // Subsequent page failed - stop pagination
                     break;
                 }
                 
-                // LGL API returns pagination info and items at top level of data
                 $data = $funds_response['data'] ?? [];
                 $items = $data['items'] ?? [];
                 
@@ -732,62 +756,8 @@ class SettingsManager implements SettingsManagerInterface {
                     break;
                 }
                 
-                $all_funds = array_merge($all_funds, $items);
-                
-                // Get pagination info from top-level response data
-                $items_count = $data['items_count'] ?? count($items);
-                $total_items = $data['total_items'] ?? null;
-                $next_item = $data['next_item'] ?? null;
-                
-                // Determine if there are more pages
-                if ($total_items !== null) {
-                    // Use total_items to determine if we've fetched everything
-                    $has_more = count($all_funds) < $total_items;
-                } elseif ($next_item !== null) {
-                    // Use next_item to determine if there are more pages
-                    $has_more = $next_item < ($total_items ?? PHP_INT_MAX);
-                } elseif (!empty($data['next_link'])) {
-                    // If next_link exists, there are more pages
-                    $has_more = true;
-                } else {
-                    // No pagination metadata - if we got fewer items than limit, we're done
-                    $has_more = count($items) >= $limit;
-                }
-                
-                // Update offset for next iteration
-                $offset = $next_item ?? ($offset + $items_count);
-                
-                // Safety limit - prevent infinite loops (max 1000 items = 10 pages of 100)
-                if ($offset >= 1000 || count($all_funds) >= 1000) {
-                    break;
-                }
-            }
-            
-            if (!empty($all_funds)) {
-                // Build normalized expected funds map for case-insensitive matching
-                $expected_funds_normalized = [];
-                foreach ($expected_funds as $expected_name => $setting_key) {
-                    $expected_funds_normalized[strtolower(trim($expected_name))] = [
-                        'original_name' => $expected_name,
-                        'setting_key' => $setting_key
-                    ];
-                }
-                
-                // Also add common variations/aliases based on remediation CSV
-                // "Unknown Language Class" → "Language Classes"
-                $expected_funds_normalized[strtolower('Unknown Language Class')] = [
-                    'original_name' => 'Language Classes',
-                    'setting_key' => 'fund_id_language_classes'
-                ];
-                // "Cultural Event" → "Events"
-                $expected_funds_normalized[strtolower('Cultural Event')] = [
-                    'original_name' => 'Events',
-                    'setting_key' => 'fund_id_events'
-                ];
-                
-                // Match funds by NAME from API response - use whatever ID the API returns for that name
-                // This is the correct approach since the API response contains the authoritative name-to-ID mapping
-                foreach ($all_funds as $fund) {
+                // MEMORY FIX: Process items immediately instead of accumulating
+                foreach ($items as $fund) {
                     $fund_id = (int) ($fund['id'] ?? 0);
                     $name = trim($fund['name'] ?? '');
                     $name_lower = strtolower($name);
@@ -800,6 +770,7 @@ class SettingsManager implements SettingsManagerInterface {
                                 'id' => $fund_id,
                                 'name' => $name
                             ];
+                            $funds_found = true;
                         }
                     }
                     // Try case-insensitive match or alias
@@ -811,45 +782,89 @@ class SettingsManager implements SettingsManagerInterface {
                                 'id' => $fund_id,
                                 'name' => $name
                             ];
+                            $funds_found = true;
                         }
                     }
-                }
-                
-                // Fallback: ID-based matching only if name matching failed (for funds with different names)
-                // This should rarely be needed, but provides a safety net
-                $fund_id_mapping_fallback = [
-                    4147 => 'fund_id_family_member_slots', // Family Member Slots (if name doesn't match)
-                ];
-                
-                foreach ($all_funds as $fund) {
-                    $fund_id = (int) ($fund['id'] ?? 0);
-                    $name = trim($fund['name'] ?? '');
-                    
-                    // Only use ID mapping if name matching didn't find it
-                    if (isset($fund_id_mapping_fallback[$fund_id])) {
+                    // Fallback: ID-based matching
+                    elseif (isset($fund_id_mapping_fallback[$fund_id])) {
                         $setting_key = $fund_id_mapping_fallback[$fund_id];
                         if (!isset($results['funds'][$setting_key])) {
                             $results['funds'][$setting_key] = [
                                 'id' => $fund_id,
                                 'name' => $name
                             ];
+                            $funds_found = true;
                         }
                     }
                 }
-            } else {
-                $results['errors'][] = 'Failed to fetch funds: No funds returned from API';
+                
+                $total_funds_processed += count($items);
+                
+                // Get pagination info
+                $items_count = $data['items_count'] ?? count($items);
+                $total_items = $data['total_items'] ?? null;
+                $next_item = $data['next_item'] ?? null;
+                
+                // Determine if there are more pages
+                if ($total_items !== null) {
+                    $has_more = $total_funds_processed < $total_items;
+                } elseif ($next_item !== null) {
+                    $has_more = $next_item < ($total_items ?? PHP_INT_MAX);
+                } elseif (!empty($data['next_link'])) {
+                    $has_more = true;
+                } else {
+                    $has_more = count($items) >= $limit;
+                }
+                
+                // Update offset for next iteration
+                $offset = $next_item ?? ($offset + $items_count);
+                
+                // Free memory after processing batch
+                unset($items, $data, $funds_response);
+                
+                // Safety limit - prevent infinite loops (max 1000 items = 10 pages of 100)
+                if ($offset >= 1000 || $total_funds_processed >= 1000) {
+                    break;
+                }
             }
             
+            if (!$funds_found) {
+                $results['errors'][] = 'Failed to fetch funds: No matching funds found';
+            }
+            
+            // MEMORY FIX: Build normalized expected campaigns map once (outside loop)
+            $expected_campaigns_normalized = [];
+            foreach ($expected_campaigns as $expected_name => $setting_key) {
+                $expected_campaigns_normalized[strtolower(trim($expected_name))] = [
+                    'original_name' => $expected_name,
+                    'setting_key' => $setting_key
+                ];
+            }
+            
+            // Add common variations/aliases
+            $expected_campaigns_normalized[strtolower('Membership Fees')] = [
+                'original_name' => 'Membership',
+                'setting_key' => 'campaign_id_membership'
+            ];
+            $expected_campaigns_normalized[strtolower('Language Class')] = [
+                'original_name' => 'Language Programs',
+                'setting_key' => 'campaign_id_language_classes'
+            ];
+            $expected_campaigns_normalized[strtolower('WACU Programming')] = [
+                'original_name' => 'Events',
+                'setting_key' => 'campaign_id_events'
+            ];
+            
             // Fetch campaigns with pagination support (bypass cache)
-            // LGL API uses limit/offset pagination with .json endpoints
-            $all_campaigns = [];
+            // MEMORY FIX: Process items incrementally instead of accumulating all in memory
             $limit = 100;
             $offset = 0;
             $has_more = true;
+            $total_campaigns_processed = 0;
+            $campaigns_found = false;
             
             while ($has_more) {
                 // Bypass cache to ensure fresh data
-                // Use 'campaigns.json' endpoint with limit/offset parameters
                 $campaigns_response = $this->connection->makeRequest('campaigns.json', 'GET', [
                     'limit' => $limit,
                     'offset' => $offset
@@ -857,15 +872,12 @@ class SettingsManager implements SettingsManagerInterface {
                 
                 if (!($campaigns_response['success'] ?? false)) {
                     if ($offset === 0) {
-                        // First page failed - return error
                         $results['errors'][] = 'Failed to fetch campaigns from LGL API';
                         break;
                     }
-                    // Subsequent page failed - stop pagination
                     break;
                 }
                 
-                // LGL API returns pagination info and items at top level of data
                 $data = $campaigns_response['data'] ?? [];
                 $items = $data['items'] ?? [];
                 
@@ -874,67 +886,8 @@ class SettingsManager implements SettingsManagerInterface {
                     break;
                 }
                 
-                $all_campaigns = array_merge($all_campaigns, $items);
-                
-                // Get pagination info from top-level response data
-                $items_count = $data['items_count'] ?? count($items);
-                $total_items = $data['total_items'] ?? null;
-                $next_item = $data['next_item'] ?? null;
-                
-                // Determine if there are more pages
-                if ($total_items !== null) {
-                    // Use total_items to determine if we've fetched everything
-                    $has_more = count($all_campaigns) < $total_items;
-                } elseif ($next_item !== null) {
-                    // Use next_item to determine if there are more pages
-                    $has_more = $next_item < ($total_items ?? PHP_INT_MAX);
-                } elseif (!empty($data['next_link'])) {
-                    // If next_link exists, there are more pages
-                    $has_more = true;
-                } else {
-                    // No pagination metadata - if we got fewer items than limit, we're done
-                    $has_more = count($items) >= $limit;
-                }
-                
-                // Update offset for next iteration
-                $offset = $next_item ?? ($offset + $items_count);
-                
-                // Safety limit - prevent infinite loops (max 1000 items = 10 pages of 100)
-                if ($offset >= 1000 || count($all_campaigns) >= 1000) {
-                    break;
-                }
-            }
-            
-            if (!empty($all_campaigns)) {
-                // Build normalized expected campaigns map for case-insensitive matching
-                $expected_campaigns_normalized = [];
-                foreach ($expected_campaigns as $expected_name => $setting_key) {
-                    $expected_campaigns_normalized[strtolower(trim($expected_name))] = [
-                        'original_name' => $expected_name,
-                        'setting_key' => $setting_key
-                    ];
-                }
-                
-                // Add common variations/aliases
-                // "Membership Fees" → "Membership"
-                $expected_campaigns_normalized[strtolower('Membership Fees')] = [
-                    'original_name' => 'Membership',
-                    'setting_key' => 'campaign_id_membership'
-                ];
-                // "Language Class" → "Language Programs"
-                $expected_campaigns_normalized[strtolower('Language Class')] = [
-                    'original_name' => 'Language Programs',
-                    'setting_key' => 'campaign_id_language_classes'
-                ];
-                // "WACU Programming" → "Events"
-                $expected_campaigns_normalized[strtolower('WACU Programming')] = [
-                    'original_name' => 'Events',
-                    'setting_key' => 'campaign_id_events'
-                ];
-                
-                // Match campaigns by NAME from API response - use whatever ID the API returns for that name
-                // This is the correct approach since the API response contains the authoritative name-to-ID mapping
-                foreach ($all_campaigns as $campaign) {
+                // MEMORY FIX: Process items immediately instead of accumulating
+                foreach ($items as $campaign) {
                     $campaign_id = (int) ($campaign['id'] ?? 0);
                     $name = trim($campaign['name'] ?? '');
                     $name_lower = strtolower($name);
@@ -947,6 +900,7 @@ class SettingsManager implements SettingsManagerInterface {
                                 'id' => $campaign_id,
                                 'name' => $name
                             ];
+                            $campaigns_found = true;
                         }
                     }
                     // Try case-insensitive match or alias
@@ -958,11 +912,43 @@ class SettingsManager implements SettingsManagerInterface {
                                 'id' => $campaign_id,
                                 'name' => $name
                             ];
+                            $campaigns_found = true;
                         }
                     }
                 }
-            } else {
-                $results['errors'][] = 'Failed to fetch campaigns: No campaigns returned from API';
+                
+                $total_campaigns_processed += count($items);
+                
+                // Get pagination info
+                $items_count = $data['items_count'] ?? count($items);
+                $total_items = $data['total_items'] ?? null;
+                $next_item = $data['next_item'] ?? null;
+                
+                // Determine if there are more pages
+                if ($total_items !== null) {
+                    $has_more = $total_campaigns_processed < $total_items;
+                } elseif ($next_item !== null) {
+                    $has_more = $next_item < ($total_items ?? PHP_INT_MAX);
+                } elseif (!empty($data['next_link'])) {
+                    $has_more = true;
+                } else {
+                    $has_more = count($items) >= $limit;
+                }
+                
+                // Update offset for next iteration
+                $offset = $next_item ?? ($offset + $items_count);
+                
+                // Free memory after processing batch
+                unset($items, $data, $campaigns_response);
+                
+                // Safety limit - prevent infinite loops (max 1000 items = 10 pages of 100)
+                if ($offset >= 1000 || $total_campaigns_processed >= 1000) {
+                    break;
+                }
+            }
+            
+            if (!$campaigns_found) {
+                $results['errors'][] = 'Failed to fetch campaigns: No matching campaigns found';
             }
             
             // Log summary of what was matched vs what wasn't
@@ -1338,10 +1324,39 @@ class SettingsManager implements SettingsManagerInterface {
      * @return array Settings array
      */
     private function loadSettings(): array {
+        // CRITICAL: Use static cache to prevent repeated calls within same request
+        // This prevents memory exhaustion from repeated database queries
+        static $request_cache = null;
+        static $request_cache_env = null;
+        
         // Prevent infinite recursion
         if ($this->isLoadingSettings) {
             // Return minimal settings to break the cycle
             return get_option(self::OPTION_NAME, []);
+        }
+        
+        // Check request-level cache first (fastest)
+        $current_env = null;
+        global $wpdb;
+        $option_value = $wpdb->get_var($wpdb->prepare(
+            "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+            self::OPTION_NAME
+        ));
+        
+        if ($option_value) {
+            $temp_settings = maybe_unserialize($option_value);
+            if (is_array($temp_settings) && isset($temp_settings['environment'])) {
+                $current_env = $temp_settings['environment'];
+            }
+        }
+        
+        if ($current_env === null || !in_array($current_env, ['dev', 'live'])) {
+            $current_env = 'live';
+        }
+        
+        // If we have cached settings for this environment, return them
+        if ($request_cache !== null && $request_cache_env === $current_env) {
+            return $request_cache;
         }
         
         $this->isLoadingSettings = true;
@@ -1363,6 +1378,9 @@ class SettingsManager implements SettingsManagerInterface {
             $cached = get_transient($cache_key);
             
             if ($cached !== false && is_array($cached)) {
+                // Cache in request-level cache
+                $request_cache = $cached;
+                $request_cache_env = $env;
                 $this->isLoadingSettings = false;
                 return $cached;
             }
@@ -1378,6 +1396,10 @@ class SettingsManager implements SettingsManagerInterface {
             
             // 5. Cache the result (use direct transient to avoid recursion)
             set_transient($cache_key, $settings, self::CACHE_TTL);
+            
+            // Cache in request-level cache
+            $request_cache = $settings;
+            $request_cache_env = $env;
             
             return $settings;
             

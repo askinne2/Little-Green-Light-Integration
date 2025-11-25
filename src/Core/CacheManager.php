@@ -167,40 +167,58 @@ class CacheManager {
     private static function getEnvironmentPrefix(): string {
         // Use static cache to avoid repeated option lookups and prevent recursion
         static $cached_prefix = null;
+        static $is_loading = false;
+        
+        // Return cached value if available
         if ($cached_prefix !== null) {
             return $cached_prefix;
         }
         
-        // CRITICAL: Read directly from database WITHOUT going through SettingsManager or any caching
-        // This prevents circular dependency: CacheManager -> SettingsManager -> CacheManager
-        // Direct DB query bypasses WordPress option cache and transient system
-        global $wpdb;
-        $option_value = $wpdb->get_var($wpdb->prepare(
-            "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
-            'lgl_integration_settings'
-        ));
+        // Prevent concurrent calls from causing multiple DB queries
+        if ($is_loading) {
+            // If we're already loading, return default to prevent recursion
+            return 'live_';
+        }
         
-        $env = 'live'; // Default fallback
+        $is_loading = true;
         
-        if ($option_value) {
-            $settings = maybe_unserialize($option_value);
-            if (is_array($settings) && isset($settings['environment'])) {
-                $env = $settings['environment'];
+        try {
+            // CRITICAL: Read directly from database WITHOUT going through SettingsManager or any caching
+            // This prevents circular dependency: CacheManager -> SettingsManager -> CacheManager
+            // Direct DB query bypasses WordPress option cache and transient system
+            global $wpdb;
+            $option_value = $wpdb->get_var($wpdb->prepare(
+                "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+                'lgl_integration_settings'
+            ));
+            
+            $env = 'live'; // Default fallback
+            
+            if ($option_value) {
+                $settings = maybe_unserialize($option_value);
+                if (is_array($settings) && isset($settings['environment'])) {
+                    $env = $settings['environment'];
+                }
             }
+            
+            // Validate environment value (must be 'dev' or 'live')
+            if (!in_array($env, ['dev', 'live'])) {
+                $env = 'live';
+            }
+            
+            // Cache prefix in static variable for this request
+            $cached_prefix = $env . '_';
+            return $cached_prefix;
+            
+        } finally {
+            $is_loading = false;
         }
-        
-        // Validate environment value (must be 'dev' or 'live')
-        if (!in_array($env, ['dev', 'live'])) {
-            $env = 'live';
-        }
-        
-        // Cache prefix in static variable for this request
-        $cached_prefix = $env . '_';
-        return $cached_prefix;
     }
     
     /**
      * Clear all LGL cache entries
+     * 
+     * MEMORY FIX: Process in batches to prevent memory exhaustion with large cache sets
      * 
      * @return int Number of cache entries cleared
      */
@@ -208,19 +226,47 @@ class CacheManager {
         global $wpdb;
         
         $cleared = 0;
+        $batch_size = 100; // Process 100 cache entries at a time
+        $offset = 0;
+        $has_more = true;
         
-        // Clear transients
-        $transient_keys = $wpdb->get_col(
-            $wpdb->prepare(
-                "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s",
-                '_transient_' . self::CACHE_PREFIX . '%'
-            )
-        );
-        
-        foreach ($transient_keys as $transient_key) {
-            $key = str_replace('_transient_' . self::CACHE_PREFIX, '', $transient_key);
-            if (delete_transient($key)) {
-                $cleared++;
+        while ($has_more) {
+            // Get cache keys in batches
+            $transient_keys = $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT %d OFFSET %d",
+                    '_transient_' . self::CACHE_PREFIX . '%',
+                    $batch_size,
+                    $offset
+                )
+            );
+            
+            if (empty($transient_keys)) {
+                $has_more = false;
+                break;
+            }
+            
+            foreach ($transient_keys as $transient_key) {
+                $key = str_replace('_transient_' . self::CACHE_PREFIX, '', $transient_key);
+                if (delete_transient($key)) {
+                    $cleared++;
+                }
+            }
+            
+            // Check if we got fewer than requested (last batch)
+            if (count($transient_keys) < $batch_size) {
+                $has_more = false;
+            } else {
+                $offset += $batch_size;
+            }
+            
+            // Free memory
+            unset($transient_keys);
+            
+            // Safety limit
+            if ($offset > 10000) {
+                \UpstateInternational\LGL\LGL\Helper::getInstance()->warning('LGL Cache: clearAll hit safety limit', ['offset' => $offset]);
+                break;
             }
         }
         
@@ -379,37 +425,88 @@ class CacheManager {
     
     /**
      * Invalidate order-related cache
+     * 
+     * MEMORY FIX: Process in batches to prevent memory exhaustion
      */
     public static function invalidateOrderCache($order_id = null) {
         global $wpdb;
         
-        $cache_keys = $wpdb->get_col(
-            $wpdb->prepare(
-                "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s",
-                '_transient_' . self::CACHE_PREFIX . 'filtered_orders_%'
-            )
-        );
-        
         $cleared = 0;
-        foreach ($cache_keys as $cache_key) {
-            $key = str_replace('_transient_' . self::CACHE_PREFIX, '', $cache_key);
-            if (delete_transient($key)) {
-                $cleared++;
+        $batch_size = 100;
+        $offset = 0;
+        $has_more = true;
+        
+        // Clear filtered orders cache
+        while ($has_more) {
+            $cache_keys = $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT %d OFFSET %d",
+                    '_transient_' . self::CACHE_PREFIX . 'filtered_orders_%',
+                    $batch_size,
+                    $offset
+                )
+            );
+            
+            if (empty($cache_keys)) {
+                $has_more = false;
+                break;
+            }
+            
+            foreach ($cache_keys as $cache_key) {
+                $key = str_replace('_transient_' . self::CACHE_PREFIX, '', $cache_key);
+                if (delete_transient($key)) {
+                    $cleared++;
+                }
+            }
+            
+            if (count($cache_keys) < $batch_size) {
+                $has_more = false;
+            } else {
+                $offset += $batch_size;
+            }
+            
+            unset($cache_keys);
+            
+            if ($offset > 10000) {
+                break;
             }
         }
         
         // Also clear dashboard widget cache
-        $dashboard_keys = $wpdb->get_col(
-            $wpdb->prepare(
-                "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s",
-                '_transient_' . self::CACHE_PREFIX . 'lgl_orders_%'
-            )
-        );
-        
-        foreach ($dashboard_keys as $cache_key) {
-            $key = str_replace('_transient_' . self::CACHE_PREFIX, '', $cache_key);
-            delete_transient($key);
-            $cleared++;
+        $offset = 0;
+        $has_more = true;
+        while ($has_more) {
+            $dashboard_keys = $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT %d OFFSET %d",
+                    '_transient_' . self::CACHE_PREFIX . 'lgl_orders_%',
+                    $batch_size,
+                    $offset
+                )
+            );
+            
+            if (empty($dashboard_keys)) {
+                $has_more = false;
+                break;
+            }
+            
+            foreach ($dashboard_keys as $cache_key) {
+                $key = str_replace('_transient_' . self::CACHE_PREFIX, '', $cache_key);
+                delete_transient($key);
+                $cleared++;
+            }
+            
+            if (count($dashboard_keys) < $batch_size) {
+                $has_more = false;
+            } else {
+                $offset += $batch_size;
+            }
+            
+            unset($dashboard_keys);
+            
+            if ($offset > 10000) {
+                break;
+            }
         }
         
         if ($cleared > 0) {
@@ -476,20 +573,50 @@ class CacheManager {
     
     /**
      * Invalidate API cache
+     * 
+     * MEMORY FIX: Process in batches when clearing all API cache
      */
     public static function invalidateApiCache($endpoint = null) {
         if ($endpoint) {
             // Clear specific endpoint cache
             $cache_keys = ['api_' . md5($endpoint)];
         } else {
-            // Clear all API cache
+            // Clear all API cache in batches
             global $wpdb;
-            $cache_keys = $wpdb->get_col(
-                $wpdb->prepare(
-                    "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s",
-                    '_transient_' . self::CACHE_PREFIX . 'api_%'
-                )
-            );
+            $cache_keys = [];
+            $batch_size = 100;
+            $offset = 0;
+            $has_more = true;
+            
+            while ($has_more) {
+                $batch_keys = $wpdb->get_col(
+                    $wpdb->prepare(
+                        "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT %d OFFSET %d",
+                        '_transient_' . self::CACHE_PREFIX . 'api_%',
+                        $batch_size,
+                        $offset
+                    )
+                );
+                
+                if (empty($batch_keys)) {
+                    $has_more = false;
+                    break;
+                }
+                
+                $cache_keys = array_merge($cache_keys, $batch_keys);
+                
+                if (count($batch_keys) < $batch_size) {
+                    $has_more = false;
+                } else {
+                    $offset += $batch_size;
+                }
+                
+                unset($batch_keys);
+                
+                if ($offset > 10000) {
+                    break;
+                }
+            }
         }
         
         $cleared = 0;

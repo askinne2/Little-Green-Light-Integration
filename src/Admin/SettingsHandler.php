@@ -95,8 +95,6 @@ class SettingsHandler {
         add_action('admin_post_lgl_sync_groups', [$this, 'handleSyncGroups']);
         add_action('admin_post_lgl_save_role_mappings', [$this, 'handleRoleMappings']);
         
-        //  error_log('LGL SettingsHandler: admin_post hooks registered - lgl_save_api_settings, lgl_save_membership_settings, lgl_save_debug_settings');
-        
         // Remove any existing handlers first to avoid conflicts
         remove_all_actions('wp_ajax_lgl_test_connection');
         remove_all_actions('wp_ajax_lgl_test_api_connection');
@@ -110,13 +108,6 @@ class SettingsHandler {
         add_action('wp_ajax_lgl_import_membership_levels', [$this, 'handleImportMembershipLevels']);
         add_action('wp_ajax_lgl_import_events', [$this, 'handleImportEvents']);
         add_action('wp_ajax_lgl_import_funds', [$this, 'handleImportFunds']);
-        
-        // Debug: Test if AJAX action is registered
-        // error_log('LGL SettingsHandler: AJAX handlers registered for actions: wp_ajax_lgl_test_connection, wp_ajax_lgl_test_api_connection');
-        
-        // Debug handlers removed - connection test is now working properly
-        
-        // error_log('LGL SettingsHandler: All hooks registered');
     }
     
     /**
