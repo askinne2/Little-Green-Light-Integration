@@ -90,9 +90,15 @@ class MembershipDeactivationAction implements JetFormActionInterface {
      */
     public function handle(array $request, $action_handler): void {
         try {
+        $this->helper->info('LGL MembershipDeactivationAction: Processing membership deactivation', [
+            'user_id' => $request['user_id'] ?? 'N/A'
+        ]);
+        
         // Validate request data
         if (!$this->validateRequest($request)) {
-            $this->helper->debug('MembershipDeactivationAction: Invalid request data', $request);
+            $this->helper->error('LGL MembershipDeactivationAction: Invalid request data', [
+                'missing_fields' => $this->getMissingFields($request)
+            ]);
                 $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -104,12 +110,12 @@ class MembershipDeactivationAction implements JetFormActionInterface {
                 }
         }
         
-        $this->helper->debug('MembershipDeactivationAction: Processing request', $request);
-        
         $uid = (int) $request['user_id'];
         
         if ($uid === 0) {
-            $this->helper->debug('No User ID in Request, MembershipDeactivationAction');
+            $this->helper->error('LGL MembershipDeactivationAction: No User ID in Request', [
+                'request_keys' => array_keys($request)
+            ]);
                 $error_message = 'User ID is missing. Please ensure you are logged in and try again.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -126,7 +132,7 @@ class MembershipDeactivationAction implements JetFormActionInterface {
         
         // Use async processing if available (speeds up form submission)
         if ($this->asyncProcessor) {
-            $this->helper->debug('⏰ MembershipDeactivationAction: Scheduling async LGL processing', [
+            $this->helper->debug('LGL MembershipDeactivationAction: Scheduling async LGL processing', [
                 'user_id' => $uid
             ]);
             
@@ -138,33 +144,33 @@ class MembershipDeactivationAction implements JetFormActionInterface {
                 
                 $this->asyncProcessor->scheduleAsyncProcessing('membership_deactivation', $uid, $context);
                 
-                $this->helper->debug('✅ MembershipDeactivationAction: Async LGL processing scheduled', [
-                    'user_id' => $uid,
-                    'note' => 'LGL API calls will be processed in background via WP Cron'
+                $this->helper->info('LGL MembershipDeactivationAction: Membership deactivation completed (async)', [
+                    'user_id' => $uid
                 ]);
             } catch (\Exception $e) {
-                $this->helper->debug('⚠️ MembershipDeactivationAction: Async scheduling failed, falling back to sync', [
+                $this->helper->warning('LGL MembershipDeactivationAction: Async scheduling failed, falling back to sync', [
                     'error' => $e->getMessage(),
                     'user_id' => $uid
                 ]);
                 
                 // Fallback to synchronous processing if async fails
                 $this->deactivateLGLMembership($uid);
+                $this->helper->info('LGL MembershipDeactivationAction: Membership deactivation completed (sync)', [
+                    'user_id' => $uid
+                ]);
             }
         } else {
             // Fallback: synchronous processing if async processor not available
-            $this->helper->debug('⚠️ MembershipDeactivationAction: Async processor not available, using sync', [
+            $this->deactivateLGLMembership($uid);
+            $this->helper->info('LGL MembershipDeactivationAction: Membership deactivation completed (sync)', [
                 'user_id' => $uid
             ]);
-            
-            $this->deactivateLGLMembership($uid);
         }
             
         } catch (\Exception $e) {
-            $this->helper->debug('MembershipDeactivationAction: Error occurred', [
+            $this->helper->error('LGL MembershipDeactivationAction: Error occurred', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'user_id' => $uid ?? null
             ]);
             
             // Re-throw Action_Exception, convert others
@@ -195,7 +201,9 @@ class MembershipDeactivationAction implements JetFormActionInterface {
         $user_lgl_id = get_user_meta($uid, 'lgl_id', true);
         
         if (!$user_lgl_id) {
-            $this->helper->debug('MembershipDeactivationAction: No LGL ID found for user', $uid);
+            $this->helper->error('LGL MembershipDeactivationAction: No LGL ID found for user', [
+                'user_id' => $uid
+            ]);
             $error_message = 'Unable to deactivate membership. LGL account ID not found. Please contact support.';
             
             if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -211,7 +219,10 @@ class MembershipDeactivationAction implements JetFormActionInterface {
         $existing_user = $this->connection->getConstituentData($user_lgl_id);
         
         if (!$existing_user) {
-            $this->helper->debug('MembershipDeactivationAction: No existing LGL user found');
+            $this->helper->error('LGL MembershipDeactivationAction: No existing LGL user found', [
+                'user_id' => $uid,
+                'lgl_id' => $user_lgl_id
+            ]);
             $error_message = 'Unable to deactivate membership. Account not found in system. Please contact support.';
             
             if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -224,10 +235,12 @@ class MembershipDeactivationAction implements JetFormActionInterface {
         }
         
         $lgl_id = is_array($existing_user) ? ($existing_user['id'] ?? null) : ($existing_user->id ?? null);
-        $this->helper->debug('LGL USER EXISTS: ', $lgl_id);
         
         if (!$lgl_id) {
-            $this->helper->debug('MembershipDeactivationAction: Invalid LGL ID');
+            $this->helper->error('LGL MembershipDeactivationAction: Invalid LGL ID', [
+                'user_id' => $uid,
+                'lgl_id' => $user_lgl_id
+            ]);
             $error_message = 'Unable to deactivate membership. Invalid account ID. Please contact support.';
             
             if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -243,7 +256,10 @@ class MembershipDeactivationAction implements JetFormActionInterface {
         $user = $this->connection->getConstituentData($lgl_id);
         
         if (!$user) {
-            $this->helper->debug('MembershipDeactivationAction: Could not retrieve user details');
+            $this->helper->error('LGL MembershipDeactivationAction: Could not retrieve user details', [
+                'user_id' => $uid,
+                'lgl_id' => $lgl_id
+            ]);
             $error_message = 'Unable to deactivate membership. Could not retrieve account details. Please contact support.';
             
             if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -270,15 +286,16 @@ class MembershipDeactivationAction implements JetFormActionInterface {
         $memberships = $user->memberships ?? [];
         
         if (empty($memberships)) {
-            $this->helper->debug('MembershipDeactivationAction: No memberships found for user');
+            $this->helper->info('LGL MembershipDeactivationAction: No memberships found for user', [
+                'user_id' => $uid,
+                'lgl_id' => $lgl_id
+            ]);
             return;
         }
         
         // Mark most recent membership inactive as of yesterday
         $lgl_membership = $memberships[0];
         $mid = $lgl_membership->id;
-        
-        $this->helper->debug('Retrieving MEMBERSHIP for deactivation', $mid);
         
         // IMPORTANT: finish_date must be >= date_start per LGL API validation
         $today = date('Y-m-d');
@@ -298,13 +315,25 @@ class MembershipDeactivationAction implements JetFormActionInterface {
             // Use modern Connection::updateMembership() - uses direct membership endpoint
             $result = $this->connection->updateMembership((string)$mid, $updated_membership);
             
-            if ($result) {
-                $this->helper->debug('Successfully deactivated membership', $mid);
+            if ($result && !empty($result['success'])) {
+                $this->helper->info('LGL MembershipDeactivationAction: Successfully deactivated membership', [
+                    'membership_id' => $mid,
+                    'user_id' => $uid,
+                    'lgl_id' => $lgl_id
+                ]);
             } else {
-                $this->helper->debug('MembershipDeactivationAction: couldn\'t update membership: ', $updated_membership);
+                $this->helper->error('LGL MembershipDeactivationAction: Failed to update membership', [
+                    'membership_id' => $mid,
+                    'user_id' => $uid,
+                    'lgl_id' => $lgl_id,
+                    'error' => $result['error'] ?? 'Unknown error'
+                ]);
             }
         } else {
-            $this->helper->debug('MembershipDeactivationAction: Membership already expired or inactive');
+            $this->helper->info('LGL MembershipDeactivationAction: Membership already expired or inactive', [
+                'membership_id' => $mid,
+                'user_id' => $uid
+            ]);
         }
     }
     
@@ -317,10 +346,12 @@ class MembershipDeactivationAction implements JetFormActionInterface {
     private function deactivateWordPressUser(int $uid): void {
         try {
             $this->wpUsers->uiUserDeactivation($uid);
-            $this->helper->debug('WordPress user deactivated successfully', $uid);
+            $this->helper->info('LGL MembershipDeactivationAction: WordPress user deactivated', [
+                'user_id' => $uid
+            ]);
         } catch (\Exception $e) {
-            $this->helper->debug('MembershipDeactivationAction: Error deactivating WordPress user', [
-                'uid' => $uid,
+            $this->helper->error('LGL MembershipDeactivationAction: Error deactivating WordPress user', [
+                'user_id' => $uid,
                 'error' => $e->getMessage()
             ]);
         }
@@ -373,14 +404,14 @@ class MembershipDeactivationAction implements JetFormActionInterface {
         
         foreach ($required_fields as $field) {
             if (!isset($request[$field]) || empty($request[$field])) {
-                $this->helper->debug("MembershipDeactivationAction: Missing required field: {$field}");
+                $this->helper->debug("LGL MembershipDeactivationAction: Missing required field", ['field' => $field]);
                 return false;
             }
         }
         
         // Validate user_id is numeric and positive
         if (!isset($request['user_id']) || !is_numeric($request['user_id']) || (int)$request['user_id'] <= 0) {
-            $this->helper->debug('MembershipDeactivationAction: Invalid user_id');
+            $this->helper->debug('LGL MembershipDeactivationAction: Invalid user_id', ['user_id' => $request['user_id'] ?? null]);
             return false;
         }
         
@@ -396,5 +427,24 @@ class MembershipDeactivationAction implements JetFormActionInterface {
         return [
             'user_id'
         ];
+    }
+    
+    /**
+     * Get missing required fields from request
+     * 
+     * @param array $request Request data
+     * @return array<string> Missing field names
+     */
+    private function getMissingFields(array $request): array {
+        $required_fields = $this->getRequiredFields();
+        $missing = [];
+        
+        foreach ($required_fields as $field) {
+            if (!isset($request[$field]) || empty($request[$field])) {
+                $missing[] = $field;
+            }
+        }
+        
+        return $missing;
     }
 }

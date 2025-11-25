@@ -107,8 +107,11 @@ if (!function_exists('lgl_log')) {
             $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
             $helper->debug($message, $data);
         } catch (\Exception $e) {
-            // Fallback to error_log if Helper not available
-            error_log("LGL Log: {$message} " . ($data ? print_r($data, true) : ''));
+            // Fallback: Only log errors, not debug messages
+            // This prevents PHP error log spam if Helper is unavailable
+            if (strpos(strtolower($message), 'error') !== false || strpos(strtolower($message), 'fail') !== false) {
+                error_log("LGL Log [ERROR]: {$message}");
+            }
         }
     }
 }

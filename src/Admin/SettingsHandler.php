@@ -102,18 +102,9 @@ class SettingsHandler {
         remove_all_actions('wp_ajax_lgl_test_api_connection');
         
         // AJAX handlers for connection testing - using closure to ensure proper callback
-        add_action('wp_ajax_lgl_test_connection', function() {
-            $this->helper->debug('🔥🔥🔥 AJAX ACTION lgl_test_connection TRIGGERED! Calling handleConnectionTest...');
-            $this->handleConnectionTest();
-        }, 10);
-        add_action('wp_ajax_lgl_test_api_connection', function() {
-            $this->helper->debug('🔥🔥🔥 AJAX ACTION lgl_test_api_connection TRIGGERED!');
-            $this->handleConnectionTest();
-        }, 10);
-        add_action('wp_ajax_nopriv_lgl_test_connection', function() {
-            $this->helper->debug('🔥🔥🔥 AJAX ACTION lgl_test_connection (nopriv) TRIGGERED!');
-            $this->handleConnectionTest();
-        }, 10);
+        add_action('wp_ajax_lgl_test_connection', [$this, 'handleConnectionTest'], 10);
+        add_action('wp_ajax_lgl_test_api_connection', [$this, 'handleConnectionTest'], 10);
+        add_action('wp_ajax_nopriv_lgl_test_connection', [$this, 'handleConnectionTest'], 10);
         
         // AJAX handlers for importing data from LGL API
         add_action('wp_ajax_lgl_import_membership_levels', [$this, 'handleImportMembershipLevels']);
@@ -219,17 +210,13 @@ class SettingsHandler {
             'live_api_key' => $live_api_key
         ];
         
-        $this->helper->debug('SettingsHandler: Saving API settings', [
-            'environment' => $environment,
-            'dev_api_url_set' => !empty($dev_api_url),
-            'dev_api_key_set' => !empty($dev_api_key),
-            'live_api_url_set' => !empty($live_api_url),
-            'live_api_key_set' => !empty($live_api_key)
-        ]);
-        
         if ($this->updateSettings($settings)) {
+            $this->helper->info('LGL SettingsHandler: API settings saved', [
+                'environment' => $environment
+            ]);
             $this->redirectWithMessage('updated', 'API settings saved successfully!', 'api');
         } else {
+            $this->helper->error('LGL SettingsHandler: Failed to save API settings');
             $this->redirectWithMessage('error', 'Failed to save API settings.', 'api');
         }
     }
@@ -311,11 +298,19 @@ class SettingsHandler {
         
         $debug_mode = isset($_POST['lgl_debug_mode']);
         $test_mode = isset($_POST['lgl_test_mode']);
+        $log_level = isset($_POST['lgl_log_level']) ? sanitize_text_field($_POST['lgl_log_level']) : 'debug';
+        
+        // Validate log level
+        $valid_levels = ['error', 'warning', 'info', 'debug'];
+        if (!in_array($log_level, $valid_levels)) {
+            $log_level = 'debug';
+        }
         
         // Save settings
         $settings = [
             'debug_mode' => $debug_mode,
-            'test_mode' => $test_mode
+            'test_mode' => $test_mode,
+            'log_level' => $log_level
         ];
         
         if ($this->updateSettings($settings)) {
@@ -486,11 +481,6 @@ class SettingsHandler {
         $current_env = $settingsManager->getEnvironment();
         $current_env_label = ucfirst($current_env);
         
-        $this->helper->debug('🔍 SettingsHandler: handleSyncGroups called', [
-            'environment' => $current_env,
-            'environment_label' => $current_env_label
-        ]);
-        
         // Sync groups - this will use the current environment's API connection
         $results = $settingsManager->syncGroups();
         
@@ -502,10 +492,9 @@ class SettingsHandler {
                 $groups_count
             );
             
-            $this->helper->debug('✅ SettingsHandler: Groups synced successfully', [
+            $this->helper->info('LGL SettingsHandler: Groups synced successfully', [
                 'environment' => $current_env,
-                'groups_count' => $groups_count,
-                'groups' => $results['groups']
+                'groups_count' => $groups_count
             ]);
             
             $this->redirectWithMessage('updated', $message, 'memberships');
@@ -517,9 +506,9 @@ class SettingsHandler {
                 $error_message .= 'Check API connection.';
             }
             
-            $this->helper->debug('❌ SettingsHandler: Groups sync failed', [
+            $this->helper->error('LGL SettingsHandler: Groups sync failed', [
                 'environment' => $current_env,
-                'errors' => $results['errors']
+                'errors' => $results['errors'] ?? []
             ]);
             
             $this->redirectWithMessage('error', $error_message, 'memberships');
@@ -613,18 +602,16 @@ class SettingsHandler {
      * Handle connection test AJAX request
      */
     public function handleConnectionTest(): void {
-        $this->helper->debug('🚨🚨🚨 LGL SettingsHandler: handleConnectionTest() METHOD CALLED! 🚨🚨🚨');
-        
         // Check permissions - be more lenient for AJAX requests
         if (!current_user_can('manage_options') && !current_user_can('edit_posts')) {
-            $this->helper->debug('LGL SettingsHandler: User lacks sufficient permissions');
+            $this->helper->error('LGL SettingsHandler: User lacks sufficient permissions for connection test');
             wp_send_json_error('Insufficient permissions');
             return;
         }
         
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'lgl_admin_nonce')) {
-            $this->helper->debug('LGL SettingsHandler: Nonce verification failed');
+            $this->helper->error('LGL SettingsHandler: Nonce verification failed');
             wp_send_json_error('Nonce verification failed');
             return;
         }
@@ -674,11 +661,9 @@ class SettingsHandler {
         ];
         
         $base_url = rtrim($api_url, '/');
-        $this->helper->debug('LGL SettingsHandler: Testing API connection with base URL: ' . $base_url);
         
         foreach ($endpoints_to_test as $endpoint) {
             $test_url = $base_url . $endpoint;
-            $this->helper->debug('LGL SettingsHandler: Trying endpoint: ' . $test_url);
             
             $response = wp_remote_get($test_url, [
                 'headers' => [
@@ -690,17 +675,17 @@ class SettingsHandler {
             ]);
             
             if (is_wp_error($response)) {
-                $this->helper->debug('LGL SettingsHandler: WP Error for ' . $test_url . ': ' . $response->get_error_message());
                 continue; // Try next endpoint
             }
             
             $status_code = wp_remote_retrieve_response_code($response);
             $body = wp_remote_retrieve_body($response);
             
-            $this->helper->debug('LGL SettingsHandler: ' . $test_url . ' - Status: ' . $status_code . ', Body length: ' . strlen($body));
-            
             if ($status_code === 200) {
                 $data = json_decode($body, true);
+                $this->helper->info('LGL SettingsHandler: API connection test successful', [
+                    'endpoint' => $test_url
+                ]);
                 return [
                     'success' => true,
                     'message' => "Connection successful! Working endpoint: $test_url",
@@ -711,6 +696,10 @@ class SettingsHandler {
                 ];
             } elseif ($status_code === 401) {
                 // Authentication error - API key might be wrong
+                $this->helper->error('LGL SettingsHandler: API authentication failed', [
+                    'endpoint' => $test_url,
+                    'status_code' => $status_code
+                ]);
                 return [
                     'success' => false,
                     'message' => "Authentication failed (HTTP 401). Please check your API key.",
@@ -719,6 +708,10 @@ class SettingsHandler {
                 ];
             } elseif ($status_code === 403) {
                 // Forbidden - API key might not have permission
+                $this->helper->error('LGL SettingsHandler: API access forbidden', [
+                    'endpoint' => $test_url,
+                    'status_code' => $status_code
+                ]);
                 return [
                     'success' => false,
                     'message' => "Access forbidden (HTTP 403). Your API key might not have sufficient permissions.",
@@ -726,9 +719,6 @@ class SettingsHandler {
                     'endpoint_tested' => $test_url
                 ];
             }
-            
-            // Log other status codes but continue trying
-            $this->helper->debug('LGL SettingsHandler: ' . $test_url . ' returned HTTP ' . $status_code . ': ' . substr($body, 0, 100));
         }
         
         // If we get here, none of the endpoints worked
@@ -746,10 +736,6 @@ class SettingsHandler {
         // IMPORTANT: Preserve all keys since SettingsManager handles comprehensive sanitization
         // This callback is only for WordPress's register_setting compatibility
         // Just return the input as-is since SettingsManager::sanitizeSettings() already handles it
-        
-        $this->helper->debug('SettingsHandler::sanitizeSettings called with ' . count($input) . ' keys');
-        
-        // Let SettingsManager handle all sanitization - just pass through
         return $input;
     }
     
@@ -908,13 +894,11 @@ class SettingsHandler {
             return;
         }
         
-        $this->helper->debug('LGL SettingsHandler: Starting membership levels import from API');
-        
         // Get SettingsManager instance
         $settingsManager = $this->getSettingsManager();
         
         if (!$settingsManager) {
-            $this->helper->debug('LGL SettingsHandler: SettingsManager not available');
+            $this->helper->error('LGL SettingsHandler: SettingsManager not available for import');
             wp_send_json_error([
                 'message' => 'Settings manager not available. Please try again.'
             ]);
@@ -924,11 +908,15 @@ class SettingsHandler {
         // Import membership levels via SettingsManager
         $result = $settingsManager->importMembershipLevels();
         
-        $this->helper->debug('LGL SettingsHandler: Import result', $result);
-        
         if ($result['success']) {
+            $this->helper->info('LGL SettingsHandler: Membership levels imported', [
+                'count' => $result['count'] ?? 0
+            ]);
             wp_send_json_success($result);
         } else {
+            $this->helper->error('LGL SettingsHandler: Membership levels import failed', [
+                'errors' => $result['errors'] ?? []
+            ]);
             wp_send_json_error($result);
         }
     }
@@ -950,13 +938,11 @@ class SettingsHandler {
             return;
         }
         
-        $this->helper->debug('LGL SettingsHandler: Starting events import from API');
-        
         // Get SettingsManager instance
         $settingsManager = $this->getSettingsManager();
         
         if (!$settingsManager) {
-            $this->helper->debug('LGL SettingsHandler: SettingsManager not available');
+            $this->helper->error('LGL SettingsHandler: SettingsManager not available for events import');
             wp_send_json_error([
                 'message' => 'Settings manager not available. Please try again.'
             ]);
@@ -966,11 +952,15 @@ class SettingsHandler {
         // Import events via SettingsManager
         $result = $settingsManager->importEvents();
         
-        $this->helper->debug('LGL SettingsHandler: Import events result', $result);
-        
         if ($result['success']) {
+            $this->helper->info('LGL SettingsHandler: Events imported', [
+                'count' => $result['count'] ?? 0
+            ]);
             wp_send_json_success($result);
         } else {
+            $this->helper->error('LGL SettingsHandler: Events import failed', [
+                'errors' => $result['errors'] ?? []
+            ]);
             wp_send_json_error($result);
         }
     }
@@ -992,13 +982,11 @@ class SettingsHandler {
             return;
         }
         
-        $this->helper->debug('LGL SettingsHandler: Starting funds import from API');
-        
         // Get SettingsManager instance
         $settingsManager = $this->getSettingsManager();
         
         if (!$settingsManager) {
-            $this->helper->debug('LGL SettingsHandler: SettingsManager not available');
+            $this->helper->error('LGL SettingsHandler: SettingsManager not available for funds import');
             wp_send_json_error([
                 'message' => 'Settings manager not available. Please try again.'
             ]);
@@ -1008,11 +996,15 @@ class SettingsHandler {
         // Import funds via SettingsManager
         $result = $settingsManager->importFunds();
         
-        $this->helper->debug('LGL SettingsHandler: Import funds result', $result);
-        
         if ($result['success']) {
+            $this->helper->info('LGL SettingsHandler: Funds imported', [
+                'count' => $result['count'] ?? 0
+            ]);
             wp_send_json_success($result);
         } else {
+            $this->helper->error('LGL SettingsHandler: Funds import failed', [
+                'errors' => $result['errors'] ?? []
+            ]);
             wp_send_json_error($result);
         }
     }

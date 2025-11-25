@@ -627,9 +627,14 @@ class ServiceContainer implements ContainerInterface {
                 $container->get('lgl.helper')
             );
         });
+        $this->register('admin.debug_log_page', function($container) {
+            return new \UpstateInternational\LGL\Admin\DebugLogPage(
+                $container->get('lgl.helper')
+            );
+        });
 
         $this->register('admin.menu_manager', function($container) {
-            return new \UpstateInternational\LGL\Admin\AdminMenuManager(
+            $menuManager = new \UpstateInternational\LGL\Admin\AdminMenuManager(
                 $container->get('lgl.helper'),
                 $container->get('lgl.api_settings'),
                 $container->get('admin.settings_handler'),
@@ -639,6 +644,12 @@ class ServiceContainer implements ContainerInterface {
                 $container->get('admin.email_blocking_page'),
                 $container->get('admin.order_email_settings_page')
             );
+            // Set debug log page via reflection or add setter method
+            // For now, we'll use a setter method
+            if (method_exists($menuManager, 'setDebugLogPage')) {
+                $menuManager->setDebugLogPage($container->get('admin.debug_log_page'));
+            }
+            return $menuManager;
         });
         $this->register('admin.testing_handler', function($container) {
             return new \UpstateInternational\LGL\Admin\TestingHandler(

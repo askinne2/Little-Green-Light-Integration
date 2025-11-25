@@ -97,9 +97,16 @@ class ClassRegistrationAction implements JetFormActionInterface {
      */
     public function handle(array $request, $action_handler): void {
         try {
+        $this->helper->info('LGL ClassRegistrationAction: Processing class registration', [
+            'user_id' => $request['user_id'] ?? 'N/A',
+            'class_name' => $request['class_name'] ?? 'N/A'
+        ]);
+        
         // Validate request data
         if (!$this->validateRequest($request)) {
-            $this->helper->debug('ClassRegistrationAction: Invalid request data', $request);
+            $this->helper->error('LGL ClassRegistrationAction: Invalid request data', [
+                'missing_fields' => $this->getMissingFields($request)
+            ]);
                 $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -111,8 +118,6 @@ class ClassRegistrationAction implements JetFormActionInterface {
                 }
         }
         
-        $this->helper->debug('ClassRegistrationAction: Processing request', $request);
-        
         $uid = (int) $request['user_id'];
         $class_id = $request['class_id'] ?? null;
         $username = str_replace(' ', '%20', $request['username']);
@@ -123,7 +128,9 @@ class ClassRegistrationAction implements JetFormActionInterface {
         $lgl_fund_id = $request['lgl_fund_id'] ?? '';
         
         if ($uid === 0 || empty($username)) {
-            $this->helper->debug('No User ID or username in Request, ClassRegistrationAction');
+            $this->helper->error('LGL ClassRegistrationAction: No User ID or username in Request', [
+                'request_keys' => array_keys($request)
+            ]);
                 $error_message = 'User ID or username is missing. Please ensure you are logged in and try again.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -138,7 +145,9 @@ class ClassRegistrationAction implements JetFormActionInterface {
         // Get user email
         $user_data = get_userdata($uid);
         if (!$user_data) {
-            $this->helper->debug('ClassRegistrationAction: User not found', $uid);
+            $this->helper->error('LGL ClassRegistrationAction: User not found', [
+                'user_id' => $uid
+            ]);
                 $error_message = 'User account not found. Please try again or contact support.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -153,9 +162,8 @@ class ClassRegistrationAction implements JetFormActionInterface {
         
         // Use async processing if available (speeds up form submission)
         if ($this->asyncProcessor) {
-            $this->helper->debug('⏰ ClassRegistrationAction: Scheduling async LGL processing', [
-                'user_id' => $uid,
-                'class_name' => $class_name
+            $this->helper->debug('LGL ClassRegistrationAction: Scheduling async LGL processing', [
+                'user_id' => $uid
             ]);
             
             try {
@@ -171,33 +179,36 @@ class ClassRegistrationAction implements JetFormActionInterface {
                 
                 $this->asyncProcessor->scheduleAsyncProcessing('class_registration', $uid, $context);
                 
-                $this->helper->debug('✅ ClassRegistrationAction: Async LGL processing scheduled', [
+                $this->helper->info('LGL ClassRegistrationAction: Class registration completed (async)', [
                     'user_id' => $uid,
-                    'note' => 'LGL API calls will be processed in background via WP Cron'
+                    'class_name' => $class_name
                 ]);
             } catch (\Exception $e) {
-                $this->helper->debug('⚠️ ClassRegistrationAction: Async scheduling failed, falling back to sync', [
+                $this->helper->warning('LGL ClassRegistrationAction: Async scheduling failed, falling back to sync', [
                     'error' => $e->getMessage(),
                     'user_id' => $uid
                 ]);
                 
                 // Fallback to synchronous processing if async fails
                 $this->processClassRegistration($uid, $username, $email, $class_name, $order_id, $price, $date, $lgl_fund_id);
+                $this->helper->info('LGL ClassRegistrationAction: Class registration completed (sync)', [
+                    'user_id' => $uid,
+                    'class_name' => $class_name
+                ]);
             }
         } else {
             // Fallback: synchronous processing if async processor not available
-            $this->helper->debug('⚠️ ClassRegistrationAction: Async processor not available, using sync', [
-                'user_id' => $uid
-            ]);
-            
             $this->processClassRegistration($uid, $username, $email, $class_name, $order_id, $price, $date, $lgl_fund_id);
+            $this->helper->info('LGL ClassRegistrationAction: Class registration completed (sync)', [
+                'user_id' => $uid,
+                'class_name' => $class_name
+            ]);
         }
             
         } catch (\Exception $e) {
-            $this->helper->debug('ClassRegistrationAction: Error occurred', [
+            $this->helper->error('LGL ClassRegistrationAction: Error occurred', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'user_id' => $uid ?? null
             ]);
             
             // Re-throw Action_Exception, convert others
@@ -245,7 +256,10 @@ class ClassRegistrationAction implements JetFormActionInterface {
         $existing_user = $this->connection->getConstituentData($user_lgl_id);
         
         if (!$existing_user) {
-            $this->helper->debug('ClassRegistrationAction: No existing LGL user found for class registration', $username);
+            $this->helper->error('LGL ClassRegistrationAction: No existing LGL user found', [
+                'user_id' => $uid,
+                'username' => $username
+            ]);
             $error_message = 'Unable to register for class. Your account was not found. Please contact support.';
             
             if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -258,10 +272,12 @@ class ClassRegistrationAction implements JetFormActionInterface {
         }
         
         $lgl_id = is_array($existing_user) ? ($existing_user['id'] ?? null) : ($existing_user->id ?? null);
-        $this->helper->debug('LGL USER EXISTS: ', $lgl_id);
         
         if (!$lgl_id) {
-            $this->helper->debug('Cannot find user with name, ClassRegistrationAction', $username);
+            $this->helper->error('LGL ClassRegistrationAction: User ID not found', [
+                'user_id' => $uid,
+                'username' => $username
+            ]);
             $error_message = 'Unable to register for class. User ID not found. Please contact support.';
             
             if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -283,20 +299,30 @@ class ClassRegistrationAction implements JetFormActionInterface {
             $class_name // event_name = class name for event tracking
         );
         
-        $this->helper->debug('Class payment data: ', $payment_data);
-        
         if ($payment_data && isset($payment_data['success']) && $payment_data['success']) {
             // Payment already added by setupClassPayment() - just log the result
             $payment_id = $payment_data['id'] ?? null;
             
             if ($payment_id) {
-                $this->helper->debug('Class Payment ID: ', $payment_id);
+                $this->helper->info('LGL ClassRegistrationAction: Class payment added', [
+                    'payment_id' => $payment_id,
+                    'lgl_id' => $lgl_id,
+                    'order_id' => $order_id,
+                    'class_name' => $class_name
+                ]);
             } else {
-                $this->helper->debug('ClassRegistrationAction: Payment created but no ID returned', $payment_data);
+                $this->helper->warning('LGL ClassRegistrationAction: Payment created but no ID returned', [
+                    'lgl_id' => $lgl_id,
+                    'order_id' => $order_id
+                ]);
             }
         } else {
             $error = $payment_data['error'] ?? 'Unknown error';
-            $this->helper->debug('ClassRegistrationAction: Failed to create payment', $error);
+            $this->helper->error('LGL ClassRegistrationAction: Failed to create payment', [
+                'lgl_id' => $lgl_id,
+                'order_id' => $order_id,
+                'error' => $error
+            ]);
         }
     }
     
@@ -347,20 +373,20 @@ class ClassRegistrationAction implements JetFormActionInterface {
         
         foreach ($required_fields as $field) {
             if (!isset($request[$field]) || empty($request[$field])) {
-                $this->helper->debug("ClassRegistrationAction: Missing required field: {$field}");
+                $this->helper->debug("LGL ClassRegistrationAction: Missing required field", ['field' => $field]);
                 return false;
             }
         }
         
         // Validate user_id is numeric and positive
         if (!isset($request['user_id']) || !is_numeric($request['user_id']) || (int)$request['user_id'] <= 0) {
-            $this->helper->debug('ClassRegistrationAction: Invalid user_id');
+            $this->helper->debug('LGL ClassRegistrationAction: Invalid user_id', ['user_id' => $request['user_id'] ?? null]);
             return false;
         }
         
         // Validate class_price is numeric
         if (isset($request['class_price']) && !is_numeric($request['class_price'])) {
-            $this->helper->debug('ClassRegistrationAction: Invalid class_price');
+            $this->helper->debug('LGL ClassRegistrationAction: Invalid class_price', ['class_price' => $request['class_price'] ?? null]);
             return false;
         }
         
@@ -378,5 +404,24 @@ class ClassRegistrationAction implements JetFormActionInterface {
             'username',
             'class_name'
         ];
+    }
+    
+    /**
+     * Get missing required fields from request
+     * 
+     * @param array $request Request data
+     * @return array<string> Missing field names
+     */
+    private function getMissingFields(array $request): array {
+        $required_fields = $this->getRequiredFields();
+        $missing = [];
+        
+        foreach ($required_fields as $field) {
+            if (!isset($request[$field]) || empty($request[$field])) {
+                $missing[] = $field;
+            }
+        }
+        
+        return $missing;
     }
 }

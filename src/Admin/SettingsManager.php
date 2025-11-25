@@ -140,48 +140,28 @@ class SettingsManager implements SettingsManagerInterface {
         // Validate
         $validation = $this->validate($sanitized);
         if (!$validation['valid']) {
-            $this->helper->debug('SettingsManager: Validation failed', $validation['errors']);
+            $this->helper->error('SettingsManager: Validation failed', $validation['errors']);
             return false;
         }
         
         // Get current settings
         $current = $this->getAll();
         
-        // Debug: Log what we're merging
-        $this->helper->debug('SettingsManager: Before merge', [
-            'current_keys' => array_keys($current),
-            'sanitized' => $sanitized
-        ]);
-        
         // Merge with updates
         $updated = array_merge($current, $sanitized);
         
-        // Debug: Log what we're about to save
+        // Check if data is too large for autoload
         $serialized = maybe_serialize($updated);
         $data_size = strlen($serialized);
-        
-        $this->helper->debug('SettingsManager: About to save', [
-            'option_name' => self::OPTION_NAME,
-            'keys_to_update' => array_keys($sanitized),
-            'updated_values' => $sanitized,
-            'total_keys' => count($updated),
-            'serialized_size' => $data_size . ' bytes'
-        ]);
-        
-        // Check if data is too large for autoload
         if ($data_size > 1048576) { // 1MB
-            $this->helper->debug('SettingsManager: WARNING - Data size exceeds 1MB, this may cause issues');
+            $this->helper->warning('SettingsManager: Data size exceeds 1MB, this may cause issues', [
+                'size_bytes' => $data_size
+            ]);
         }
         
         // Save to database
         // Note: update_option returns false if the value hasn't changed, so we need to check if it actually failed
         $result = update_option(self::OPTION_NAME, $updated, 'no'); // Force no autoload for large data
-        
-        // Debug: Log update_option result
-        $this->helper->debug('SettingsManager: update_option result', [
-            'result' => $result,
-            'option_name' => self::OPTION_NAME
-        ]);
         
         // Always clear cache for BOTH environments to ensure correct cache is used
         // Clear both dev and live caches since environment might have changed
@@ -198,18 +178,9 @@ class SettingsManager implements SettingsManagerInterface {
         ));
         $verify = maybe_unserialize($verify);
         
-        // Debug: Log what we read back
-        $this->helper->debug('SettingsManager: Read back from DB', [
-            'has_data' => !empty($verify),
-            'is_array' => is_array($verify),
-            'keys_count' => is_array($verify) ? count($verify) : 0,
-            'verify_type' => gettype($verify)
-        ]);
-        
         // Ensure verify is an array
         if (!is_array($verify)) {
             $verify = [];
-            $this->helper->debug('SettingsManager: Verify was not an array, reset to empty array');
         }
         
         $success = true;
@@ -217,21 +188,17 @@ class SettingsManager implements SettingsManagerInterface {
         foreach ($sanitized as $key => $value) {
             if (!isset($verify[$key]) || $verify[$key] !== $value) {
                 $success = false;
-                $this->helper->debug('SettingsManager: Setting verification failed', [
+                $this->helper->error('SettingsManager: Setting verification failed', [
                     'key' => $key,
                     'expected' => $value,
-                    'expected_type' => gettype($value),
-                    'actual' => $verify[$key] ?? 'not set',
-                    'actual_type' => isset($verify[$key]) ? gettype($verify[$key]) : 'N/A',
-                    'verify_has_key' => array_key_exists($key, $verify)
+                    'actual' => $verify[$key] ?? 'not set'
                 ]);
             }
         }
         
         if ($success) {
-            $this->helper->debug('SettingsManager: Settings updated successfully', [
-                'updated_keys' => array_keys($sanitized),
-                'update_option_result' => $result
+            $this->helper->info('SettingsManager: Settings updated successfully', [
+                'updated_keys' => array_keys($sanitized)
             ]);
         }
         
@@ -408,12 +375,6 @@ class SettingsManager implements SettingsManagerInterface {
                     'per_page' => $per_page
                 ], false);
                 
-                $this->helper->debug('SettingsManager: Import membership levels - Page ' . $page, [
-                    'success' => $response['success'] ?? false,
-                    'has_data' => isset($response['data']),
-                    'page' => $page
-                ]);
-                
                 if (!($response['success'] ?? false)) {
                     if ($page === 1) {
                         // First page failed - return error
@@ -439,7 +400,6 @@ class SettingsManager implements SettingsManagerInterface {
                 foreach ($items as $level) {
                     // Skip if level doesn't have required fields
                     if (empty($level['name']) || empty($level['id'])) {
-                        $this->helper->debug('SettingsManager: Skipping invalid level', $level);
                         continue;
                     }
                     
@@ -467,18 +427,17 @@ class SettingsManager implements SettingsManagerInterface {
                 
                 // Safety limit - prevent infinite loops
                 if ($page > 100) {
-                    $this->helper->debug('SettingsManager: Pagination safety limit reached');
                     break;
                 }
             }
             
-            $this->helper->debug('SettingsManager: Processed membership levels', [
+            // Save imported levels
+            $this->set('membership_levels', $levels);
+            
+            $this->helper->info('SettingsManager: Membership levels imported', [
                 'count' => count($levels),
                 'pages_fetched' => $page - 1
             ]);
-            
-            // Save imported levels
-            $this->set('membership_levels', $levels);
             
             return [
                 'success' => true,
@@ -486,9 +445,8 @@ class SettingsManager implements SettingsManagerInterface {
                 'message' => sprintf('Successfully imported %d membership levels', count($levels))
             ];
         } catch (\Exception $e) {
-            $this->helper->debug('SettingsManager: Import error', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+            $this->helper->error('SettingsManager: Import membership levels error', [
+                'error' => $e->getMessage()
             ]);
             return [
                 'success' => false,
@@ -516,12 +474,6 @@ class SettingsManager implements SettingsManagerInterface {
                     'per_page' => $per_page
                 ], false);
                 
-                $this->helper->debug('SettingsManager: Import events - Page ' . $page, [
-                    'success' => $response['success'] ?? false,
-                    'has_data' => isset($response['data']),
-                    'page' => $page
-                ]);
-                
                 if (!($response['success'] ?? false)) {
                     if ($page === 1) {
                         // First page failed - return error
@@ -547,7 +499,6 @@ class SettingsManager implements SettingsManagerInterface {
                 foreach ($items as $event) {
                     // Skip if event doesn't have required fields
                     if (empty($event['name']) || empty($event['id'])) {
-                        $this->helper->debug('SettingsManager: Skipping invalid event', $event);
                         continue;
                     }
                     
@@ -579,18 +530,17 @@ class SettingsManager implements SettingsManagerInterface {
                 
                 // Safety limit - prevent infinite loops
                 if ($page > 100) {
-                    $this->helper->debug('SettingsManager: Pagination safety limit reached');
                     break;
                 }
             }
             
-            $this->helper->debug('SettingsManager: Processed events', [
+            // Save imported events
+            $this->set('lgl_events', $events);
+            
+            $this->helper->info('SettingsManager: Events imported', [
                 'count' => count($events),
                 'pages_fetched' => $page - 1
             ]);
-            
-            // Save imported events
-            $this->set('lgl_events', $events);
             
             return [
                 'success' => true,
@@ -598,9 +548,8 @@ class SettingsManager implements SettingsManagerInterface {
                 'message' => sprintf('Successfully imported %d events', count($events))
             ];
         } catch (\Exception $e) {
-            $this->helper->debug('SettingsManager: Import events error', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+            $this->helper->error('SettingsManager: Import events error', [
+                'error' => $e->getMessage()
             ]);
             return [
                 'success' => false,
@@ -628,12 +577,6 @@ class SettingsManager implements SettingsManagerInterface {
                     'per_page' => $per_page
                 ], false);
                 
-                $this->helper->debug('SettingsManager: Import funds - Page ' . $page, [
-                    'success' => $response['success'] ?? false,
-                    'has_data' => isset($response['data']),
-                    'page' => $page
-                ]);
-                
                 if (!($response['success'] ?? false)) {
                     if ($page === 1) {
                         // First page failed - return error
@@ -659,7 +602,6 @@ class SettingsManager implements SettingsManagerInterface {
                 foreach ($items as $fund) {
                     // Skip if fund doesn't have required fields
                     if (empty($fund['name']) || empty($fund['id'])) {
-                        $this->helper->debug('SettingsManager: Skipping invalid fund', $fund);
                         continue;
                     }
                     
@@ -690,18 +632,17 @@ class SettingsManager implements SettingsManagerInterface {
                 
                 // Safety limit - prevent infinite loops
                 if ($page > 100) {
-                    $this->helper->debug('SettingsManager: Pagination safety limit reached');
                     break;
                 }
             }
             
-            $this->helper->debug('SettingsManager: Processed funds', [
+            // Save imported funds
+            $this->set('lgl_funds', $funds);
+            
+            $this->helper->info('SettingsManager: Funds imported', [
                 'count' => count($funds),
                 'pages_fetched' => $page - 1
             ]);
-            
-            // Save imported funds
-            $this->set('lgl_funds', $funds);
             
             return [
                 'success' => true,
@@ -709,9 +650,8 @@ class SettingsManager implements SettingsManagerInterface {
                 'message' => sprintf('Successfully imported %d funds', count($funds))
             ];
         } catch (\Exception $e) {
-            $this->helper->debug('SettingsManager: Import funds error', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+            $this->helper->error('SettingsManager: Import funds error', [
+                'error' => $e->getMessage()
             ]);
             return [
                 'success' => false,
@@ -741,7 +681,6 @@ class SettingsManager implements SettingsManagerInterface {
             // Clear cache for funds.json and campaigns.json endpoints before fetching
             $this->cacheManager->delete('api_request_' . md5('funds.json' . serialize(['limit' => 100, 'offset' => 0])));
             $this->cacheManager->delete('api_request_' . md5('campaigns.json' . serialize(['limit' => 100, 'offset' => 0])));
-            $this->helper->debug('SettingsManager: Cleared cache for funds.json and campaigns.json endpoints before sync');
             
             // Expected mappings (name → setting key)
             // Note: These are the target names after remediation
@@ -774,13 +713,6 @@ class SettingsManager implements SettingsManagerInterface {
                     'offset' => $offset
                 ], false);
                 
-                $this->helper->debug('SettingsManager: Fetching funds', [
-                    'success' => $funds_response['success'] ?? false,
-                    'has_data' => isset($funds_response['data']),
-                    'limit' => $limit,
-                    'offset' => $offset
-                ]);
-                
                 if (!($funds_response['success'] ?? false)) {
                     if ($offset === 0) {
                         // First page failed - return error
@@ -807,47 +739,19 @@ class SettingsManager implements SettingsManagerInterface {
                 $total_items = $data['total_items'] ?? null;
                 $next_item = $data['next_item'] ?? null;
                 
-                $this->helper->debug('SettingsManager: Funds pagination check', [
-                    'offset' => $offset,
-                    'limit' => $limit,
-                    'items_count' => $items_count,
-                    'total_items_so_far' => count($all_funds),
-                    'total_items' => $total_items,
-                    'next_item' => $next_item,
-                    'has_next_link' => !empty($data['next_link'])
-                ]);
-                
                 // Determine if there are more pages
                 if ($total_items !== null) {
                     // Use total_items to determine if we've fetched everything
                     $has_more = count($all_funds) < $total_items;
-                    $this->helper->debug('SettingsManager: Using total_items for pagination', [
-                        'total_items' => $total_items,
-                        'items_fetched' => count($all_funds),
-                        'has_more' => $has_more
-                    ]);
                 } elseif ($next_item !== null) {
                     // Use next_item to determine if there are more pages
                     $has_more = $next_item < ($total_items ?? PHP_INT_MAX);
-                    $this->helper->debug('SettingsManager: Using next_item for pagination', [
-                        'next_item' => $next_item,
-                        'has_more' => $has_more
-                    ]);
                 } elseif (!empty($data['next_link'])) {
                     // If next_link exists, there are more pages
                     $has_more = true;
-                    $this->helper->debug('SettingsManager: Using next_link for pagination', [
-                        'next_link' => $data['next_link'],
-                        'has_more' => $has_more
-                    ]);
                 } else {
                     // No pagination metadata - if we got fewer items than limit, we're done
                     $has_more = count($items) >= $limit;
-                    $this->helper->debug('SettingsManager: Using item count for pagination', [
-                        'items_count' => count($items),
-                        'limit' => $limit,
-                        'has_more' => $has_more
-                    ]);
                 }
                 
                 // Update offset for next iteration
@@ -855,31 +759,11 @@ class SettingsManager implements SettingsManagerInterface {
                 
                 // Safety limit - prevent infinite loops (max 1000 items = 10 pages of 100)
                 if ($offset >= 1000 || count($all_funds) >= 1000) {
-                    $this->helper->debug('SettingsManager: Pagination safety limit reached for funds');
                     break;
                 }
             }
             
             if (!empty($all_funds)) {
-                // Log all funds received for debugging
-                $fund_details = array_map(function($f) { 
-                    return ['id' => $f['id'] ?? 'N/A', 'name' => $f['name'] ?? 'N/A']; 
-                }, $all_funds);
-                $fund_ids = array_column($fund_details, 'id');
-                $this->helper->debug('SettingsManager: All funds from LGL API', [
-                    'total_funds' => count($all_funds),
-                    'final_offset' => $offset,
-                    'fund_names' => array_column($fund_details, 'name'),
-                    'fund_ids' => $fund_ids,
-                    'expected_fund_names' => array_keys($expected_funds),
-                    'looking_for_ids' => [2747, 4126, 4141],
-                    'found_target_ids' => [
-                        '2747' => in_array(2747, $fund_ids),
-                        '4126' => in_array(4126, $fund_ids),
-                        '4141' => in_array(4141, $fund_ids)
-                    ]
-                ]);
-                
                 // Build normalized expected funds map for case-insensitive matching
                 $expected_funds_normalized = [];
                 foreach ($expected_funds as $expected_name => $setting_key) {
@@ -916,11 +800,6 @@ class SettingsManager implements SettingsManagerInterface {
                                 'id' => $fund_id,
                                 'name' => $name
                             ];
-                            $this->helper->debug('✅ SettingsManager: Matched fund by exact name', [
-                                'fund_name' => $name,
-                                'fund_id' => $fund_id,
-                                'setting_key' => $setting_key
-                            ]);
                         }
                     }
                     // Try case-insensitive match or alias
@@ -932,12 +811,6 @@ class SettingsManager implements SettingsManagerInterface {
                                 'id' => $fund_id,
                                 'name' => $name
                             ];
-                            $this->helper->debug('✅ SettingsManager: Matched fund by case-insensitive/alias', [
-                                'fund_name' => $name,
-                                'expected_name' => $mapping['original_name'],
-                                'fund_id' => $fund_id,
-                                'setting_key' => $setting_key
-                            ]);
                         }
                     }
                 }
@@ -960,11 +833,6 @@ class SettingsManager implements SettingsManagerInterface {
                                 'id' => $fund_id,
                                 'name' => $name
                             ];
-                            $this->helper->debug('✅ SettingsManager: Matched fund by ID (fallback - name not found)', [
-                                'fund_name' => $name,
-                                'fund_id' => $fund_id,
-                                'setting_key' => $setting_key
-                            ]);
                         }
                     }
                 }
@@ -986,13 +854,6 @@ class SettingsManager implements SettingsManagerInterface {
                     'limit' => $limit,
                     'offset' => $offset
                 ], false);
-                
-                $this->helper->debug('SettingsManager: Fetching campaigns', [
-                    'success' => $campaigns_response['success'] ?? false,
-                    'has_data' => isset($campaigns_response['data']),
-                    'limit' => $limit,
-                    'offset' => $offset
-                ]);
                 
                 if (!($campaigns_response['success'] ?? false)) {
                     if ($offset === 0) {
@@ -1020,47 +881,19 @@ class SettingsManager implements SettingsManagerInterface {
                 $total_items = $data['total_items'] ?? null;
                 $next_item = $data['next_item'] ?? null;
                 
-                $this->helper->debug('SettingsManager: Campaigns pagination check', [
-                    'offset' => $offset,
-                    'limit' => $limit,
-                    'items_count' => $items_count,
-                    'total_items_so_far' => count($all_campaigns),
-                    'total_items' => $total_items,
-                    'next_item' => $next_item,
-                    'has_next_link' => !empty($data['next_link'])
-                ]);
-                
                 // Determine if there are more pages
                 if ($total_items !== null) {
                     // Use total_items to determine if we've fetched everything
                     $has_more = count($all_campaigns) < $total_items;
-                    $this->helper->debug('SettingsManager: Using total_items for campaigns pagination', [
-                        'total_items' => $total_items,
-                        'items_fetched' => count($all_campaigns),
-                        'has_more' => $has_more
-                    ]);
                 } elseif ($next_item !== null) {
                     // Use next_item to determine if there are more pages
                     $has_more = $next_item < ($total_items ?? PHP_INT_MAX);
-                    $this->helper->debug('SettingsManager: Using next_item for campaigns pagination', [
-                        'next_item' => $next_item,
-                        'has_more' => $has_more
-                    ]);
                 } elseif (!empty($data['next_link'])) {
                     // If next_link exists, there are more pages
                     $has_more = true;
-                    $this->helper->debug('SettingsManager: Using next_link for campaigns pagination', [
-                        'next_link' => $data['next_link'],
-                        'has_more' => $has_more
-                    ]);
                 } else {
                     // No pagination metadata - if we got fewer items than limit, we're done
                     $has_more = count($items) >= $limit;
-                    $this->helper->debug('SettingsManager: Using item count for campaigns pagination', [
-                        'items_count' => count($items),
-                        'limit' => $limit,
-                        'has_more' => $has_more
-                    ]);
                 }
                 
                 // Update offset for next iteration
@@ -1068,31 +901,11 @@ class SettingsManager implements SettingsManagerInterface {
                 
                 // Safety limit - prevent infinite loops (max 1000 items = 10 pages of 100)
                 if ($offset >= 1000 || count($all_campaigns) >= 1000) {
-                    $this->helper->debug('SettingsManager: Pagination safety limit reached for campaigns');
                     break;
                 }
             }
             
             if (!empty($all_campaigns)) {
-                // Log all campaigns received for debugging
-                $campaign_details = array_map(function($c) { 
-                    return ['id' => $c['id'] ?? 'N/A', 'name' => $c['name'] ?? 'N/A']; 
-                }, $all_campaigns);
-                $campaign_ids = array_column($campaign_details, 'id');
-                $this->helper->debug('SettingsManager: All campaigns from LGL API', [
-                    'total_campaigns' => count($all_campaigns),
-                    'final_offset' => $offset,
-                    'campaign_names' => array_column($campaign_details, 'name'),
-                    'campaign_ids' => $campaign_ids,
-                    'expected_campaign_names' => array_keys($expected_campaigns),
-                    'looking_for_ids' => [842, 852, 927],
-                    'found_target_ids' => [
-                        '842' => in_array(842, $campaign_ids),
-                        '852' => in_array(852, $campaign_ids),
-                        '927' => in_array(927, $campaign_ids)
-                    ]
-                ]);
-                
                 // Build normalized expected campaigns map for case-insensitive matching
                 $expected_campaigns_normalized = [];
                 foreach ($expected_campaigns as $expected_name => $setting_key) {
@@ -1134,11 +947,6 @@ class SettingsManager implements SettingsManagerInterface {
                                 'id' => $campaign_id,
                                 'name' => $name
                             ];
-                            $this->helper->debug('✅ SettingsManager: Matched campaign by exact name', [
-                                'campaign_name' => $name,
-                                'campaign_id' => $campaign_id,
-                                'setting_key' => $setting_key
-                            ]);
                         }
                     }
                     // Try case-insensitive match or alias
@@ -1150,12 +958,6 @@ class SettingsManager implements SettingsManagerInterface {
                                 'id' => $campaign_id,
                                 'name' => $name
                             ];
-                            $this->helper->debug('✅ SettingsManager: Matched campaign by case-insensitive/alias', [
-                                'campaign_name' => $name,
-                                'expected_name' => $mapping['original_name'],
-                                'campaign_id' => $campaign_id,
-                                'setting_key' => $setting_key
-                            ]);
                         }
                     }
                 }
@@ -1181,24 +983,15 @@ class SettingsManager implements SettingsManagerInterface {
             $unmatched_funds = array_diff(array_keys($expected_funds), $matched_fund_names);
             $unmatched_campaigns = array_diff(array_keys($expected_campaigns), $matched_campaign_names);
             
-            $this->helper->debug('SettingsManager: Sync summary', [
-                'matched_funds' => array_values($matched_fund_names),
-                'matched_campaigns' => array_values($matched_campaign_names),
-                'unmatched_funds' => array_values($unmatched_funds),
-                'unmatched_campaigns' => array_values($unmatched_campaigns),
-                'total_expected_funds' => count($expected_funds),
-                'total_expected_campaigns' => count($expected_campaigns),
-                'total_matched_funds' => count($matched_fund_keys),
-                'total_matched_campaigns' => count($matched_campaign_keys)
-            ]);
-            
             // Don't save here - let the caller handle environment-specific mapping
             // Just return the results
             if (!empty($results['funds']) || !empty($results['campaigns'])) {
                 $results['success'] = true;
-                $this->helper->debug('SettingsManager: Synced Fund and Campaign IDs (returning results for environment-specific mapping)', [
-                    'funds' => $results['funds'],
-                    'campaigns' => $results['campaigns']
+                $this->helper->info('SettingsManager: Synced Fund and Campaign IDs', [
+                    'matched_funds' => count($matched_fund_keys),
+                    'matched_campaigns' => count($matched_campaign_keys),
+                    'unmatched_funds' => array_values($unmatched_funds),
+                    'unmatched_campaigns' => array_values($unmatched_campaigns)
                 ]);
             } else {
                 $results['success'] = false;
@@ -1220,9 +1013,8 @@ class SettingsManager implements SettingsManagerInterface {
             
         } catch (\Exception $e) {
             $results['errors'][] = 'Exception: ' . $e->getMessage();
-            $this->helper->debug('SettingsManager: Sync error', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+            $this->helper->error('SettingsManager: Sync Fund and Campaign IDs error', [
+                'error' => $e->getMessage()
             ]);
         }
         
@@ -1249,9 +1041,6 @@ class SettingsManager implements SettingsManagerInterface {
             // Cache key format: 'api_request_' . md5('groups.json' . serialize([]))
             $groups_cache_key = 'api_request_' . md5('groups.json' . serialize([]));
             $this->cacheManager->delete($groups_cache_key);
-            $this->helper->debug('🔍 SettingsManager: Cleared cache for groups.json', [
-                'cache_key' => $groups_cache_key
-            ]);
             // Expected mappings (name or key → setting key)
             // We'll match by both name and key for flexibility
             $expected_groups = [
@@ -1325,16 +1114,6 @@ class SettingsManager implements SettingsManagerInterface {
             // Fetch groups from LGL API (bypass cache to get fresh data)
             $groups_response = $this->connection->makeRequest('groups.json', 'GET', [], false);
             
-            // Log raw response for debugging
-            $this->helper->debug('🔍 SettingsManager: Raw groups API response', [
-                'success' => $groups_response['success'] ?? false,
-                'http_code' => $groups_response['http_code'] ?? null,
-                'has_data' => isset($groups_response['data']),
-                'data_type' => gettype($groups_response['data'] ?? null),
-                'raw_response_keys' => is_array($groups_response) ? array_keys($groups_response) : [],
-                'full_response' => $groups_response
-            ]);
-            
             if (!$groups_response['success']) {
                 $results['errors'][] = 'Failed to fetch groups: ' . ($groups_response['error'] ?? 'Unknown error');
                 return $results;
@@ -1343,37 +1122,6 @@ class SettingsManager implements SettingsManagerInterface {
             // Handle different response formats
             $groups_data = $groups_response['data'] ?? [];
             $groups = $groups_data['items'] ?? (is_array($groups_data) && isset($groups_data[0]['id']) ? $groups_data : []);
-            
-            // Additional debug: log the parsed groups structure
-            $this->helper->debug('🔍 SettingsManager: Parsed groups structure', [
-                'groups_data_type' => gettype($groups_data),
-                'groups_data_keys' => is_array($groups_data) ? array_keys($groups_data) : [],
-                'groups_count' => count($groups),
-                'groups_is_array' => is_array($groups),
-                'first_group_structure' => $groups[0] ?? null
-            ]);
-            
-            // Debug: Log all groups received (force log even if cached)
-            $group_names_list = [];
-            $group_keys_list = [];
-            foreach ($groups as $g) {
-                $group_names_list[] = $g['name'] ?? 'N/A';
-                $group_keys_list[] = $g['key'] ?? 'N/A';
-            }
-            
-            $this->helper->debug('🔍 SettingsManager: Groups received from LGL API', [
-                'total_groups' => count($groups),
-                'group_names' => $group_names_list,
-                'group_keys' => $group_keys_list,
-                'expected_names' => array_keys($expected_groups),
-                'expected_keys' => array_keys($expected_group_keys),
-                'full_response_structure' => [
-                    'has_data' => isset($groups_response['data']),
-                    'has_items' => isset($groups_data['items']),
-                    'is_array' => is_array($groups_data),
-                    'first_item_has_id' => isset($groups_data[0]['id']) ?? false
-                ]
-            ]);
             
             if (empty($groups)) {
                 $results['errors'][] = 'No groups found in LGL response';
@@ -1402,18 +1150,6 @@ class SettingsManager implements SettingsManagerInterface {
                 $group_name_normalized = trim($group_name);
                 $group_name_lower = strtolower($group_name_normalized);
                 
-                $this->helper->debug('🔍 SettingsManager: Checking group', [
-                    'group_id' => $group_id,
-                    'group_name' => $group_name,
-                    'group_name_normalized' => $group_name_normalized,
-                    'group_name_lower' => $group_name_lower,
-                    'group_key' => $group_key,
-                    'name_in_expected' => isset($expected_groups[$group_name]),
-                    'name_lower_in_expected' => isset($expected_groups_normalized[$group_name_lower]),
-                    'key_in_expected' => !empty($group_key) && isset($expected_group_keys[$group_key]),
-                    'all_expected_names' => array_keys($expected_groups)
-                ]);
-                
                 $matched = false;
                 $mapping = null;
                 
@@ -1421,29 +1157,16 @@ class SettingsManager implements SettingsManagerInterface {
                 if (isset($expected_groups[$group_name])) {
                     $mapping = $expected_groups[$group_name];
                     $matched = true;
-                    $this->helper->debug('✅ SettingsManager: Matched by exact name', [
-                        'group_name' => $group_name,
-                        'setting_key' => $mapping['setting_key']
-                    ]);
                 }
                 // Try case-insensitive name matching
                 elseif (isset($expected_groups_normalized[$group_name_lower])) {
                     $mapping = $expected_groups_normalized[$group_name_lower];
                     $matched = true;
-                    $this->helper->debug('✅ SettingsManager: Matched by normalized name', [
-                        'group_name' => $group_name,
-                        'group_name_lower' => $group_name_lower,
-                        'setting_key' => $mapping['setting_key']
-                    ]);
                 }
                 // Try to match by key
                 elseif (!empty($group_key) && isset($expected_group_keys[$group_key])) {
                     $mapping = $expected_group_keys[$group_key];
                     $matched = true;
-                    $this->helper->debug('✅ SettingsManager: Matched by key', [
-                        'group_key' => $group_key,
-                        'setting_key' => $mapping['setting_key']
-                    ]);
                 }
                 // Try fuzzy matching for scholarship groups (if not already matched)
                 elseif (stripos($group_name, 'scholarship') !== false) {
@@ -1455,10 +1178,6 @@ class SettingsManager implements SettingsManagerInterface {
                             'group_key' => 'scholarship_partial'
                         ];
                         $matched = true;
-                        $this->helper->debug('✅ SettingsManager: Matched scholarship group by fuzzy name (partial)', [
-                            'group_name' => $group_name,
-                            'group_id' => $group_id
-                        ]);
                     }
                     // Check for full scholarship
                     elseif (stripos($group_name_lower_for_match, 'full') !== false) {
@@ -1467,10 +1186,6 @@ class SettingsManager implements SettingsManagerInterface {
                             'group_key' => 'scholarship_full'
                         ];
                         $matched = true;
-                        $this->helper->debug('✅ SettingsManager: Matched scholarship group by fuzzy name (full)', [
-                            'group_name' => $group_name,
-                            'group_id' => $group_id
-                        ]);
                     }
                 }
                 
@@ -1495,31 +1210,9 @@ class SettingsManager implements SettingsManagerInterface {
                             'name' => $group_name,
                             'key' => $group_key
                         ];
-                        $this->helper->debug('✅ SettingsManager: Matched scholarship group', [
-                            'group_name' => $group_name,
-                            'group_key' => $group_key,
-                            'setting_key' => $mapping['setting_key'],
-                            'group_id' => $group_id
-                        ]);
-                    }
-                } else {
-                    // Log unmatched groups that might be scholarship groups
-                    if (stripos($group_name, 'scholarship') !== false) {
-                        $this->helper->debug('⚠️ SettingsManager: Scholarship group found but not matched', [
-                            'group_id' => $group_id,
-                            'group_name' => $group_name,
-                            'group_key' => $group_key,
-                            'expected_names' => ['Partial Scholarship Recipients', 'Scholarship - Partial', 'Full Scholarship Recipients', 'Scholarship - Full']
-                        ]);
                     }
                 }
             }
-            
-            $this->helper->debug('🔍 SettingsManager: Group matching summary', [
-                'settings_to_update' => array_keys($settings_to_update),
-                'role_mappings_to_update' => array_keys($role_mappings_to_update),
-                'total_matched' => count($settings_to_update) + count($role_mappings_to_update)
-            ]);
             
             // Update role_group_mappings if we found any
             if (!empty($role_mappings_to_update)) {
@@ -1538,8 +1231,9 @@ class SettingsManager implements SettingsManagerInterface {
                 $results['success'] = $update_result;
                 
                 if ($update_result) {
-                    $this->helper->debug('SettingsManager: Synced Group IDs', [
-                        'groups' => $results['groups'],
+                    $this->helper->info('SettingsManager: Groups synced successfully', [
+                        'total_groups' => count($groups),
+                        'matched_groups' => count($settings_to_update) + count($role_mappings_to_update),
                         'updated_settings' => array_keys($settings_to_update)
                     ]);
                 } else {
@@ -1551,9 +1245,8 @@ class SettingsManager implements SettingsManagerInterface {
             
         } catch (\Exception $e) {
             $results['errors'][] = 'Exception: ' . $e->getMessage();
-            $this->helper->debug('SettingsManager: Sync Groups error', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+            $this->helper->error('SettingsManager: Sync Groups error', [
+                'error' => $e->getMessage()
             ]);
         }
         
@@ -1579,7 +1272,7 @@ class SettingsManager implements SettingsManagerInterface {
         if ($result) {
             $this->cacheManager->delete(self::CACHE_KEY);
             $this->settings = null;
-            $this->helper->debug('SettingsManager: Settings reset to defaults');
+            $this->helper->info('SettingsManager: Settings reset to defaults');
         }
         
         return $result;
@@ -1705,12 +1398,9 @@ class SettingsManager implements SettingsManagerInterface {
             return;
         }
         
-        $this->helper->debug('SettingsManager: Starting Carbon Fields migration');
-        
         // Try to load Carbon Fields data
         if (!function_exists('carbon_get_theme_option')) {
             // Carbon Fields not available, skip migration
-            $this->helper->debug('SettingsManager: Carbon Fields not available, marking migration as complete');
             update_option(self::MIGRATION_FLAG, true);
             return;
         }
@@ -1736,7 +1426,7 @@ class SettingsManager implements SettingsManagerInterface {
             $merged = array_merge($current, $migrated);
             update_option(self::OPTION_NAME, $merged);
             
-            $this->helper->debug('SettingsManager: Migrated settings from Carbon Fields', [
+            $this->helper->info('SettingsManager: Migrated settings from Carbon Fields', [
                 'migrated_keys' => array_keys($migrated)
             ]);
         }
@@ -1755,7 +1445,7 @@ class SettingsManager implements SettingsManagerInterface {
                 $current['email_whitelist'] = $whitelist;
                 update_option(self::OPTION_NAME, $current);
                 
-                $this->helper->debug('SettingsManager: Migrated email blocking settings', [
+                $this->helper->info('SettingsManager: Migrated email blocking settings', [
                     'force_blocking' => (bool)$force_blocking,
                     'whitelist_count' => count($whitelist)
                 ]);
@@ -1798,7 +1488,7 @@ class SettingsManager implements SettingsManagerInterface {
             delete_transient($cache_prefix . 'dev_' . self::CACHE_KEY);
             delete_transient($cache_prefix . 'live_' . self::CACHE_KEY);
             
-            $this->helper->debug('SettingsManager: Migrated legacy API settings to live environment');
+            $this->helper->info('SettingsManager: Migrated legacy API settings to live environment');
         }
         
         // Mark migration as complete

@@ -80,10 +80,6 @@ class AsyncOrderProcessor {
      * @return void
      */
     public function scheduleAsyncProcessing(int $order_id): void {
-        $this->helper->debug('⏰ AsyncOrderProcessor: Scheduling async processing (WP Cron)', [
-            'order_id' => $order_id
-        ]);
-        
         // Mark order as queued for async processing
         $order = wc_get_order($order_id);
         if ($order) {
@@ -94,11 +90,6 @@ class AsyncOrderProcessor {
         
         // Check if DISABLE_WP_CRON is set
         $cron_disabled = defined('DISABLE_WP_CRON') && constant('DISABLE_WP_CRON');
-        $this->helper->debug('🔍 AsyncOrderProcessor: Cron status check', [
-            'order_id' => $order_id,
-            'DISABLE_WP_CRON' => $cron_disabled,
-            'has_order_processor' => !is_null($this->orderProcessor)
-        ]);
         
         // Schedule WP Cron event to run immediately (on next page load)
         // This is more reliable than HTTP postback and doesn't require nonces/sessions
@@ -107,34 +98,17 @@ class AsyncOrderProcessor {
         if ($scheduled === false) {
             // Check if already scheduled (prevents duplicates)
             $next_scheduled = wp_next_scheduled(self::CRON_HOOK, [$order_id]);
-            if ($next_scheduled) {
-                $this->helper->debug('⚠️ AsyncOrderProcessor: Cron already scheduled', [
-                    'order_id' => $order_id,
-                    'next_run' => date('Y-m-d H:i:s', $next_scheduled)
-                ]);
-            } else {
-                $this->helper->debug('❌ AsyncOrderProcessor: Failed to schedule cron', [
+            if (!$next_scheduled) {
+                // Only log if it's actually a failure (not just already scheduled)
+                $this->helper->error('AsyncOrderProcessor: Failed to schedule cron', [
                     'order_id' => $order_id
                 ]);
             }
         } else {
-            $this->helper->debug('✅ AsyncOrderProcessor: WP Cron event scheduled', [
-                'order_id' => $order_id,
-                'hook' => self::CRON_HOOK,
-                'scheduled_for' => date('Y-m-d H:i:s', time())
-            ]);
-            
             // Trigger cron immediately (non-blocking) to ensure it runs
             // This uses WordPress's spawn_cron() which makes a non-blocking HTTP request
             if (!$cron_disabled) {
                 spawn_cron();
-                $this->helper->debug('🚀 AsyncOrderProcessor: Triggered cron spawn for immediate execution', [
-                    'order_id' => $order_id
-                ]);
-            } else {
-                $this->helper->debug('⚠️ AsyncOrderProcessor: WP Cron disabled, will run on next page load', [
-                    'order_id' => $order_id
-                ]);
             }
         }
     }
@@ -185,9 +159,6 @@ class AsyncOrderProcessor {
                 
                 // Check if order is currently being processed (lock mechanism)
                 if ($this->isOrderProcessing($order_id)) {
-                    $this->helper->debug('🔒 AsyncOrderProcessor: Order is currently being processed, skipping', [
-                        'order_id' => $order_id
-                    ]);
                     continue;
                 }
                 
@@ -198,12 +169,6 @@ class AsyncOrderProcessor {
                     
                     // Process if queued more than 1 minute ago
                     if ($minutes_ago > 1) {
-                        $this->helper->debug('🔧 AsyncOrderProcessor: Found stuck order, processing now', [
-                            'order_id' => $order_id,
-                            'queued_at' => $queued_at,
-                            'minutes_ago' => round($minutes_ago, 2)
-                        ]);
-                        
                         // Process directly (bypass cron)
                         $this->handleAsyncRequest($order_id);
                     }
@@ -219,62 +184,41 @@ class AsyncOrderProcessor {
      * @return void
      */
     public function handleAsyncRequest(int $order_id): void {
-        $this->helper->debug('🔄 AsyncOrderProcessor: Processing order async (WP Cron)', [
-            'order_id' => $order_id,
-            'timestamp' => current_time('mysql'),
-            'cron_hook' => self::CRON_HOOK
-        ]);
+        $this->helper->info('AsyncOrderProcessor: Processing order async', ['order_id' => $order_id]);
         
         if (!$order_id || $order_id <= 0) {
-            $this->helper->debug('❌ AsyncOrderProcessor: Invalid order ID', [
-                'order_id' => $order_id
-            ]);
+            $this->helper->error('AsyncOrderProcessor: Invalid order ID', ['order_id' => $order_id]);
             return;
         }
         
         if (!$this->orderProcessor) {
-            $this->helper->debug('❌ AsyncOrderProcessor: OrderProcessor not available', [
-                'order_id' => $order_id
-            ]);
+            $this->helper->error('AsyncOrderProcessor: OrderProcessor not available', ['order_id' => $order_id]);
             return;
         }
         
         // Check if already processed (prevent duplicate processing)
         $order = wc_get_order($order_id);
         if (!$order) {
-            $this->helper->debug('❌ AsyncOrderProcessor: Order not found', [
-                'order_id' => $order_id
-            ]);
+            $this->helper->error('AsyncOrderProcessor: Order not found', ['order_id' => $order_id]);
             return;
         }
         
         // Check if permanently failed (don't retry)
         $permanently_failed = $order->get_meta('_lgl_async_permanently_failed');
         if ($permanently_failed) {
-            $this->helper->debug('⏹️ AsyncOrderProcessor: Order permanently failed, skipping', [
-                'order_id' => $order_id,
-                'failed_reason' => $order->get_meta('_lgl_async_permanent_failure_reason')
-            ]);
+            // Already failed - no need to log again
             return;
         }
         
         $already_processed = $order->get_meta('_lgl_async_processed');
         if ($already_processed) {
-            $this->helper->debug('⏭️ AsyncOrderProcessor: Order already processed, skipping', [
-                'order_id' => $order_id,
-                'processed_at' => $order->get_meta('_lgl_async_processed_at')
-            ]);
+            // Already processed - no need to log again
             return;
         }
         
         // Check if order is currently being processed (prevent concurrent processing)
         if ($this->isOrderProcessing($order_id)) {
-            $processing_started = $order->get_meta('_lgl_async_processing_started');
-            $this->helper->debug('🔒 AsyncOrderProcessor: Order is currently being processed, skipping', [
-                'order_id' => $order_id,
-                'processing_started' => $processing_started,
-                'note' => 'Another process is handling this order'
-            ]);
+            // Currently processing - no need to log
             return;
         }
         
@@ -313,9 +257,8 @@ class AsyncOrderProcessor {
                 // Clear processing lock
                 $this->clearOrderProcessingLock($order_id);
                 
-                $this->helper->debug('🛑 AsyncOrderProcessor: Membership product requires user_id but customer_id is 0', [
-                    'order_id' => $order_id,
-                    'has_membership_products' => true
+                $this->helper->error('AsyncOrderProcessor: Membership product requires user_id but customer_id is 0', [
+                    'order_id' => $order_id
                 ]);
                 return;
             }
@@ -332,7 +275,7 @@ class AsyncOrderProcessor {
                 // Clear processing lock
                 $this->clearOrderProcessingLock($order_id);
                 
-                $this->helper->debug('🛑 AsyncOrderProcessor: User deleted, marking as permanently failed', [
+                $this->helper->error('AsyncOrderProcessor: User deleted, marking as permanently failed', [
                     'order_id' => $order_id,
                     'user_id' => $user_id
                 ]);
@@ -352,7 +295,7 @@ class AsyncOrderProcessor {
                     // Clear processing lock
                     $this->clearOrderProcessingLock($order_id);
                     
-                    $this->helper->debug('🛑 AsyncOrderProcessor: User deleted, marking as permanently failed', [
+                    $this->helper->error('AsyncOrderProcessor: User deleted, marking as permanently failed', [
                         'order_id' => $order_id,
                         'user_id' => $user_id
                     ]);
@@ -371,7 +314,7 @@ class AsyncOrderProcessor {
                     // Clear processing lock
                     $this->clearOrderProcessingLock($order_id);
                     
-                    $this->helper->debug('🛑 AsyncOrderProcessor: No customer ID or email, marking as permanently failed', [
+                    $this->helper->error('AsyncOrderProcessor: No customer ID or email, marking as permanently failed', [
                         'order_id' => $order_id
                     ]);
                     return;
@@ -396,7 +339,7 @@ class AsyncOrderProcessor {
             // Clear processing lock
             $this->clearOrderProcessingLock($order_id);
             
-            $this->helper->debug('🛑 AsyncOrderProcessor: Max retries reached, marking as permanently failed', [
+            $this->helper->error('AsyncOrderProcessor: Max retries reached, marking as permanently failed', [
                 'order_id' => $order_id,
                 'retry_count' => $retry_count
             ]);
@@ -418,7 +361,7 @@ class AsyncOrderProcessor {
             // Clear processing lock
             $this->clearOrderProcessingLock($order_id);
             
-            $this->helper->debug('✅ AsyncOrderProcessor: Async processing completed', [
+            $this->helper->info('AsyncOrderProcessor: Async processing completed', [
                 'order_id' => $order_id
             ]);
             
@@ -426,13 +369,11 @@ class AsyncOrderProcessor {
             $retry_count++;
             $error_message = $e->getMessage();
             
-            $this->helper->debug('❌ AsyncOrderProcessor: Async processing failed', [
+            $this->helper->error('AsyncOrderProcessor: Async processing failed', [
                 'order_id' => $order_id,
                 'error' => $error_message,
                 'retry_count' => $retry_count,
-                'max_retries' => $max_retries,
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'max_retries' => $max_retries
             ]);
             
             // Check if error is non-retryable (user-related errors)
@@ -469,7 +410,7 @@ class AsyncOrderProcessor {
                 // Clear processing lock
                 $this->clearOrderProcessingLock($order_id);
                 
-                $this->helper->debug('🛑 AsyncOrderProcessor: Marking as permanently failed', [
+                $this->helper->error('AsyncOrderProcessor: Marking as permanently failed', [
                     'order_id' => $order_id,
                     'reason' => $is_non_retryable ? 'Non-retryable error' : 'Max retries',
                     'error' => $error_message
@@ -488,11 +429,7 @@ class AsyncOrderProcessor {
                 // Re-schedule for retry (in 5 minutes)
                 wp_schedule_single_event(time() + (5 * MINUTE_IN_SECONDS), self::CRON_HOOK, [$order_id]);
                 
-                $this->helper->debug('🔄 AsyncOrderProcessor: Re-scheduled for retry', [
-                    'order_id' => $order_id,
-                    'retry_count' => $retry_count,
-                    'retry_in' => '5 minutes'
-                ]);
+                // Retry scheduled - no need to log every retry attempt
             }
         }
     }
@@ -530,11 +467,6 @@ class AsyncOrderProcessor {
         
         if ($minutes_processing > 5) {
             // Lock is stale - clear it
-            $this->helper->debug('🔓 AsyncOrderProcessor: Clearing stale processing lock', [
-                'order_id' => $order_id,
-                'processing_started' => $processing_started,
-                'minutes_processing' => round($minutes_processing, 2)
-            ]);
             $this->clearOrderProcessingLock($order_id);
             return false;
         }
@@ -563,11 +495,6 @@ class AsyncOrderProcessor {
         // Set transient lock (5 minute timeout - auto-expires if process crashes)
         $transient_key = 'lgl_processing_order_' . $order_id;
         set_transient($transient_key, time(), 5 * MINUTE_IN_SECONDS);
-        
-        $this->helper->debug('🔒 AsyncOrderProcessor: Set processing lock', [
-            'order_id' => $order_id,
-            'started_at' => $now
-        ]);
     }
     
     /**
@@ -589,10 +516,6 @@ class AsyncOrderProcessor {
         // Clear transient lock
         $transient_key = 'lgl_processing_order_' . $order_id;
         delete_transient($transient_key);
-        
-        $this->helper->debug('🔓 AsyncOrderProcessor: Cleared processing lock', [
-            'order_id' => $order_id
-        ]);
     }
     
     /**
@@ -618,10 +541,7 @@ class AsyncOrderProcessor {
             wp_unschedule_event($next_scheduled, self::CRON_HOOK, [$order_id]);
         }
         
-        $this->helper->debug('🔓 AsyncOrderProcessor: Cleared permanent failure status', [
-            'order_id' => $order_id
-        ]);
-        
+        // Permanent failure status cleared - no need to log
         return true;
     }
     

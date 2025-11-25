@@ -59,7 +59,7 @@ if (!class_exists("LGL_Helper")) {
 				if (BUFFER) ob_get_clean();
 				*/
 				
-				error_log($string . ' ' . print_r($data, true));
+				\UpstateInternational\LGL\LGL\Helper::getInstance()->debug($string, $data);
 				/*
 				$log_file = HELPER_LOG; // Set the path to your log file
 				
@@ -72,7 +72,7 @@ if (!class_exists("LGL_Helper")) {
 					// Check if it's a local environment
 					if ($_SERVER['REMOTE_ADDR'] === '127.0.0.1' || $_SERVER['REMOTE_ADDR'] === '::1') {
 						// Log to both PHP error log and file log
-						error_log($string . ' ' . print_r($data, true));
+						\UpstateInternational\LGL\LGL\Helper::getInstance()->debug($string, $data);
 						$log_message = date('Y-m-d H:i:s') . ' - ' . $string . ' ' . print_r($data, true) . PHP_EOL;
 						file_put_contents(HELPER_LOG, $log_message, FILE_APPEND);
 					} else {

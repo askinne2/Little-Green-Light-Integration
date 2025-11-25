@@ -81,7 +81,7 @@ class LGL_Daily_Email_Manager {
             }
             
             if (empty($orders)) {
-                error_log('LGL Daily Email: No orders found for ' . $start_datetime->format('Y-m-d'));
+                \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Daily Email: No orders found for ' . $start_datetime->format('Y-m-d'));
                 return;
             }
             
@@ -102,15 +102,15 @@ class LGL_Daily_Email_Manager {
                 if (is_email($recipient)) {
                     $sent = wp_mail($recipient, $subject, $email_content, $headers);
                     if ($sent) {
-                        error_log('LGL Daily Email: Successfully sent to ' . $recipient);
+                        \UpstateInternational\LGL\LGL\Helper::getInstance()->info('LGL Daily Email: Successfully sent', ['recipient' => $recipient]);
                     } else {
-                        error_log('LGL Daily Email: Failed to send to ' . $recipient);
+                        \UpstateInternational\LGL\LGL\Helper::getInstance()->error('LGL Daily Email: Failed to send', ['recipient' => $recipient]);
                     }
                 }
             }
             
         } catch (Exception $e) {
-            error_log('LGL Daily Email Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->error('LGL Daily Email Error', ['error' => $e->getMessage()]);
         }
     }
     

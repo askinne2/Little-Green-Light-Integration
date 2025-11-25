@@ -104,13 +104,6 @@ class MembershipOrderHandler {
         $product,
         string $membership_level
     ): void {
-        $this->helper->debug('⚡ MembershipOrderHandler::processOrderImmediate() STARTED', [
-            'user_id' => $uid,
-            'order_id' => $order->get_id(),
-            'membership_level' => $membership_level,
-            'mode' => 'immediate_only'
-        ]);
-        
         try {
             // Resolve membership configuration
             $membership_config = $this->resolveMembershipConfig($product, $membership_level);
@@ -141,14 +134,8 @@ class MembershipOrderHandler {
             // Set renewal date for one-time purchases
             $this->setRenewalDateForOneTimePurchase($uid, $actual_membership_level);
             
-            $this->helper->debug('✅ MembershipOrderHandler::processOrderImmediate() COMPLETED', [
-                'order_id' => $order->get_id(),
-                'user_id' => $uid,
-                'final_membership_level' => $actual_membership_level
-            ]);
-            
         } catch (Exception $e) {
-            $this->helper->debug('❌ MembershipOrderHandler::processOrderImmediate() FAILED', [
+            $this->helper->error('MembershipOrderHandler::processOrderImmediate() failed', [
                 'error' => $e->getMessage(),
                 'order_id' => $order->get_id(),
                 'user_id' => $uid
@@ -176,13 +163,6 @@ class MembershipOrderHandler {
         $product,
         string $membership_level
     ): void {
-        $this->helper->debug('🔄 MembershipOrderHandler::processOrderLglSync() STARTED', [
-            'user_id' => $uid,
-            'order_id' => $order->get_id(),
-            'membership_level' => $membership_level,
-            'mode' => 'lgl_sync_only'
-        ]);
-        
         try {
             // Resolve membership configuration
             $membership_config = $this->resolveMembershipConfig($product, $membership_level);
@@ -208,24 +188,10 @@ class MembershipOrderHandler {
             );
             
             // Process role assignments based on coupon codes
-            $this->helper->debug('🎫 MembershipOrderHandler: About to process role assignments', [
-                'order_id' => $order->get_id(),
-                'user_id' => $uid,
-                'coupon_codes' => $order->get_coupon_codes(),
-                'lgl_id' => $registrationResult['lgl_id'] ?? null
-            ]);
             $this->processRoleAssignments($uid, $order, $registrationResult['lgl_id'] ?? null);
             
-            $this->helper->debug('✅ MembershipOrderHandler::processOrderLglSync() COMPLETED', [
-                'order_id' => $order->get_id(),
-                'user_id' => $uid,
-                'lgl_id' => $registrationResult['lgl_id'] ?? null,
-                'match_method' => $registrationResult['match_method'] ?? null,
-                'payment_id' => $registrationResult['payment_id'] ?? null
-            ]);
-            
         } catch (Exception $e) {
-            $this->helper->debug('❌ MembershipOrderHandler::processOrderLglSync() FAILED', [
+            $this->helper->error('MembershipOrderHandler::processOrderLglSync() failed', [
                 'error' => $e->getMessage(),
                 'order_id' => $order->get_id(),
                 'user_id' => $uid
@@ -252,52 +218,23 @@ class MembershipOrderHandler {
         $product,
         string $membership_level
     ): void {
-        $this->helper->debug('🎯 MembershipOrderHandler::processOrder() STARTED', [
-            'user_id' => $uid,
-            'order_id' => $order->get_id(),
-            'membership_level' => $membership_level,
-            'order_total' => $order->get_total(),
-            'customer_email' => $order->get_billing_email(),
-            'timestamp' => current_time('mysql')
-        ]);
-        
-        // Log product details and determine actual membership level
+        // Determine actual membership level
         $product_id = $product->get_product_id();
         $variation_id = $product->get_variation_id() ?: $product_id;
         $product_price = (float) $product->get_total();
-        $product_meta = get_post_meta($variation_id);
-        
-        $this->helper->debug('🛍️ MembershipOrderHandler: Product Details', [
-            'product_id' => $product_id,
-            'variation_id' => $variation_id,
-            'product_name' => $product->get_name(),
-            'product_total' => $product_price,
-            'wc_name_passed' => $membership_level,
-            'product_meta_keys' => array_keys($product_meta)
-        ]);
         
         $membership_config = $this->resolveMembershipConfig($product, $membership_level);
         $actual_membership_level = $membership_config['membership_name'] ?? $membership_level;
         $membership_level_id = $membership_config['membership_level_id'] ?? null;
         
-        $this->helper->debug('🎯 MembershipOrderHandler: Membership Level Determination', [
-            'wc_product_name' => $membership_level,
-            'product_price' => $product_price,
-            'determined_membership_level' => $actual_membership_level,
-            'method' => 'price_based_detection'
-        ]);
-        
         try {
             // Update user role based on membership type (use actual membership level)
-            $this->helper->debug('👤 MembershipOrderHandler: Updating user role...');
             $this->updateUserRole($uid, $actual_membership_level);
             
             // Process family slot purchases (token-based system)
-            $this->helper->debug('🎟️ MembershipOrderHandler: Processing family slot purchases...');
             $this->processFamilySlots($order, $uid);
             
             // Prepare registration request (use actual membership level)
-            $this->helper->debug('📋 MembershipOrderHandler: Building registration request...');
             $request = $this->buildRegistrationRequest(
                 $uid,
                 $order,
@@ -305,14 +242,11 @@ class MembershipOrderHandler {
                 $actual_membership_level,
                 $membership_level_id
             );
-            $this->helper->debug('📋 MembershipOrderHandler: Registration request built', $request);
             
             // Process user data updates
-            $this->helper->debug('💾 MembershipOrderHandler: Processing user data updates...');
             $this->processUserDataUpdates($uid, $order, $order_meta, $request);
             
             // Register user in LGL
-            $this->helper->debug('🔗 MembershipOrderHandler: Starting LGL registration...');
             $registrationResult = $this->registerUserInLGL(
                 $uid,
                 $order,
@@ -324,29 +258,16 @@ class MembershipOrderHandler {
             $this->processRoleAssignments($uid, $order, $registrationResult['lgl_id'] ?? null);
             
             // Complete the order
-            $this->helper->debug('✅ MembershipOrderHandler: Completing order...');
             $order->update_status('completed');
             
             // Set renewal date for one-time purchases
             $this->setRenewalDateForOneTimePurchase($uid, $actual_membership_level);
             
-            $this->helper->debug('✅ MembershipOrderHandler::processOrder() COMPLETED SUCCESSFULLY', [
-                'order_id' => $order->get_id(),
-                'user_id' => $uid,
-                'final_membership_level' => $actual_membership_level,
-                'lgl_id' => $registrationResult['lgl_id'] ?? null,
-                'match_method' => $registrationResult['match_method'] ?? null,
-                'payment_id' => $registrationResult['payment_id'] ?? null
-            ]);
-            
         } catch (Exception $e) {
-            $this->helper->debug('❌ MembershipOrderHandler::processOrder() FAILED', [
+            $this->helper->error('MembershipOrderHandler::processOrder() failed', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
                 'order_id' => $order->get_id(),
-                'user_id' => $uid,
-                'trace' => $e->getTraceAsString()
+                'user_id' => $uid
             ]);
             throw $e; // Re-throw to maintain error handling
         }
@@ -363,9 +284,6 @@ class MembershipOrderHandler {
      * @return array Membership configuration with membership_level_id, membership_name, and membership_config
      */
     private function resolveMembershipConfig($product, string $wc_product_name): array {
-        $this->helper->debug('🔍 MembershipOrderHandler: Determining membership level', [
-            'wc_product_name' => $wc_product_name
-        ]);
         $variation_id = $product->get_variation_id() ?: $product->get_product_id();
         $candidate_ids = [];
         
@@ -378,11 +296,6 @@ class MembershipOrderHandler {
         
         if (!empty($meta_value)) {
             $candidate_ids[] = (int) $meta_value;
-            $this->helper->debug('🔍 Found LGL sync ID on variation', [
-                'variation_id' => $variation_id,
-                'fund_id' => (int) $meta_value,
-                'source' => get_post_meta($variation_id, '_ui_lgl_sync_id', true) ? 'unified' : 'legacy'
-            ]);
         }
         
         // Check parent product if this is a variation
@@ -395,11 +308,6 @@ class MembershipOrderHandler {
             
             if (!empty($parent_meta)) {
                 $candidate_ids[] = (int) $parent_meta;
-                $this->helper->debug('🔍 Found LGL sync ID on parent product', [
-                    'parent_id' => $product->get_product_id(),
-                    'fund_id' => (int) $parent_meta,
-                    'source' => get_post_meta($product->get_product_id(), '_ui_lgl_sync_id', true) ? 'unified' : 'legacy'
-                ]);
             }
         }
         $candidate_ids = array_values(array_unique(array_filter($candidate_ids)));
@@ -407,10 +315,7 @@ class MembershipOrderHandler {
             $config = $this->apiSettings->getMembershipLevelByLglId($membership_level_id);
             if ($config) {
                 $membership_name = $config['level_name'] ?? $wc_product_name;
-                $this->helper->debug('✅ MembershipOrderHandler: Using JetEngine membership mapping', [
-                    'membership_level_id' => $membership_level_id,
-                    'membership_name' => $membership_name
-                ]);
+                // Using JetEngine membership mapping
                 return [
                     'membership_level_id' => $membership_level_id,
                     'membership_name' => $membership_name,
@@ -421,11 +326,7 @@ class MembershipOrderHandler {
         // Method 2: Try WooCommerce name conversion
         $name_based_level = $this->helper->uiMembershipWcNameToLgl($wc_product_name);
         if ($name_based_level !== $wc_product_name) { // If conversion happened
-            $this->helper->debug('✅ MembershipOrderHandler: Using name-based detection', [
-                'wc_name' => $wc_product_name,
-                'lgl_name' => $name_based_level,
-                'method' => 'name_based'
-            ]);
+            // Using name-based detection
             return [
                 'membership_level_id' => null,
                 'membership_name' => $name_based_level,
@@ -457,11 +358,7 @@ class MembershipOrderHandler {
                 
                 if (isset($attribute_mapping[$level_attribute])) {
                     $attribute_based_level = $attribute_mapping[$level_attribute];
-                    $this->helper->debug('✅ MembershipOrderHandler: Using attribute-based detection', [
-                        'attribute' => $level_attribute,
-                        'membership_level' => $attribute_based_level,
-                        'method' => 'attribute_based'
-                    ]);
+                    // Using attribute-based detection
                     $slug = sanitize_title($attribute_based_level);
                     $config = $this->apiSettings->getMembershipLevel($slug) ?? null;
                     return [
@@ -474,9 +371,8 @@ class MembershipOrderHandler {
         }
         
         // Fallback: Use original name but log warning
-        $this->helper->debug('⚠️ MembershipOrderHandler: No membership level detection worked, using fallback', [
+        $this->helper->warning('MembershipOrderHandler: No membership level detection worked, using fallback', [
             'fallback_level' => $wc_product_name,
-            'name_tried' => $wc_product_name,
             'method' => 'fallback',
             'note' => 'Ensure product has _ui_lgl_sync_id set for reliable membership detection'
         ]);
@@ -508,13 +404,13 @@ class MembershipOrderHandler {
                     $roleHandler->processPendingGroupSyncs($uid, $lgl_id);
                 }
             } else {
-                $this->helper->debug('⚠️ MembershipOrderHandler: RoleAssignmentHandler not available', [
+                $this->helper->warning('MembershipOrderHandler: RoleAssignmentHandler not available', [
                     'order_id' => $order->get_id(),
                     'user_id' => $uid
                 ]);
             }
         } catch (\Exception $e) {
-            $this->helper->debug('❌ MembershipOrderHandler: Error processing role assignments', [
+            $this->helper->error('MembershipOrderHandler: Error processing role assignments', [
                 'error' => $e->getMessage(),
                 'order_id' => $order->get_id(),
                 'user_id' => $uid
@@ -533,10 +429,8 @@ class MembershipOrderHandler {
     private function updateUserRole(int $uid, string $membership_level): void {
         if (stripos($membership_level, 'family') !== false) {
             $this->helper->changeUserRole($uid, 'customer', 'ui_patron_owner');
-            $this->helper->debug('MembershipOrderHandler: Updated user role to ui_patron_owner (family)', $uid);
         } else {
             $this->helper->changeUserRole($uid, 'customer', 'ui_member');
-            $this->helper->debug('MembershipOrderHandler: Updated user role to ui_member (individual)', $uid);
         }
     }
     
@@ -602,7 +496,7 @@ class MembershipOrderHandler {
         // Skip ALL LGL sync during immediate processing - LGL sync happens separately in async processing via registerUserInLGL()
         $this->wpUsers->updateUserData($request, $order, $order_meta, true, true);
         
-        $this->helper->debug('MembershipOrderHandler: User data updated (WordPress only, LGL sync happens separately)', $uid);
+        // User data updated (WordPress only, LGL sync happens separately)
 
         // Store membership level ID for MembershipRegistrationService to use
         if (!empty($request['lgl_membership_level_id'])) {
@@ -623,14 +517,7 @@ class MembershipOrderHandler {
         array $membership_config,
         $current_product = null
     ): array {
-        $this->helper->debug('🔗 MembershipOrderHandler::registerUserInLGL() STARTED', [
-            'user_id' => $userId,
-            'user_email' => $request['user_email'] ?? 'N/A',
-            'membership_type' => $request['ui-membership-type'] ?? 'N/A',
-            'order_id' => $order->get_id(),
-            'membership_level_id' => $request['lgl_membership_level_id'] ?? null
-        ]);
-
+        // Register user in LGL
         $user = get_userdata($userId);
         $emails = array_filter(array_unique(array_map('strtolower', array_filter([
             $request['user_email'] ?? null,
@@ -765,12 +652,7 @@ class MembershipOrderHandler {
         // Update statistics after successful sync
         $this->updateSyncStatistics($sync_status, $result);
 
-        $this->helper->debug('✅ MembershipOrderHandler::registerUserInLGL() COMPLETED', [
-            'user_id' => $userId,
-            'lgl_id' => $result['lgl_id'] ?? null,
-            'status' => $result['status'] ?? 'unknown'
-        ]);
-
+        // Registration completed - result already logged by registration service
         return $result;
     }
     

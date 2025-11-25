@@ -48,6 +48,19 @@ class EmailBlocker {
     ];
     
     /**
+     * Static flag to track if initialization has been logged
+     * Prevents duplicate log entries when init() is called multiple times
+     * 
+     * @var bool
+     */
+    private static bool $initLogged = false;
+    
+    /**
+     * Transient key for tracking last logged blocking status
+     */
+    const STATUS_LOG_TRANSIENT = 'lgl_email_blocker_last_status';
+    
+    /**
      * Helper service
      * 
      * @var Helper
@@ -87,29 +100,47 @@ class EmailBlocker {
     public function init(): void {
         $blockingLevel = $this->getBlockingLevel();
         $isEnabled = $this->isBlockingEnabled();
+        $isForceBlocking = $this->isForceBlocking();
         
-        // Debug initialization
-        $this->helper->debug('LGL Email Blocker: init() called', [
-            'blocking_level' => $blockingLevel,
-            'is_enabled' => $isEnabled,
-            'is_force_blocking' => $this->isForceBlocking(),
-            'is_dev_env' => $this->isDevelopmentEnvironment(),
-        ]);
+        // Build status signature to detect changes
+        $statusSignature = sprintf('%s:%d:%d', $blockingLevel, $isEnabled ? 1 : 0, $isForceBlocking ? 1 : 0);
         
-        // Only initialize if blocking is enabled (not 'none' or empty)
+        // Only log initialization once per request (DEBUG level - technical detail)
+        if (!self::$initLogged) {
+            $this->helper->debug('LGL Email Blocker: Initializing', [
+                'blocking_level' => $blockingLevel,
+                'is_enabled' => $isEnabled,
+                'is_force_blocking' => $isForceBlocking,
+                'is_dev_env' => $this->isDevelopmentEnvironment(),
+            ]);
+            self::$initLogged = true;
+        }
+        
+        // Only log status changes at INFO level (when blocking state actually changes)
+        // Use transient to persist status between requests
+        $lastLoggedStatus = get_transient(self::STATUS_LOG_TRANSIENT);
+        if ($lastLoggedStatus !== $statusSignature) {
+            if ($blockingLevel && $blockingLevel !== 'none') {
+                $mode = $isForceBlocking ? 'MANUAL OVERRIDE ENABLED' : 'Development environment detected';
+                $this->helper->info('LGL Email Blocker: ACTIVE - ' . $mode . ' (Level: ' . $blockingLevel . ')');
+            } else {
+                $this->helper->info('LGL Email Blocker: INACTIVE - Blocking disabled (Level: ' . $blockingLevel . ')');
+            }
+            // Store status for 1 hour (long enough to prevent repeated logs, short enough to catch real changes)
+            set_transient(self::STATUS_LOG_TRANSIENT, $statusSignature, HOUR_IN_SECONDS);
+        }
+        
+        // Register filters if blocking is enabled (always check, not just on first init)
         if ($blockingLevel && $blockingLevel !== 'none') {
-            // Register wp_mail filter with highest priority to catch all emails
-            add_filter('wp_mail', [$this, 'blockEmails'], 999);
-            
-            // Also hook into PHPMailer to catch emails that might bypass wp_mail
-            add_action('phpmailer_init', [$this, 'interceptPhpmailer'], 999);
-            
-            add_action('admin_notices', [$this, 'showEmailBlockingNotice']);
-            
-            $mode = $this->isForceBlocking() ? 'MANUAL OVERRIDE ENABLED' : 'Development environment detected';
-            $this->helper->debug('LGL Email Blocker: ACTIVE - ' . $mode . ' (Level: ' . $blockingLevel . ') - Filter registered at priority 999');
-        } else {
-            $this->helper->debug('LGL Email Blocker: INACTIVE - Blocking disabled (Level: ' . $blockingLevel . ', Enabled: ' . ($isEnabled ? 'YES' : 'NO') . ')');
+            if (!has_filter('wp_mail', [$this, 'blockEmails'])) {
+                // Register wp_mail filter with highest priority to catch all emails
+                add_filter('wp_mail', [$this, 'blockEmails'], 999);
+                
+                // Also hook into PHPMailer to catch emails that might bypass wp_mail
+                add_action('phpmailer_init', [$this, 'interceptPhpmailer'], 999);
+                
+                add_action('admin_notices', [$this, 'showEmailBlockingNotice']);
+            }
         }
     }
     
@@ -189,26 +220,16 @@ class EmailBlocker {
      * @return false|array Returns false to block, or modified args to allow
      */
     public function blockEmails($args) {
-        // CRITICAL DEBUG: Log that filter was called
-        $this->helper->debug('LGL Email Blocker: blockEmails() FILTER CALLED', [
-            'args_type' => gettype($args),
-            'is_array' => is_array($args),
-            'blocking_enabled' => $this->isBlockingEnabled(),
-            'blocking_level' => $this->getBlockingLevel(),
-            'force_blocking' => $this->isForceBlocking(),
-        ]);
-        
         // If another filter already blocked this email, respect that
         if ($args === false) {
-            $this->helper->debug('LGL Email Blocker: Email already blocked by another filter');
             return false;
         }
         
         // Ensure we have an array at this point
         if (!is_array($args)) {
-            $this->helper->debug('EmailBlocker: Invalid argument type received', [
-                'type' => gettype($args),
-                'value' => $args
+            // Only log errors for invalid arguments
+            $this->helper->error('EmailBlocker: Invalid argument type received', [
+                'type' => gettype($args)
             ]);
             return false;
         }
@@ -219,12 +240,6 @@ class EmailBlocker {
         
         // Check if temporarily disabled
         if ($this->operationalData->isEmailBlockingPaused()) {
-            $this->helper->debug(sprintf(
-                'LGL Email Blocker: ALLOWED (temporarily disabled) - To: %s | Subject: %s',
-                $to,
-                $subject,
-                $message
-            ));
             return $args; // Allow email to send
         }
         
@@ -235,19 +250,7 @@ class EmailBlocker {
         $shouldRespectWhitelist = !$this->isForceBlocking(); // Don't respect whitelist when force blocking
         
         if ($isWhitelisted && $shouldRespectWhitelist) {
-            $this->helper->debug(sprintf(
-                'LGL Email Blocker: ALLOWED (whitelisted) - To: %s | Subject: %s',
-                $to,
-                $subject
-            ));
             return $args; // Allow email to send
-        } elseif ($isWhitelisted && !$shouldRespectWhitelist) {
-            $this->helper->debug(sprintf(
-                'LGL Email Blocker: WHITELIST BYPASSED (force blocking active) - To: %s | Subject: %s - Will be blocked',
-                $to,
-                $subject
-            ));
-            // Continue to blocking logic below - force blocking overrides whitelist
         }
         
         // Get blocking level and determine if this email should be blocked
@@ -255,36 +258,16 @@ class EmailBlocker {
         $emailType = $this->identifyEmailType($args);
         $shouldBlock = $this->shouldBlockEmail($args, $blockingLevel);
         
-        // Debug: Log detection details
-        $this->helper->debug(sprintf(
-            'LGL Email Blocker: Evaluation - To: %s | Subject: %s | Detected Type: %s | Level: %s | Should Block: %s',
-            $to,
-            $subject,
-            $emailType,
-            $blockingLevel,
-            $shouldBlock ? 'YES' : 'NO'
-        ));
-        
         if (!$shouldBlock) {
-            $this->helper->debug(sprintf(
-                'LGL Email Blocker: ALLOWED (level: %s, type: %s) - To: %s | Subject: %s',
-                $blockingLevel,
-                $emailType,
-                $to,
-                $subject
-            ));
             return $args; // Allow email to send
         }
         
-        // Log the blocked email attempt
-        $this->helper->debug(sprintf(
-            'LGL Email Blocker: BLOCKED email - To: %s | Subject: %s | Type: %s | Level: %s | Environment: %s | Mode: %s',
+        // Only log blocked emails (not every evaluation) - use info level to reduce verbosity
+        $this->helper->info(sprintf(
+            'LGL Email Blocker: BLOCKED - To: %s | Subject: %s | Type: %s',
             $to,
             $subject,
-            $emailType,
-            $blockingLevel,
-            $this->getEnvironmentInfo(),
-            $this->isForceBlocking() ? 'manual_override' : 'environment'
+            $emailType
         ));
         
         // Store blocked email for admin review
@@ -323,14 +306,12 @@ class EmailBlocker {
         
         // Check if temporarily disabled
         if ($this->operationalData->isEmailBlockingPaused()) {
-            $this->helper->debug('LGL Email Blocker (PHPMailer): ALLOWED (temporarily disabled) - To: ' . $to . ' | Subject: ' . $subject);
             return; // Allow email
         }
         
         // Check whitelist (but respect force blocking override)
         $shouldRespectWhitelist = !$this->isForceBlocking() || $this->settingsManager->get('email_blocking_respect_whitelist', true);
         if ($shouldRespectWhitelist && $this->isWhitelisted($to)) {
-            $this->helper->debug('LGL Email Blocker (PHPMailer): ALLOWED (whitelisted) - To: ' . $to . ' | Subject: ' . $subject);
             return; // Allow email
         }
         
@@ -346,9 +327,7 @@ class EmailBlocker {
         $shouldBlock = $this->shouldBlockEmail($args, $blockingLevel);
         
         if ($shouldBlock) {
-            $this->helper->debug('LGL Email Blocker (PHPMailer): BLOCKED - To: ' . $to . ' | Subject: ' . $subject . ' | Level: ' . $blockingLevel);
-            
-            // Store blocked email
+            // Store blocked email (logging happens in operationalData)
             $this->operationalData->addBlockedEmail([
                 'to' => $to,
                 'subject' => $subject,
@@ -369,7 +348,7 @@ class EmailBlocker {
             $phpmailer->Body = '';
             $phpmailer->Subject = '';
         } else {
-            $this->helper->debug('LGL Email Blocker (PHPMailer): ALLOWED - To: ' . $to . ' | Subject: ' . $subject . ' | Level: ' . $blockingLevel);
+            // Email allowed - no need to log every allowed email
         }
     }
     
@@ -633,27 +612,20 @@ class EmailBlocker {
      * Show admin notice about email blocking
      */
     public function showEmailBlockingNotice(): void {
-        $this->helper->debug('EmailBlocker: showEmailBlockingNotice() called');
-        
         if (!$this->isBlockingEnabled()) {
-            $this->helper->debug('EmailBlocker: Notice skipped - blocking not enabled');
             return;
         }
 
         if (!current_user_can('manage_options')) {
-            $this->helper->debug('EmailBlocker: Notice skipped - user lacks manage_options capability');
             return;
         }
         
         // Skip notice on the Email Blocking Settings page (it has its own status section)
         if (isset($_GET['page']) && $_GET['page'] === 'lgl-email-blocking') {
-            $this->helper->debug('EmailBlocker: Notice skipped - on Email Blocking Settings page');
             return;
         }
         
-        $this->helper->debug('EmailBlocker: Rendering admin notice');
         $blocked_count = $this->operationalData->getBlockedEmailsCount();
-        $this->helper->debug('EmailBlocker: Blocked count = ' . $blocked_count);
         
         $blockingLevel = $this->getBlockingLevel();
         $levelDescriptions = [

@@ -90,9 +90,15 @@ class UserEditAction implements JetFormActionInterface {
      */
     public function handle(array $request, $action_handler): void {
         try {
+        $this->helper->info('LGL UserEditAction: Processing user profile update', [
+            'user_id' => $request['user_id'] ?? 'N/A'
+        ]);
+        
         // Validate request data
         if (!$this->validateRequest($request)) {
-            $this->helper->debug('UserEditAction: Invalid request data', $request);
+            $this->helper->error('LGL UserEditAction: Invalid request data', [
+                'missing_fields' => $this->getMissingFields($request)
+            ]);
                 $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -103,8 +109,6 @@ class UserEditAction implements JetFormActionInterface {
                     throw new \RuntimeException($error_message);
                 }
         }
-        
-        $this->helper->debug('UserEditAction: Processing request', $request);
         
         $uid = (int) $request['user_id'];
         $user_name = $request['user_firstname'] . ' ' . $request['user_lastname'];
@@ -126,10 +130,9 @@ class UserEditAction implements JetFormActionInterface {
             }
             
         } catch (\Exception $e) {
-            $this->helper->debug('UserEditAction: Error occurred', [
+            $this->helper->error('LGL UserEditAction: Error occurred', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'user_id' => $uid ?? null
             ]);
             
             // Re-throw Action_Exception, convert others
@@ -160,10 +163,11 @@ class UserEditAction implements JetFormActionInterface {
     private function updateExistingUser($existing_user, int $uid, array $request): void {
         // Handle both object and array formats
         $existing_contact_id = is_object($existing_user) ? $existing_user->id : ($existing_user['id'] ?? null);
-        $this->helper->debug('LGL USER EXISTS: ', $existing_contact_id);
         
         if (!$existing_contact_id) {
-            $this->helper->debug('UserEditAction: No valid contact ID found');
+            $this->helper->error('LGL UserEditAction: No valid contact ID found', [
+                'user_id' => $uid
+            ]);
             $error_message = 'Unable to update your profile. Contact ID not found. Please try again or contact support.';
             
             if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -181,9 +185,8 @@ class UserEditAction implements JetFormActionInterface {
         
         // Use async processing if available (speeds up form submission)
         if ($this->asyncProcessor) {
-            $this->helper->debug('⏰ UserEditAction: Scheduling async LGL processing', [
-                'user_id' => $uid,
-                'skip_membership' => $skip_membership
+            $this->helper->debug('LGL UserEditAction: Scheduling async LGL processing', [
+                'user_id' => $uid
             ]);
             
             try {
@@ -194,26 +197,27 @@ class UserEditAction implements JetFormActionInterface {
                 
                 $this->asyncProcessor->scheduleAsyncProcessing('user_edit', $uid, $context);
                 
-                $this->helper->debug('✅ UserEditAction: Async LGL processing scheduled', [
-                    'user_id' => $uid,
-                    'note' => 'LGL API calls will be processed in background via WP Cron'
+                $this->helper->info('LGL UserEditAction: User profile update completed (async)', [
+                    'user_id' => $uid
                 ]);
             } catch (\Exception $e) {
-                $this->helper->debug('⚠️ UserEditAction: Async scheduling failed, falling back to sync', [
+                $this->helper->warning('LGL UserEditAction: Async scheduling failed, falling back to sync', [
                     'error' => $e->getMessage(),
                     'user_id' => $uid
                 ]);
                 
                 // Fallback to synchronous processing if async fails
                 $this->updateConstituentSync($uid, $request, $skip_membership);
+                $this->helper->info('LGL UserEditAction: User profile update completed (sync)', [
+                    'user_id' => $uid
+                ]);
             }
         } else {
             // Fallback: synchronous processing if async processor not available
-            $this->helper->debug('⚠️ UserEditAction: Async processor not available, using sync', [
+            $this->updateConstituentSync($uid, $request, $skip_membership);
+            $this->helper->info('LGL UserEditAction: User profile update completed (sync)', [
                 'user_id' => $uid
             ]);
-            
-            $this->updateConstituentSync($uid, $request, $skip_membership);
         }
     }
     
@@ -230,10 +234,12 @@ class UserEditAction implements JetFormActionInterface {
         $result = $this->constituents->setDataAndUpdate($uid, $request, $skip_membership);
         
         if ($result && isset($result['success']) && $result['success']) {
-            $this->helper->debug('UPDATED CONTACT (sync)', $uid);
+            $this->helper->info('LGL UserEditAction: Updated contact', [
+                'user_id' => $uid
+            ]);
         } else {
             $error = $result['error'] ?? 'Unknown error';
-            $this->helper->debug('FAILED TO UPDATE contact (sync)', [
+            $this->helper->error('LGL UserEditAction: Failed to update contact', [
                 'user_id' => $uid,
                 'error' => $error
             ]);
@@ -273,8 +279,6 @@ class UserEditAction implements JetFormActionInterface {
      * @return void
      */
     private function createNewUserFromEdit(int $uid, array $request, string $user_name, string $user_email): void {
-        $this->helper->debug('NO Contact Found, UserEditAction', $user_name . '   ' . $user_email);
-        
         // Try to search for existing contact by name and email
         $username = str_replace(' ', '%20', $request['user_firstname'] . ' ' . $request['user_lastname']);
         $emails = $this->collectCandidateEmails($uid, $request);
@@ -286,15 +290,23 @@ class UserEditAction implements JetFormActionInterface {
             $lgl_id = $this->createSimpleConstituent($uid, $request);
             
             if ($lgl_id) {
-                $this->helper->debug('Created new Constituent LGL ID: ', $lgl_id);
+                $this->helper->info('LGL UserEditAction: Created new constituent', [
+                    'lgl_id' => $lgl_id,
+                    'user_id' => $uid
+                ]);
                 update_user_meta($uid, 'lgl_id', $lgl_id);
             } else {
-                $this->helper->debug('UserEditAction: Failed to create new constituent');
+                $this->helper->error('LGL UserEditAction: Failed to create new constituent', [
+                    'user_id' => $uid
+                ]);
             }
         } else {
             // Link existing LGL constituent to WordPress user
             update_user_meta($uid, 'lgl_id', $lgl_id);
-            $this->helper->debug('Linked existing LGL constituent: ', $lgl_id);
+            $this->helper->info('LGL UserEditAction: Linked existing LGL constituent', [
+                'lgl_id' => $lgl_id,
+                'user_id' => $uid
+            ]);
         }
     }
     
@@ -345,20 +357,20 @@ class UserEditAction implements JetFormActionInterface {
         
         foreach ($required_fields as $field) {
             if (!isset($request[$field]) || empty($request[$field])) {
-                $this->helper->debug("UserEditAction: Missing required field: {$field}");
+                $this->helper->debug("LGL UserEditAction: Missing required field", ['field' => $field]);
                 return false;
             }
         }
         
         // Validate user_id is numeric and positive
         if (!isset($request['user_id']) || !is_numeric($request['user_id']) || (int)$request['user_id'] <= 0) {
-            $this->helper->debug('UserEditAction: Invalid user_id');
+            $this->helper->debug('LGL UserEditAction: Invalid user_id', ['user_id' => $request['user_id'] ?? null]);
             return false;
         }
         
         // Validate email format
         if (isset($request['user_email']) && !filter_var($request['user_email'], FILTER_VALIDATE_EMAIL)) {
-            $this->helper->debug('UserEditAction: Invalid email format');
+            $this->helper->debug('LGL UserEditAction: Invalid email format', ['email' => $request['user_email'] ?? null]);
             return false;
         }
         
@@ -377,6 +389,25 @@ class UserEditAction implements JetFormActionInterface {
             'user_lastname',
             'user_email'
         ];
+    }
+    
+    /**
+     * Get missing required fields from request
+     * 
+     * @param array $request Request data
+     * @return array<string> Missing field names
+     */
+    private function getMissingFields(array $request): array {
+        $required_fields = $this->getRequiredFields();
+        $missing = [];
+        
+        foreach ($required_fields as $field) {
+            if (!isset($request[$field]) || empty($request[$field])) {
+                $missing[] = $field;
+            }
+        }
+        
+        return $missing;
     }
     
     /**
@@ -416,7 +447,8 @@ class UserEditAction implements JetFormActionInterface {
             }
             return false;
         } catch (\Exception $e) {
-            $this->helper->debug('UserEditAction: Exception creating constituent', [
+            $this->helper->error('LGL UserEditAction: Exception creating constituent', [
+                'user_id' => $uid,
                 'error' => $e->getMessage()
             ]);
             return false;

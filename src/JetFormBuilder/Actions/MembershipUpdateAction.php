@@ -109,9 +109,16 @@ class MembershipUpdateAction implements JetFormActionInterface {
      */
     public function handle(array $request, $action_handler): void {
         try {
+        $this->helper->info('LGL MembershipUpdateAction: Processing membership update', [
+            'user_id' => $request['user_id'] ?? 'N/A',
+            'membership_level' => $request['ui-membership-type'] ?? 'N/A'
+        ]);
+        
         // Validate request data
         if (!$this->validateRequest($request)) {
-            $this->helper->debug('MembershipUpdateAction: Invalid request data', $request);
+            $this->helper->error('LGL MembershipUpdateAction: Invalid request data', [
+                'missing_fields' => $this->getMissingFields($request)
+            ]);
                 $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -123,8 +130,6 @@ class MembershipUpdateAction implements JetFormActionInterface {
                 }
         }
         
-        $this->helper->debug('MembershipUpdateAction: Processing request', $request);
-        
         $uid = (int) $request['user_id'];
         $username = str_replace(' ', '%20', $request['username']);
         $membership_level = $request['ui-membership-type'];
@@ -133,7 +138,9 @@ class MembershipUpdateAction implements JetFormActionInterface {
         $date = date('Y-m-d', time());
         
         if ($uid === 0) {
-            $this->helper->debug('No User ID in Request, MembershipUpdateAction');
+            $this->helper->error('LGL MembershipUpdateAction: No User ID in Request', [
+                'request_keys' => array_keys($request)
+            ]);
                 $error_message = 'User ID is missing. Please ensure you are logged in and try again.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -148,7 +155,9 @@ class MembershipUpdateAction implements JetFormActionInterface {
         // Get user email
         $user_data = get_userdata($uid);
         if (!$user_data) {
-            $this->helper->debug('MembershipUpdateAction: User not found', $uid);
+            $this->helper->error('LGL MembershipUpdateAction: User not found', [
+                'user_id' => $uid
+            ]);
                 $error_message = 'User account not found. Please try again or contact support.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -172,9 +181,8 @@ class MembershipUpdateAction implements JetFormActionInterface {
         
         // Use async processing if available (speeds up form submission)
         if ($this->asyncProcessor) {
-            $this->helper->debug('⏰ MembershipUpdateAction: Scheduling async LGL processing', [
-                'user_id' => $uid,
-                'membership_level' => $membership_level
+            $this->helper->debug('LGL MembershipUpdateAction: Scheduling async LGL processing', [
+                'user_id' => $uid
             ]);
             
             try {
@@ -189,33 +197,36 @@ class MembershipUpdateAction implements JetFormActionInterface {
                 
                 $this->asyncProcessor->scheduleAsyncProcessing('membership_update', $uid, $context);
                 
-                $this->helper->debug('✅ MembershipUpdateAction: Async LGL processing scheduled', [
+                $this->helper->info('LGL MembershipUpdateAction: Membership update completed (async)', [
                     'user_id' => $uid,
-                    'note' => 'LGL API calls will be processed in background via WP Cron'
+                    'membership_level' => $membership_level
                 ]);
             } catch (\Exception $e) {
-                $this->helper->debug('⚠️ MembershipUpdateAction: Async scheduling failed, falling back to sync', [
+                $this->helper->warning('LGL MembershipUpdateAction: Async scheduling failed, falling back to sync', [
                     'error' => $e->getMessage(),
                     'user_id' => $uid
                 ]);
                 
                 // Fallback to synchronous processing if async fails
                 $this->processLGLMembershipUpdate($uid, $membership_level, $order_id, $price, $date, $request);
+                $this->helper->info('LGL MembershipUpdateAction: Membership update completed (sync)', [
+                    'user_id' => $uid,
+                    'membership_level' => $membership_level
+                ]);
             }
         } else {
             // Fallback: synchronous processing if async processor not available
-            $this->helper->debug('⚠️ MembershipUpdateAction: Async processor not available, using sync', [
-                'user_id' => $uid
-            ]);
-            
             $this->processLGLMembershipUpdate($uid, $membership_level, $order_id, $price, $date, $request);
+            $this->helper->info('LGL MembershipUpdateAction: Membership update completed (sync)', [
+                'user_id' => $uid,
+                'membership_level' => $membership_level
+            ]);
         }
             
         } catch (\Exception $e) {
-            $this->helper->debug('MembershipUpdateAction: Error occurred', [
+            $this->helper->error('LGL MembershipUpdateAction: Error occurred', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'user_id' => $uid ?? null
             ]);
             
             // Re-throw Action_Exception, convert others
@@ -257,10 +268,8 @@ class MembershipUpdateAction implements JetFormActionInterface {
      */
     private function updateUserRole(int $uid, string $membership_level): void {
         if (in_array($membership_level, ['Family Membership', 'Patron Family Membership'])) {
-            $this->helper->debug('PRIVILEGE ESCALATION --> FAMILY');
             $this->helper->changeUserRole($uid, 'ui_member', 'ui_patron_owner');
         } elseif (in_array($membership_level, ['Individual Membership', 'Patron Membership'])) {
-            $this->helper->debug('PRIVILEGE RESTRICTION --> INDIVIDUAL');
             $this->helper->changeUserRole($uid, 'ui_patron_owner', 'ui_member');
         }
     }
@@ -314,9 +323,11 @@ class MembershipUpdateAction implements JetFormActionInterface {
         array $request
     ): void {
         $lgl_id = is_array($existing_user) ? ($existing_user['id'] ?? null) : ($existing_user->id ?? null);
-        $this->helper->debug('LGL USER EXISTS: ', $lgl_id);
         
         if (!$lgl_id) {
+            $this->helper->error('LGL MembershipUpdateAction: LGL user ID not found', [
+                'user_id' => $uid
+            ]);
                 $error_message = 'Unable to update membership. LGL user ID not found. Please try again or contact support.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -331,7 +342,10 @@ class MembershipUpdateAction implements JetFormActionInterface {
         // Get detailed user data
         $user = $this->connection->getConstituentData($lgl_id);
         if (!$user) {
-            $this->helper->debug('MembershipUpdateAction: no user found', $lgl_id);
+            $this->helper->error('LGL MembershipUpdateAction: User data not found', [
+                'user_id' => $uid,
+                'lgl_id' => $lgl_id
+            ]);
                 $error_message = 'Unable to update membership. User data not found. Please try again or contact support.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -370,11 +384,11 @@ class MembershipUpdateAction implements JetFormActionInterface {
         string $date,
         array $request
     ): void {
-        $this->helper->debug('**** WP USER exists, but not in LGL *****');
-        
         $lgl_id = $this->createMembershipConstituent($uid, $request);
         if (!$lgl_id) {
-            $this->helper->debug('MembershipUpdateAction: Failed to create LGL constituent');
+            $this->helper->error('LGL MembershipUpdateAction: Failed to create LGL constituent', [
+                'user_id' => $uid
+            ]);
                 $error_message = 'Failed to create membership account. Please try again or contact support.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -385,6 +399,11 @@ class MembershipUpdateAction implements JetFormActionInterface {
                     throw new \RuntimeException($error_message);
                 }
         }
+        
+        $this->helper->info('LGL MembershipUpdateAction: Created new LGL constituent', [
+            'lgl_id' => $lgl_id,
+            'user_id' => $uid
+        ]);
         
         // Add new membership
         $this->addNewMembership($lgl_id, $uid);
@@ -411,8 +430,6 @@ class MembershipUpdateAction implements JetFormActionInterface {
         $lgl_membership = $memberships[0];
         $mid = $lgl_membership->id;
         
-        $this->helper->debug('Retrieving MEMBERSHIP', $mid);
-        
         // IMPORTANT: finish_date must be >= date_start per LGL API validation
         $today = date('Y-m-d');
         $todayTimestamp = strtotime($today);
@@ -430,8 +447,12 @@ class MembershipUpdateAction implements JetFormActionInterface {
             // Use modern Connection::updateMembership() - uses direct membership endpoint
             $result = $this->connection->updateMembership((string)$mid, $updated_membership);
             
-            if (!$result) {
-                $this->helper->debug('MembershipUpdateAction: couldn\'t update membership: ', $updated_membership);
+            if (!$result || empty($result['success'])) {
+                $this->helper->error('LGL MembershipUpdateAction: Failed to update membership', [
+                    'membership_id' => $mid,
+                    'lgl_id' => $lgl_id,
+                    'error' => $result['error'] ?? 'Unknown error'
+                ]);
             }
         }
     }
@@ -446,14 +467,20 @@ class MembershipUpdateAction implements JetFormActionInterface {
     private function addNewMembership($lgl_id, int $uid): void {
         $this->constituents->setMembership($uid);
         $membership_data = $this->constituents->getMembershipData();
-        $this->helper->debug('Membership_Data:', $membership_data);
         
         $result = $this->connection->addMembership($lgl_id, $membership_data);
         
         if (!empty($result['success'])) {
-            $this->helper->debug('Membership added successfully', $result);
+            $this->helper->info('LGL MembershipUpdateAction: Membership added', [
+                'lgl_id' => $lgl_id,
+                'user_id' => $uid
+            ]);
         } else {
-            $this->helper->debug('Failed to add membership', $result);
+            $this->helper->error('LGL MembershipUpdateAction: Failed to add membership', [
+                'lgl_id' => $lgl_id,
+                'user_id' => $uid,
+                'error' => $result['error'] ?? 'Unknown error'
+            ]);
         }
     }
     
@@ -479,13 +506,24 @@ class MembershipUpdateAction implements JetFormActionInterface {
             $payment_id = $payment_data['id'] ?? null;
             
             if ($payment_id) {
-                $this->helper->debug('Payment ID: ', $payment_id);
+                $this->helper->info('LGL MembershipUpdateAction: Payment added', [
+                    'payment_id' => $payment_id,
+                    'lgl_id' => $lgl_id,
+                    'order_id' => $order_id
+                ]);
             } else {
-                $this->helper->debug('MembershipUpdateAction: Payment created but no ID returned', $payment_data);
+                $this->helper->warning('LGL MembershipUpdateAction: Payment created but no ID returned', [
+                    'lgl_id' => $lgl_id,
+                    'order_id' => $order_id
+                ]);
             }
         } else {
             $error = $payment_data['error'] ?? 'Unknown error';
-            $this->helper->debug('MembershipUpdateAction: Failed to create payment', $error);
+            $this->helper->error('LGL MembershipUpdateAction: Failed to create payment', [
+                'lgl_id' => $lgl_id,
+                'order_id' => $order_id,
+                'error' => $error
+            ]);
         }
     }
     
@@ -536,14 +574,14 @@ class MembershipUpdateAction implements JetFormActionInterface {
         
         foreach ($required_fields as $field) {
             if (!isset($request[$field]) || empty($request[$field])) {
-                $this->helper->debug("MembershipUpdateAction: Missing required field: {$field}");
+                $this->helper->debug("LGL MembershipUpdateAction: Missing required field", ['field' => $field]);
                 return false;
             }
         }
         
         // Validate user_id is numeric and positive
         if (!isset($request['user_id']) || !is_numeric($request['user_id']) || (int)$request['user_id'] <= 0) {
-            $this->helper->debug('MembershipUpdateAction: Invalid user_id');
+            $this->helper->debug('LGL MembershipUpdateAction: Invalid user_id', ['user_id' => $request['user_id'] ?? null]);
             return false;
         }
         
@@ -561,6 +599,25 @@ class MembershipUpdateAction implements JetFormActionInterface {
             'username',
             'ui-membership-type'
         ];
+    }
+    
+    /**
+     * Get missing required fields from request
+     * 
+     * @param array $request Request data
+     * @return array<string> Missing field names
+     */
+    private function getMissingFields(array $request): array {
+        $required_fields = $this->getRequiredFields();
+        $missing = [];
+        
+        foreach ($required_fields as $field) {
+            if (!isset($request[$field]) || empty($request[$field])) {
+                $missing[] = $field;
+            }
+        }
+        
+        return $missing;
     }
     
     /**
@@ -604,7 +661,8 @@ class MembershipUpdateAction implements JetFormActionInterface {
             
             return $lgl_id;
         } catch (\Exception $e) {
-            $this->helper->debug('MembershipUpdateAction: Exception creating constituent', [
+            $this->helper->error('LGL MembershipUpdateAction: Exception creating constituent', [
+                'user_id' => $uid,
                 'error' => $e->getMessage()
             ]);
             // Re-throw to be caught by handle() method

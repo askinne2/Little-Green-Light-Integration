@@ -98,7 +98,6 @@ class MembershipCronManager {
             $this->scheduleCleanup();
         }
         
-        $this->helper->debug('Membership cron jobs scheduled successfully');
     }
     
     /**
@@ -112,13 +111,11 @@ class MembershipCronManager {
         
         $scheduled = wp_schedule_event($start_time, 'daily', self::DAILY_CRON_HOOK);
         
-        if ($scheduled !== false) {
-            $this->helper->debug('Daily membership check scheduled for ' . date('Y-m-d H:i:s', $start_time));
-            return true;
-        } else {
-            $this->helper->debug('Failed to schedule daily membership check');
+        if ($scheduled === false) {
+            $this->helper->error('LGL MembershipCronManager: Failed to schedule daily membership check');
             return false;
         }
+        return true;
     }
     
     /**
@@ -132,13 +129,11 @@ class MembershipCronManager {
         
         $scheduled = wp_schedule_event($start_time, 'weekly', self::WEEKLY_CRON_HOOK);
         
-        if ($scheduled !== false) {
-            $this->helper->debug('Weekly statistics update scheduled for ' . date('Y-m-d H:i:s', $start_time));
-            return true;
-        } else {
-            $this->helper->debug('Failed to schedule weekly statistics update');
+        if ($scheduled === false) {
+            $this->helper->error('LGL MembershipCronManager: Failed to schedule weekly statistics update');
             return false;
         }
+        return true;
     }
     
     /**
@@ -153,13 +148,11 @@ class MembershipCronManager {
         // Use a custom interval for monthly
         $scheduled = wp_schedule_event($start_time, 'monthly', self::CLEANUP_CRON_HOOK);
         
-        if ($scheduled !== false) {
-            $this->helper->debug('Monthly cleanup scheduled for ' . date('Y-m-d H:i:s', $start_time));
-            return true;
-        } else {
-            $this->helper->debug('Failed to schedule monthly cleanup');
+        if ($scheduled === false) {
+            $this->helper->error('LGL MembershipCronManager: Failed to schedule monthly cleanup');
             return false;
         }
+        return true;
     }
     
     /**
@@ -170,7 +163,7 @@ class MembershipCronManager {
      * @return void
      */
     public function runDailyMembershipCheck(): void {
-        $this->helper->debug('Starting daily membership renewal check');
+        $this->helper->info('LGL MembershipCronManager: Starting daily membership renewal check');
         
         try {
             $start_time = microtime(true);
@@ -180,12 +173,6 @@ class MembershipCronManager {
             
             $execution_time = round((microtime(true) - $start_time) * 1000, 2);
             
-            // Log results
-            $this->helper->debug('Daily membership check completed', [
-                'execution_time_ms' => $execution_time,
-                'results' => $results
-            ]);
-            
             // Store results for admin dashboard
             $this->storeLastRunResults($results);
             
@@ -194,8 +181,16 @@ class MembershipCronManager {
                 $this->sendAdminNotification($results);
             }
             
+            $this->helper->info('LGL MembershipCronManager: Daily membership check completed', [
+                'execution_time_ms' => $execution_time,
+                'processed' => $results['processed'],
+                'errors' => count($results['errors'])
+            ]);
+            
         } catch (\Exception $e) {
-            $this->helper->debug('Daily membership check failed: ' . $e->getMessage());
+            $this->helper->error('LGL MembershipCronManager: Daily membership check failed', [
+                'error' => $e->getMessage()
+            ]);
             $this->sendAdminErrorNotification($e);
         }
     }
@@ -206,7 +201,7 @@ class MembershipCronManager {
      * @return void
      */
     public function runWeeklyStatisticsUpdate(): void {
-        $this->helper->debug('Starting weekly membership statistics update');
+        $this->helper->info('LGL MembershipCronManager: Starting weekly membership statistics update');
         
         try {
             $stats = $this->renewalManager->getRenewalStatistics();
@@ -217,10 +212,14 @@ class MembershipCronManager {
                 'stats' => $stats
             ]);
             
-            $this->helper->debug('Weekly statistics updated', $stats);
+            $this->helper->info('LGL MembershipCronManager: Weekly statistics updated', [
+                'total_members' => $stats['total_members'] ?? 0
+            ]);
             
         } catch (\Exception $e) {
-            $this->helper->debug('Weekly statistics update failed: ' . $e->getMessage());
+            $this->helper->error('LGL MembershipCronManager: Weekly statistics update failed', [
+                'error' => $e->getMessage()
+            ]);
         }
     }
     
@@ -230,7 +229,7 @@ class MembershipCronManager {
      * @return void
      */
     public function runCleanupTasks(): void {
-        $this->helper->debug('Starting monthly membership cleanup tasks');
+        $this->helper->info('LGL MembershipCronManager: Starting monthly membership cleanup tasks');
         
         try {
             // Clean up old transients
@@ -242,10 +241,12 @@ class MembershipCronManager {
             // Clean up expired user meta
             $this->cleanupExpiredUserMeta();
             
-            $this->helper->debug('Monthly cleanup tasks completed');
+            $this->helper->info('LGL MembershipCronManager: Monthly cleanup tasks completed');
             
         } catch (\Exception $e) {
-            $this->helper->debug('Monthly cleanup failed: ' . $e->getMessage());
+            $this->helper->error('LGL MembershipCronManager: Monthly cleanup failed', [
+                'error' => $e->getMessage()
+            ]);
         }
     }
     
@@ -345,9 +346,11 @@ class MembershipCronManager {
             }
         } while ($deleted === $batch_size);
         
-        $this->helper->debug('Old membership transients cleaned up', [
-            'deleted_count' => $deleted_total
-        ]);
+        if ($deleted_total > 0) {
+            $this->helper->info('LGL MembershipCronManager: Old membership transients cleaned up', [
+                'deleted_count' => $deleted_total
+            ]);
+        }
     }
     
     /**
@@ -365,8 +368,6 @@ class MembershipCronManager {
         });
         
         update_option('ui_membership_processing_logs', $cleaned_logs);
-        
-        $this->helper->debug('Old membership logs cleaned up');
     }
     
     /**
@@ -376,8 +377,7 @@ class MembershipCronManager {
      */
     private function cleanupExpiredUserMeta(): void {
         // This could be expanded to clean up specific expired meta fields
-        // For now, just log that cleanup ran
-        $this->helper->debug('User meta cleanup completed');
+        // For now, just a placeholder
     }
     
     /**
@@ -390,7 +390,7 @@ class MembershipCronManager {
         wp_clear_scheduled_hook(self::WEEKLY_CRON_HOOK);
         wp_clear_scheduled_hook(self::CLEANUP_CRON_HOOK);
         
-        $this->helper->debug('All membership cron jobs unscheduled');
+        $this->helper->info('LGL MembershipCronManager: All membership cron jobs unscheduled');
     }
     
     /**
@@ -428,7 +428,7 @@ class MembershipCronManager {
      * @return array Processing results
      */
     public function triggerManualCheck(): array {
-        $this->helper->debug('Manual membership check triggered');
+        $this->helper->info('LGL MembershipCronManager: Manual membership check triggered');
         
         try {
             $results = $this->renewalManager->processAllMembers();
@@ -436,7 +436,9 @@ class MembershipCronManager {
             return $results;
             
         } catch (\Exception $e) {
-            $this->helper->debug('Manual membership check failed: ' . $e->getMessage());
+            $this->helper->error('LGL MembershipCronManager: Manual membership check failed', [
+                'error' => $e->getMessage()
+            ]);
             throw $e;
         }
     }

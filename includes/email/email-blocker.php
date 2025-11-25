@@ -47,9 +47,9 @@ class LGL_Email_Blocker {
             add_action('admin_notices', [self::class, 'show_email_blocking_notice']);
             
             $mode = self::is_force_blocking() ? 'MANUAL OVERRIDE ENABLED' : 'Development environment detected';
-            error_log('LGL Email Blocker (Legacy): ACTIVE - ' . $mode);
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->info('LGL Email Blocker (Legacy): ACTIVE - ' . $mode);
         } else {
-            error_log('LGL Email Blocker (Legacy): INACTIVE - Manual override disabled and environment not flagged');
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Email Blocker (Legacy): INACTIVE - Manual override disabled and environment not flagged');
         }
     }
     
@@ -116,11 +116,6 @@ class LGL_Email_Blocker {
     public static function block_emails($args) {
         // Allow temporarily if disabled
         if (self::is_temporarily_disabled()) {
-            error_log(sprintf(
-                'LGL Email Blocker (Legacy): ALLOWED (temporarily disabled) - To: %s | Subject: %s',
-                is_array($args['to'] ?? null) ? implode(', ', $args['to']) : ($args['to'] ?? 'Unknown'),
-                $args['subject'] ?? 'No Subject'
-            ));
             return $args;
         }
 
@@ -129,22 +124,16 @@ class LGL_Email_Blocker {
         $to = is_array($to_raw) ? implode(', ', $to_raw) : $to_raw;
 
         if (self::is_whitelisted($to_raw)) {
-            error_log(sprintf(
-                'LGL Email Blocker (Legacy): ALLOWED (whitelisted) - To: %s | Subject: %s',
-                $to,
-                $subject
-            ));
             return $args;
         }
         
-        // Log the blocked email attempt
-        error_log(sprintf(
-            'LGL Email Blocker (Legacy): BLOCKED email - To: %s | Subject: %s | Environment: %s | Mode: %s',
-            $to,
-            $subject,
-            self::get_environment_info(),
-            self::is_force_blocking() ? 'manual_override' : 'environment'
-        ));
+        // Log the blocked email attempt (only at INFO level to reduce verbosity)
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->info('LGL Email Blocker (Legacy): BLOCKED email', [
+            'to' => $to,
+            'subject' => $subject,
+            'environment' => self::get_environment_info(),
+            'mode' => self::is_force_blocking() ? 'manual_override' : 'environment'
+        ]);
         
         // Store blocked email for admin review (optional)
         self::store_blocked_email($args);
@@ -391,7 +380,7 @@ class LGL_Email_Blocker {
      */
     public static function temporarily_disable($duration = 300) {
         set_transient('lgl_email_blocking_disabled', true, $duration);
-        error_log('LGL Email Blocker: TEMPORARILY DISABLED for ' . $duration . ' seconds');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->info('LGL Email Blocker: TEMPORARILY DISABLED', ['duration' => $duration]);
     }
     
     /**

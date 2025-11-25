@@ -67,7 +67,7 @@ if (!class_exists("LGL_Connect")) {
 				printf('</pre>');
 				if (BUFFER) ob_get_clean();
 				
-				error_log($string . ' ' . print_r($data, true));
+				\UpstateInternational\LGL\LGL\Helper::getInstance()->debug($string, $data);
 				
 				
 			}

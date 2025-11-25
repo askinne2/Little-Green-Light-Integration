@@ -141,7 +141,7 @@ class Connection {
                 $cached_response = CacheManager::get($cache_key);
                 
                 if ($cached_response !== false) {
-                    Helper::getInstance()->debug('LGL Connection: Cache HIT for ' . $endpoint);
+                    // Cache hit - no need to log every cache hit (too verbose)
                     return $cached_response;
                 }
             }
@@ -150,10 +150,11 @@ class Connection {
             $rateLimiter = RateLimiter::getInstance();
             
             if (!$rateLimiter->canMakeRequest()) {
-                Helper::getInstance()->debug('LGL Connection: Rate limit reached, waiting for availability...');
+                Helper::getInstance()->warning('LGL Connection: Rate limit reached, waiting for availability...');
                 
                 // Wait for rate limit window to reset
                 if (!$rateLimiter->waitForAvailability()) {
+                    Helper::getInstance()->error('LGL Connection: Rate limit exceeded');
                     return $this->createErrorResponse('Rate limit exceeded. Please try again later.');
                 }
             }
@@ -187,16 +188,18 @@ class Connection {
             // Log response for debugging
             $this->logResponse($endpoint, $processed_response);
             
-            // Log rate limiter status
+            // Log rate limiter status (only warnings, not every request)
             $status = $rateLimiter->getStatus();
-            if ($status['is_near_limit'] || $status['is_at_limit']) {
+            if ($status['is_at_limit']) {
+                Helper::getInstance()->warning('LGL Connection: ' . $rateLimiter->getStatusMessage());
+            } elseif ($status['is_near_limit']) {
                 Helper::getInstance()->debug('LGL Connection: ' . $rateLimiter->getStatusMessage());
             }
             
             return $processed_response;
             
         } catch (\Exception $e) {
-            Helper::getInstance()->debug('LGL Connection Error: ' . $e->getMessage());
+            Helper::getInstance()->error('LGL Connection Error', ['error' => $e->getMessage(), 'endpoint' => $endpoint ?? 'unknown']);
             return $this->createErrorResponse('Request failed: ' . $e->getMessage());
         }
     }
@@ -246,10 +249,8 @@ class Connection {
                 // Add data as JSON body for other methods (preserve booleans, don't escape slashes)
                 $json_body = json_encode($data, JSON_PRESERVE_ZERO_FRACTION | JSON_UNESCAPED_SLASHES);
                 
-                // Debug: Log the actual JSON being sent
-                if ($method === 'POST' && strpos($this->requestUri, 'constituents') !== false) {
-                    Helper::getInstance()->debug('🔍 RAW JSON PAYLOAD: ' . $json_body);
-                }
+                // Log JSON payload only at DEBUG level (already handled by logRequest)
+                // Removed redundant debug log - logRequest() already handles this
                 
                 $args['body'] = $json_body;
             }
@@ -403,9 +404,9 @@ class Connection {
     public function createConstituent(array $constituent_data): array {
         $this->newConstituentFlag = true;
         
-        // Debug: Log the exact payload being sent to LGL
+        // Log constituent creation at INFO level (important business event)
         $helper = Helper::getInstance();
-        $helper->debug('🚀 Connection::createConstituent() - Payload being sent to LGL', [
+        $helper->info('LGL Connection: Creating constituent', [
             'payload_structure' => array_keys($constituent_data),
             'has_email_addresses' => isset($constituent_data['email_addresses']),
             'email_count' => isset($constituent_data['email_addresses']) ? count($constituent_data['email_addresses']) : 0,
@@ -499,10 +500,6 @@ class Connection {
      */
     public function createConstituentRelationship(int $constituent_id, array $relationship_data): array {
         $helper = Helper::getInstance();
-        $helper->debug('🔗 Connection: Creating constituent relationship', [
-            'constituent_id' => $constituent_id,
-            'relationship_data' => $relationship_data
-        ]);
         
         $response = $this->makeRequest(
             "constituents/{$constituent_id}/constituent_relationships.json",
@@ -516,15 +513,15 @@ class Connection {
                 ($response['data']->id ?? null) : 
                 ($response['data']['id'] ?? null);
             
-            $helper->debug('✅ Connection: Constituent relationship created', [
+            $helper->info('LGL Connection: Constituent relationship created', [
                 'constituent_id' => $constituent_id,
                 'relationship_id' => $relationship_id,
                 'relationship_type' => $relationship_data['relationship_type_name'] ?? 'unknown'
             ]);
         } else {
-            $helper->debug('❌ Connection: Failed to create constituent relationship', [
+            $helper->error('LGL Connection: Failed to create constituent relationship', [
                 'constituent_id' => $constituent_id,
-                'response' => $response
+                'error' => $response['error'] ?? 'Unknown error'
             ]);
         }
         
@@ -540,11 +537,6 @@ class Connection {
      * @return array API response with relationships data
      */
     public function getConstituentRelationships(int $constituent_id): array {
-        $helper = Helper::getInstance();
-        $helper->debug('🔍 Connection: Getting constituent relationships', [
-            'constituent_id' => $constituent_id
-        ]);
-        
         $response = $this->makeRequest(
             "constituents/{$constituent_id}/constituent_relationships.json",
             'GET',
@@ -552,11 +544,11 @@ class Connection {
             false
         );
         
-        if ($response['success'] && isset($response['data'])) {
-            $relationships = is_array($response['data']) ? $response['data'] : [];
-            $helper->debug('✅ Connection: Retrieved constituent relationships', [
+        // Only log errors, GET operations are logged by logRequest/logResponse at DEBUG level
+        if (!$response['success']) {
+            Helper::getInstance()->error('LGL Connection: Failed to get constituent relationships', [
                 'constituent_id' => $constituent_id,
-                'count' => count($relationships)
+                'error' => $response['error'] ?? 'Unknown error'
             ]);
         }
         
@@ -573,9 +565,6 @@ class Connection {
      */
     public function deleteConstituentRelationship(int $relationship_id): array {
         $helper = Helper::getInstance();
-        $helper->debug('🗑️ Connection: Deleting constituent relationship', [
-            'relationship_id' => $relationship_id
-        ]);
         
         $response = $this->makeRequest(
             "constituent_relationships/{$relationship_id}.json",
@@ -585,13 +574,13 @@ class Connection {
         );
         
         if ($response['success']) {
-            $helper->debug('✅ Connection: Constituent relationship deleted', [
+            $helper->info('LGL Connection: Constituent relationship deleted', [
                 'relationship_id' => $relationship_id
             ]);
         } else {
-            $helper->debug('❌ Connection: Failed to delete constituent relationship', [
+            $helper->error('LGL Connection: Failed to delete constituent relationship', [
                 'relationship_id' => $relationship_id,
-                'response' => $response
+                'error' => $response['error'] ?? 'Unknown error'
             ]);
         }
         
@@ -614,19 +603,19 @@ class Connection {
         $cached = wp_cache_get($cache_key, 'lgl');
         
         if ($cached !== false) {
-            $helper->debug('🔍 Connection: Using cached relationship types');
+            // Removed verbose cache debug - cache hits are technical details
             return $cached;
         }
-        
-        $helper->debug('🔍 Connection: Fetching relationship types from LGL API');
         
         $response = $this->makeRequest('relationship_types', 'GET', [], false);
         
         if ($response['success']) {
             // Cache for 24 hours (relationship types don't change often)
             wp_cache_set($cache_key, $response, 'lgl', DAY_IN_SECONDS);
-            $helper->debug('✅ Connection: Relationship types fetched and cached', [
-                'count' => count($response['data'] ?? [])
+            // Removed verbose debug - GET operations logged by logRequest/logResponse
+        } else {
+            Helper::getInstance()->error('LGL Connection: Failed to fetch relationship types', [
+                'error' => $response['error'] ?? 'Unknown error'
             ]);
         }
         
@@ -645,8 +634,8 @@ class Connection {
         $response = $this->getRelationshipTypes();
         
         if (!$response['success'] || empty($response['data'])) {
-            Helper::getInstance()->debug('❌ Connection: Failed to get relationship types', [
-                'response' => $response
+            Helper::getInstance()->error('LGL Connection: Failed to get relationship types', [
+                'error' => $response['error'] ?? 'Unknown error'
             ]);
             return null;
         }
@@ -674,10 +663,8 @@ class Connection {
         }
         
         if (empty($types)) {
-            Helper::getInstance()->debug('❌ Connection: No relationship types found in response', [
-                'data_type' => gettype($data),
-                'data_keys' => is_array($data) ? array_keys($data) : (is_object($data) ? array_keys((array)$data) : 'not array/object'),
-                'response' => $response
+            Helper::getInstance()->warning('LGL Connection: No relationship types found in response', [
+                'data_type' => gettype($data)
             ]);
             return null;
         }
@@ -688,10 +675,7 @@ class Connection {
             $id = is_object($type) ? ($type->id ?? null) : ($type['id'] ?? null);
             
             if ($name && strcasecmp($name, $type_name) === 0 && $id) {
-                Helper::getInstance()->debug('✅ Connection: Found relationship type ID', [
-                    'type_name' => $type_name,
-                    'type_id' => $id
-                ]);
+                // Removed verbose debug - successful lookups don't need logging
                 return (int) $id;
             }
         }
@@ -701,11 +685,7 @@ class Connection {
             return is_object($t) ? ($t->name ?? null) : ($t['name'] ?? null);
         }, $types);
         
-        Helper::getInstance()->debug('⚠️ Connection: Relationship type not found', [
-            'type_name' => $type_name,
-            'available_types' => array_filter($available_names),
-            'total_types' => count($types)
-        ]);
+        // Removed verbose debug - missing relationship types logged at WARNING if needed
         
         return null;
     }
@@ -802,9 +782,7 @@ class Connection {
             $response = $this->makeRequest('membership_levels');
             return $response['items'] ?? [];
         } catch (\Exception $e) {
-            if ($this->isDebugMode()) {
-                Helper::getInstance()->debug('LGL Connection: Failed to get membership levels: ' . $e->getMessage());
-            }
+            Helper::getInstance()->error('LGL Connection: Failed to get membership levels', ['error' => $e->getMessage()]);
             return [];
         }
     }
@@ -826,10 +804,7 @@ class Connection {
     public function searchByName(string $name, $emails) {
         $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
         
-        $helper->debug('🔍 Connection::searchByName() STARTED', [
-            'name' => $name,
-            'email' => $emails
-        ]);
+        // Removed verbose start log - search operations are logged by logRequest/logResponse
 
         $emailCandidates = $this->normalizeEmails($emails);
         
@@ -878,13 +853,7 @@ class Connection {
                                     
                                 // Case-insensitive comparison for exact match (including + tags)
                                 if ($address && strcasecmp($address, $emailCandidate) === 0) {
-                                    $helper->debug('✅ Email search found match with exact email verification', [
-                                        'lgl_id' => $lgl_id,
-                                        'email' => $emailCandidate,
-                                        'checked_count' => array_search($match, $results_to_check) + 1,
-                                        'total_results' => count($constituents),
-                                        'checked_limit' => $max_results
-                                    ]);
+                                    // Removed verbose debug - successful searches logged by logResponse
                                     
                                     return [
                                         'id' => $lgl_id,
@@ -899,22 +868,14 @@ class Connection {
                         $first_match = $constituents[0];
                         $first_lgl_id = is_object($first_match) ? $first_match->id : $first_match['id'];
                         $total_count = count($constituents);
-                        $helper->debug('⚠️ LGL email search returned matches but none had exact email', [
-                            'first_lgl_id' => $first_lgl_id,
-                            'searched_email' => $emailCandidate,
-                            'total_results' => $total_count,
-                            'checked_limit' => $max_results,
-                            'note' => $total_count > $max_results ? 
-                                "Limited to first {$max_results} results (total: {$total_count})" :
-                                'Continuing search - this may be a base email match (e.g., andrew@example.com vs andrew+1@example.com)'
-                        ]);
+                        // Removed verbose debug - email search details are technical
                         // Continue to next email candidate or fall back to name search
                     }
                 }
             }
 
             // FALLBACK: Try name-based search (less reliable, only if email search failed)
-            $helper->debug('🔍 Email search failed, trying name search', ['name' => $clean_name]);
+            // Removed verbose debug - search operations are logged by logRequest/logResponse
             
             $response = $this->makeRequest('constituents', 'GET', ['search' => $clean_name], false);
             
@@ -953,12 +914,7 @@ class Connection {
                                         
                                     foreach ($emailCandidates as $emailCandidate) {
                                         if ($address && strcasecmp($address, $emailCandidate) === 0) {
-                                            $helper->debug('✅ Name search found match with email verification', [
-                                                'lgl_id' => $lgl_id,
-                                                'email' => $emailCandidate,
-                                                'checked_count' => array_search($match, $constituents) + 1,
-                                                'total_results' => count($constituents)
-                                            ]);
+                                            // Removed verbose debug - successful matches logged at INFO by logResponse
                                             return [
                                                 'id' => $lgl_id,
                                                 'email' => $emailCandidate,
@@ -971,15 +927,12 @@ class Connection {
                         }
                         
                         // No matches found after checking all constituents
-                        $helper->debug('⚠️ Name search found results but email verification failed for all matches', [
-                            'total_results' => count($constituents),
-                            'searched_emails' => $emailCandidates
-                        ]);
+                        // Removed verbose debug - search failures are logged by logResponse
                     } else {
                         // No email candidates provided, just return first match by name
                         $first_match = $constituents[0];
                         $lgl_id = is_object($first_match) ? $first_match->id : $first_match['id'];
-                        $helper->debug('✅ Name match confirmed (no emails provided)', ['lgl_id' => $lgl_id]);
+                        // Removed verbose debug - successful matches don't need logging
                         return [
                             'id' => $lgl_id,
                             'email' => null,
@@ -989,14 +942,13 @@ class Connection {
                 }
             }
             
-            $helper->debug('❌ No matching constituent found with any search method');
+            // Removed verbose debug - search failures are logged by logResponse
             return null;
             
         } catch (\Exception $e) {
-            $helper->debug('❌ Connection::searchByName() - Exception', [
+            $helper->error('LGL Connection: searchByName() exception', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'name' => $name ?? 'unknown'
             ]);
             return null;
         }
@@ -1049,7 +1001,7 @@ class Connection {
     private function searchByEmail(string $email): ?array {
         $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
 
-        $helper->debug('🔍 Connection::searchByEmail()', ['email' => $email]);
+        // Removed verbose start log - search operations logged by logRequest/logResponse
 
         $response = $this->makeRequest('constituents', 'GET', ['email' => $email], false);
         if (!$this->isSuccessfulResponse($response) || empty($response['data'])) {
@@ -1060,10 +1012,7 @@ class Connection {
         foreach ($constituents as $constituent) {
             if ($this->verifyConstituentEmail($constituent, $email)) {
                 $lgl_id = is_object($constituent) ? $constituent->id : $constituent['id'];
-                $helper->debug('✅ Email match confirmed', [
-                    'lgl_id' => $lgl_id,
-                    'email' => $email
-                ]);
+                // Removed verbose debug - successful searches logged by logResponse
                 return [
                     'id' => $lgl_id,
                     'email' => $email
@@ -1086,11 +1035,6 @@ class Connection {
     public function addMembershipPayment(int $lgl_id, array $request, string $payment_type = 'online') {
         $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
         
-        $helper->debug('💳 Connection::addMembershipPayment() STARTED', [
-            'lgl_id' => $lgl_id,
-            'payment_type' => $payment_type
-        ]);
-        
         // Extract payment data from request
         $amount = $request['payment_amount'] ?? $request['total'] ?? 0;
         $date = $request['payment_date'] ?? date('Y-m-d');
@@ -1105,24 +1049,26 @@ class Connection {
             'fund_name' => 'Membership Dues'
         ];
         
-        $helper->debug('💳 Connection::addMembershipPayment() - Payment data', $payment_data);
-        
         try {
             $response = $this->createPayment($payment_data);
             
             if (isset($response['data']['id'])) {
-                $helper->debug('✅ Connection::addMembershipPayment() - Payment created', [
-                    'payment_id' => $response['data']['id']
+                $helper->info('LGL Connection: Membership payment created', [
+                    'payment_id' => $response['data']['id'],
+                    'lgl_id' => $lgl_id,
+                    'amount' => $amount
                 ]);
                 return $response['data']['id'];
             } else {
-                $helper->debug('❌ Connection::addMembershipPayment() - Failed to create payment', [
-                    'response' => $response
+                $helper->error('LGL Connection: Failed to create membership payment', [
+                    'lgl_id' => $lgl_id,
+                    'error' => $response['error'] ?? 'Unknown error'
                 ]);
                 return false;
             }
         } catch (\Exception $e) {
-            $helper->debug('❌ Connection::addMembershipPayment() - Exception', [
+            $helper->error('LGL Connection: Exception creating membership payment', [
+                'lgl_id' => $lgl_id,
                 'error' => $e->getMessage()
             ]);
             return false;
@@ -1215,10 +1161,7 @@ class Connection {
                     ($email_record['address'] ?? null);
                     
                 if ($address && strcasecmp($address, $email) === 0) {
-                    $helper->debug('✅ Email match confirmed (from constituent data)', [
-                        'constituent_id' => $constituent_id,
-                        'matched_email' => $address
-                    ]);
+                    // Email match confirmed - no need to log every successful match
                     return true;
                 }
             }
@@ -1236,10 +1179,7 @@ class Connection {
                 foreach ($emails as $email_record) {
                     $address = is_object($email_record) ? $email_record->address : $email_record['address'];
                     if (strcasecmp($address, $email) === 0) {
-                        $helper->debug('✅ Email match confirmed', [
-                            'constituent_id' => $constituent_id,
-                            'matched_email' => $address
-                        ]);
+                        // Email match confirmed - no need to log every successful match
                         return true;
                     }
                 }
@@ -1251,7 +1191,7 @@ class Connection {
             return false;
             
         } catch (\Exception $e) {
-            $helper->debug('❌ Error verifying email', [
+            Helper::getInstance()->error('LGL Connection: Error verifying email', [
                 'constituent_id' => $constituent_id,
                 'error' => $e->getMessage()
             ]);
@@ -1266,23 +1206,22 @@ class Connection {
      * @return mixed Constituent data object
      */
     public function getConstituentData(string $lgl_id) {
-        $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
-        
-        $helper->debug('🔍 Connection::getConstituentData()', ['lgl_id' => $lgl_id]);
-        
         try {
             $response = $this->makeRequest("constituents/{$lgl_id}", 'GET', [], false);
             
             if ($response['success'] && isset($response['data'])) {
-                $helper->debug('✅ Constituent data retrieved successfully');
                 return $response['data'];
             } else {
-                $helper->debug('❌ Failed to retrieve constituent data', $response);
+                // Error already logged by logResponse() - only log if it's a critical failure
+                Helper::getInstance()->error('LGL Connection: Failed to retrieve constituent data', [
+                    'lgl_id' => $lgl_id,
+                    'response' => $response
+                ]);
                 return null;
             }
             
         } catch (\Exception $e) {
-            $helper->debug('❌ Error retrieving constituent data', [
+            Helper::getInstance()->error('LGL Connection: Error retrieving constituent data', [
                 'lgl_id' => $lgl_id,
                 'error' => $e->getMessage()
             ]);
@@ -1352,16 +1291,18 @@ class Connection {
                 lgl_log('📥 Membership Update Response', $response);
             }
             
-            if (!empty($response['success'])) {
-                $helper->debug('✅ Membership updated successfully', ['membership_id' => $membership_id]);
-            } else {
-                $helper->debug('❌ Failed to update membership', $response);
+            if (empty($response['success'])) {
+                // Error already logged by logResponse() - only log if it's a critical failure
+                Helper::getInstance()->error('LGL Connection: Failed to update membership', [
+                    'membership_id' => $membership_id,
+                    'response' => $response
+                ]);
             }
             
             return $response;
             
         } catch (\Exception $e) {
-            $helper->debug('❌ Error updating membership', [
+            Helper::getInstance()->error('LGL Connection: Error updating membership', [
                 'membership_id' => $membership_id,
                 'error' => $e->getMessage()
             ]);
@@ -1387,13 +1328,6 @@ class Connection {
      * @return string|false Payment ID on success, false on failure
      */
     public function addPayment(string $lgl_id, array $payment_data) {
-        $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
-        
-        $helper->debug('💳 Connection::addPayment()', [
-            'lgl_id' => $lgl_id,
-            'payment_data' => $payment_data
-        ]);
-        
         try {
             $response = $this->makeRequest(
                 "constituents/{$lgl_id}/gifts.json",
@@ -1404,16 +1338,18 @@ class Connection {
             
             if (($response['success'] == 1 || $response['success'] === true) && isset($response['data']['id'])) {
                 $payment_id = $response['data']['id'];
-                $helper->debug('✅ Payment added successfully', [
-                    'payment_id' => $payment_id
-                ]);
+                // Success already logged by logResponse() - no need for additional debug
                 return [
                     'success' => true,
                     'id' => $payment_id,
                     'data' => $response['data']
                 ];
             } else {
-                $helper->debug('❌ Failed to add payment', $response);
+                // Error already logged by logResponse() - only log if it's a critical failure
+                Helper::getInstance()->error('LGL Connection: Failed to add payment', [
+                    'lgl_id' => $lgl_id,
+                    'response' => $response
+                ]);
                 return [
                     'success' => false,
                     'error' => $response['error'] ?? 'Unknown error',
@@ -1422,7 +1358,7 @@ class Connection {
             }
             
         } catch (\Exception $e) {
-            $helper->debug('❌ Error adding payment', [
+            Helper::getInstance()->error('LGL Connection: Error adding payment', [
                 'lgl_id' => $lgl_id,
                 'error' => $e->getMessage()
             ]);
@@ -1476,19 +1412,8 @@ class Connection {
         // Ensure id is included in payload (some APIs require it)
         $update_payload = array_merge($email_data, ['id' => $email_id]);
         
-        $helper->debug('🔧 updateEmailAddress: Making PUT request', [
-            'endpoint' => $endpoint,
-            'email_id' => $email_id,
-            'update_payload' => $update_payload
-        ]);
-        
+        // Request/response already logged by logRequest/logResponse - no need for additional debug
         $response = $this->makeRequest($endpoint, 'PUT', $update_payload, false);
-        
-        $helper->debug('📥 updateEmailAddress: Raw API response', [
-            'success' => $response['success'] ?? false,
-            'http_code' => $response['http_code'] ?? null,
-            'error' => $response['error'] ?? null
-        ]);
         
         return $response;
     }
@@ -1508,19 +1433,8 @@ class Connection {
         // Ensure id is included in payload (some APIs require it)
         $update_payload = array_merge($phone_data, ['id' => $phone_id]);
         
-        $helper->debug('🔧 updatePhoneNumber: Making PUT request', [
-            'endpoint' => $endpoint,
-            'phone_id' => $phone_id,
-            'update_payload' => $update_payload
-        ]);
-        
+        // Request/response already logged by logRequest/logResponse - no need for additional debug
         $response = $this->makeRequest($endpoint, 'PUT', $update_payload, false);
-        
-        $helper->debug('📥 updatePhoneNumber: Raw API response', [
-            'success' => $response['success'] ?? false,
-            'http_code' => $response['http_code'] ?? null,
-            'error' => $response['error'] ?? null
-        ]);
         
         return $response;
     }
@@ -1540,23 +1454,8 @@ class Connection {
         // Ensure id is included in payload (some APIs require it)
         $update_payload = array_merge($address_data, ['id' => $address_id]);
         
-        $helper->debug('🔧 updateStreetAddress: Making PUT request', [
-            'endpoint' => $endpoint,
-            'address_id' => $address_id,
-            'address_data' => $address_data,
-            'update_payload' => $update_payload
-        ]);
-        
+        // Request/response already logged by logRequest/logResponse - no need for additional debug
         $response = $this->makeRequest($endpoint, 'PUT', $update_payload, false);
-        
-        $helper->debug('📥 updateStreetAddress: Raw API response', [
-            'endpoint' => $endpoint,
-            'success' => $response['success'] ?? false,
-            'http_code' => $response['http_code'] ?? null,
-            'error' => $response['error'] ?? null,
-            'response_data' => $response['data'] ?? null,
-            'raw_response' => $response['raw_response'] ?? null
-        ]);
         
         return $response;
     }

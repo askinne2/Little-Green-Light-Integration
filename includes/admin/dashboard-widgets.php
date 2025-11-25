@@ -85,7 +85,7 @@ class LGL_Dashboard_Widgets {
             self::render_order_summary_table();
             self::render_email_form();
         } catch (Exception $e) {
-            error_log('LGL Dashboard Widget Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->error('LGL Dashboard Widget Error', ['error' => $e->getMessage()]);
             echo '<div class="error"><p>Error loading widget. Please try again later.</p></div>';
         }
     }
@@ -448,7 +448,7 @@ class LGL_Dashboard_Widgets {
             self::render_events_content();
         } catch (Exception $e) {
             echo '<div class="notice notice-error"><p>Error loading events. Please try again later.</p></div>';
-            error_log('LGL Events Newsletter Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->error('LGL Events Newsletter Error', ['error' => $e->getMessage()]);
         }
         
         echo '</div></div></div>';

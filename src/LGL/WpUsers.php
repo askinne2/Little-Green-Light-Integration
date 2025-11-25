@@ -100,8 +100,6 @@ class WpUsers {
     public function handleCheckMembershipsShortcode(array $atts = []): string {
         // This shortcode triggers user deletion check
         // It's kept for backward compatibility but functionality is handled via cron
-        Helper::getInstance()->debug('lgl_check_memberships shortcode called');
-        
         // Optionally trigger manual check if requested
         if (isset($atts['trigger']) && $atts['trigger'] === 'true') {
             if (current_user_can('manage_options')) {
@@ -154,15 +152,11 @@ class WpUsers {
     public function runMonthlyUserCleanup(): void {
         // Check if it's the 4th day of an even-numbered month (matches legacy logic)
         if (date('j') === '4' && date('n') % 2 === 0) {
-            Helper::getInstance()->debug('-----RUNNING INACTIVE USER MONTHLY UPDATE ------');
-            
             // Check if deletion is enabled (matches legacy DELETE_MEMBERS constant)
             $delete_members = defined('DELETE_MEMBERS') ? DELETE_MEMBERS : false;
             
             if ($delete_members) {
                 $this->deleteInactiveUsers();
-            } else {
-                Helper::getInstance()->debug('User deletion is disabled (DELETE_MEMBERS = false)');
             }
         }
     }
@@ -180,7 +174,6 @@ class WpUsers {
         ]);
         
         if (!$blogusers) {
-            Helper::getInstance()->debug('no inactive users found');
             return;
         }
         
@@ -195,8 +188,6 @@ class WpUsers {
                 'author' => $user_id,
                 'posts_per_page' => -1
             ]);
-            
-            Helper::getInstance()->debug('Deleting User: ' . $user_id);
             
             // Delete each post
             foreach ($user_posts as $post) {
@@ -222,14 +213,10 @@ class WpUsers {
         }
         
         $current_role = $user->roles[0] ?? '';
-        Helper::getInstance()->debug('Current User: ' . $user_id . ' Current Role: ' . $current_role);
         
         // If the user is 'ui_patron_owner', handle child deactivation
         if ($current_role === 'ui_patron_owner') {
             // Get child relations (this would need RelationsManager)
-            // For now, just log that we're handling it
-            Helper::getInstance()->debug('Handling child relations for patron owner: ' . $user_id);
-            
             // TODO: Implement child relation handling via RelationsManager
             // This would deactivate child users before deleting the parent
         }
@@ -281,11 +268,16 @@ class WpUsers {
                 }
             }
             
-            Helper::getInstance()->debug('LGL WP Users: ' . $message);
+            Helper::getInstance()->info('LGL WP Users: Monthly update completed', [
+                'updated_count' => $updated_count,
+                'error_count' => count($errors)
+            ]);
             return $message;
             
         } catch (\Exception $e) {
-            Helper::getInstance()->debug('LGL WP Users: Monthly update failed: ' . $e->getMessage());
+            Helper::getInstance()->error('LGL WP Users: Monthly update failed', [
+                'error' => $e->getMessage()
+            ]);
             return 'Monthly update failed: ' . $e->getMessage();
         }
     }
@@ -309,8 +301,6 @@ class WpUsers {
             'details' => []
         ];
         
-        $helper->debug('LGL WP Users: Starting LGL ID meta field migration', ['dry_run' => $dry_run]);
-        
         // Get all users with legacy fields but missing canonical field
         $users = get_users([
             'meta_query' => [
@@ -333,8 +323,6 @@ class WpUsers {
             ],
             'number' => -1 // Get all users
         ]);
-        
-        $helper->debug('LGL WP Users: Found users with legacy LGL ID fields', ['count' => count($users)]);
         
         foreach ($users as $user) {
             $results['processed']++;
@@ -375,14 +363,19 @@ class WpUsers {
                     'user_id' => $user->ID,
                     'error' => $e->getMessage()
                 ];
-                $helper->debug('LGL WP Users: Migration error for user', [
+                $helper->error('LGL WP Users: Migration error for user', [
                     'user_id' => $user->ID,
                     'error' => $e->getMessage()
                 ]);
             }
         }
         
-        $helper->debug('LGL WP Users: LGL ID migration completed', $results);
+        $helper->info('LGL WP Users: LGL ID migration completed', [
+            'processed' => $results['processed'],
+            'migrated' => $results['migrated'],
+            'skipped' => $results['skipped'],
+            'errors' => count($results['errors'])
+        ]);
         return $results;
     }
     
@@ -427,11 +420,16 @@ class WpUsers {
             }
             
             $message = "User deletion check completed. Processed {$processed_count} users, deleted {$deleted_count}.";
-            Helper::getInstance()->debug('LGL WP Users: ' . $message);
+            Helper::getInstance()->info('LGL WP Users: User deletion check completed', [
+                'processed' => $processed_count,
+                'deleted' => $deleted_count
+            ]);
             return $message;
             
         } catch (\Exception $e) {
-            Helper::getInstance()->debug('LGL WP Users: User deletion failed: ' . $e->getMessage());
+            Helper::getInstance()->error('LGL WP Users: User deletion failed', [
+                'error' => $e->getMessage()
+            ]);
             return 'User deletion failed: ' . $e->getMessage();
         }
     }
@@ -480,7 +478,9 @@ class WpUsers {
             ];
             
         } catch (\Exception $e) {
-            Helper::getInstance()->debug('LGL WP Users: Error updating user data: ' . $e->getMessage());
+            Helper::getInstance()->error('LGL WP Users: Error updating user data', [
+                'error' => $e->getMessage()
+            ]);
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -533,7 +533,9 @@ class WpUsers {
             ];
             
         } catch (\Exception $e) {
-            Helper::getInstance()->debug('LGL WP Users: Error updating subscription info: ' . $e->getMessage());
+            Helper::getInstance()->error('LGL WP Users: Error updating subscription info', [
+                'error' => $e->getMessage()
+            ]);
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -634,11 +636,9 @@ class WpUsers {
                     'event_associated_order' => $order->get_id(),
                 ];
                 
-                \lgl_log('WpUsers: Creating event registration CCT via JetEngine API', [
+                Helper::getInstance()->debug('LGL WP Users: Creating event registration CCT', [
                     'cct_slug' => '_ui_event_registrations',
                     'user_name' => $attendee_name,
-                    'user_email' => $attendee_email,
-                    'product_id' => $product_id,
                     'order_id' => $order->get_id()
                 ]);
                 
@@ -646,9 +646,10 @@ class WpUsers {
                 $item_id = jet_cct_api_update_item('_ui_event_registrations', $registration_data);
                 
                 if ($item_id && !is_wp_error($item_id)) {
-                    \lgl_log('WpUsers: Event registration CCT created successfully', [
+                    Helper::getInstance()->info('LGL WP Users: Event registration CCT created', [
                         'item_id' => $item_id,
-                        'attendee_name' => $attendee_name
+                        'attendee_name' => $attendee_name,
+                        'order_id' => $order->get_id()
                     ]);
                     
                     $created_registrations[] = [
@@ -657,10 +658,8 @@ class WpUsers {
                     ];
                 } else {
                     $error_msg = $item_id && is_wp_error($item_id) ? $item_id->get_error_message() : 'Unknown error';
-                    Helper::getInstance()->debug('LGL WP Users: Failed to create event registration CCT: ' . $error_msg);
-                    \lgl_log('WpUsers: CCT creation failed', [
-                        'error' => $error_msg,
-                        'item_id' => $item_id
+                    Helper::getInstance()->error('LGL WP Users: Failed to create event registration CCT', [
+                        'error' => $error_msg
                     ]);
                 }
             }
@@ -672,7 +671,9 @@ class WpUsers {
             ];
             
         } catch (\Exception $e) {
-            Helper::getInstance()->debug('LGL WP Users: Error creating event registration CCT: ' . $e->getMessage());
+            Helper::getInstance()->error('LGL WP Users: Error creating event registration CCT', [
+                'error' => $e->getMessage()
+            ]);
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -692,7 +693,7 @@ class WpUsers {
         try {
             // Check if JetEngine is available
             if (!function_exists('jet_cct_api_update_item')) {
-                Helper::getInstance()->debug('LGL WP Users: JetEngine CCT API not available');
+                Helper::getInstance()->warning('LGL WP Users: JetEngine CCT API not available');
                 return ['success' => false, 'error' => 'JetEngine not available'];
             }
             
@@ -726,21 +727,20 @@ class WpUsers {
                 'created_at' => $order_date ? $order_date->format('Y-m-d H:i:s') : current_time('mysql'),
             ];
             
-            \lgl_log('WpUsers: Creating class registration CCT via JetEngine API', [
+            Helper::getInstance()->debug('LGL WP Users: Creating class registration CCT', [
                 'cct_slug' => 'class_registrations',
                 'class_name' => $class_name,
-                'order_id' => $order_id,
-                'product_id' => $product_id,
-                'user_id' => $order->get_customer_id()
+                'order_id' => $order_id
             ]);
             
             // Use JetEngine CCT API to create the registration
             $item_id = jet_cct_api_update_item('class_registrations', $registration_data);
             
             if ($item_id && !is_wp_error($item_id)) {
-                \lgl_log('WpUsers: Class registration CCT created successfully', [
+                Helper::getInstance()->info('LGL WP Users: Class registration CCT created', [
                     'item_id' => $item_id,
-                    'class_name' => $class_name
+                    'class_name' => $class_name,
+                    'order_id' => $order_id
                 ]);
                 
                 return [
@@ -750,10 +750,8 @@ class WpUsers {
                 ];
             } else {
                 $error_msg = $item_id && is_wp_error($item_id) ? $item_id->get_error_message() : 'Unknown error';
-                Helper::getInstance()->debug('LGL WP Users: Failed to create class registration CCT: ' . $error_msg);
-                \lgl_log('WpUsers: Class CCT creation failed', [
-                    'error' => $error_msg,
-                    'item_id' => $item_id
+                Helper::getInstance()->error('LGL WP Users: Failed to create class registration CCT', [
+                    'error' => $error_msg
                 ]);
                 
                 return [
@@ -763,7 +761,9 @@ class WpUsers {
             }
             
         } catch (\Exception $e) {
-            Helper::getInstance()->debug('LGL WP Users: Error creating class registration CCT: ' . $e->getMessage());
+            Helper::getInstance()->error('LGL WP Users: Error creating class registration CCT', [
+                'error' => $e->getMessage()
+            ]);
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -810,7 +810,6 @@ class WpUsers {
         foreach ($orders as $order) {
             // Skip refunds
             if (is_a($order, 'WC_Order_Refund')) {
-                Helper::getInstance()->debug('Skipping refund order: ' . $order->get_id());
                 continue;
             }
             
@@ -827,7 +826,6 @@ class WpUsers {
                 ]);
                 
                 if (!empty($existing_event_ccts)) {
-                    Helper::getInstance()->debug('CCT already exists for Order ID: ' . $order_id);
                     $skipped_orders[] = $order_id;
                     continue; // Skip this order
                 }
@@ -835,7 +833,6 @@ class WpUsers {
             
             // Check if order has already been synced (additional layer of safety)
             if ($order->get_meta('_cct_synced')) {
-                Helper::getInstance()->debug('Order already synced: ' . $order_id);
                 $skipped_orders[] = $order_id;
                 continue; // Skip already-synced orders
             }
@@ -861,13 +858,6 @@ class WpUsers {
                 $product_id = $product_item->get_variation_id() ?: $product_item->get_product_id();
                 $parent_id = $product_item->get_variation_id() ? $product_item->get_product_id() : $product_id;
                 
-                Helper::getInstance()->debug('Sync: Processing product', [
-                    'product_name' => $product_name,
-                    'quantity' => $quantity,
-                    'product_id' => $product_id,
-                    'parent_id' => $parent_id
-                ]);
-                
                 if (has_term('language-class', 'product_cat', $parent_id)) {
                     // Sync Language Class Registration
                     $has_classes = true;
@@ -875,10 +865,6 @@ class WpUsers {
                     
                     if ($cct_result['success']) {
                         $language_orders_synced[] = $order_id;
-                        Helper::getInstance()->debug('Sync: Class CCT created', [
-                            'order_id' => $order_id,
-                            'item_id' => $cct_result['item_id'] ?? 'N/A'
-                        ]);
                     }
                     
                 } elseif (has_term('events', 'product_cat', $parent_id)) {
@@ -920,10 +906,6 @@ class WpUsers {
                 
                 if ($cct_result['success']) {
                     $event_orders_synced[] = $order_id;
-                    Helper::getInstance()->debug('Sync: Event CCTs created', [
-                        'order_id' => $order_id,
-                        'created_count' => $cct_result['created_count'] ?? 0
-                    ]);
                 }
             }
             
@@ -1039,7 +1021,10 @@ class WpUsers {
             return $constituents->setDataAndUpdate($user_id, [], $skip_membership);
             
         } catch (\Exception $e) {
-            Helper::getInstance()->debug('LGL WP Users: Error syncing user ' . $user_id . ': ' . $e->getMessage());
+            Helper::getInstance()->error('LGL WP Users: Error syncing user', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage()
+            ]);
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -1057,8 +1042,6 @@ class WpUsers {
      * @param array $order_meta Order metadata
      */
     private function updateUserMetaFromOrder(int $user_id, \WC_Order $order, array $order_meta): void {
-        Helper::getInstance()->debug('UPDATING USER META FOR: ', $user_id);
-        
         // Update billing/contact info from order (matches legacy exactly)
         update_user_meta($user_id, 'user-phone', $order->get_billing_phone());
         update_user_meta($user_id, 'user-company', $order->get_billing_company());
@@ -1135,7 +1118,10 @@ class WpUsers {
             }
             
         } catch (\Exception $e) {
-            Helper::getInstance()->debug('LGL WP Users: Error deleting user ' . $user_id . ': ' . $e->getMessage());
+            Helper::getInstance()->error('LGL WP Users: Error deleting user', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage()
+            ]);
             return [
                 'success' => false,
                 'error' => $e->getMessage()

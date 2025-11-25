@@ -109,42 +109,30 @@ class OrderProcessor {
      * @return void
      */
     public function processCompletedOrder(int $order_id): void {
-        $this->helper->debug('🚀 OrderProcessor::processCompletedOrder() STARTED', [
-            'order_id' => $order_id,
-            'timestamp' => current_time('mysql'),
-            'memory_usage' => memory_get_usage(true) / 1024 / 1024 . 'MB',
-            'hook' => current_action()
-        ]);
+        $this->helper->info('OrderProcessor: Processing order', ['order_id' => $order_id]);
         
         if (!class_exists('WC_Order')) {
-            $this->helper->debug('❌ OrderProcessor: WooCommerce not available - WC_Order class missing');
+            $this->helper->error('OrderProcessor: WooCommerce not available');
             return;
         }
         
         $order = wc_get_order($order_id);
         if (!$order) {
-            $this->helper->debug('❌ OrderProcessor: Order not found', $order_id);
+            $this->helper->error('OrderProcessor: Order not found', ['order_id' => $order_id]);
             return;
         }
         
         // Prevent duplicate processing
         $processing_key = '_lgl_processing_' . $order_id;
         if (get_transient($processing_key)) {
-            $this->helper->debug('⏭️ OrderProcessor: Order already being processed, skipping duplicate', [
-                'order_id' => $order_id,
-                'hook' => current_action()
-            ]);
+            // Removed verbose debug - duplicate processing is handled silently
             return;
         }
         
         // Check if already processed
         $processed_at = $order->get_meta('_lgl_processed_at');
         if ($processed_at) {
-            $this->helper->debug('⏭️ OrderProcessor: Order already processed, skipping', [
-                'order_id' => $order_id,
-                'processed_at' => $processed_at,
-                'hook' => current_action()
-            ]);
+            // Removed verbose debug - already processed orders handled silently
             return;
         }
         
@@ -152,40 +140,20 @@ class OrderProcessor {
         set_transient($processing_key, true, 5 * MINUTE_IN_SECONDS);
         
         try {
-            // Log detailed order information
-            $this->helper->debug('📋 OrderProcessor: Order Details', [
-                'order_id' => $order_id,
-                'order_status' => $order->get_status(),
-                'order_total' => $order->get_total(),
-                'customer_id' => $order->get_customer_id(),
-                'customer_email' => $order->get_billing_email(),
-                'payment_method' => $order->get_payment_method(),
-                'order_date' => $order->get_date_created() ? $order->get_date_created()->format('Y-m-d H:i:s') : 'Unknown',
-                'item_count' => count($order->get_items())
-            ]);
-            
+            // Removed verbose order/customer detail logs - too verbose
             // Get customer and payment information
             $uid = $order->get_customer_id();
-            $this->helper->debug('👤 OrderProcessor: Customer Info', [
-                'user_id' => $uid,
-                'billing_email' => $order->get_billing_email(),
-                'billing_first_name' => $order->get_billing_first_name(),
-                'billing_last_name' => $order->get_billing_last_name(),
-                'billing_phone' => $order->get_billing_phone()
-            ]);
             
             // STEP 1: Process immediate tasks (synchronous - fast)
-            $this->helper->debug('⚡ OrderProcessor: Processing immediate tasks...');
             $order_meta = $this->extractOrderMetadata($order);
             $this->processImmediateTasks($order, $uid, $order_meta);
             
             // STEP 2: Schedule async LGL API sync (non-blocking)
             if ($this->asyncProcessor) {
-                $this->helper->debug('⏰ OrderProcessor: Scheduling async LGL sync...');
                 $this->asyncProcessor->scheduleAsyncProcessing($order_id);
             } else {
                 // Fallback: process synchronously if async processor not available
-                $this->helper->debug('⚠️ OrderProcessor: Async processor not available, processing synchronously');
+                $this->helper->warning('OrderProcessor: Async processor not available, processing synchronously');
                 $this->processLglSyncOnly($order_id);
             }
             
@@ -195,9 +163,8 @@ class OrderProcessor {
             $order->update_meta_data('_lgl_processed_by', current_action());
             $order->save();
             
-            $this->helper->debug('✅ OrderProcessor::processCompletedOrder() COMPLETED', [
+            $this->helper->info('OrderProcessor: Order processed successfully', [
                 'order_id' => $order_id,
-                'final_memory_usage' => memory_get_usage(true) / 1024 / 1024 . 'MB',
                 'async_scheduled' => $this->asyncProcessor !== null
             ]);
             
@@ -221,20 +188,11 @@ class OrderProcessor {
      * @return void
      */
     private function processImmediateTasks(\WC_Order $order, int $uid, array $order_meta): void {
-        $this->helper->debug('⚡ OrderProcessor::processImmediateTasks() STARTED', [
-            'order_id' => $order->get_id(),
-            'user_id' => $uid
-        ]);
-        
         // Update payment method user meta
         $this->updatePaymentMethod($uid, $order);
         
         // Process order products (immediate tasks only - skip LGL API calls)
         $this->processOrderProductsImmediate($order, $uid, $order_meta);
-        
-        $this->helper->debug('✅ OrderProcessor::processImmediateTasks() COMPLETED', [
-            'order_id' => $order->get_id()
-        ]);
     }
     
     /**
@@ -249,19 +207,14 @@ class OrderProcessor {
      * @return void
      */
     public function processLglSyncOnly(int $order_id): void {
-        $this->helper->debug('🔄 OrderProcessor::processLglSyncOnly() STARTED', [
-            'order_id' => $order_id,
-            'timestamp' => current_time('mysql')
-        ]);
-        
         if (!class_exists('WC_Order')) {
-            $this->helper->debug('❌ OrderProcessor: WooCommerce not available');
+            $this->helper->error('OrderProcessor: WooCommerce not available');
             return;
         }
         
         $order = wc_get_order($order_id);
         if (!$order) {
-            $this->helper->debug('❌ OrderProcessor: Order not found', $order_id);
+            $this->helper->error('OrderProcessor: Order not found', ['order_id' => $order_id]);
             return;
         }
         
@@ -270,10 +223,6 @@ class OrderProcessor {
         
         // Process order products (LGL API calls only)
         $this->processOrderProductsLglSync($order, $uid, $order_meta);
-        
-        $this->helper->debug('✅ OrderProcessor::processLglSyncOnly() COMPLETED', [
-            'order_id' => $order_id
-        ]);
     }
     
     /**
@@ -292,11 +241,7 @@ class OrderProcessor {
             update_user_meta($uid, 'payment-method', 'offline');
         }
         
-        $this->helper->debug('OrderProcessor: Payment method updated', [
-            'user_id' => $uid,
-            'payment_method' => $payment_type,
-            'stored_as' => get_user_meta($uid, 'payment-method', true)
-        ]);
+        // Payment method updated - no need to log every update
     }
     
     /**
@@ -331,13 +276,6 @@ class OrderProcessor {
         $attendees = [];
         $create_attendee_cct_flag = false;
         
-        $this->helper->debug('⚡ OrderProcessor::processOrderProductsImmediate() STARTED', [
-            'total_products' => count($products),
-            'user_id' => $uid,
-            'order_id' => $order->get_id(),
-            'mode' => 'immediate_only'
-        ]);
-        
         $i = 0;
         $attendee_index = 0;
         
@@ -347,17 +285,6 @@ class OrderProcessor {
             $product_id = $product_item->get_variation_id() ?: $product_item->get_product_id();
             $parent_id = $product_item->get_variation_id() ? $product_item->get_product_id() : $product_id;
             
-            // Get product categories for debugging
-            $product_categories = wp_get_post_terms($parent_id, 'product_cat', ['fields' => 'slugs']);
-            
-            $this->helper->debug('🔍 OrderProcessor: Processing Product #' . ($i + 1) . ' (IMMEDIATE)', [
-                'name' => $product_name,
-                'quantity' => $quantity,
-                'product_id' => $product_id,
-                'parent_id' => $parent_id,
-                'categories' => $product_categories
-            ]);
-            
             // Check product type detection
             $is_membership = $this->isMembershipProduct($parent_id, $product_name);
             $is_class = $this->isLanguageClassProduct($parent_id);
@@ -365,21 +292,12 @@ class OrderProcessor {
             
             // Process different product types (immediate tasks only - skip LGL API calls)
             if ($is_membership) {
-                $this->helper->debug('🎯 OrderProcessor: Processing membership (IMMEDIATE)', [
-                    'product_name' => $product_name
-                ]);
                 $this->processMembershipProductImmediate($uid, $order, $order_meta, $product_item, $product_name);
                 
             } elseif ($is_class) {
-                $this->helper->debug('📚 OrderProcessor: Processing class (IMMEDIATE)', [
-                    'product_name' => $product_name
-                ]);
                 $this->processLanguageClassProductImmediate($uid, $order, $order_meta, $product_item);
                 
             } elseif ($is_event) {
-                $this->helper->debug('🎪 OrderProcessor: Processing event (IMMEDIATE)', [
-                    'product_name' => $product_name
-                ]);
                 $create_attendee_cct_flag = true;
                 
                 // Collect attendee information
@@ -397,7 +315,9 @@ class OrderProcessor {
                     $i++;
                 }
             } else {
-                $this->helper->debug('⚠️ OrderProcessor: UNRECOGNIZED PRODUCT TYPE', [
+                // Unrecognized product type - log as warning for investigation
+                $product_categories = wp_get_post_terms($parent_id, 'product_cat', ['fields' => 'slugs']);
+                $this->helper->warning('OrderProcessor: Unrecognized product type', [
                     'product_name' => $product_name,
                     'product_id' => $product_id,
                     'categories' => $product_categories
@@ -407,15 +327,8 @@ class OrderProcessor {
         
         // Create attendee CCT records if needed
         if ($create_attendee_cct_flag && !empty($attendees)) {
-            $this->helper->debug('👥 OrderProcessor: Creating attendee CCT records', count($attendees));
             $this->createAttendeeCCTRecords($order, $attendees);
         }
-        
-        $this->helper->debug('✅ OrderProcessor::processOrderProductsImmediate() COMPLETED', [
-            'products_processed' => count($products),
-            'events_processed' => count($processed_events),
-            'attendees_created' => count($attendees)
-        ]);
     }
     
     /**
@@ -432,13 +345,6 @@ class OrderProcessor {
         $products = $order->get_items();
         $processed_events = [];
         
-        $this->helper->debug('🔄 OrderProcessor::processOrderProductsLglSync() STARTED', [
-            'total_products' => count($products),
-            'user_id' => $uid,
-            'order_id' => $order->get_id(),
-            'mode' => 'lgl_sync_only'
-        ]);
-        
         $i = 0;
         
         foreach ($products as $product_item) {
@@ -453,22 +359,12 @@ class OrderProcessor {
             
             // Process different product types (LGL API calls only)
             if ($is_membership) {
-                $this->helper->debug('🎯 OrderProcessor: Processing membership (LGL SYNC)', [
-                    'product_name' => $product_name
-                ]);
                 $this->processMembershipProductLglSync($uid, $order, $order_meta, $product_item, $product_name);
                 
             } elseif ($is_class) {
-                $this->helper->debug('📚 OrderProcessor: Processing class (LGL SYNC)', [
-                    'product_name' => $product_name
-                ]);
                 $this->processLanguageClassProductLglSync($uid, $order, $order_meta, $product_item);
                 
             } elseif ($is_event) {
-                $this->helper->debug('🎪 OrderProcessor: Processing event (LGL SYNC)', [
-                    'product_name' => $product_name
-                ]);
-                
                 // Process event registration (LGL sync only)
                 if ($i === 0 && !in_array($parent_id, $processed_events)) {
                     $this->processEventProductLglSync($uid, $order, $order_meta, $product_item);
@@ -479,11 +375,6 @@ class OrderProcessor {
                 }
             }
         }
-        
-        $this->helper->debug('✅ OrderProcessor::processOrderProductsLglSync() COMPLETED', [
-            'products_processed' => count($products),
-            'events_processed' => count($processed_events)
-        ]);
     }
     
     /**
@@ -501,12 +392,6 @@ class OrderProcessor {
         $attendees = [];
         $create_attendee_cct_flag = false;
         
-        $this->helper->debug('🛍️ OrderProcessor::processOrderProducts() STARTED', [
-            'total_products' => count($products),
-            'user_id' => $uid,
-            'order_id' => $order->get_id()
-        ]);
-        
         $i = 0;
         $attendee_index = 0;
         
@@ -516,52 +401,19 @@ class OrderProcessor {
             $product_id = $product_item->get_variation_id() ?: $product_item->get_product_id();
             $parent_id = $product_item->get_variation_id() ? $product_item->get_product_id() : $product_id;
             
-            // Get product categories for debugging
-            $product_categories = wp_get_post_terms($parent_id, 'product_cat', ['fields' => 'slugs']);
-            
-            $this->helper->debug('🔍 OrderProcessor: Processing Product #' . ($i + 1), [
-                'name' => $product_name,
-                'quantity' => $quantity,
-                'product_id' => $product_id,
-                'parent_id' => $parent_id,
-                'categories' => $product_categories,
-                'item_total' => $product_item->get_total(),
-                'item_subtotal' => $product_item->get_subtotal()
-            ]);
-            
             // Check product type detection
             $is_membership = $this->isMembershipProduct($parent_id, $product_name);
             $is_class = $this->isLanguageClassProduct($parent_id);
             $is_event = $this->isEventProduct($parent_id);
             
-            $this->helper->debug('🏷️ OrderProcessor: Product Type Detection', [
-                'product_name' => $product_name,
-                'is_membership' => $is_membership ? 'YES' : 'NO',
-                'is_language_class' => $is_class ? 'YES' : 'NO', 
-                'is_event' => $is_event ? 'YES' : 'NO',
-                'categories' => $product_categories
-            ]);
-            
             // Process different product types
             if ($is_membership) {
-                $this->helper->debug('🎯 OrderProcessor: ROUTING TO MEMBERSHIP HANDLER', [
-                    'product_name' => $product_name,
-                    'handler' => 'MembershipOrderHandler'
-                ]);
                 $this->processMembershipProduct($uid, $order, $order_meta, $product_item, $product_name);
                 
             } elseif ($is_class) {
-                $this->helper->debug('📚 OrderProcessor: ROUTING TO CLASS HANDLER (Legacy)', [
-                    'product_name' => $product_name,
-                    'handler' => 'ClassOrderHandler'
-                ]);
                 $this->processLanguageClassProduct($uid, $order, $order_meta, $product_item);
                 
             } elseif ($is_event) {
-                $this->helper->debug('🎪 OrderProcessor: ROUTING TO EVENT HANDLER', [
-                    'product_name' => $product_name,
-                    'handler' => 'EventOrderHandler'
-                ]);
                 $create_attendee_cct_flag = true;
                 
                 // Collect attendee information
@@ -579,26 +431,20 @@ class OrderProcessor {
                     $i++;
                 }
             } else {
-                $this->helper->debug('⚠️ OrderProcessor: UNRECOGNIZED PRODUCT TYPE', [
+                // Unrecognized product type - log as warning for investigation
+                $product_categories = wp_get_post_terms($parent_id, 'product_cat', ['fields' => 'slugs']);
+                $this->helper->warning('OrderProcessor: Unrecognized product type', [
                     'product_name' => $product_name,
                     'product_id' => $product_id,
-                    'categories' => $product_categories,
-                    'action' => 'Skipping product - no handler available'
+                    'categories' => $product_categories
                 ]);
             }
         }
         
         // Create attendee CCT records if needed
         if ($create_attendee_cct_flag && !empty($attendees)) {
-            $this->helper->debug('👥 OrderProcessor: Creating attendee CCT records', count($attendees));
             $this->createAttendeeCCTRecords($order, $attendees);
         }
-        
-        $this->helper->debug('✅ OrderProcessor::processOrderProducts() COMPLETED', [
-            'products_processed' => count($products),
-            'events_processed' => count($processed_events),
-            'attendees_created' => count($attendees)
-        ]);
     }
     
     /**
@@ -642,12 +488,7 @@ class OrderProcessor {
         
         // If in memberships category but name doesn't match known patterns,
         // still treat as membership (category is authoritative)
-        $this->helper->debug('⚠️ OrderProcessor: Unknown membership product name in memberships category', [
-            'product_name' => $product_name,
-            'parent_id' => $parent_id,
-            'treating_as' => 'membership'
-        ]);
-        
+        // No need to log - category is authoritative
         return true;
     }
     
@@ -688,18 +529,12 @@ class OrderProcessor {
         $product,
         string $product_name
     ): void {
-        $this->helper->debug('🎯 OrderProcessor::processMembershipProductImmediate() STARTED', [
-            'user_id' => $uid,
-            'order_id' => $order->get_id(),
-            'product_name' => $product_name,
-            'mode' => 'immediate_only'
-        ]);
-        
         try {
             $this->membershipHandler->processOrderImmediate($uid, $order, $order_meta, $product, $product_name);
-            $this->helper->debug('✅ OrderProcessor: MembershipOrderHandler (immediate) completed');
         } catch (\Exception $e) {
-            $this->helper->debug('❌ OrderProcessor: MembershipOrderHandler (immediate) FAILED', [
+            $this->helper->error('OrderProcessor: MembershipOrderHandler (immediate) failed', [
+                'order_id' => $order->get_id(),
+                'product_name' => $product_name,
                 'error' => $e->getMessage()
             ]);
             throw $e;
@@ -723,18 +558,12 @@ class OrderProcessor {
         $product,
         string $product_name
     ): void {
-        $this->helper->debug('🎯 OrderProcessor::processMembershipProductLglSync() STARTED', [
-            'user_id' => $uid,
-            'order_id' => $order->get_id(),
-            'product_name' => $product_name,
-            'mode' => 'lgl_sync_only'
-        ]);
-        
         try {
             $this->membershipHandler->processOrderLglSync($uid, $order, $order_meta, $product, $product_name);
-            $this->helper->debug('✅ OrderProcessor: MembershipOrderHandler (LGL sync) completed');
         } catch (\Exception $e) {
-            $this->helper->debug('❌ OrderProcessor: MembershipOrderHandler (LGL sync) FAILED', [
+            $this->helper->error('OrderProcessor: MembershipOrderHandler (LGL sync) failed', [
+                'order_id' => $order->get_id(),
+                'product_name' => $product_name,
                 'error' => $e->getMessage()
             ]);
             throw $e;
@@ -759,17 +588,12 @@ class OrderProcessor {
         $product,
         string $product_name
     ): void {
-        $this->helper->debug('🎯 OrderProcessor::processMembershipProduct() STARTED (LEGACY)', [
-            'user_id' => $uid,
-            'order_id' => $order->get_id(),
-            'product_name' => $product_name
-        ]);
-        
         try {
             $this->membershipHandler->processOrder($uid, $order, $order_meta, $product, $product_name);
-            $this->helper->debug('✅ OrderProcessor: MembershipOrderHandler completed successfully');
         } catch (\Exception $e) {
-            $this->helper->debug('❌ OrderProcessor: MembershipOrderHandler FAILED', [
+            $this->helper->error('OrderProcessor: MembershipOrderHandler (legacy) failed', [
+                'order_id' => $order->get_id(),
+                'product_name' => $product_name,
                 'error' => $e->getMessage()
             ]);
             throw $e;
@@ -791,11 +615,6 @@ class OrderProcessor {
         array $order_meta,
         $product
     ): void {
-        $this->helper->debug('📚 OrderProcessor::processLanguageClassProductImmediate() STARTED', [
-            'user_id' => $uid,
-            'order_id' => $order->get_id(),
-            'mode' => 'immediate_only'
-        ]);
         $this->classHandler->processOrderImmediate($uid, $order, $order_meta, $product);
     }
     
@@ -814,11 +633,6 @@ class OrderProcessor {
         array $order_meta,
         $product
     ): void {
-        $this->helper->debug('📚 OrderProcessor::processLanguageClassProductLglSync() STARTED', [
-            'user_id' => $uid,
-            'order_id' => $order->get_id(),
-            'mode' => 'lgl_sync_only'
-        ]);
         $this->classHandler->processOrderLglSync($uid, $order, $order_meta, $product);
     }
     
@@ -857,11 +671,6 @@ class OrderProcessor {
         array $order_meta,
         $product
     ): void {
-        $this->helper->debug('🎪 OrderProcessor::processEventProductImmediate() STARTED', [
-            'user_id' => $uid,
-            'order_id' => $order->get_id(),
-            'mode' => 'immediate_only'
-        ]);
         $this->eventHandler->processOrderImmediate($uid, $order, $order_meta, $product);
     }
     
@@ -880,11 +689,6 @@ class OrderProcessor {
         array $order_meta,
         $product
     ): void {
-        $this->helper->debug('🎪 OrderProcessor::processEventProductLglSync() STARTED', [
-            'user_id' => $uid,
-            'order_id' => $order->get_id(),
-            'mode' => 'lgl_sync_only'
-        ]);
         $this->eventHandler->processOrderLglSync($uid, $order, $order_meta, $product);
     }
     

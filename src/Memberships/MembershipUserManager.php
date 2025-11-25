@@ -184,14 +184,20 @@ class MembershipUserManager {
      */
     public function updateSubscriptionStatus(int $user_id, string $status): bool {
         if (!array_key_exists($status, self::SUBSCRIPTION_STATUSES)) {
-            $this->helper->debug("Invalid subscription status: {$status}");
+            $this->helper->error('LGL MembershipUserManager: Invalid subscription status', [
+                'user_id' => $user_id,
+                'status' => $status
+            ]);
             return false;
         }
         
         $updated = update_user_meta($user_id, 'user-subscription-status', $status);
         
         if ($updated) {
-            $this->helper->debug("Updated subscription status for user {$user_id} to {$status}");
+            $this->helper->info('LGL MembershipUserManager: Updated subscription status', [
+                'user_id' => $user_id,
+                'status' => $status
+            ]);
             
             // Log the change
             $this->logStatusChange($user_id, 'subscription_status', $status);
@@ -214,7 +220,10 @@ class MembershipUserManager {
         if (is_string($renewal_date)) {
             $timestamp = strtotime($renewal_date);
             if ($timestamp === false) {
-                $this->helper->debug("Invalid renewal date format: {$renewal_date}");
+                $this->helper->error('LGL MembershipUserManager: Invalid renewal date format', [
+                    'user_id' => $user_id,
+                    'renewal_date' => $renewal_date
+                ]);
                 return false;
             }
         } else {
@@ -225,7 +234,10 @@ class MembershipUserManager {
         
         if ($updated) {
             $date_formatted = date('Y-m-d', $timestamp);
-            $this->helper->debug("Updated renewal date for user {$user_id} to {$date_formatted}");
+            $this->helper->info('LGL MembershipUserManager: Updated renewal date', [
+                'user_id' => $user_id,
+                'renewal_date' => $date_formatted
+            ]);
             
             // Log the change
             $this->logStatusChange($user_id, 'renewal_date', $date_formatted);
@@ -247,13 +259,18 @@ class MembershipUserManager {
     public function activateMembership(int $user_id, string $membership_type = 'ui_member', string $renewal_date = ''): bool {
         $user = get_userdata($user_id);
         if (!$user) {
-            $this->helper->debug("User not found: {$user_id}");
+            $this->helper->error('LGL MembershipUserManager: User not found', [
+                'user_id' => $user_id
+            ]);
             return false;
         }
         
         // Validate membership type
         if (!in_array($membership_type, self::UI_MEMBER_ROLES)) {
-            $this->helper->debug("Invalid membership type: {$membership_type}");
+            $this->helper->error('LGL MembershipUserManager: Invalid membership type', [
+                'user_id' => $user_id,
+                'membership_type' => $membership_type
+            ]);
             return false;
         }
         
@@ -270,7 +287,10 @@ class MembershipUserManager {
             }
             $this->updateRenewalDate($user_id, $renewal_date);
             
-            $this->helper->debug("Activated {$membership_type} membership for user {$user_id}");
+            $this->helper->info('LGL MembershipUserManager: Membership activated', [
+                'user_id' => $user_id,
+                'membership_type' => $membership_type
+            ]);
             
             // Log the activation
             $this->logStatusChange($user_id, 'membership_activated', $membership_type);
@@ -278,7 +298,10 @@ class MembershipUserManager {
             return true;
             
         } catch (\Exception $e) {
-            $this->helper->debug("Error activating membership for user {$user_id}: " . $e->getMessage());
+            $this->helper->error('LGL MembershipUserManager: Error activating membership', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage()
+            ]);
             return false;
         }
     }
@@ -293,7 +316,9 @@ class MembershipUserManager {
     public function deactivateMembership(int $user_id, string $reason = 'manual'): bool {
         $user = get_userdata($user_id);
         if (!$user) {
-            $this->helper->debug("User not found: {$user_id}");
+            $this->helper->error('LGL MembershipUserManager: User not found', [
+                'user_id' => $user_id
+            ]);
             return false;
         }
         
@@ -313,7 +338,10 @@ class MembershipUserManager {
                 $this->wpUsers->userDeactivation($user_id, $reason);
             }
             
-            $this->helper->debug("Deactivated membership for user {$user_id} (reason: {$reason})");
+            $this->helper->info('LGL MembershipUserManager: Membership deactivated', [
+                'user_id' => $user_id,
+                'reason' => $reason
+            ]);
             
             // Log the deactivation
             $this->logStatusChange($user_id, 'membership_deactivated', $reason);
@@ -321,7 +349,10 @@ class MembershipUserManager {
             return true;
             
         } catch (\Exception $e) {
-            $this->helper->debug("Error deactivating membership for user {$user_id}: " . $e->getMessage());
+            $this->helper->error('LGL MembershipUserManager: Error deactivating membership', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage()
+            ]);
             return false;
         }
     }
@@ -343,7 +374,6 @@ class MembershipUserManager {
             $table_name
         ));
         if ($table_check !== $table_name) {
-            $this->helper->debug('JetFormBuilder subscriptions table not found');
             return null;
         }
         

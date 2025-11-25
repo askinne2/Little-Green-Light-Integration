@@ -75,9 +75,8 @@ class AsyncFamilyMemberProcessor {
      * @return void
      */
     public function scheduleAsyncProcessing(int $child_user_id, int $parent_user_id, array $context): void {
-        $this->helper->debug('⏰ AsyncFamilyMemberProcessor: Scheduling async processing (WP Cron)', [
-            'child_user_id' => $child_user_id,
-            'parent_user_id' => $parent_user_id
+        $this->helper->debug('LGL AsyncFamilyMemberProcessor: Scheduling async processing', [
+            'child_user_id' => $child_user_id
         ]);
         
         // Store context data in user meta for async processing
@@ -92,30 +91,16 @@ class AsyncFamilyMemberProcessor {
         if ($scheduled === false) {
             // Check if already scheduled (prevents duplicates)
             $next_scheduled = wp_next_scheduled(self::CRON_HOOK, [$child_user_id]);
-            if ($next_scheduled) {
-                $this->helper->debug('⚠️ AsyncFamilyMemberProcessor: Cron already scheduled', [
-                    'child_user_id' => $child_user_id,
-                    'next_run' => date('Y-m-d H:i:s', $next_scheduled)
-                ]);
-            } else {
-                $this->helper->debug('❌ AsyncFamilyMemberProcessor: Failed to schedule cron', [
+            if (!$next_scheduled) {
+                $this->helper->error('LGL AsyncFamilyMemberProcessor: Failed to schedule cron', [
                     'child_user_id' => $child_user_id
                 ]);
             }
         } else {
-            $this->helper->debug('✅ AsyncFamilyMemberProcessor: WP Cron event scheduled', [
-                'child_user_id' => $child_user_id,
-                'hook' => self::CRON_HOOK,
-                'scheduled_for' => date('Y-m-d H:i:s', time())
-            ]);
-            
             // Trigger cron immediately (non-blocking) to ensure it runs
             // This uses WordPress's spawn_cron() which makes a non-blocking HTTP request
             if (!defined('DISABLE_WP_CRON') || !constant('DISABLE_WP_CRON')) {
                 spawn_cron();
-                $this->helper->debug('🚀 AsyncFamilyMemberProcessor: Triggered cron spawn for immediate execution', [
-                    'child_user_id' => $child_user_id
-                ]);
             }
         }
     }
@@ -127,14 +112,12 @@ class AsyncFamilyMemberProcessor {
      * @return void
      */
     public function handleAsyncRequest(int $child_user_id): void {
-        $this->helper->debug('🔄 AsyncFamilyMemberProcessor: Processing family member async (WP Cron)', [
-            'child_user_id' => $child_user_id,
-            'timestamp' => current_time('mysql'),
-            'cron_hook' => self::CRON_HOOK
+        $this->helper->info('LGL AsyncFamilyMemberProcessor: Processing family member async', [
+            'child_user_id' => $child_user_id
         ]);
         
         if (!$child_user_id || $child_user_id <= 0) {
-            $this->helper->debug('❌ AsyncFamilyMemberProcessor: Invalid child user ID', [
+            $this->helper->error('LGL AsyncFamilyMemberProcessor: Invalid child user ID', [
                 'child_user_id' => $child_user_id
             ]);
             return;
@@ -143,9 +126,8 @@ class AsyncFamilyMemberProcessor {
         // Check if already processed (prevent duplicate processing)
         $already_processed = get_user_meta($child_user_id, '_lgl_async_processed', true);
         if ($already_processed) {
-            $this->helper->debug('⏭️ AsyncFamilyMemberProcessor: Family member already processed, skipping', [
-                'child_user_id' => $child_user_id,
-                'processed_at' => get_user_meta($child_user_id, '_lgl_async_processed_at', true)
+            $this->helper->info('LGL AsyncFamilyMemberProcessor: Family member already processed, skipping', [
+                'child_user_id' => $child_user_id
             ]);
             return;
         }
@@ -155,10 +137,9 @@ class AsyncFamilyMemberProcessor {
         $context = get_user_meta($child_user_id, '_lgl_async_context', true);
         
         if (!$parent_user_id || empty($context)) {
-            $this->helper->debug('❌ AsyncFamilyMemberProcessor: Missing context data', [
+            $this->helper->error('LGL AsyncFamilyMemberProcessor: Missing context data', [
                 'child_user_id' => $child_user_id,
-                'parent_user_id' => $parent_user_id,
-                'has_context' => !empty($context)
+                'parent_user_id' => $parent_user_id
             ]);
             return;
         }
@@ -175,13 +156,6 @@ class AsyncFamilyMemberProcessor {
             // Process LGL registration
             $result = $registrationService->register($context);
             
-            $this->helper->debug('✅ AsyncFamilyMemberProcessor: LGL registration completed', [
-                'child_user_id' => $child_user_id,
-                'lgl_id' => $result['lgl_id'] ?? null,
-                'created' => $result['created'] ?? false,
-                'status' => $result['status'] ?? 'unknown'
-            ]);
-            
             // Create LGL constituent relationship if registration succeeded
             if (!empty($result['lgl_id'])) {
                 $child_lgl_id = (int) $result['lgl_id'];
@@ -196,17 +170,15 @@ class AsyncFamilyMemberProcessor {
             delete_user_meta($child_user_id, '_lgl_async_queued');
             delete_user_meta($child_user_id, '_lgl_async_context');
             
-            $this->helper->debug('✅ AsyncFamilyMemberProcessor: Async processing completed', [
-                'child_user_id' => $child_user_id
+            $this->helper->info('LGL AsyncFamilyMemberProcessor: Async processing completed', [
+                'child_user_id' => $child_user_id,
+                'lgl_id' => $result['lgl_id'] ?? null
             ]);
             
         } catch (\Exception $e) {
-            $this->helper->debug('❌ AsyncFamilyMemberProcessor: Async processing failed', [
+            $this->helper->error('LGL AsyncFamilyMemberProcessor: Async processing failed', [
                 'child_user_id' => $child_user_id,
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
+                'error' => $e->getMessage()
             ]);
             
             // Mark as failed for retry
@@ -217,9 +189,8 @@ class AsyncFamilyMemberProcessor {
             // Re-schedule for retry (in 5 minutes)
             wp_schedule_single_event(time() + (5 * MINUTE_IN_SECONDS), self::CRON_HOOK, [$child_user_id]);
             
-            $this->helper->debug('🔄 AsyncFamilyMemberProcessor: Re-scheduled for retry', [
-                'child_user_id' => $child_user_id,
-                'retry_in' => '5 minutes'
+            $this->helper->warning('LGL AsyncFamilyMemberProcessor: Re-scheduled for retry', [
+                'child_user_id' => $child_user_id
             ]);
         }
     }
@@ -236,7 +207,7 @@ class AsyncFamilyMemberProcessor {
         $parent_lgl_id = get_user_meta($parent_user_id, 'lgl_id', true);
         
         if (!$parent_lgl_id) {
-            $this->helper->debug('⚠️ AsyncFamilyMemberProcessor: Parent LGL ID not found, skipping relationship creation', [
+            $this->helper->warning('LGL AsyncFamilyMemberProcessor: Parent LGL ID not found, skipping relationship creation', [
                 'parent_user_id' => $parent_user_id
             ]);
             return;
@@ -247,7 +218,7 @@ class AsyncFamilyMemberProcessor {
         $child_type_id = $this->connection->getRelationshipTypeId('Child');
         
         if (!$parent_type_id || !$child_type_id) {
-            $this->helper->debug('⚠️ AsyncFamilyMemberProcessor: Relationship types not found', [
+            $this->helper->error('LGL AsyncFamilyMemberProcessor: Relationship types not found', [
                 'parent_type_id' => $parent_type_id,
                 'child_type_id' => $child_type_id
             ]);
@@ -262,10 +233,11 @@ class AsyncFamilyMemberProcessor {
         
         if (!empty($child_to_parent['success']) && !empty($child_to_parent['data']['id'])) {
             update_user_meta($child_user_id, 'lgl_family_relationship_id', $child_to_parent['data']['id']);
-            $this->helper->debug('✅ AsyncFamilyMemberProcessor: Created Child->Parent LGL relationship', [
+        } else {
+            $this->helper->error('LGL AsyncFamilyMemberProcessor: Failed to create Child->Parent relationship', [
                 'child_lgl_id' => $child_lgl_id,
                 'parent_lgl_id' => $parent_lgl_id,
-                'relationship_id' => $child_to_parent['data']['id']
+                'error' => $child_to_parent['error'] ?? 'Unknown error'
             ]);
         }
         
@@ -277,10 +249,15 @@ class AsyncFamilyMemberProcessor {
         
         if (!empty($parent_to_child['success']) && !empty($parent_to_child['data']['id'])) {
             update_user_meta($child_user_id, 'lgl_family_relationship_parent_id', $parent_to_child['data']['id']);
-            $this->helper->debug('✅ AsyncFamilyMemberProcessor: Created Parent->Child LGL relationship', [
+            $this->helper->info('LGL AsyncFamilyMemberProcessor: Created LGL family relationships', [
+                'child_lgl_id' => $child_lgl_id,
+                'parent_lgl_id' => $parent_lgl_id
+            ]);
+        } else {
+            $this->helper->error('LGL AsyncFamilyMemberProcessor: Failed to create Parent->Child relationship', [
                 'child_lgl_id' => $child_lgl_id,
                 'parent_lgl_id' => $parent_lgl_id,
-                'relationship_id' => $parent_to_child['data']['id']
+                'error' => $parent_to_child['error'] ?? 'Unknown error'
             ]);
         }
     }
@@ -296,10 +273,8 @@ class AsyncFamilyMemberProcessor {
      * @return void
      */
     public function scheduleAsyncDeactivation(int $child_user_id, int $parent_user_id, array $relationship_ids): void {
-        $this->helper->debug('⏰ AsyncFamilyMemberProcessor: Scheduling async deactivation (WP Cron)', [
-            'child_user_id' => $child_user_id,
-            'parent_user_id' => $parent_user_id,
-            'relationship_ids' => $relationship_ids
+        $this->helper->debug('LGL AsyncFamilyMemberProcessor: Scheduling async deactivation', [
+            'child_user_id' => $child_user_id
         ]);
         
         // Store deactivation data in parent user meta (child may be deleted)
@@ -316,30 +291,16 @@ class AsyncFamilyMemberProcessor {
         
         if ($scheduled === false) {
             $next_scheduled = wp_next_scheduled(self::CRON_HOOK_DEACTIVATION, [$parent_user_id, $child_user_id]);
-            if ($next_scheduled) {
-                $this->helper->debug('⚠️ AsyncFamilyMemberProcessor: Deactivation cron already scheduled', [
-                    'child_user_id' => $child_user_id,
-                    'next_run' => date('Y-m-d H:i:s', $next_scheduled)
-                ]);
-            } else {
-                $this->helper->debug('❌ AsyncFamilyMemberProcessor: Failed to schedule deactivation cron', [
+            if (!$next_scheduled) {
+                $this->helper->error('LGL AsyncFamilyMemberProcessor: Failed to schedule deactivation cron', [
                     'child_user_id' => $child_user_id
                 ]);
             }
         } else {
-            $this->helper->debug('✅ AsyncFamilyMemberProcessor: WP Cron deactivation event scheduled', [
-                'child_user_id' => $child_user_id,
-                'hook' => self::CRON_HOOK_DEACTIVATION,
-                'scheduled_for' => date('Y-m-d H:i:s', time())
-            ]);
-            
             // Trigger cron immediately (non-blocking) to ensure it runs
             // This uses WordPress's spawn_cron() which makes a non-blocking HTTP request
             if (!defined('DISABLE_WP_CRON') || !constant('DISABLE_WP_CRON')) {
                 spawn_cron();
-                $this->helper->debug('🚀 AsyncFamilyMemberProcessor: Triggered cron spawn for immediate execution', [
-                    'child_user_id' => $child_user_id
-                ]);
             }
         }
     }
@@ -352,15 +313,13 @@ class AsyncFamilyMemberProcessor {
      * @return void
      */
     public function handleAsyncDeactivationRequest(int $parent_user_id, int $child_user_id): void {
-        $this->helper->debug('🔄 AsyncFamilyMemberProcessor: Processing family member deactivation async (WP Cron)', [
+        $this->helper->info('LGL AsyncFamilyMemberProcessor: Processing family member deactivation async', [
             'child_user_id' => $child_user_id,
-            'parent_user_id' => $parent_user_id,
-            'timestamp' => current_time('mysql'),
-            'cron_hook' => self::CRON_HOOK_DEACTIVATION
+            'parent_user_id' => $parent_user_id
         ]);
         
         if (!$child_user_id || $child_user_id <= 0 || !$parent_user_id || $parent_user_id <= 0) {
-            $this->helper->debug('❌ AsyncFamilyMemberProcessor: Invalid user IDs', [
+            $this->helper->error('LGL AsyncFamilyMemberProcessor: Invalid user IDs', [
                 'child_user_id' => $child_user_id,
                 'parent_user_id' => $parent_user_id
             ]);
@@ -371,25 +330,16 @@ class AsyncFamilyMemberProcessor {
         $deactivation_key = '_lgl_async_deactivation_' . $child_user_id;
         $deactivation_data = get_user_meta($parent_user_id, $deactivation_key, true);
         
-        $this->helper->debug('🔍 AsyncFamilyMemberProcessor: Checking deactivation data', [
-            'child_user_id' => $child_user_id,
-            'parent_user_id' => $parent_user_id,
-            'deactivation_key' => $deactivation_key,
-            'has_data' => !empty($deactivation_data),
-            'data_keys' => !empty($deactivation_data) ? array_keys($deactivation_data) : []
-        ]);
-        
         if (empty($deactivation_data)) {
             // Check if it was already processed
             $processed_key = '_lgl_async_deactivation_processed_' . $child_user_id;
             $processed_data = get_user_meta($parent_user_id, $processed_key, true);
             
-            $this->helper->debug('⏭️ AsyncFamilyMemberProcessor: Deactivation data not found', [
-                'child_user_id' => $child_user_id,
-                'parent_user_id' => $parent_user_id,
-                'already_processed' => !empty($processed_data),
-                'processed_at' => $processed_data['processed_at'] ?? null
-            ]);
+            if (!empty($processed_data)) {
+                $this->helper->info('LGL AsyncFamilyMemberProcessor: Deactivation already processed, skipping', [
+                    'child_user_id' => $child_user_id
+                ]);
+            }
             return;
         }
         
@@ -404,11 +354,8 @@ class AsyncFamilyMemberProcessor {
                 $response = $this->connection->deleteConstituentRelationship((int) $relationship_ids['child_to_parent']);
                 if ($response['success']) {
                     $deleted_count++;
-                    $this->helper->debug('✅ AsyncFamilyMemberProcessor: Deleted Child->Parent relationship', [
-                        'relationship_id' => $relationship_ids['child_to_parent']
-                    ]);
                 } else {
-                    $this->helper->debug('⚠️ AsyncFamilyMemberProcessor: Failed to delete Child->Parent relationship', [
+                    $this->helper->error('LGL AsyncFamilyMemberProcessor: Failed to delete Child->Parent relationship', [
                         'relationship_id' => $relationship_ids['child_to_parent'],
                         'error' => $response['error'] ?? 'Unknown error'
                     ]);
@@ -420,11 +367,8 @@ class AsyncFamilyMemberProcessor {
                 $response = $this->connection->deleteConstituentRelationship((int) $relationship_ids['parent_to_child']);
                 if ($response['success']) {
                     $deleted_count++;
-                    $this->helper->debug('✅ AsyncFamilyMemberProcessor: Deleted Parent->Child relationship', [
-                        'relationship_id' => $relationship_ids['parent_to_child']
-                    ]);
                 } else {
-                    $this->helper->debug('⚠️ AsyncFamilyMemberProcessor: Failed to delete Parent->Child relationship', [
+                    $this->helper->error('LGL AsyncFamilyMemberProcessor: Failed to delete Parent->Child relationship', [
                         'relationship_id' => $relationship_ids['parent_to_child'],
                         'error' => $response['error'] ?? 'Unknown error'
                     ]);
@@ -443,25 +387,22 @@ class AsyncFamilyMemberProcessor {
                 'deleted_count' => $deleted_count
             ]);
             
-            $this->helper->debug('✅ AsyncFamilyMemberProcessor: Async deactivation completed', [
+            $this->helper->info('LGL AsyncFamilyMemberProcessor: Async deactivation completed', [
                 'child_user_id' => $child_user_id,
                 'relationships_deleted' => $deleted_count
             ]);
             
         } catch (\Exception $e) {
-            $this->helper->debug('❌ AsyncFamilyMemberProcessor: Async deactivation failed', [
+            $this->helper->error('LGL AsyncFamilyMemberProcessor: Async deactivation failed', [
                 'child_user_id' => $child_user_id,
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'error' => $e->getMessage()
             ]);
             
             // Re-schedule for retry (in 5 minutes)
             wp_schedule_single_event(time() + (5 * MINUTE_IN_SECONDS), self::CRON_HOOK_DEACTIVATION, [$parent_user_id, $child_user_id]);
             
-            $this->helper->debug('🔄 AsyncFamilyMemberProcessor: Re-scheduled deactivation for retry', [
-                'child_user_id' => $child_user_id,
-                'retry_in' => '5 minutes'
+            $this->helper->warning('LGL AsyncFamilyMemberProcessor: Re-scheduled deactivation for retry', [
+                'child_user_id' => $child_user_id
             ]);
         }
     }
@@ -479,7 +420,7 @@ class AsyncFamilyMemberProcessor {
         $parent_lgl_id = get_user_meta($parent_user_id, 'lgl_id', true);
         
         if (!$child_lgl_id || !$parent_lgl_id) {
-            $this->helper->debug('⚠️ AsyncFamilyMemberProcessor: Cannot query relationships - missing LGL IDs', [
+            $this->helper->warning('LGL AsyncFamilyMemberProcessor: Cannot query relationships - missing LGL IDs', [
                 'child_lgl_id' => $child_lgl_id,
                 'parent_lgl_id' => $parent_lgl_id
             ]);
@@ -503,7 +444,7 @@ class AsyncFamilyMemberProcessor {
                 }
             }
         } catch (\Exception $e) {
-            $this->helper->debug('⚠️ AsyncFamilyMemberProcessor: Error querying child relationships', [
+            $this->helper->error('LGL AsyncFamilyMemberProcessor: Error querying child relationships', [
                 'error' => $e->getMessage()
             ]);
         }
@@ -529,7 +470,7 @@ class AsyncFamilyMemberProcessor {
                 }
             }
         } catch (\Exception $e) {
-            $this->helper->debug('⚠️ AsyncFamilyMemberProcessor: Error querying parent relationships', [
+            $this->helper->error('LGL AsyncFamilyMemberProcessor: Error querying parent relationships', [
                 'error' => $e->getMessage()
             ]);
         }

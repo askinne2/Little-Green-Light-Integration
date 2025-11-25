@@ -83,15 +83,16 @@ class UserRegistrationAction implements JetFormActionInterface {
      */
     public function handle(array $request, $action_handler): void {
         try {
-        $this->helper->debug('🚀 UserRegistrationAction::handle() STARTED', [
-            'timestamp' => current_time('mysql'),
-            'request_keys' => array_keys($request),
-            'action_handler_type' => is_object($action_handler) ? get_class($action_handler) : gettype($action_handler)
+        $this->helper->info('LGL UserRegistrationAction: Processing user registration', [
+            'user_id' => $request['user_id'] ?? 'N/A',
+            'user_email' => $request['user_email'] ?? 'N/A'
         ]);
         
         // Validate request data
         if (!$this->validateRequest($request)) {
-            $this->helper->debug('❌ UserRegistrationAction: Invalid request data', $request);
+            $this->helper->error('LGL UserRegistrationAction: Invalid request data', [
+                'missing_fields' => $this->getMissingFields($request)
+            ]);
                 $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -103,37 +104,19 @@ class UserRegistrationAction implements JetFormActionInterface {
                 }
         }
         
-        $this->helper->debug('📋 UserRegistrationAction: Processing valid request', [
-            'user_id' => $request['user_id'] ?? 'N/A',
-            'user_email' => $request['user_email'] ?? 'N/A',
-            'membership_type' => $request['ui-membership-type'] ?? 'N/A',
-            'order_id' => $request['inserted_post_id'] ?? 'N/A'
-        ]);
-        
         $uid = (int) $request['user_id'];
         $username = $request['user_firstname'] . '%20' . $request['user_lastname'];
         $email = $request['user_email'];
         $membership_level = $request['ui-membership-type'];
         $method = $request['method'] ?? null; // For family member registration
         
-        $this->helper->debug('👤 UserRegistrationAction: User Details', [
-            'user_id' => $uid,
-            'username' => $username,
-            'email' => $email,
-            'membership_level' => $membership_level,
-            'method' => $method
-        ]);
-        
             // Set payment method
-            $this->helper->debug('💳 UserRegistrationAction: Setting payment method...');
             $this->setPaymentMethod($uid, $request);
             
-            if ($method) {
-                $this->helper->debug("👨‍👩‍👧‍👦 UserRegistrationAction: ADD FAMILY USER, MEMBERSHIP: ", $membership_level);
-            }
-            
             if ($uid === 0) {
-                $this->helper->debug('❌ UserRegistrationAction: No User ID in Request - aborting');
+                $this->helper->error('LGL UserRegistrationAction: No User ID in Request', [
+                    'request_keys' => array_keys($request)
+                ]);
                 $error_message = 'User ID is missing. Please ensure you are logged in and try again.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -147,15 +130,13 @@ class UserRegistrationAction implements JetFormActionInterface {
             
             // Handle family membership role assignment (synchronous - WordPress operation)
             if (!$method) {
-                $this->helper->debug('🏷️ UserRegistrationAction: Assigning membership role...');
                 $this->assignMembershipRole($uid, $membership_level);
             }
             
             // Use async processing if available (speeds up form submission)
             if ($this->asyncProcessor) {
-                $this->helper->debug('⏰ UserRegistrationAction: Scheduling async LGL processing', [
-                    'user_id' => $uid,
-                    'method' => $method
+                $this->helper->debug('LGL UserRegistrationAction: Scheduling async LGL processing', [
+                    'user_id' => $uid
                 ]);
                 
                 try {
@@ -169,40 +150,36 @@ class UserRegistrationAction implements JetFormActionInterface {
                     
                     $this->asyncProcessor->scheduleAsyncProcessing('user_registration', $uid, $context);
                     
-                    $this->helper->debug('✅ UserRegistrationAction: Async LGL processing scheduled', [
+                    $this->helper->info('LGL UserRegistrationAction: User registration completed (async)', [
                         'user_id' => $uid,
-                        'note' => 'LGL API calls will be processed in background via WP Cron'
+                        'membership_level' => $membership_level
                     ]);
                 } catch (\Exception $e) {
-                    $this->helper->debug('⚠️ UserRegistrationAction: Async scheduling failed, falling back to sync', [
+                    $this->helper->warning('LGL UserRegistrationAction: Async scheduling failed, falling back to sync', [
                         'error' => $e->getMessage(),
                         'user_id' => $uid
                     ]);
                     
                     // Fallback to synchronous processing if async fails
                     $this->processRegistrationSync($uid, $request, $username, $method);
+                    $this->helper->info('LGL UserRegistrationAction: User registration completed (sync)', [
+                        'user_id' => $uid,
+                        'membership_level' => $membership_level
+                    ]);
                 }
             } else {
                 // Fallback: synchronous processing if async processor not available
-                $this->helper->debug('⚠️ UserRegistrationAction: Async processor not available, using sync', [
-                    'user_id' => $uid
-                ]);
-                
                 $this->processRegistrationSync($uid, $request, $username, $method);
+                $this->helper->info('LGL UserRegistrationAction: User registration completed (sync)', [
+                    'user_id' => $uid,
+                    'membership_level' => $membership_level
+                ]);
             }
             
-            $this->helper->debug('✅ UserRegistrationAction::handle() COMPLETED SUCCESSFULLY', [
-                'user_id' => $uid,
-                'note' => 'LGL sync scheduled or completed'
-            ]);
-            
         } catch (\Exception $e) {
-            $this->helper->debug('❌ UserRegistrationAction::handle() FAILED', [
+            $this->helper->error('LGL UserRegistrationAction: Registration failed', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'user_id' => $uid ?? null,
-                'trace' => $e->getTraceAsString()
+                'user_id' => $uid ?? null
             ]);
             
             // Re-throw Action_Exception, convert others
@@ -238,7 +215,6 @@ class UserRegistrationAction implements JetFormActionInterface {
         }
         
         update_user_meta($uid, 'payment-method', $payment_method);
-        $this->helper->debug('Payment method set: ', get_user_meta($uid, 'payment-method', true));
     }
     
     /**
@@ -294,12 +270,6 @@ class UserRegistrationAction implements JetFormActionInterface {
         $method,
         string $membership_level
     ): void {
-        $this->helper->debug('➕ UserRegistrationAction::createNewConstituent() STARTED', [
-            'user_id' => $uid,
-            'membership_level' => $membership_level,
-            'is_family_member' => $method ? 'YES' : 'NO'
-        ]);
-        
         // Set membership type before creating constituent
         if (!$method) {
             update_user_meta($uid, 'user-membership-type', $membership_level);
@@ -308,17 +278,15 @@ class UserRegistrationAction implements JetFormActionInterface {
         // Build constituent data from WordPress user
         $constituent_data = $this->buildConstituentData($uid, $request, $method, $membership_level);
         
-        $this->helper->debug('📋 UserRegistrationAction: Built constituent data', $constituent_data);
-        
         try {
             // Create constituent using Connection::createConstituent()
             $response = $this->connection->createConstituent($constituent_data);
             
             if (isset($response['data']['id'])) {
                 $lgl_id = $response['data']['id'];
-                $this->helper->debug('✅ UserRegistrationAction: Created new constituent', [
+                $this->helper->info('LGL UserRegistrationAction: Created new constituent', [
                     'lgl_id' => $lgl_id,
-                    'response' => $response
+                    'user_id' => $uid
                 ]);
                 
                 // Store LGL ID and membership type
@@ -337,8 +305,9 @@ class UserRegistrationAction implements JetFormActionInterface {
                 $this->connection->resetNewConstituentFlag();
                 
             } else {
-                $this->helper->debug('❌ UserRegistrationAction: Failed to create constituent', [
-                    'response' => $response
+                $this->helper->error('LGL UserRegistrationAction: Failed to create constituent', [
+                    'user_id' => $uid,
+                    'error' => $response['error'] ?? 'Unknown error'
                 ]);
                 $error_message = 'Failed to create your account. Please try again or contact support if the problem persists.';
                 
@@ -352,10 +321,9 @@ class UserRegistrationAction implements JetFormActionInterface {
             }
             
         } catch (\Exception $e) {
-            $this->helper->debug('❌ UserRegistrationAction: Exception creating constituent', [
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+            $this->helper->error('LGL UserRegistrationAction: Exception creating constituent', [
+                'user_id' => $uid,
+                'error' => $e->getMessage()
             ]);
             
             // Re-throw Action_Exception, convert others
@@ -398,37 +366,29 @@ class UserRegistrationAction implements JetFormActionInterface {
      */
     private function processRegistrationSync(int $uid, array $request, string $username, $method): void {
         // Search for existing LGL contact
-        $this->helper->debug('🔍 UserRegistrationAction: Searching for existing LGL contact...');
         $emails = $this->collectCandidateEmails($uid, $request);
         $match = $this->connection->searchByName($username, $emails);
         $lgl_id = $match['id'] ?? null;
 
-        $this->helper->debug('🔍 UserRegistrationAction: LGL search result', [
+        $this->helper->debug('LGL UserRegistrationAction: LGL search result', [
             'lgl_id' => $lgl_id,
-            'found_existing' => $lgl_id ? 'YES' : 'NO',
-            'match_method' => $match['method'] ?? null,
-            'matched_email' => $match['email'] ?? null
+            'found_existing' => $lgl_id ? true : false
         ]);
 
         // Follow Logic Model: Always add membership and payment objects regardless of user existence
         if (!$lgl_id) {
             // CREATE LGL USER [Constituents::createConstituent()]
-            $this->helper->debug('➕ UserRegistrationAction: Creating new LGL constituent...');
             $lgl_id = $this->createConstituent($uid, $request);
             update_user_meta($uid, 'lgl_id', $lgl_id);
         } else {
             // UPDATE LGL USER [Constituents::updateConstituent()]
-            $this->helper->debug('🔄 UserRegistrationAction: Updating existing LGL constituent...');
             $this->updateConstituent($uid, $lgl_id, $request);
         }
         
         // ADD LGL PAYMENT OBJECT [Payments::createGift()] - ONLY FOR PAID REGISTRATIONS
         // Skip payment object creation for family members (they don't pay, parent already paid)
         if (!$method) {
-            $this->helper->debug('💳 UserRegistrationAction: Adding payment object...');
             $this->addPaymentObject($uid, $lgl_id, $request);
-        } else {
-            $this->helper->debug('⏭️ UserRegistrationAction: Skipping payment object (family member registration)');
         }
     }
     
@@ -461,7 +421,10 @@ class UserRegistrationAction implements JetFormActionInterface {
         }
 
         $lgl_id = (string) $response['data']['id'];
-        $this->helper->debug('✅ Created LGL constituent', ['lgl_id' => $lgl_id]);
+        $this->helper->info('LGL UserRegistrationAction: Created LGL constituent', [
+            'lgl_id' => $lgl_id,
+            'user_id' => $uid
+        ]);
 
         return $lgl_id;
     }
@@ -475,19 +438,16 @@ class UserRegistrationAction implements JetFormActionInterface {
         $constituent_data = $constituents->updateConstituent($lgl_id);
         
         $this->connection->updateConstituent($lgl_id, $constituent_data);
-        $this->helper->debug('✅ Updated LGL constituent', ['lgl_id' => $lgl_id]);
+        $this->helper->info('LGL UserRegistrationAction: Updated LGL constituent', [
+            'lgl_id' => $lgl_id,
+            'user_id' => $uid
+        ]);
     }
     
     /**
      * Add payment object (Logic Model: Payments::createGift())
      */
     private function addPaymentObject(int $uid, string $lgl_id, array $request): void {
-        $this->helper->debug('💳 UserRegistrationAction: Starting payment creation', [
-            'uid' => $uid,
-            'lgl_id' => $lgl_id,
-            'request_keys' => array_keys($request)
-        ]);
-        
         try {
             $payments = \UpstateInternational\LGL\LGL\Payments::getInstance();
             
@@ -496,13 +456,6 @@ class UserRegistrationAction implements JetFormActionInterface {
             $price = (float)($request['price'] ?? 0);
             $date = date('Y-m-d');
             $payment_type = $request['payment_method'] ?? $request['payment_type'] ?? 'online';
-            
-            $this->helper->debug('💳 Payment details extracted', [
-                'order_id' => $order_id,
-                'price' => $price,
-                'date' => $date,
-                'payment_type' => $payment_type
-            ]);
             
             // Validate required data
             if ($order_id <= 0) {
@@ -521,7 +474,7 @@ class UserRegistrationAction implements JetFormActionInterface {
                 throw new \Exception('Payment creation failed: ' . ($payment_result['error'] ?? 'Unknown error'));
             }
             
-            $this->helper->debug('✅ Added payment object successfully', [
+            $this->helper->info('LGL UserRegistrationAction: Added payment object', [
                 'payment_id' => $payment_result['id'] ?? 'N/A',
                 'lgl_id' => $lgl_id,
                 'order_id' => $order_id,
@@ -529,9 +482,9 @@ class UserRegistrationAction implements JetFormActionInterface {
             ]);
             
         } catch (\Exception $e) {
-            $this->helper->debug('❌ Payment creation failed', [
+            $this->helper->error('LGL UserRegistrationAction: Payment creation failed', [
                 'error' => $e->getMessage(),
-                'uid' => $uid,
+                'user_id' => $uid,
                 'lgl_id' => $lgl_id
             ]);
             // Don't throw - let the process continue even if payment fails
@@ -601,14 +554,14 @@ class UserRegistrationAction implements JetFormActionInterface {
         
         foreach ($required_fields as $field) {
             if (!isset($request[$field]) || empty($request[$field])) {
-                $this->helper->debug("UserRegistrationAction: Missing required field: {$field}");
+                $this->helper->debug("LGL UserRegistrationAction: Missing required field", ['field' => $field]);
                 return false;
             }
         }
         
         // Validate user_id is numeric and positive
         if (!isset($request['user_id']) || !is_numeric($request['user_id']) || (int)$request['user_id'] < 0) {
-            $this->helper->debug('UserRegistrationAction: Invalid user_id');
+            $this->helper->debug('LGL UserRegistrationAction: Invalid user_id', ['user_id' => $request['user_id'] ?? null]);
             return false;
         }
         
@@ -628,6 +581,25 @@ class UserRegistrationAction implements JetFormActionInterface {
             'user_email',
             'ui-membership-type'
         ];
+    }
+    
+    /**
+     * Get missing required fields from request
+     * 
+     * @param array $request Request data
+     * @return array<string> Missing field names
+     */
+    private function getMissingFields(array $request): array {
+        $required_fields = $this->getRequiredFields();
+        $missing = [];
+        
+        foreach ($required_fields as $field) {
+            if (!isset($request[$field]) || empty($request[$field])) {
+                $missing[] = $field;
+            }
+        }
+        
+        return $missing;
     }
     
     /**
@@ -659,12 +631,6 @@ class UserRegistrationAction implements JetFormActionInterface {
         $last_name = $request['user_lastname'] ?? get_user_meta($uid, 'last_name', true) ?: $user_info->last_name;
         $email = $request['user_email'] ?? get_user_meta($uid, 'user_email', true) ?: $user_info->user_email;
         
-        $this->helper->debug('👤 UserRegistrationAction: Extracted user data', [
-            'first_name' => $first_name,
-            'last_name' => $last_name,
-            'email' => $email
-        ]);
-        
         // Build base constituent data
         $constituent_data = [
             'external_constituent_id' => $uid,
@@ -682,10 +648,6 @@ class UserRegistrationAction implements JetFormActionInterface {
         // Handle family member relationships
         if ($method && isset($request['parent_user_id'])) {
             $parent_lgl_id = get_user_meta($request['parent_user_id'], 'lgl_id', true);
-            $this->helper->debug('👨‍👩‍👧‍👦 UserRegistrationAction: Family member setup', [
-                'parent_user_id' => $request['parent_user_id'],
-                'parent_lgl_id' => $parent_lgl_id
-            ]);
         }
         
         return $constituent_data;
@@ -701,12 +663,6 @@ class UserRegistrationAction implements JetFormActionInterface {
      * @return void
      */
     private function addConstituentExtras(int $lgl_id, int $uid, array $request, $method): void {
-        $this->helper->debug('📝 UserRegistrationAction::addConstituentExtras() STARTED', [
-            'lgl_id' => $lgl_id,
-            'user_id' => $uid,
-            'is_family_member' => $method ? 'YES' : 'NO'
-        ]);
-        
         try {
             // Add email address
             $email = $request['user_email'] ?? get_user_meta($uid, 'user_email', true) ?: get_userdata($uid)->user_email;
@@ -735,7 +691,9 @@ class UserRegistrationAction implements JetFormActionInterface {
             }
             
         } catch (\Exception $e) {
-            $this->helper->debug('❌ UserRegistrationAction::addConstituentExtras() - Exception', [
+            $this->helper->error('LGL UserRegistrationAction: Error adding constituent extras', [
+                'lgl_id' => $lgl_id,
+                'user_id' => $uid,
                 'error' => $e->getMessage()
             ]);
             // Don't throw here - let the main handle() method catch and convert
@@ -759,9 +717,9 @@ class UserRegistrationAction implements JetFormActionInterface {
         
         $response = $this->connection->addEmailAddressSafe($lgl_id, $email_data);
         if (isset($response['skipped']) && $response['skipped']) {
-            $this->helper->debug('⚠️ UserRegistrationAction: Email skipped (already exists)', ['email' => $email]);
+            // Email already exists - no need to log
         } else {
-            $this->helper->debug('✅ UserRegistrationAction: Added email address', ['email' => $email, 'response' => $response]);
+            $this->helper->debug('LGL UserRegistrationAction: Added email address', ['email' => $email]);
         }
     }
     
@@ -781,9 +739,9 @@ class UserRegistrationAction implements JetFormActionInterface {
         
         $response = $this->connection->addPhoneNumberSafe($lgl_id, $phone_data);
         if (isset($response['skipped']) && $response['skipped']) {
-            $this->helper->debug('⚠️ UserRegistrationAction: Phone skipped (already exists)', ['phone' => $phone]);
+            // Phone already exists - no need to log
         } else {
-            $this->helper->debug('✅ UserRegistrationAction: Added phone number', ['phone' => $phone, 'response' => $response]);
+            $this->helper->debug('LGL UserRegistrationAction: Added phone number', ['phone' => $phone]);
         }
     }
     
@@ -809,7 +767,7 @@ class UserRegistrationAction implements JetFormActionInterface {
         // Only add if we have some address data
         if ($address_data['street_address'] || $address_data['city']) {
             $response = $this->connection->makeRequest("constituents/{$lgl_id}/street_addresses.json", 'POST', $address_data, false);
-            $this->helper->debug('✅ UserRegistrationAction: Added address', ['address_data' => $address_data, 'response' => $response]);
+            $this->helper->debug('LGL UserRegistrationAction: Added address', ['lgl_id' => $lgl_id]);
         }
     }
     
@@ -832,7 +790,10 @@ class UserRegistrationAction implements JetFormActionInterface {
             ];
             
             $response = $this->connection->makeRequest("constituents/{$lgl_id}/memberships.json", 'POST', $membership_data, false);
-            $this->helper->debug('✅ UserRegistrationAction: Added membership', ['membership_type' => $membership_type, 'response' => $response]);
+            $this->helper->debug('LGL UserRegistrationAction: Added membership', [
+                'membership_type' => $membership_type,
+                'lgl_id' => $lgl_id
+            ]);
         }
     }
     
@@ -855,10 +816,9 @@ class UserRegistrationAction implements JetFormActionInterface {
             ];
             
             $response = $this->connection->makeRequest("constituents/{$child_lgl_id}/relationships.json", 'POST', $relationship_data, false);
-            $this->helper->debug('✅ UserRegistrationAction: Added family relationship', [
+            $this->helper->debug('LGL UserRegistrationAction: Added family relationship', [
                 'child_lgl_id' => $child_lgl_id,
-                'parent_lgl_id' => $parent_lgl_id,
-                'response' => $response
+                'parent_lgl_id' => $parent_lgl_id
             ]);
             
             // Set membership type for family member

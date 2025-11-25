@@ -12,6 +12,7 @@ namespace UpstateInternational\LGL\Admin;
 
 use UpstateInternational\LGL\LGL\Helper;
 use UpstateInternational\LGL\LGL\ApiSettings;
+use UpstateInternational\LGL\Admin\DebugLogPage;
 
 /**
  * AdminMenuManager Class
@@ -52,6 +53,13 @@ class AdminMenuManager {
      * @var SyncLogPage
      */
     private SyncLogPage $syncLogPage;
+    
+    /**
+     * Debug log page renderer
+     *
+     * @var DebugLogPage
+     */
+    private ?DebugLogPage $debugLogPage = null;
     
     /**
      * Settings Manager service (lazy-loaded to avoid circular dependency)
@@ -118,6 +126,15 @@ class AdminMenuManager {
         $this->testingToolsPage = $testingToolsPage;
         $this->emailBlockingPage = $emailBlockingPage;
         $this->orderEmailSettingsPage = $orderEmailSettingsPage;
+    }
+    
+    /**
+     * Set debug log page
+     * 
+     * @param DebugLogPage $debugLogPage Debug log page renderer
+     */
+    public function setDebugLogPage(DebugLogPage $debugLogPage): void {
+        $this->debugLogPage = $debugLogPage;
     }
     
     /**
@@ -231,6 +248,18 @@ class AdminMenuManager {
             'lgl-sync-log',
             [$this, 'renderSyncLog']
         );
+
+        // Debug Log
+        if ($this->debugLogPage) {
+            add_submenu_page(
+                self::MAIN_MENU_SLUG,
+                'Debug Log',
+                'Debug Log',
+                'manage_options',
+                'lgl-debug-log',
+                [$this, 'renderDebugLog']
+            );
+        }
 
         // Subscription Management
         if (class_exists('WC_Subscriptions')) {
@@ -570,6 +599,17 @@ class AdminMenuManager {
      */
     public function renderSyncLog(): void {
         $this->syncLogPage->render();
+    }
+    
+    /**
+     * Render debug log page
+     */
+    public function renderDebugLog(): void {
+        if ($this->debugLogPage) {
+            $this->debugLogPage->render();
+        } else {
+            wp_die('Debug log page not available.');
+        }
     }
     
     /**
@@ -1407,6 +1447,24 @@ class AdminMenuManager {
                                    <?php checked(!empty($settings['debug_mode'])); ?> />
                             Enable debug logging
                         </label>
+                        <p class="description">When enabled, logs are written to <code>src/logs/lgl-api.log</code></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="lgl_log_level">Log Level</label></th>
+                    <td>
+                        <select name="lgl_log_level" id="lgl_log_level" class="regular-text">
+                            <option value="error" <?php selected($settings['log_level'] ?? 'debug', 'error'); ?>>Error Only</option>
+                            <option value="warning" <?php selected($settings['log_level'] ?? 'debug', 'warning'); ?>>Warning & Error</option>
+                            <option value="info" <?php selected($settings['log_level'] ?? 'debug', 'info'); ?>>Info, Warning & Error</option>
+                            <option value="debug" <?php selected($settings['log_level'] ?? 'debug', 'debug'); ?>>Debug (All Messages)</option>
+                        </select>
+                        <p class="description">
+                            <strong>Error:</strong> Only critical errors<br>
+                            <strong>Warning:</strong> Errors + warnings<br>
+                            <strong>Info:</strong> Errors + warnings + informational messages<br>
+                            <strong>Debug:</strong> All messages (most verbose)
+                        </p>
                     </td>
                 </tr>
                 <tr>

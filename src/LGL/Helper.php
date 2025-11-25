@@ -51,6 +51,14 @@ class Helper {
     // Removed hardcoded constant - now uses ApiSettings checkbox
     
     /**
+     * Log levels
+     */
+    const LOG_LEVEL_ERROR = 'error';
+    const LOG_LEVEL_WARNING = 'warning';
+    const LOG_LEVEL_INFO = 'info';
+    const LOG_LEVEL_DEBUG = 'debug';
+    
+    /**
      * Get instance
      * 
      * @return Helper
@@ -79,8 +87,10 @@ class Helper {
         $timestamp = current_time('Y-m-d H:i:s');
         $log_entry = "[{$timestamp}] [{$level}] {$message}" . PHP_EOL;
         
-        // Log to WordPress error log
-        error_log("LGL Helper [{$level}]: {$message}");
+        // Log to WordPress error log ONLY for errors
+        if ($level === self::LOG_LEVEL_ERROR) {
+            error_log("LGL Helper [ERROR]: {$message}");
+        }
         
         // Log to file if debug mode is enabled
         if ($this->isDebugMode()) {
@@ -106,7 +116,49 @@ class Helper {
      * @param mixed $data Optional data to display
      */
     public function debug(string $message, $data = null): void {
-        if (!$this->isDebugMode()) {
+        $this->logMessage(self::LOG_LEVEL_DEBUG, $message, $data);
+    }
+    
+    /**
+     * Log error message
+     * 
+     * @param string $message Error message
+     * @param mixed $data Optional data to display
+     */
+    public function error(string $message, $data = null): void {
+        $this->logMessage(self::LOG_LEVEL_ERROR, $message, $data);
+    }
+    
+    /**
+     * Log warning message
+     * 
+     * @param string $message Warning message
+     * @param mixed $data Optional data to display
+     */
+    public function warning(string $message, $data = null): void {
+        $this->logMessage(self::LOG_LEVEL_WARNING, $message, $data);
+    }
+    
+    /**
+     * Log info message
+     * 
+     * @param string $message Info message
+     * @param mixed $data Optional data to display
+     */
+    public function info(string $message, $data = null): void {
+        $this->logMessage(self::LOG_LEVEL_INFO, $message, $data);
+    }
+    
+    /**
+     * Log message with level checking
+     * 
+     * @param string $level Log level (error, warning, info, debug)
+     * @param string $message Message to log
+     * @param mixed $data Optional data to display
+     */
+    private function logMessage(string $level, string $message, $data = null): void {
+        // Check if this log level should be written
+        if (!$this->shouldLogLevel($level)) {
             return;
         }
         
@@ -116,14 +168,17 @@ class Helper {
             $log_message .= ' ' . print_r($data, true);
         }
         
-        // Only log once to WordPress error log (no duplicate through $this->log())
-        error_log("LGL Debug: {$log_message}");
+        // Log to WordPress error log ONLY for errors (not warnings/info/debug)
+        // This prevents PHP error log spam while still capturing critical errors
+        if ($level === self::LOG_LEVEL_ERROR) {
+            error_log("LGL [ERROR]: {$log_message}");
+        }
         
         // Fire WordPress action for shortcodes to capture debug messages
         do_action('lgl_debug_message', $message, $data);
         
-        // Also display in browser if WP_DEBUG is enabled
-        if (defined('WP_DEBUG') && WP_DEBUG) {
+        // Also display in browser if WP_DEBUG is enabled (only for debug level)
+        if ($level === self::LOG_LEVEL_DEBUG && defined('WP_DEBUG') && WP_DEBUG) {
             $output = '<div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin: 5px 0; border-radius: 3px; font-family: monospace; font-size: 12px;">';
             $output .= '<strong style="color: #856404;">🔍 LGL Debug:</strong> ' . esc_html($message);
             
@@ -137,10 +192,10 @@ class Helper {
             echo $output;
         }
         
-        // Also log to file if enabled (but don't duplicate in error.log)
+        // Log to file if enabled
         if ($this->isDebugMode()) {
             $timestamp = current_time('Y-m-d H:i:s');
-            $log_entry = "[{$timestamp}] [debug] {$log_message}" . PHP_EOL;
+            $log_entry = "[{$timestamp}] [{$level}] {$log_message}" . PHP_EOL;
             $log_file = plugin_dir_path(__DIR__) . self::LOG_FILE;
             $log_dir = dirname($log_file);
             
@@ -153,6 +208,36 @@ class Helper {
             
             file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
         }
+    }
+    
+    /**
+     * Check if a log level should be written based on settings
+     * 
+     * @param string $level Log level to check
+     * @return bool True if should log
+     */
+    private function shouldLogLevel(string $level): bool {
+        if (!$this->isDebugMode()) {
+            // If debug mode is off, only log errors
+            return $level === self::LOG_LEVEL_ERROR;
+        }
+        
+        // Get log level setting
+        $settings = get_option('lgl_integration_settings', []);
+        $log_level = $settings['log_level'] ?? 'debug'; // Default to debug for backward compatibility
+        
+        // Map levels to priority
+        $level_priority = [
+            self::LOG_LEVEL_ERROR => 1,
+            self::LOG_LEVEL_WARNING => 2,
+            self::LOG_LEVEL_INFO => 3,
+            self::LOG_LEVEL_DEBUG => 4
+        ];
+        
+        $min_priority = $level_priority[$log_level] ?? 4;
+        $current_priority = $level_priority[$level] ?? 4;
+        
+        return $current_priority <= $min_priority;
     }
     
     /**

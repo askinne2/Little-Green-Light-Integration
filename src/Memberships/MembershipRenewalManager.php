@@ -85,7 +85,7 @@ class MembershipRenewalManager {
      * @return array Processing results
      */
     public function processAllMembers(): array {
-        $this->helper->debug('Starting membership renewal processing');
+        $this->helper->info('LGL MembershipRenewalManager: Starting membership renewal processing');
         
         // Memory check before processing
         $memory_limit = $this->getMemoryLimitBytes();
@@ -93,10 +93,9 @@ class MembershipRenewalManager {
         $memory_threshold = $memory_limit * 0.75; // Use 75% threshold
         
         if ($current_memory > $memory_threshold) {
-            $this->helper->debug('Warning: High memory usage before processing', [
+            $this->helper->warning('LGL MembershipRenewalManager: High memory usage before processing', [
                 'current_mb' => round($current_memory / 1024 / 1024, 2),
-                'limit_mb' => round($memory_limit / 1024 / 1024, 2),
-                'threshold_mb' => round($memory_threshold / 1024 / 1024, 2)
+                'limit_mb' => round($memory_limit / 1024 / 1024, 2)
             ]);
         }
         
@@ -123,7 +122,7 @@ class MembershipRenewalManager {
                     // Check memory before each member
                     $current_memory = memory_get_usage(true);
                     if ($current_memory > $memory_threshold) {
-                        $this->helper->debug('Memory threshold reached, pausing processing', [
+                        $this->helper->warning('LGL MembershipRenewalManager: Memory threshold reached, pausing processing', [
                             'current_mb' => round($current_memory / 1024 / 1024, 2),
                             'processed' => $results['processed']
                         ]);
@@ -149,9 +148,9 @@ class MembershipRenewalManager {
                         'user_id' => $member->ID,
                         'error' => $this->getSafeErrorMessage($e)
                     ];
-                    $this->helper->debug('Error processing member ' . $member->ID . ': ' . $e->getMessage(), [
-                        'file' => $e->getFile(),
-                        'line' => $e->getLine()
+                    $this->helper->error('LGL MembershipRenewalManager: Error processing member', [
+                        'user_id' => $member->ID,
+                        'error' => $e->getMessage()
                     ]);
                 }
             }
@@ -165,10 +164,11 @@ class MembershipRenewalManager {
             
         } while (count($members) === $batch_size);
         
-        $final_memory = memory_get_usage(true);
-        $this->helper->debug('Membership renewal processing completed', [
-            'results' => $results,
-            'memory_used_mb' => round(($final_memory - $current_memory) / 1024 / 1024, 2)
+        $this->helper->info('LGL MembershipRenewalManager: Processing completed', [
+            'processed' => $results['processed'],
+            'notified' => $results['notified'],
+            'deactivated' => $results['deactivated'],
+            'errors' => count($results['errors'])
         ]);
         
         return $results;
@@ -259,7 +259,6 @@ class MembershipRenewalManager {
         
         // Check renewal strategy - skip if WooCommerce manages this user
         if ($this->strategyManager && $this->strategyManager->getRenewalStrategy($user_id) === RenewalStrategyManager::STRATEGY_WOOCOMMERCE) {
-            $this->helper->debug("Skipping user {$user_id} - managed by WooCommerce Subscriptions");
             return ['action' => 'skipped', 'reason' => 'wc_subscriptions_active'];
         }
         
@@ -268,13 +267,11 @@ class MembershipRenewalManager {
         $subscription_status = get_user_meta($user_id, 'user-subscription-status', true);
         
         if (empty($renewal_timestamp)) {
-            $this->helper->debug('Skipping user ' . $user_id . ' - no renewal date set');
             return ['action' => 'skipped', 'reason' => 'no_renewal_date'];
         }
         
         // Only process in-person memberships for now
         if ($subscription_status !== 'in-person') {
-            $this->helper->debug('Skipping user ' . $user_id . ' - not in-person membership');
             return ['action' => 'skipped', 'reason' => 'not_in_person'];
         }
         
@@ -282,8 +279,6 @@ class MembershipRenewalManager {
         $today = new \DateTime();
         $interval = $today->diff($renewal_date);
         $days_until_renewal = (int) $interval->format('%r%a');
-        
-        $this->helper->debug("User {$user_id}: {$days_until_renewal} days until renewal");
         
         // Check if action is needed
         if ($days_until_renewal === -self::GRACE_PERIOD_DAYS) {
@@ -310,8 +305,6 @@ class MembershipRenewalManager {
         $user_email = $user_data->user_email;
         $first_name = ucfirst(get_user_meta($user_id, 'first_name', true) ?: $user_data->display_name);
         
-        $this->helper->debug("Sending renewal notification to {$user_email} ({$days_until_renewal} days)");
-        
         $notification_sent = $this->mailer->sendRenewalNotification(
             $user_email,
             $first_name,
@@ -319,7 +312,10 @@ class MembershipRenewalManager {
         );
         
         if ($notification_sent) {
-            $this->helper->debug('Renewal notification sent successfully');
+            $this->helper->info('LGL MembershipRenewalManager: Renewal notification sent', [
+                'user_id' => $user_id,
+                'days_until_renewal' => $days_until_renewal
+            ]);
             return [
                 'action' => 'notified',
                 'days_until_renewal' => $days_until_renewal,
@@ -338,8 +334,6 @@ class MembershipRenewalManager {
      * @return array Action result
      */
     private function deactivateMembership(int $user_id, \WP_User $user_data): array {
-        $this->helper->debug("Deactivating membership for user {$user_id}");
-        
         // Send final notification
         $user_email = $user_data->user_email;
         $first_name = ucfirst(get_user_meta($user_id, 'first_name', true) ?: $user_data->display_name);
@@ -348,6 +342,10 @@ class MembershipRenewalManager {
         
         // Deactivate user through WP Users service
         $this->wpUsers->userDeactivation($user_id, 'membership_expired');
+        
+        $this->helper->info('LGL MembershipRenewalManager: Membership deactivated', [
+            'user_id' => $user_id
+        ]);
         
         return [
             'action' => 'deactivated',

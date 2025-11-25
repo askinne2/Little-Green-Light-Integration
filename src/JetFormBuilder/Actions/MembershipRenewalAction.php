@@ -101,9 +101,16 @@ class MembershipRenewalAction implements JetFormActionInterface {
      */
     public function handle(array $request, $action_handler): void {
         try {
+        $this->helper->info('LGL MembershipRenewalAction: Processing membership renewal', [
+            'user_id' => $request['user_id'] ?? 'N/A',
+            'order_id' => $request['inserted_post_id'] ?? 'N/A'
+        ]);
+        
         // Validate request data
         if (!$this->validateRequest($request)) {
-            $this->helper->debug('MembershipRenewalAction: Invalid request data', $request);
+            $this->helper->error('LGL MembershipRenewalAction: Invalid request data', [
+                'missing_fields' => $this->getMissingFields($request)
+            ]);
                 $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -117,7 +124,7 @@ class MembershipRenewalAction implements JetFormActionInterface {
         
         $post_id = $request['inserted_post_id'] ?? null;
         if (!$post_id) {
-            $this->helper->debug('MembershipRenewalAction: No post_id provided');
+            $this->helper->error('LGL MembershipRenewalAction: No post_id provided');
                 $error_message = 'Order ID is missing. Please try again or contact support.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -129,8 +136,6 @@ class MembershipRenewalAction implements JetFormActionInterface {
                 }
         }
         
-        $this->helper->debug('MembershipRenewalAction: Processing renewal', $request);
-        
         $uid = (int) $request['user_id'];
         $username = $request['user_name'] ?? '';
         $email = $request['user_email'] ?? '';
@@ -140,7 +145,9 @@ class MembershipRenewalAction implements JetFormActionInterface {
         $order_id = $request['inserted_post_id'];
         
         if ($uid === 0) {
-            $this->helper->debug('No User ID in Request, MembershipRenewalAction');
+            $this->helper->error('LGL MembershipRenewalAction: No User ID in Request', [
+                'request_keys' => array_keys($request)
+            ]);
                 $error_message = 'User ID is missing. Please ensure you are logged in and try again.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -163,7 +170,7 @@ class MembershipRenewalAction implements JetFormActionInterface {
         
         // Use async processing if available (speeds up form submission)
         if ($this->asyncProcessor) {
-            $this->helper->debug('⏰ MembershipRenewalAction: Scheduling async LGL processing', [
+            $this->helper->debug('LGL MembershipRenewalAction: Scheduling async LGL processing', [
                 'user_id' => $uid
             ]);
             
@@ -178,33 +185,36 @@ class MembershipRenewalAction implements JetFormActionInterface {
                 
                 $this->asyncProcessor->scheduleAsyncProcessing('membership_renewal', $uid, $context);
                 
-                $this->helper->debug('✅ MembershipRenewalAction: Async LGL processing scheduled', [
+                $this->helper->info('LGL MembershipRenewalAction: Membership renewal completed (async)', [
                     'user_id' => $uid,
-                    'note' => 'LGL API calls will be processed in background via WP Cron'
+                    'order_id' => $order_id
                 ]);
             } catch (\Exception $e) {
-                $this->helper->debug('⚠️ MembershipRenewalAction: Async scheduling failed, falling back to sync', [
+                $this->helper->warning('LGL MembershipRenewalAction: Async scheduling failed, falling back to sync', [
                     'error' => $e->getMessage(),
                     'user_id' => $uid
                 ]);
                 
                 // Fallback to synchronous processing if async fails
                 $this->processLGLMembershipRenewal($uid, $email, $order_id, $price, $date);
+                $this->helper->info('LGL MembershipRenewalAction: Membership renewal completed (sync)', [
+                    'user_id' => $uid,
+                    'order_id' => $order_id
+                ]);
             }
         } else {
             // Fallback: synchronous processing if async processor not available
-            $this->helper->debug('⚠️ MembershipRenewalAction: Async processor not available, using sync', [
-                'user_id' => $uid
-            ]);
-            
             $this->processLGLMembershipRenewal($uid, $email, $order_id, $price, $date);
+            $this->helper->info('LGL MembershipRenewalAction: Membership renewal completed (sync)', [
+                'user_id' => $uid,
+                'order_id' => $order_id
+            ]);
         }
             
         } catch (\Exception $e) {
-            $this->helper->debug('MembershipRenewalAction: Error occurred', [
+            $this->helper->error('LGL MembershipRenewalAction: Error occurred', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'user_id' => $uid ?? null
             ]);
             
             // Re-throw Action_Exception, convert others
@@ -234,7 +244,6 @@ class MembershipRenewalAction implements JetFormActionInterface {
         $current_start_date = get_user_meta($uid, 'user-membership-start-date', true);
         $new_date = strtotime('+1 year', $current_start_date);
         
-        $this->helper->debug('New renewal date:', date('Y-m-d', $new_date));
         update_user_meta($uid, 'user-membership-renewal-date', $new_date);
     }
     
@@ -247,10 +256,8 @@ class MembershipRenewalAction implements JetFormActionInterface {
      */
     private function updateUserRole(int $uid, string $membership_level): void {
         if (in_array($membership_level, ['Family Membership', 'Patron Family Membership'])) {
-            $this->helper->debug('PRIVILEGE ESCALATION --> FAMILY');
             $this->helper->changeUserRole($uid, 'ui_member', 'ui_patron_owner');
         } elseif (in_array($membership_level, ['Individual Membership', 'Patron Membership'])) {
-            $this->helper->debug('PRIVILEGE RESTRICTION --> INDIVIDUAL');
             $this->helper->changeUserRole($uid, 'ui_patron_owner', 'ui_member');
         }
     }
@@ -276,7 +283,10 @@ class MembershipRenewalAction implements JetFormActionInterface {
         $existing_user = $this->connection->getConstituentData($user_lgl_id);
         
         if (!$existing_user) {
-            $this->helper->debug('MembershipRenewalAction: No existing LGL user found');
+            $this->helper->error('LGL MembershipRenewalAction: No existing LGL user found', [
+                'user_id' => $uid,
+                'lgl_id' => $user_lgl_id
+            ]);
             $error_message = 'Unable to renew membership. Your account was not found. Please contact support.';
             
             if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -289,9 +299,11 @@ class MembershipRenewalAction implements JetFormActionInterface {
         }
         
         $lgl_id = is_array($existing_user) ? ($existing_user['id'] ?? null) : ($existing_user->id ?? null);
-        $this->helper->debug('LGL USER EXISTS: ', $lgl_id);
         
         if (!$lgl_id) {
+            $this->helper->error('LGL MembershipRenewalAction: User ID not found', [
+                'user_id' => $uid
+            ]);
             $error_message = 'Unable to renew membership. User ID not found. Please contact support.';
             
             if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -306,7 +318,11 @@ class MembershipRenewalAction implements JetFormActionInterface {
         // Get detailed user data
         $user = $this->connection->getConstituentData($lgl_id);
         if (!$user) {
-            $this->helper->debug('MembershipRenewalAction: no user found by ID', $email);
+            $this->helper->error('LGL MembershipRenewalAction: User account details not found', [
+                'user_id' => $uid,
+                'lgl_id' => $lgl_id,
+                'email' => $email
+            ]);
             $error_message = 'Unable to renew membership. User account details not found. Please contact support.';
             
             if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -346,8 +362,6 @@ class MembershipRenewalAction implements JetFormActionInterface {
         $lgl_membership = $memberships[0];
         $mid = $lgl_membership->id;
         
-        $this->helper->debug('Retrieving MEMBERSHIP for renewal', $mid);
-        
         // IMPORTANT: finish_date must be >= date_start per LGL API validation
         $today = date('Y-m-d');
         $todayTimestamp = strtotime($today);
@@ -366,7 +380,11 @@ class MembershipRenewalAction implements JetFormActionInterface {
             $result = $this->connection->updateMembership((string)$mid, $updated_membership);
             
             if (empty($result['success'])) {
-                $this->helper->debug('MembershipRenewalAction: couldn\'t update membership: ', $updated_membership);
+                $this->helper->error('LGL MembershipRenewalAction: Failed to update membership', [
+                    'membership_id' => $mid,
+                    'lgl_id' => $lgl_id,
+                    'error' => $result['error'] ?? 'Unknown error'
+                ]);
             }
         }
     }
@@ -381,14 +399,20 @@ class MembershipRenewalAction implements JetFormActionInterface {
     private function addRenewalMembership($lgl_id, int $uid): void {
         $this->constituents->setMembership($uid);
         $membership_data = $this->constituents->getMembershipData();
-        $this->helper->debug('Renewal Membership_Data:', $membership_data);
         
         $result = $this->connection->addMembership($lgl_id, $membership_data);
         
         if (!empty($result['success'])) {
-            $this->helper->debug('Renewal membership added successfully', $result);
+            $this->helper->info('LGL MembershipRenewalAction: Renewal membership added', [
+                'lgl_id' => $lgl_id,
+                'user_id' => $uid
+            ]);
         } else {
-            $this->helper->debug('Failed to add renewal membership', $result);
+            $this->helper->error('LGL MembershipRenewalAction: Failed to add renewal membership', [
+                'lgl_id' => $lgl_id,
+                'user_id' => $uid,
+                'error' => $result['error'] ?? 'Unknown error'
+            ]);
         }
     }
     
@@ -409,13 +433,24 @@ class MembershipRenewalAction implements JetFormActionInterface {
             $payment_id = $payment_data['id'] ?? null;
             
             if ($payment_id) {
-                $this->helper->debug('Renewal Payment ID: ', $payment_id);
+                $this->helper->info('LGL MembershipRenewalAction: Renewal payment added', [
+                    'payment_id' => $payment_id,
+                    'lgl_id' => $lgl_id,
+                    'order_id' => $order_id
+                ]);
             } else {
-                $this->helper->debug('MembershipRenewalAction: Payment created but no ID returned', $payment_data);
+                $this->helper->warning('LGL MembershipRenewalAction: Payment created but no ID returned', [
+                    'lgl_id' => $lgl_id,
+                    'order_id' => $order_id
+                ]);
             }
         } else {
             $error = $payment_data['error'] ?? 'Unknown error';
-            $this->helper->debug('MembershipRenewalAction: Failed to create payment', $error);
+            $this->helper->error('LGL MembershipRenewalAction: Failed to create payment', [
+                'lgl_id' => $lgl_id,
+                'order_id' => $order_id,
+                'error' => $error
+            ]);
         }
     }
     
@@ -466,14 +501,14 @@ class MembershipRenewalAction implements JetFormActionInterface {
         
         foreach ($required_fields as $field) {
             if (!isset($request[$field]) || empty($request[$field])) {
-                $this->helper->debug("MembershipRenewalAction: Missing required field: {$field}");
+                $this->helper->debug("LGL MembershipRenewalAction: Missing required field", ['field' => $field]);
                 return false;
             }
         }
         
         // Validate user_id is numeric and positive
         if (!isset($request['user_id']) || !is_numeric($request['user_id']) || (int)$request['user_id'] <= 0) {
-            $this->helper->debug('MembershipRenewalAction: Invalid user_id');
+            $this->helper->debug('LGL MembershipRenewalAction: Invalid user_id', ['user_id' => $request['user_id'] ?? null]);
             return false;
         }
         
@@ -490,5 +525,24 @@ class MembershipRenewalAction implements JetFormActionInterface {
             'user_id',
             'inserted_post_id'
         ];
+    }
+    
+    /**
+     * Get missing required fields from request
+     * 
+     * @param array $request Request data
+     * @return array<string> Missing field names
+     */
+    private function getMissingFields(array $request): array {
+        $required_fields = $this->getRequiredFields();
+        $missing = [];
+        
+        foreach ($required_fields as $field) {
+            if (!isset($request[$field]) || empty($request[$field])) {
+                $missing[] = $field;
+            }
+        }
+        
+        return $missing;
     }
 }

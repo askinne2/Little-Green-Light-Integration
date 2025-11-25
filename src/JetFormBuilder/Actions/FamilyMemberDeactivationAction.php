@@ -114,32 +114,32 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
     public function validateRequest(array $request): bool {
         // Check required fields
         if (empty($request['parent_user_id'])) {
-            $this->helper->debug('FamilyMemberDeactivationAction: Missing parent_user_id');
+            $this->helper->debug('LGL FamilyMemberDeactivationAction: Missing parent_user_id');
             return false;
         }
         
         if (empty($request['child_users'])) {
-            $this->helper->debug('FamilyMemberDeactivationAction: Missing child_users');
+            $this->helper->debug('LGL FamilyMemberDeactivationAction: Missing child_users');
             return false;
         }
         
         // Validate parent_user_id is numeric
         $parent_id = (int) $request['parent_user_id'];
         if ($parent_id <= 0) {
-            $this->helper->debug('FamilyMemberDeactivationAction: Invalid parent_user_id', ['parent_id' => $parent_id]);
+            $this->helper->debug('LGL FamilyMemberDeactivationAction: Invalid parent_user_id', ['parent_id' => $parent_id]);
             return false;
         }
         
         // Verify parent user exists
         $parent_user = get_user_by('ID', $parent_id);
         if (!$parent_user) {
-            $this->helper->debug('FamilyMemberDeactivationAction: Parent user not found', ['parent_id' => $parent_id]);
+            $this->helper->debug('LGL FamilyMemberDeactivationAction: Parent user not found', ['parent_id' => $parent_id]);
             return false;
         }
         
         // Verify parent has correct role
         if (!in_array('ui_patron_owner', $parent_user->roles)) {
-            $this->helper->debug('FamilyMemberDeactivationAction: Parent does not have ui_patron_owner role', [
+            $this->helper->debug('LGL FamilyMemberDeactivationAction: Parent does not have ui_patron_owner role', [
                 'parent_id' => $parent_id,
                 'roles' => $parent_user->roles
             ]);
@@ -148,11 +148,31 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
         
         // Verify user is logged in
         if (!is_user_logged_in()) {
-            $this->helper->debug('FamilyMemberDeactivationAction: User not logged in');
+            $this->helper->debug('LGL FamilyMemberDeactivationAction: User not logged in');
             return false;
         }
         
         return true;
+    }
+    
+    /**
+     * Get missing required fields from request
+     * 
+     * @param array $request Request data
+     * @return array<string> Missing field names
+     */
+    private function getMissingFields(array $request): array {
+        $missing = [];
+        
+        if (empty($request['parent_user_id'])) {
+            $missing[] = 'parent_user_id';
+        }
+        
+        if (empty($request['child_users'])) {
+            $missing[] = 'child_users';
+        }
+        
+        return $missing;
     }
     
     /**
@@ -164,15 +184,16 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
      */
     public function handle(array $request, $action_handler): void {
         try {
-        $this->helper->debug('FamilyMemberDeactivationAction: FUNCTION CALLED', [
-            'request_keys' => array_keys($request),
-            'is_user_logged_in' => is_user_logged_in(),
-            'current_user_id' => get_current_user_id()
+        $this->helper->info('LGL FamilyMemberDeactivationAction: Processing family member removal', [
+            'parent_user_id' => $request['parent_user_id'] ?? 'N/A',
+            'child_users_count' => is_array($request['child_users'] ?? null) ? count($request['child_users']) : 'N/A'
         ]);
         
         // Validate request
         if (!$this->validateRequest($request)) {
-            $this->helper->debug('FamilyMemberDeactivationAction: Validation failed');
+            $this->helper->error('LGL FamilyMemberDeactivationAction: Validation failed', [
+                'missing_fields' => $this->getMissingFields($request)
+            ]);
                 $error_message = 'Invalid request data. Please check that all required fields are filled correctly.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -188,7 +209,9 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
         $children_ids = $this->parseChildUsers($request['child_users']);
         
         if (empty($children_ids)) {
-            $this->helper->debug('FamilyMemberDeactivationAction: No valid child user IDs to remove');
+            $this->helper->error('LGL FamilyMemberDeactivationAction: No valid child user IDs to remove', [
+                'parent_id' => $parent_id
+            ]);
                 $error_message = 'No family members selected for removal. Please select at least one family member.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -200,14 +223,11 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
                 }
         }
         
-        $this->helper->debug('FamilyMemberDeactivationAction: Processing removal', [
-            'parent_id' => $parent_id,
-            'child_users' => $children_ids
-        ]);
-        
         // Get JetEngine relation
         if (!function_exists('jet_engine')) {
-            $this->helper->debug('FamilyMemberDeactivationAction: JetEngine not available');
+            $this->helper->error('LGL FamilyMemberDeactivationAction: JetEngine not available', [
+                'parent_id' => $parent_id
+            ]);
                 $error_message = 'System error: JetEngine plugin is required but not available. Please contact support.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -221,7 +241,9 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
         
         $relation = jet_engine()->relations->get_active_relations(24);
         if (!$relation) {
-            $this->helper->debug('FamilyMemberDeactivationAction: Could not get JetEngine relation 24');
+            $this->helper->error('LGL FamilyMemberDeactivationAction: Could not get JetEngine relation', [
+                'parent_id' => $parent_id
+            ]);
                 $error_message = 'System error: Could not access family relationship data. Please contact support.';
                 
                 if (class_exists('\Jet_Form_Builder\Exceptions\Action_Exception')) {
@@ -235,11 +257,6 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
         
         // Get actual child relations to verify they exist
         $actual_child_relations = $this->getChildRelations($parent_id, $relation);
-        $this->helper->debug('FamilyMemberDeactivationAction: Actual child relations', [
-            'parent_id' => $parent_id,
-            'actual_children' => $actual_child_relations,
-            'requested_children' => $children_ids
-        ]);
         
         // Remove only the selected children
         $removed_count = 0;
@@ -248,17 +265,12 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
             
             // Verify this child actually belongs to this parent
             if (!in_array($child_id, $actual_child_relations)) {
-                $this->helper->debug('FamilyMemberDeactivationAction: Child does not belong to parent', [
+                $this->helper->warning('LGL FamilyMemberDeactivationAction: Child does not belong to parent', [
                     'child_id' => $child_id,
                     'parent_id' => $parent_id
                 ]);
                 continue;
             }
-            
-            $this->helper->debug('FamilyMemberDeactivationAction: Removing Child', [
-                'child_id' => $child_id,
-                'parent_id' => $parent_id
-            ]);
             
             // Schedule async LGL relationship deletion (non-blocking)
             // WordPress operations (user deletion, JetEngine relationship) happen immediately
@@ -273,7 +285,8 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
             $removed_count++;
         }
         
-        $this->helper->debug('FamilyMemberDeactivationAction: Removed children count', [
+        $this->helper->info('LGL FamilyMemberDeactivationAction: Family member removal completed', [
+            'parent_id' => $parent_id,
             'removed_count' => $removed_count,
             'requested_count' => count($children_ids)
         ]);
@@ -282,10 +295,9 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
         $this->syncFamilySlots($parent_id);
             
         } catch (\Exception $e) {
-            $this->helper->debug('FamilyMemberDeactivationAction: Error occurred', [
+            $this->helper->error('LGL FamilyMemberDeactivationAction: Error occurred', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'parent_id' => $parent_id ?? null
             ]);
             
             // Re-throw Action_Exception, convert others
@@ -346,7 +358,7 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
             $children = $relation->get_children($parent_id, 'ids');
             return is_array($children) ? array_map('intval', $children) : [];
         } catch (\Exception $e) {
-            $this->helper->debug('FamilyMemberDeactivationAction: Error getting child relations', [
+            $this->helper->error('LGL FamilyMemberDeactivationAction: Error getting child relations', [
                 'error' => $e->getMessage(),
                 'parent_id' => $parent_id
             ]);
@@ -376,7 +388,7 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
         require_once(ABSPATH . 'wp-admin/includes/user.php');
         wp_delete_user($user_id);
         
-        $this->helper->debug('FamilyMemberDeactivationAction: User deleted', [
+        $this->helper->info('LGL FamilyMemberDeactivationAction: User deleted', [
             'user_id' => $user_id,
             'posts_deleted' => count($user_posts)
         ]);
@@ -403,15 +415,8 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
             $new_available = $total_purchased - $actual_used;
             update_user_meta($parent_id, 'user_available_family_slots', max(0, $new_available));
             
-            $this->helper->debug('FamilyMemberDeactivationAction: Relationship removed and slots synced', [
-                'parent_id' => $parent_id,
-                'child_id' => $child_id,
-                'total_purchased' => $total_purchased,
-                'actual_used' => $actual_used,
-                'new_available' => $new_available
-            ]);
         } catch (\Exception $e) {
-            $this->helper->debug('FamilyMemberDeactivationAction: Error removing relationship', [
+            $this->helper->error('LGL FamilyMemberDeactivationAction: Error removing relationship', [
                 'error' => $e->getMessage(),
                 'parent_id' => $parent_id,
                 'child_id' => $child_id
@@ -443,29 +448,16 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
             'parent_to_child' => $parent_to_child_id ? (int) $parent_to_child_id : null
         ];
         
-        $this->helper->debug('FamilyMemberDeactivationAction: Preparing LGL relationship deletion (async)', [
-            'child_uid' => $child_uid,
-            'parent_uid' => $parent_uid,
-            'relationship_ids' => $relationship_ids,
-            'async_enabled' => $this->asyncProcessor !== null
-        ]);
-        
         // Use async processing if available (speeds up form submission)
         if ($this->asyncProcessor && ($relationship_ids['child_to_parent'] || $relationship_ids['parent_to_child'])) {
-            $this->helper->debug('⏰ FamilyMemberDeactivationAction: Scheduling async LGL relationship deletion', [
-                'child_uid' => $child_uid,
-                'parent_uid' => $parent_uid
+            $this->helper->debug('LGL FamilyMemberDeactivationAction: Scheduling async LGL relationship deletion', [
+                'child_uid' => $child_uid
             ]);
             
             try {
                 $this->asyncProcessor->scheduleAsyncDeactivation($child_uid, $parent_uid, $relationship_ids);
-                
-                $this->helper->debug('✅ FamilyMemberDeactivationAction: Async LGL relationship deletion scheduled', [
-                    'child_uid' => $child_uid,
-                    'note' => 'LGL relationship deletion will be processed in background via WP Cron'
-                ]);
             } catch (\Exception $e) {
-                $this->helper->debug('⚠️ FamilyMemberDeactivationAction: Async scheduling failed, falling back to sync', [
+                $this->helper->warning('LGL FamilyMemberDeactivationAction: Async scheduling failed, falling back to sync', [
                     'error' => $e->getMessage(),
                     'child_uid' => $child_uid
                 ]);
@@ -475,12 +467,6 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
             }
         } else {
             // Fallback: synchronous processing if async processor not available or no relationship IDs
-            $this->helper->debug('⚠️ FamilyMemberDeactivationAction: Async processor not available or no relationship IDs, using sync', [
-                'child_uid' => $child_uid,
-                'has_async_processor' => $this->asyncProcessor !== null,
-                'has_relationship_ids' => !empty($relationship_ids['child_to_parent']) || !empty($relationship_ids['parent_to_child'])
-            ]);
-            
             $this->deleteLGLRelationshipSync($child_uid, $parent_uid, $relationship_ids);
         }
     }
@@ -498,7 +484,7 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
         $parent_lgl_id = $parent_uid ? get_user_meta($parent_uid, 'lgl_id', true) : null;
         
         if (!$child_lgl_id) {
-            $this->helper->debug('FamilyMemberDeactivationAction: Child LGL ID not found, skipping relationship deletion', [
+            $this->helper->warning('LGL FamilyMemberDeactivationAction: Child LGL ID not found, skipping relationship deletion', [
                 'child_uid' => $child_uid
             ]);
             return;
@@ -514,14 +500,9 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
                 if ($response['success']) {
                     delete_user_meta($child_uid, 'lgl_family_relationship_id');
                     $deleted_count++;
-                    
-                    $this->helper->debug('FamilyMemberDeactivationAction: Deleted Child->Parent relationship (sync)', [
-                        'child_uid' => $child_uid,
-                        'relationship_id' => $relationship_ids['child_to_parent']
-                    ]);
                 }
             } catch (\Exception $e) {
-                $this->helper->debug('FamilyMemberDeactivationAction: Exception deleting Child->Parent relationship', [
+                $this->helper->error('LGL FamilyMemberDeactivationAction: Exception deleting Child->Parent relationship', [
                     'error' => $e->getMessage(),
                     'relationship_id' => $relationship_ids['child_to_parent']
                 ]);
@@ -536,14 +517,9 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
                 if ($response['success']) {
                     delete_user_meta($child_uid, 'lgl_family_relationship_parent_id');
                     $deleted_count++;
-                    
-                    $this->helper->debug('FamilyMemberDeactivationAction: Deleted Parent->Child relationship (sync)', [
-                        'child_uid' => $child_uid,
-                        'relationship_id' => $relationship_ids['parent_to_child']
-                    ]);
                 }
             } catch (\Exception $e) {
-                $this->helper->debug('FamilyMemberDeactivationAction: Exception deleting Parent->Child relationship', [
+                $this->helper->error('LGL FamilyMemberDeactivationAction: Exception deleting Parent->Child relationship', [
                     'error' => $e->getMessage(),
                     'relationship_id' => $relationship_ids['parent_to_child']
                 ]);
@@ -575,7 +551,7 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
                     }
                 }
             } catch (\Exception $e) {
-                $this->helper->debug('FamilyMemberDeactivationAction: Exception querying child relationships', [
+                $this->helper->error('LGL FamilyMemberDeactivationAction: Exception querying child relationships', [
                     'error' => $e->getMessage()
                 ]);
             }
@@ -608,18 +584,19 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
                         }
                     }
                 } catch (\Exception $e) {
-                    $this->helper->debug('FamilyMemberDeactivationAction: Exception querying parent relationships', [
+                    $this->helper->error('LGL FamilyMemberDeactivationAction: Exception querying parent relationships', [
                         'error' => $e->getMessage()
                     ]);
                 }
             }
         }
         
-        $this->helper->debug('FamilyMemberDeactivationAction: Relationship deletion summary (sync)', [
-            'child_uid' => $child_uid,
-            'relationships_deleted' => $deleted_count,
-            'expected' => 2
-        ]);
+        if ($deleted_count > 0) {
+            $this->helper->info('LGL FamilyMemberDeactivationAction: LGL relationships deleted', [
+                'child_uid' => $child_uid,
+                'relationships_deleted' => $deleted_count
+            ]);
+        }
     }
     
     /**
@@ -667,13 +644,6 @@ class FamilyMemberDeactivationAction implements JetFormActionInterface {
         $actual_used = $this->helper->getActualUsedFamilySlots($parent_id);
         $new_available = $total_purchased - $actual_used;
         update_user_meta($parent_id, 'user_available_family_slots', max(0, $new_available));
-        
-        $this->helper->debug('FamilyMemberDeactivationAction: Final family slots sync', [
-            'parent_id' => $parent_id,
-            'total_purchased' => $total_purchased,
-            'actual_used' => $actual_used,
-            'new_available' => $new_available
-        ]);
     }
 }
 

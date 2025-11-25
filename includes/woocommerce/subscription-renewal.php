@@ -44,18 +44,20 @@ class LGL_Subscription_Renewal_Manager {
      * @return string Status message
      */
     public static function run_subscription_renewal_change_once() {
+        $helper = \UpstateInternational\LGL\LGL\Helper::getInstance();
+        
         // Check if WooCommerce Subscriptions is active
         if (!function_exists('wcs_get_subscriptions')) {
-            error_log('LGL Subscription Renewal: WooCommerce Subscriptions not active');
+            $helper->error('LGL Subscription Renewal: WooCommerce Subscriptions not active');
             return 'Error: WooCommerce Subscriptions plugin is required.';
         }
         
         try {
-            error_log('LGL Subscription Renewal: Starting renewal update process');
+            $helper->info('LGL Subscription Renewal: Starting renewal update process');
             
             // Check if the function has already run
             if (get_option(self::UPDATE_OPTION_KEY)) {
-                error_log('LGL Subscription Renewal: Update already completed');
+                $helper->info('LGL Subscription Renewal: Update already completed');
                 return 'Subscription renewal update already completed.';
             }
             
@@ -63,7 +65,7 @@ class LGL_Subscription_Renewal_Manager {
             $subscriptions = wcs_get_subscriptions(['subscription_status' => 'active']);
             $updated_count = 0;
             
-            error_log('LGL Subscription Renewal: Found ' . count($subscriptions) . ' active subscriptions');
+            $helper->info('LGL Subscription Renewal: Found ' . count($subscriptions) . ' active subscriptions');
             
             foreach ($subscriptions as $subscription) {
                 $subscription_id = $subscription->get_id();
@@ -75,16 +77,17 @@ class LGL_Subscription_Renewal_Manager {
                     
                     $updated_count++;
                     
-                    // Log the update
-                    $requires_manual_renewal = $subscription->get_requires_manual_renewal();
-                    error_log(sprintf(
-                        'LGL Subscription Renewal: Updated subscription #%d - Manual renewal: %s',
-                        $subscription_id,
-                        $requires_manual_renewal ? 'true' : 'false'
-                    ));
+                    // Only log at debug level to reduce verbosity
+                    $helper->debug('LGL Subscription Renewal: Updated subscription', [
+                        'subscription_id' => $subscription_id,
+                        'manual_renewal' => $subscription->get_requires_manual_renewal()
+                    ]);
                     
                 } catch (Exception $e) {
-                    error_log('LGL Subscription Renewal: Error updating subscription #' . $subscription_id . ': ' . $e->getMessage());
+                    $helper->error('LGL Subscription Renewal: Error updating subscription', [
+                        'subscription_id' => $subscription_id,
+                        'error' => $e->getMessage()
+                    ]);
                 }
             }
             
@@ -97,11 +100,11 @@ class LGL_Subscription_Renewal_Manager {
                 count($subscriptions)
             );
             
-            error_log('LGL Subscription Renewal: ' . $message);
+            $helper->info('LGL Subscription Renewal: ' . $message);
             return $message;
             
         } catch (Exception $e) {
-            error_log('LGL Subscription Renewal Error: ' . $e->getMessage());
+            $helper->error('LGL Subscription Renewal Error', ['error' => $e->getMessage()]);
             return 'Error occurred during subscription renewal update. Please check logs.';
         }
     }
@@ -207,7 +210,7 @@ class LGL_Subscription_Renewal_Manager {
             return ob_get_clean();
             
         } catch (Exception $e) {
-            error_log('LGL Subscription Display Error: ' . $e->getMessage());
+            \UpstateInternational\LGL\LGL\Helper::getInstance()->error('LGL Subscription Display Error', ['error' => $e->getMessage()]);
             return '<div class="notice notice-error"><p>Error loading subscription information. Please try again later.</p></div>';
         }
     }
@@ -221,7 +224,7 @@ class LGL_Subscription_Renewal_Manager {
             update_option(self::UPDATE_OPTION_KEY, false);
         }
         
-        error_log('LGL Subscription Renewal: Shortcode executed');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->debug('LGL Subscription Renewal: Shortcode executed');
         return self::run_subscription_renewal_change_once();
     }
     
@@ -237,7 +240,7 @@ class LGL_Subscription_Renewal_Manager {
      */
     public static function legacy_renewal_shortcode($atts) {
         // Log deprecation warning
-        error_log('LGL Subscription Renewal: Legacy shortcode "run_subscription_renewal" used. Please update to "lgl_run_subscription_renewal"');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->warning('LGL Subscription Renewal: Legacy shortcode "run_subscription_renewal" used. Please update to "lgl_run_subscription_renewal"');
         return self::renewal_shortcode($atts);
     }
     
@@ -246,7 +249,7 @@ class LGL_Subscription_Renewal_Manager {
      */
     public static function legacy_display_shortcode($atts) {
         // Log deprecation warning  
-        error_log('LGL Subscription Renewal: Legacy shortcode "display_requires_manual_renewal" used. Please update to "lgl_display_manual_renewal_status"');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->warning('LGL Subscription Renewal: Legacy shortcode "display_requires_manual_renewal" used. Please update to "lgl_display_manual_renewal_status"');
         return self::display_manual_renewal_shortcode($atts);
     }
     
@@ -255,7 +258,7 @@ class LGL_Subscription_Renewal_Manager {
      */
     public static function reset_renewal_flag() {
         delete_option(self::UPDATE_OPTION_KEY);
-        error_log('LGL Subscription Renewal: Update flag reset');
+        \UpstateInternational\LGL\LGL\Helper::getInstance()->info('LGL Subscription Renewal: Update flag reset');
     }
     
     /**

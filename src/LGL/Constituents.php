@@ -160,8 +160,6 @@ class Constituents {
         
         // Note: LGL does NOT accept 'full_name' field - it auto-generates from first_name/last_name
         // Removed: $this->personalData['full_name']
-        
-        $this->debug('Name set', $this->personalData);
     }
     
     /**
@@ -176,7 +174,7 @@ class Constituents {
             // Check if this email is already added (prevent duplicates)
             foreach ($this->emailData as $existing_email) {
                 if ($existing_email['address'] === $sanitized_email) {
-                    $this->debug('Email already set, skipping duplicate', $sanitized_email);
+                    // Email already set - no need to log duplicate
                     return;
                 }
             }
@@ -188,10 +186,8 @@ class Constituents {
                 'is_preferred' => true,
                 'not_current' => false
             ];
-            
-            $this->debug('Email set', $sanitized_email);
         } else {
-            $this->debug('Invalid email address provided', $email);
+            Helper::getInstance()->warning('LGL Constituents: Invalid email address provided', ['email' => $email]);
         }
     }
     
@@ -211,7 +207,7 @@ class Constituents {
             foreach ($this->phoneData as $existing_phone) {
                 $existing_normalized = preg_replace('/\D/', '', $existing_phone['number'] ?? '');
                 if ($existing_normalized === $normalized_for_comparison) {
-                    $this->debug('Phone already set, skipping duplicate', $sanitized_phone);
+                    // Phone already set - no need to log duplicate
                     return;
                 }
             }
@@ -223,8 +219,6 @@ class Constituents {
                 'is_preferred' => true,
                 'not_current' => false
             ];
-            
-            $this->debug('Phone set', $sanitized_phone);
         }
     }
     
@@ -245,14 +239,6 @@ class Constituents {
         $postal_code = get_user_meta($user_id, 'user-postal-code', true);
         $country = get_user_meta($user_id, 'user-country-of-origin', true) ?: 'US';
         
-        $this->debug('🔍 setAddress: Checking user meta', [
-            'user_id' => $user_id,
-            'street1' => $street1,
-            'city' => $city,
-            'has_street1' => !empty($street1),
-            'has_city' => !empty($city)
-        ]);
-        
         // Only add address if we have at least street and city
         if (!empty($street1) && !empty($city)) {
             $street = trim($street1 . ' ' . $street2);
@@ -272,17 +258,12 @@ class Constituents {
                 'not_current' => false
             ];
             $this->addressData[] = $addressEntry;
-            
-            $this->debug('✅ Address set and added to array', [
-                'street' => $street,
-                'city' => $city,
-                'address_data_count' => count($this->addressData),
-                'address_entry' => $addressEntry
-            ]);
         } else {
-            $this->debug('⚠️ setAddress: Skipping - missing street1 or city', [
-                'street1' => $street1,
-                'city' => $city
+            // Missing required address fields - log as warning
+            Helper::getInstance()->warning('LGL Constituents: Skipping address - missing street1 or city', [
+                'user_id' => $user_id,
+                'has_street1' => !empty($street1),
+                'has_city' => !empty($city)
             ]);
         }
     }
@@ -319,10 +300,8 @@ class Constituents {
      * @param int|null $parent_uid Parent user ID for family memberships
      */
     public function setMembership(int $user_id, ?string $note = null, ?string $method = null, ?int $parent_uid = null): void {
-        $this->debug('🎯 setMembership() CALLED!', ['user_id' => $user_id]);
-        
         if (!$user_id) {
-            $this->debug('❌ setMembership: Invalid user_id');
+            Helper::getInstance()->error('LGL Constituents: setMembership called with invalid user_id');
             return;
         }
         
@@ -341,10 +320,6 @@ class Constituents {
             if ($level_config_from_id && !empty($level_config_from_id['level_name'])) {
                 // Use the level name from the config, not stale user-membership-type
                 $membership_type = $level_config_from_id['level_name'];
-                $this->debug('✅ Using membership level from lgl_membership_level_id', [
-                    'membership_level_id' => $membership_level_id_meta,
-                    'membership_type' => $membership_type
-                ]);
             }
         }
         
@@ -352,44 +327,27 @@ class Constituents {
         if (!$membership_type) {
             $membership_type = 'Member'; // Updated default fallback (not "Individual Membership")
         }
-        
-        $this->debug('🔍 Looking up membership level config', [
-            'membership_type' => $membership_type,
-            'user_id' => $user_id,
-            'lgl_membership_level_id' => $membership_level_id_meta
-        ]);
 
         // Get membership level configuration - prioritize ID lookup (already done above)
         $level_config = null;
         if ($membership_level_id_meta > 0) {
             $level_config = $this->lgl->getMembershipLevelByLglId($membership_level_id_meta);
-            $this->debug('🔍 Membership level config from lgl_membership_level_id', [
-                'membership_level_id' => $membership_level_id_meta,
-                'found' => $level_config ? 'YES' : 'NO',
-                'level_name' => $level_config['level_name'] ?? 'N/A'
-            ]);
         }
 
         // Fallback to name-based lookup if ID lookup failed
         if (!$level_config) {
             $level_config = $this->lgl->getMembershipLevel($membership_type);
-            $this->debug('🔍 Membership level config from name lookup', [
-                'membership_type' => $membership_type,
-                'found' => $level_config ? 'YES' : 'NO'
-            ]);
         }
         
         // Note: Price-based lookup removed - rely on _ui_lgl_sync_id on products instead
         // If no config found, log warning but continue (will fail gracefully at API call)
         if (!$level_config || empty($level_config['lgl_membership_level_id'])) {
-            $this->debug('⚠️ No level config found by ID or name', [
+            Helper::getInstance()->warning('LGL Constituents: No membership level config found', [
                 'membership_type' => $membership_type,
                 'membership_level_id_meta' => $membership_level_id_meta,
                 'note' => 'Ensure product has _ui_lgl_sync_id set or membership_type matches configured level slug'
             ]);
         }
-        
-        $this->debug('📋 Final level config', $level_config);
         
         // Ensure we have a valid start date (use today if not set)
         if (!$membership_start || empty($membership_start)) {
@@ -407,7 +365,10 @@ class Constituents {
         $membership_level_name = $level_config['level_name'] ?? $level_config['name'] ?? $membership_type;
         
         if (!$membership_level_id) {
-            $this->debug('❌ No membership_level_id found! This will cause LGL API to fail.');
+            Helper::getInstance()->error('LGL Constituents: No membership_level_id found - LGL API call will fail', [
+                'user_id' => $user_id,
+                'membership_type' => $membership_type
+            ]);
         }
         
         // Build membership data matching legacy structure (membership_level_id, membership_level_name, date_start, finish_date, note)
@@ -419,17 +380,7 @@ class Constituents {
             'note' => $note ?: 'Membership created via Modern LGL API on ' . date('Y-m-d')
         ];
         
-        // Debug the membership data being created
-        $this->debug('Modern Membership Data Created', [
-            'user_id' => $user_id,
-            'membership_type' => $membership_type,
-            'level_config' => $level_config,
-            'membership_data' => $membership_data
-        ]);
-        
         $this->membershipData = $membership_data;
-        
-        $this->debug('Final Membership Data Set', $membership_data);
     }
     /**
      * Set all constituent data from user ID
@@ -439,13 +390,13 @@ class Constituents {
      */
     public function setData(int $user_id, bool $skip_membership = false): void {
         if (!$user_id) {
-            $this->debug('Invalid user ID provided');
+            Helper::getInstance()->error('LGL Constituents: Invalid user ID provided');
             return;
         }
         
         $user = get_user_by('id', $user_id);
         if (!$user) {
-            $this->debug('User not found for ID', $user_id);
+            Helper::getInstance()->error('LGL Constituents: User not found', ['user_id' => $user_id]);
             return;
         }
         
@@ -499,10 +450,11 @@ class Constituents {
             // Set custom fields
             $this->setCustomFields($user_id);
             
-            $this->debug('All data set for user', $user_id);
-            
         } catch (\Exception $e) {
-            $this->debug('Error setting data for user', ['user_id' => $user_id, 'error' => $e->getMessage()]);
+            Helper::getInstance()->error('LGL Constituents: Error setting data for user', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage()
+            ]);
         }
     }
     
@@ -571,7 +523,9 @@ class Constituents {
             return $result;
             
         } catch (\Exception $e) {
-            $this->debug('Error in setDataAndUpdate', $e->getMessage());
+            Helper::getInstance()->error('LGL Constituents: Error in setDataAndUpdate', [
+                'error' => $e->getMessage()
+            ]);
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -598,10 +552,6 @@ class Constituents {
             $email_id = is_array($existing_email) ? ($existing_email['id'] ?? null) : ($existing_email->id ?? null);
             if ($email_id) {
                 $connection->deleteEmailAddress($lgl_id, $email_id);
-                $helper->debug('🗑️ syncContactInfo: Deleted old email', [
-                    'lgl_id' => $lgl_id,
-                    'email_id' => $email_id
-                ]);
             }
         }
         
@@ -611,10 +561,6 @@ class Constituents {
             $phone_id = is_array($existing_phone) ? ($existing_phone['id'] ?? null) : ($existing_phone->id ?? null);
             if ($phone_id) {
                 $connection->deletePhoneNumber($lgl_id, $phone_id);
-                $helper->debug('🗑️ syncContactInfo: Deleted old phone', [
-                    'lgl_id' => $lgl_id,
-                    'phone_id' => $phone_id
-                ]);
             }
         }
         
@@ -624,10 +570,6 @@ class Constituents {
             $address_id = is_array($existing_address) ? ($existing_address['id'] ?? null) : ($existing_address->id ?? null);
             if ($address_id) {
                 $connection->deleteStreetAddress($lgl_id, $address_id);
-                $helper->debug('🗑️ syncContactInfo: Deleted old address', [
-                    'lgl_id' => $lgl_id,
-                    'address_id' => $address_id
-                ]);
             }
         }
         
@@ -640,13 +582,8 @@ class Constituents {
             $email_address = strtolower(trim($email['address'] ?? ''));
             if (!empty($email_address)) {
                 $response = $connection->addEmailAddress($lgl_id, $email);
-                if ($response['success'] ?? false) {
-                    $helper->debug('➕ syncContactInfo: Email added', [
-                        'lgl_id' => $lgl_id,
-                        'email' => $email_address
-                    ]);
-                } else {
-                    $helper->debug('❌ syncContactInfo: Failed to add email', [
+                if (empty($response['success'])) {
+                    $helper->error('LGL Constituents: Failed to add email', [
                         'lgl_id' => $lgl_id,
                         'error' => $response['error'] ?? 'Unknown error'
                     ]);
@@ -661,13 +598,8 @@ class Constituents {
             $phone_number = preg_replace('/\D/', '', $phone['number'] ?? '');
             if (!empty($phone_number)) {
                 $response = $connection->addPhoneNumber($lgl_id, $phone);
-                if ($response['success'] ?? false) {
-                    $helper->debug('➕ syncContactInfo: Phone added', [
-                        'lgl_id' => $lgl_id,
-                        'phone' => $phone['number'] ?? 'unknown'
-                    ]);
-                } else {
-                    $helper->debug('❌ syncContactInfo: Failed to add phone', [
+                if (empty($response['success'])) {
+                    $helper->error('LGL Constituents: Failed to add phone', [
                         'lgl_id' => $lgl_id,
                         'error' => $response['error'] ?? 'Unknown error'
                     ]);
@@ -682,21 +614,12 @@ class Constituents {
             $street = trim($address['street'] ?? '');
             if (!empty($street)) {
                 $response = $connection->addStreetAddress($lgl_id, $address);
-                if ($response['success'] ?? false) {
-                    $helper->debug('➕ syncContactInfo: Address added', [
-                        'lgl_id' => $lgl_id,
-                        'street' => $street
-                    ]);
-                } else {
-                    $helper->debug('❌ syncContactInfo: Failed to add address', [
+                if (empty($response['success'])) {
+                    $helper->error('LGL Constituents: Failed to add address', [
                         'lgl_id' => $lgl_id,
                         'error' => $response['error'] ?? 'Unknown error'
                     ]);
                 }
-            } else {
-                $helper->debug('⚠️ syncContactInfo: Skipping empty address', [
-                    'lgl_id' => $lgl_id
-                ]);
             }
         }
     }
@@ -737,20 +660,25 @@ class Constituents {
             $result = $connection->createConstituent($constituent_data);
             
             if ($result['success']) {
-                $this->debug('Constituent created successfully', $result);
-                
                 // Cache the new constituent
                 if (isset($result['data']['id'])) {
                     CacheManager::cacheConstituent($result['data']['id'], $result['data']);
+                    Helper::getInstance()->info('LGL Constituents: Constituent created successfully', [
+                        'lgl_id' => $result['data']['id']
+                    ]);
                 }
             } else {
-                $this->debug('Failed to create constituent', $result['error'] ?? 'Unknown error');
+                Helper::getInstance()->error('LGL Constituents: Failed to create constituent', [
+                    'error' => $result['error'] ?? 'Unknown error'
+                ]);
             }
             
             return $result;
             
         } catch (\Exception $e) {
-            $this->debug('Exception creating constituent', $e->getMessage());
+            Helper::getInstance()->error('LGL Constituents: Exception creating constituent', [
+                'error' => $e->getMessage()
+            ]);
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -784,8 +712,6 @@ class Constituents {
             $result = $connection->updateConstituent($lgl_id, $constituent_data);
             
             if ($result['success']) {
-                $this->debug('Constituent updated successfully', $result);
-                
                 // Sync contact info separately (preserves existing records, updates/adds as needed)
                 $this->syncContactInfo($lgl_id);
                 
@@ -794,14 +720,23 @@ class Constituents {
                 if (isset($result['data'])) {
                     CacheManager::cacheConstituent($lgl_id, $result['data']);
                 }
+                Helper::getInstance()->info('LGL Constituents: Constituent updated successfully', [
+                    'lgl_id' => $lgl_id
+                ]);
             } else {
-                $this->debug('Failed to update constituent', ['lgl_id' => $lgl_id, 'error' => $result['error'] ?? 'Unknown error']);
+                Helper::getInstance()->error('LGL Constituents: Failed to update constituent', [
+                    'lgl_id' => $lgl_id,
+                    'error' => $result['error'] ?? 'Unknown error'
+                ]);
             }
             
             return $result;
             
         } catch (\Exception $e) {
-            $this->debug('Exception updating constituent', $e->getMessage());
+            Helper::getInstance()->error('LGL Constituents: Exception updating constituent', [
+                'lgl_id' => $lgl_id,
+                'error' => $e->getMessage()
+            ]);
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -846,32 +781,16 @@ class Constituents {
         // Add email addresses if available
         if (!empty($this->emailData)) {
             $update_data['email_addresses'] = $this->emailData;
-            $helper->debug('🔧 buildUpdateData: Including email addresses', [
-                'count' => count($this->emailData),
-                'emails' => array_map(function($e) { return $e['address'] ?? 'unknown'; }, $this->emailData)
-            ]);
         }
         
         // Add phone numbers if available
         if (!empty($this->phoneData)) {
             $update_data['phone_numbers'] = $this->phoneData;
-            $helper->debug('🔧 buildUpdateData: Including phone numbers', [
-                'count' => count($this->phoneData),
-                'phones' => array_map(function($p) { return $p['number'] ?? 'unknown'; }, $this->phoneData)
-            ]);
         }
         
         // Add street addresses if available
         if (!empty($this->addressData)) {
             $update_data['street_addresses'] = $this->addressData;
-            $helper->debug('🔧 buildUpdateData: Including street addresses', [
-                'count' => count($this->addressData),
-                'addresses' => array_map(function($a) { return $a['street'] ?? 'unknown'; }, $this->addressData)
-            ]);
-        } else {
-            $helper->debug('⚠️ buildUpdateData: No address data available', [
-                'address_data' => $this->addressData
-            ]);
         }
         
         return $update_data;
@@ -901,11 +820,7 @@ class Constituents {
             if (!empty($lgl_id)) {
                 // Migrate legacy field to canonical field
                 update_user_meta($user_id, 'lgl_id', $lgl_id);
-                $this->debug('Migrated legacy meta field to canonical lgl_id', [
-                    'user_id' => $user_id,
-                    'legacy_field' => $meta_key,
-                    'lgl_id' => $lgl_id
-                ]);
+                // Migration completed - no need to log every migration
                 return $lgl_id;
             }
         }
@@ -1009,10 +924,6 @@ class Constituents {
      * @return array Address data
      */
     public function getAddressData(): array {
-        $this->debug('🔍 getAddressData: Returning address data', [
-            'count' => count($this->addressData),
-            'data' => $this->addressData
-        ]);
         return $this->addressData;
     }
     
