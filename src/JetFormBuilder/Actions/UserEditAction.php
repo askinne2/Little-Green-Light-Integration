@@ -424,9 +424,10 @@ class UserEditAction implements JetFormActionInterface {
         }
         
         // Build basic constituent data
-        $first_name = $request['user_firstname'] ?? get_user_meta($uid, 'first_name', true) ?: $user_info->first_name;
-        $last_name = $request['user_lastname'] ?? get_user_meta($uid, 'last_name', true) ?: $user_info->last_name;
-        $email = $request['user_email'] ?? get_user_meta($uid, 'user_email', true) ?: $user_info->user_email;
+        // Priority: WordPress user object fields > request data > meta fields
+        $first_name = !empty($user_info->first_name) ? $user_info->first_name : ($request['user_firstname'] ?? get_user_meta($uid, 'first_name', true));
+        $last_name = !empty($user_info->last_name) ? $user_info->last_name : ($request['user_lastname'] ?? get_user_meta($uid, 'last_name', true));
+        $email = !empty($user_info->user_email) ? $user_info->user_email : ($request['user_email'] ?? get_user_meta($uid, 'user_email', true));
         
         $constituent_data = [
             'external_constituent_id' => $uid,

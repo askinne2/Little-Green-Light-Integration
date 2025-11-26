@@ -272,45 +272,32 @@ class AsyncJetFormProcessor {
             'skip_membership' => $skip_membership
         ]);
         
-        // CRITICAL: Save form data to user meta FIRST so setData() reads the correct values
-        // This ensures phone, email, address, etc. are updated before LGL sync
-        if (!empty($request['user_firstname'])) {
-            update_user_meta($user_id, 'user_firstname', $request['user_firstname']);
-            update_user_meta($user_id, 'first_name', $request['user_firstname']);
-        }
-        if (!empty($request['user_lastname'])) {
-            update_user_meta($user_id, 'user_lastname', $request['user_lastname']);
-            update_user_meta($user_id, 'last_name', $request['user_lastname']);
-        }
-        if (!empty($request['user_email'])) {
-            update_user_meta($user_id, 'user_email', $request['user_email']);
-            // Also update WordPress user email
-            wp_update_user([
-                'ID' => $user_id,
-                'user_email' => $request['user_email']
-            ]);
-        }
-        if (!empty($request['user_phone'])) {
-            update_user_meta($user_id, 'user_phone', $request['user_phone']);
-        }
-        if (!empty($request['user-address-1'])) {
-            update_user_meta($user_id, 'user-address-1', $request['user-address-1']);
-        }
-        if (!empty($request['user-address-2'])) {
-            update_user_meta($user_id, 'user-address-2', $request['user-address-2']);
-        }
-        if (!empty($request['user-city'])) {
-            update_user_meta($user_id, 'user-city', $request['user-city']);
-        }
-        if (!empty($request['user-state'])) {
-            update_user_meta($user_id, 'user-state', $request['user-state']);
-        }
-        if (!empty($request['user-postal-code'])) {
-            update_user_meta($user_id, 'user-postal-code', $request['user-postal-code']);
+        // IMPORTANT: JetForm's "Update User" action runs BEFORE this and updates WordPress
+        // user object fields (first_name, last_name, user_email). Our setData() method now
+        // prioritizes WordPress user object fields over custom meta fields, so we don't need
+        // to sync or overwrite anything - we just read from what JetForm already saved.
+        
+        $user = get_user_by('id', $user_id);
+        if (!$user) {
+            throw new \Exception("User not found: {$user_id}");
         }
         
-        // Update constituent using Constituents service (now reads updated user meta)
-        $result = $this->constituents->setDataAndUpdate($user_id, $request, $skip_membership);
+        // Log what we're reading (for debugging)
+        // setData() will read from WordPress user object fields first, then fall back to meta
+        $this->helper->debug('📋 AsyncJetFormProcessor: Reading from WordPress user object (JetForm updated these)', [
+            'user_id' => $user_id,
+            'wp_first_name' => $user->first_name,
+            'wp_last_name' => $user->last_name,
+            'wp_email' => $user->user_email,
+            'form_firstname' => $request['user_firstname'] ?? 'not provided',
+            'form_lastname' => $request['user_lastname'] ?? 'not provided',
+            'form_email' => $request['user_email'] ?? 'not provided',
+            'note' => 'setData() now prioritizes WordPress user object fields over custom meta'
+        ]);
+        
+        // Update constituent using Constituents service (reads from current user meta)
+        // Pass empty array to avoid merging stale form request data
+        $result = $this->constituents->setDataAndUpdate($user_id, [], $skip_membership);
         
         if ($result && isset($result['success']) && $result['success']) {
             $this->helper->debug('✅ AsyncJetFormProcessor: User edit completed', [

@@ -265,7 +265,37 @@ class SubscriptionRenewalManager {
         $subscription_status = get_user_meta($user_id, 'user-subscription-status', true);
         $renewal_timestamp = get_user_meta($user_id, 'user-membership-renewal-date', true);
         $start_timestamp = get_user_meta($user_id, 'user-membership-start-date', true);
+        
+        // Clear cache before reading to ensure we get the latest value
+        wp_cache_delete($user_id, 'user_meta');
         $membership_level = get_user_meta($user_id, 'user-membership-type', true);
+        
+        // Double-check by reading directly from database if value seems suspicious
+        // (e.g., if it's a role name like "Teacher" instead of a membership level)
+        $suspicious_values = ['Teacher', 'Board Member', 'VIP', 'Member']; // Role labels, not membership levels
+        if (in_array($membership_level, $suspicious_values)) {
+            global $wpdb;
+            $direct_db_value = $wpdb->get_var($wpdb->prepare(
+                "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = %d AND meta_key = 'user-membership-type' ORDER BY umeta_id DESC LIMIT 1",
+                $user_id
+            ));
+            
+            Helper::getInstance()->warning('⚠️ SubscriptionRenewalManager: Suspicious membership level detected', [
+                'user_id' => $user_id,
+                'cached_value' => $membership_level,
+                'direct_db_value' => $direct_db_value,
+                'note' => 'Value looks like a role label, not a membership level. Using direct DB value if different.'
+            ]);
+            
+            // Use direct DB value if it's different and looks more like a membership level
+            if ($direct_db_value && $direct_db_value !== $membership_level) {
+                $membership_level = $direct_db_value;
+                Helper::getInstance()->debug('✅ SubscriptionRenewalManager: Using direct DB value', [
+                    'user_id' => $user_id,
+                    'corrected_value' => $membership_level
+                ]);
+            }
+        }
         
         Helper::getInstance()->debug('📊 User meta values', [
             'user_id' => $user_id,
@@ -274,7 +304,8 @@ class SubscriptionRenewalManager {
             'start_timestamp' => $start_timestamp,
             'membership_level' => $membership_level,
             'renewal_date_formatted' => $renewal_timestamp ? date('Y-m-d H:i:s', $renewal_timestamp) : 'not set',
-            'start_date_formatted' => $start_timestamp ? date('Y-m-d H:i:s', $start_timestamp) : 'not set'
+            'start_date_formatted' => $start_timestamp ? date('Y-m-d H:i:s', $start_timestamp) : 'not set',
+            'cache_cleared' => true
         ]);
         
         // Only process one-time memberships

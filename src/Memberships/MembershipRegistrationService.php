@@ -34,6 +34,17 @@ class MembershipRegistrationService {
         $price = (float) ($context['price'] ?? 0);
         $membershipLevel = $context['membership_level'] ?? '';
         $membershipLevelId = $context['membership_level_id'] ?? null;
+        
+        $this->helper->debug('📋 MembershipRegistrationService::register() - Received context', [
+            'user_id' => $userId,
+            'membership_level' => $membershipLevel,
+            'membership_level_id' => $membershipLevelId,
+            'membership_level_type' => gettype($membershipLevel),
+            'order_id' => $orderId,
+            'context_keys' => array_keys($context),
+            'user_roles_before' => get_userdata($userId)->roles ?? [],
+            'note' => 'This is the membership level that will be stored in user-membership-type meta'
+        ]);
         $paymentType = $context['payment_type'] ?? null;
         $isFamilyMember = (bool) ($context['is_family_member'] ?? false);
         $request = $context['request'] ?? [];
@@ -155,7 +166,59 @@ class MembershipRegistrationService {
         
         // Only update membership type if NOT a family member product (family member = slot purchase only)
         if (!$isFamilyMember) {
+            $existing_membership_type = \get_user_meta($userId, 'user-membership-type', true);
+            $this->helper->debug('💾 MembershipRegistrationService: Storing user-membership-type meta', [
+                'user_id' => $userId,
+                'membership_level' => $membershipLevel,
+                'membership_level_type' => gettype($membershipLevel),
+                'membership_level_id' => $membershipLevelId,
+                'existing_membership_type' => $existing_membership_type,
+                'is_family_member' => $isFamilyMember,
+                'order_id' => $orderId,
+                'user_roles' => get_userdata($userId)->roles ?? [],
+                'note' => 'This is where user-membership-type meta is set - should be membership level name, NOT role name'
+            ]);
+            
+            // Force update by deleting first, then adding (ensures cache is cleared)
+            \delete_user_meta($userId, 'user-membership-type');
             \update_user_meta($userId, 'user-membership-type', $membershipLevel);
+            
+            // Clear WordPress object cache for this user
+            \clean_user_cache(\get_user_by('id', $userId));
+            
+            // Verify what was stored (bypass cache)
+            \wp_cache_delete($userId, 'user_meta');
+            $stored_value = \get_user_meta($userId, 'user-membership-type', true);
+            
+            $this->helper->debug('💾 MembershipRegistrationService: Verified stored user-membership-type', [
+                'user_id' => $userId,
+                'value_stored' => $stored_value,
+                'value_expected' => $membershipLevel,
+                'match' => $stored_value === $membershipLevel,
+                'cache_cleared' => true
+            ]);
+            
+            // Double-check by reading directly from database if still wrong
+            if ($stored_value !== $membershipLevel) {
+                global $wpdb;
+                $direct_db_value = $wpdb->get_var($wpdb->prepare(
+                    "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = %d AND meta_key = 'user-membership-type' LIMIT 1",
+                    $userId
+                ));
+                $this->helper->warning('💾 MembershipRegistrationService: Value mismatch detected!', [
+                    'user_id' => $userId,
+                    'expected' => $membershipLevel,
+                    'get_user_meta_result' => $stored_value,
+                    'direct_db_value' => $direct_db_value,
+                    'note' => 'Cache may be interfering - direct DB read shows actual stored value'
+                ]);
+            }
+        } else {
+            $this->helper->debug('💾 MembershipRegistrationService: Skipping user-membership-type update (family member product)', [
+                'user_id' => $userId,
+                'membership_level' => $membershipLevel,
+                'is_family_member' => $isFamilyMember
+            ]);
         }
 
         $paymentId = null;
@@ -262,13 +325,21 @@ class MembershipRegistrationService {
 
     private function createConstituent(int $userId, array $request = [], bool $skipMembership = false): string {
         $this->constituents->setData($userId);
-        if (!empty($request['user_firstname']) || !empty($request['user_lastname'])) {
-            $this->constituents->setName(
-                $request['user_firstname'] ?? '',
-                $request['user_lastname'] ?? ''
-            );
+        
+        // Only override with request data if WordPress user object fields are empty
+        // Priority: WordPress user object (what setData() already read) > request data
+        $user = get_userdata($userId);
+        if ($user && (empty($user->first_name) || empty($user->last_name))) {
+            // WordPress user object is missing names, use request data as fallback
+            if (!empty($request['user_firstname']) || !empty($request['user_lastname'])) {
+                $this->constituents->setName(
+                    $request['user_firstname'] ?? '',
+                    $request['user_lastname'] ?? ''
+                );
+            }
         }
-        if (!empty($request['user_email'])) {
+        // Email: only override if WordPress user email is empty
+        if ($user && empty($user->user_email) && !empty($request['user_email'])) {
             $this->constituents->setEmail($request['user_email']);
         }
         if (!empty($request['user_phone'])) {
@@ -452,13 +523,21 @@ class MembershipRegistrationService {
 
     private function updateConstituent(int $userId, string $lglId, array $request = [], bool $skipMembership = false): void {
         $this->constituents->setData($userId);
-        if (!empty($request['user_firstname']) || !empty($request['user_lastname'])) {
-            $this->constituents->setName(
-                $request['user_firstname'] ?? '',
-                $request['user_lastname'] ?? ''
-            );
+        
+        // Only override with request data if WordPress user object fields are empty
+        // Priority: WordPress user object (what setData() already read) > request data
+        $user = get_userdata($userId);
+        if ($user && (empty($user->first_name) || empty($user->last_name))) {
+            // WordPress user object is missing names, use request data as fallback
+            if (!empty($request['user_firstname']) || !empty($request['user_lastname'])) {
+                $this->constituents->setName(
+                    $request['user_firstname'] ?? '',
+                    $request['user_lastname'] ?? ''
+                );
+            }
         }
-        if (!empty($request['user_email'])) {
+        // Email: only override if WordPress user email is empty
+        if ($user && empty($user->user_email) && !empty($request['user_email'])) {
             $this->constituents->setEmail($request['user_email']);
         }
         if (!empty($request['user_phone'])) {

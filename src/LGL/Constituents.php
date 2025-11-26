@@ -405,10 +405,20 @@ class Constituents {
             $this->resetAllData();
             
             // Set basic personal data
-            $this->setName(
-                get_user_meta($user_id, 'user_firstname', true) ?: $user->first_name,
-                get_user_meta($user_id, 'user_lastname', true) ?: $user->last_name
-            );
+            // Priority: WordPress user object fields (first_name, last_name) - these are what
+            // JetForm's "Update User" action updates. Fall back to custom meta only for legacy compatibility.
+            $first_name = !empty($user->first_name) ? $user->first_name : get_user_meta($user_id, 'user_firstname', true);
+            $last_name = !empty($user->last_name) ? $user->last_name : get_user_meta($user_id, 'user_lastname', true);
+            
+            // Fallback to standard meta fields if user object fields are empty
+            if (empty($first_name)) {
+                $first_name = get_user_meta($user_id, 'first_name', true);
+            }
+            if (empty($last_name)) {
+                $last_name = get_user_meta($user_id, 'last_name', true);
+            }
+            
+            $this->setName($first_name, $last_name);
             
             // Set email
             $this->setEmail($user->user_email);

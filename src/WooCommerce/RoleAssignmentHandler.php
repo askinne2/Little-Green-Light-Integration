@@ -92,6 +92,17 @@ class RoleAssignmentHandler {
             }
         }
         
+        // Enhanced debug logging for coupon detection
+        $order_meta_coupons_debug = $order->get_meta('_coupon_codes');
+        $coupon_items_debug = [];
+        foreach ($order->get_items('coupon') as $coupon_item) {
+            $coupon_items_debug[] = [
+                'code' => method_exists($coupon_item, 'get_code') ? $coupon_item->get_code() : $coupon_item->get_name(),
+                'name' => $coupon_item->get_name(),
+                'type' => get_class($coupon_item)
+            ];
+        }
+        
         $this->helper->debug('🎫 RoleAssignmentHandler: Retrieved coupon codes from order', [
             'order_id' => $order->get_id(),
             'coupon_codes' => $coupon_codes,
@@ -99,13 +110,21 @@ class RoleAssignmentHandler {
             'order_total' => $order->get_total(),
             'order_discount_total' => $order->get_discount_total(),
             'order_discount_tax' => $order->get_discount_tax(),
-            'method_used' => 'get_coupon_codes()'
+            'method_used' => 'get_coupon_codes()',
+            'order_meta_coupons' => $order_meta_coupons_debug,
+            'coupon_items' => $coupon_items_debug,
+            'order_items_count' => count($order->get_items()),
+            'all_order_item_types' => array_unique(array_map(function($item) {
+                return $item->get_type();
+            }, $order->get_items()))
         ]);
         
         if (empty($coupon_codes)) {
-            $this->helper->debug('ℹ️ RoleAssignmentHandler: No coupon codes found', [
+            $this->helper->debug('ℹ️ RoleAssignmentHandler: No coupon codes found - EXITING early (no role assignment from coupons)', [
                 'order_id' => $order->get_id(),
-                'user_id' => $user_id
+                'user_id' => $user_id,
+                'order_discount_total' => $order->get_discount_total(),
+                'note' => 'This order has no coupons, so no coupon-based role assignment will occur'
             ]);
             return;
         }
@@ -121,13 +140,34 @@ class RoleAssignmentHandler {
         ]);
         
         foreach ($coupon_codes as $coupon_code) {
+            $this->helper->debug('🔍 RoleAssignmentHandler: Processing individual coupon code', [
+                'coupon_code' => $coupon_code,
+                'coupon_code_trimmed' => trim($coupon_code),
+                'coupon_code_upper' => strtoupper(trim($coupon_code)),
+                'order_id' => $order->get_id(),
+                'user_id' => $user_id
+            ]);
+            
             // Get role assignment from coupon meta (new flexible approach)
             $role_assignment = $couponRoleMeta->getCouponRoleAssignment($coupon_code);
+            
+            $this->helper->debug('🔍 RoleAssignmentHandler: Coupon role assignment lookup result', [
+                'coupon_code' => $coupon_code,
+                'role_assignment_from_meta' => $role_assignment,
+                'has_role_assignment' => !empty($role_assignment)
+            ]);
             
             // Fallback to settings-based mapping (backward compatibility)
             if (!$role_assignment) {
                 $coupon_mappings = $this->settingsManager->get('coupon_role_mappings') ?? [];
                 $coupon_code_upper = strtoupper(trim($coupon_code));
+                
+                $this->helper->debug('🔍 RoleAssignmentHandler: Checking settings-based coupon mappings', [
+                    'coupon_code_upper' => $coupon_code_upper,
+                    'coupon_mappings_keys' => array_keys($coupon_mappings),
+                    'coupon_mappings' => $coupon_mappings,
+                    'is_in_mappings' => isset($coupon_mappings[$coupon_code_upper])
+                ]);
                 
                 if (isset($coupon_mappings[$coupon_code_upper])) {
                     $target_role = $coupon_mappings[$coupon_code_upper];
@@ -137,9 +177,17 @@ class RoleAssignmentHandler {
                         'lgl_group_key' => $role_mappings[$target_role]['lgl_group_key'] ?? null,
                         'scholarship_type' => null
                     ];
+                    
+                    $this->helper->debug('✅ RoleAssignmentHandler: Found role from settings mapping', [
+                        'coupon_code' => $coupon_code,
+                        'target_role' => $target_role,
+                        'role_assignment' => $role_assignment
+                    ]);
                 } else {
-                    $this->helper->debug('⚠️ RoleAssignmentHandler: Coupon not configured', [
-                        'coupon_code' => $coupon_code
+                    $this->helper->debug('⚠️ RoleAssignmentHandler: Coupon not configured in settings', [
+                        'coupon_code' => $coupon_code,
+                        'coupon_code_upper' => $coupon_code_upper,
+                        'available_mappings' => array_keys($coupon_mappings)
                     ]);
                     continue;
                 }
@@ -155,6 +203,13 @@ class RoleAssignmentHandler {
             ]);
             
             // Assign WordPress role
+            $this->helper->debug('🎯 RoleAssignmentHandler: About to assign WordPress role from coupon', [
+                'user_id' => $user_id,
+                'target_role' => $target_role,
+                'coupon_code' => $coupon_code,
+                'order_id' => $order->get_id(),
+                'note' => 'This role assignment is triggered by a coupon code'
+            ]);
             $this->assignWordPressRole($user_id, $target_role);
             
             // Handle scholarship groups (ONLY if scholarship_type is explicitly set AND role is ui_member)
