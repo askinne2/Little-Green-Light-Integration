@@ -1943,7 +1943,8 @@ class Connection {
                 // Handle different response formats
                 if (is_array($data)) {
                     // Check if it's a direct array of phone objects
-                    if (!empty($data) && (isset($data[0]['number']) || (is_object($data[0]) && isset($data[0]->number)))) {
+                    // First verify index 0 exists before accessing it
+                    if (!empty($data) && isset($data[0]) && (isset($data[0]['number']) || (is_object($data[0]) && isset($data[0]->number)))) {
                         $helper->debug('🔍 getConstituentPhones: Direct array format', ['count' => count($data)]);
                         return $data;
                     }
@@ -2354,7 +2355,8 @@ class Connection {
                 
                 // Handle different response formats (same as phones/addresses)
                 if (is_array($data)) {
-                    if (!empty($data) && (isset($data[0]['address']) || (is_object($data[0]) && isset($data[0]->address)))) {
+                    // First verify index 0 exists before accessing it
+                    if (!empty($data) && isset($data[0]) && (isset($data[0]['address']) || (is_object($data[0]) && isset($data[0]->address)))) {
                         return $data;
                     }
                     if (isset($data['items']) && is_array($data['items'])) {
@@ -2393,7 +2395,8 @@ class Connection {
                 // Handle different response formats (same as emails/phones)
                 if (is_array($data)) {
                     // Check if it's a direct array of address objects
-                    if (!empty($data) && (isset($data[0]['street']) || (is_object($data[0]) && isset($data[0]->street)))) {
+                    // First verify index 0 exists before accessing it
+                    if (!empty($data) && isset($data[0]) && (isset($data[0]['street']) || (is_object($data[0]) && isset($data[0]->street)))) {
                         $helper->debug('🔍 getConstituentAddresses: Direct array format', ['count' => count($data)]);
                         return $data;
                     }
