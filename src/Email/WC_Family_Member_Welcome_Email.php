@@ -59,6 +59,9 @@ class WC_Family_Member_Welcome_Email extends \WC_Email {
         // Enable email by default
         $this->enabled = 'yes';
         
+        // Set email type to HTML (not plain text) - matches renewal email
+        $this->email_type = 'html';
+        
         // Set default recipient (will be overridden when triggered)
         $this->recipient = '';
     }
@@ -97,6 +100,18 @@ class WC_Family_Member_Welcome_Email extends \WC_Email {
             return;
         }
         
+        // Ensure email type is HTML (matches renewal email pattern)
+        $this->email_type = 'html';
+        
+        // Debug template path
+        $template_path = LGL_PLUGIN_DIR . 'templates/' . $this->template_html;
+        $this->helper->debug('WC_Family_Member_Welcome_Email: Sending email', [
+            'template_path' => $template_path,
+            'template_exists' => file_exists($template_path),
+            'email_type' => $this->email_type,
+            'recipient' => $this->get_recipient()
+        ]);
+        
         $this->send($this->get_recipient(), $this->get_subject(), $this->get_content(), $this->get_headers(), $this->get_attachments());
     }
     
@@ -124,7 +139,10 @@ class WC_Family_Member_Welcome_Email extends \WC_Email {
      * @return string
      */
     public function get_content_html() {
-        return wc_get_template_html(
+        // Try plugin template first, then fall back to WooCommerce template path (matches renewal email pattern)
+        $template_path = LGL_PLUGIN_DIR . 'templates/';
+        
+        $html = wc_get_template_html(
             $this->template_html,
             [
                 'email_heading' => $this->get_heading(),
@@ -134,8 +152,24 @@ class WC_Family_Member_Welcome_Email extends \WC_Email {
                 'email' => $this,
             ],
             '',
-            LGL_PLUGIN_DIR . 'templates/'
+            $template_path
         );
+        
+        // If template not found, try without custom path (WooCommerce default)
+        if (empty($html)) {
+            $html = wc_get_template_html(
+                $this->template_html,
+                [
+                    'email_heading' => $this->get_heading(),
+                    'email_data' => $this->email_data,
+                    'sent_to_admin' => false,
+                    'plain_text' => false,
+                    'email' => $this,
+                ]
+            );
+        }
+        
+        return $html;
     }
     
     /**

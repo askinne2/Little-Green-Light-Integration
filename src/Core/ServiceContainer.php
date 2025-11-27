@@ -411,6 +411,9 @@ class ServiceContainer implements ContainerInterface {
         });
         
         // Register email services
+        // DISABLED: Email Blocker module - conflicts with WPSMTP Pro email blocking
+        // Email blocking is now handled by WPSMTP Pro plugin's email blocking module
+        /*
         $this->register('email.blocker', function($container) {
             return new \UpstateInternational\LGL\Email\EmailBlocker(
                 $container->get('lgl.helper'),
@@ -418,6 +421,7 @@ class ServiceContainer implements ContainerInterface {
                 $container->get('admin.operational_data')
             );
         });
+        */
         $this->register('email.daily_manager', \UpstateInternational\LGL\Email\DailyEmailManager::class);
         
         // Register WooCommerce services (with explicit dependency injection)
@@ -641,7 +645,7 @@ class ServiceContainer implements ContainerInterface {
                 $container->get('admin.sync_log_page'),
                 $container->get('admin.renewal_settings_page'),
                 $container->get('admin.testing_tools_page'),
-                $container->get('admin.email_blocking_page'),
+                null, // DISABLED: Email blocking page - now handled by WPSMTP Pro
                 $container->get('admin.order_email_settings_page')
             );
             // Set debug log page via reflection or add setter method
@@ -686,6 +690,8 @@ class ServiceContainer implements ContainerInterface {
         $this->register('admin.testing_tools_page', function($container) {
             return new \UpstateInternational\LGL\Admin\TestingToolsPage();
         });
+        // DISABLED: Email Blocking Settings Page - Email blocking now handled by WPSMTP Pro
+        /*
         $this->register('admin.email_blocking_page', function($container) {
             return new \UpstateInternational\LGL\Admin\EmailBlockingSettingsPage(
                 $container->get('admin.settings_manager'),
@@ -694,6 +700,7 @@ class ServiceContainer implements ContainerInterface {
                 $container->get('email.blocker')
             );
         });
+        */
         $this->register('admin.order_email_settings_page', function($container) {
             return new \UpstateInternational\LGL\Admin\OrderEmailSettingsPage(
                 $container->get('admin.settings_manager'),

@@ -349,7 +349,9 @@ class HookManager {
         }
         
         // Email management hooks
-        $this->addAction('plugins_loaded', 'email.blocker@init', 10, 0);
+        // DISABLED: Email Blocker module - conflicts with WPSMTP Pro email blocking
+        // Email blocking is now handled by WPSMTP Pro plugin's email blocking module
+        // $this->addAction('plugins_loaded', 'email.blocker@init', 10, 0);
         $this->addAction('wp_loaded', 'email.daily_manager@init', 10, 0);
     }
     

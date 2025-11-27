@@ -2,13 +2,20 @@
 /**
  * Email Blocker for Development Environments
  * 
- * Prevents emails from being sent in local/development environments while allowing
- * them in production. Provides proper logging and debugging capabilities.
+ * ⚠️ DISABLED MODULE ⚠️
  * 
- * Now integrated with SettingsManager and OperationalDataManager for centralized data management.
+ * This module has been DISABLED due to conflicts with WPSMTP Pro plugin.
+ * Email blocking is now handled by WPSMTP Pro's email blocking module.
+ * 
+ * To configure email blocking:
+ * - Go to: WordPress Admin → WP Mail SMTP → Settings → Email Controls
+ * - Use WPSMTP Pro's built-in email blocking features
+ * 
+ * This file is kept for reference only and is NOT loaded in the plugin architecture.
  * 
  * @package UpstateInternational\LGL
  * @since 2.0.0
+ * @deprecated Disabled - use WPSMTP Pro email blocking instead
  */
 
 namespace UpstateInternational\LGL\Email;

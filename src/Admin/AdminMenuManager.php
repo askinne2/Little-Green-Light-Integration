@@ -205,7 +205,9 @@ class AdminMenuManager {
             );
         }
         
-        // Email Blocking Settings
+        // DISABLED: Email Blocking Settings - Email blocking now handled by WPSMTP Pro plugin
+        // Configure email blocking via: WordPress Admin → WP Mail SMTP → Settings → Email Controls
+        /*
         if ($this->emailBlockingPage) {
             add_submenu_page(
                 self::MAIN_MENU_SLUG,
@@ -216,6 +218,7 @@ class AdminMenuManager {
                 [$this->emailBlockingPage, 'render']
             );
         }
+        */
         
         // Order Email Templates
         if ($this->orderEmailSettingsPage) {
@@ -518,6 +521,9 @@ class AdminMenuManager {
             ['wordpress_user_id' => $testUserId, 'class_product_id' => 86825]
         );
         
+        // DISABLED: Email Blocking Test - Email blocking now handled by WPSMTP Pro
+        // Configure email blocking via: WordPress Admin → WP Mail SMTP → Settings → Email Controls
+        /*
         // Email Blocking Test Card
         $content .= $this->renderTestCard(
             'email-blocking',
@@ -525,6 +531,7 @@ class AdminMenuManager {
             'Test different email blocking levels (all, woocommerce_allowed, cron_only)',
             $nonce
         );
+        */
         
         // Add Family Member Test Card
         $content .= $this->renderTestCard(
@@ -1434,6 +1441,18 @@ class AdminMenuManager {
     private function renderAdvancedSettingsForm(array $settings, string $nonce): string {
         ob_start();
         ?>
+        <!-- Email Blocking Notice -->
+        <div class="notice notice-info" style="margin: 20px 0; border-left-color: #2271b1;">
+            <h3 style="margin-top: 0;">📧 Email Blocking Configuration</h3>
+            <p><strong>⚠️ Note:</strong> The LGL Email Blocker module has been disabled due to conflicts with WPSMTP Pro.</p>
+            <p>Email blocking is now handled by <strong>WPSMTP Pro</strong> plugin's email blocking module.</p>
+            <p><strong>To configure email blocking:</strong></p>
+            <ul style="list-style: disc; margin-left: 20px;">
+                <li>Go to: <strong>WordPress Admin → WP Mail SMTP → Settings → Email Controls</strong></li>
+                <li>Use WPSMTP Pro's built-in email blocking features</li>
+            </ul>
+        </div>
+        
         <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
             <?php wp_nonce_field('lgl_debug_settings', '_wpnonce'); ?>
             <input type="hidden" name="action" value="lgl_save_debug_settings" />

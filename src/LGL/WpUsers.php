@@ -123,10 +123,22 @@ class WpUsers {
      * Register cron jobs
      */
     private function registerCronJobs(): void {
+        // DISABLED: Monthly bulk sync - users sync automatically on orders/profile updates
+        // This was consuming ~900+ API calls and causing rate limit issues
+        // Users are already synced when:
+        // - Orders are placed
+        // - Users register
+        // - Profiles are updated
+        // - Memberships change
+        /*
         // Schedule monthly update if not already scheduled
         if (!wp_next_scheduled(static::MONTHLY_UPDATE_HOOK)) {
             wp_schedule_event(time(), 'monthly', static::MONTHLY_UPDATE_HOOK);
         }
+        
+        // Register cron actions
+        add_action(static::MONTHLY_UPDATE_HOOK, [$this, 'runMonthlyUpdate']);
+        */
         
         // Schedule user deletion check if not already scheduled
         if (!wp_next_scheduled(static::USER_DELETION_HOOK)) {
@@ -134,7 +146,6 @@ class WpUsers {
         }
         
         // Register cron actions
-        add_action(static::MONTHLY_UPDATE_HOOK, [$this, 'runMonthlyUpdate']);
         add_action(static::USER_DELETION_HOOK, [$this, 'userDeletion']);
         
         // Register legacy monthly cleanup hook (matches legacy LGL_API::UI_DELETE_MEMBERS)
@@ -431,6 +442,121 @@ class WpUsers {
                 'error' => $e->getMessage()
             ]);
             return 'User deletion failed: ' . $e->getMessage();
+        }
+    }
+    
+    /**
+     * Deactivate WordPress user (matches legacy ui_deactivate_user behavior)
+     * 
+     * Changes user role to ui_inactive_member and resets password.
+     * Used when membership is cancelled or expired.
+     * 
+     * @param int $user_id WordPress user ID
+     * @param string|null $reason Optional deactivation reason
+     * @return void
+     */
+    public function uiUserDeactivation(int $user_id, ?string $reason = null): void {
+        $user = get_userdata($user_id);
+        if (!$user) {
+            Helper::getInstance()->error('LGL WP Users: User not found for deactivation', [
+                'user_id' => $user_id
+            ]);
+            return;
+        }
+        
+        try {
+            // Add inactive member role
+            $user->add_role('ui_inactive_member');
+            
+            // Reset password to random string (matches legacy behavior)
+            $random_password = wp_generate_password(12, true, true);
+            wp_set_password($random_password, $user_id);
+            
+            Helper::getInstance()->info('LGL WP Users: User deactivated', [
+                'user_id' => $user_id,
+                'reason' => $reason ?? 'manual',
+                'previous_roles' => $user->roles
+            ]);
+            
+        } catch (\Exception $e) {
+            Helper::getInstance()->error('LGL WP Users: Error deactivating user', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+    
+    /**
+     * Get user role (matches legacy ui_get_user_role behavior)
+     * 
+     * Returns the primary UI membership role for a user.
+     * Priority: ui_patron_owner > ui_member > empty string
+     * 
+     * @param int $user_id WordPress user ID
+     * @return string User role ('ui_patron_owner', 'ui_member', or '')
+     */
+    public function uiGetUserRole(int $user_id): string {
+        $user = get_userdata($user_id);
+        if (!$user) {
+            Helper::getInstance()->error('LGL WP Users: User not found', [
+                'user_id' => $user_id
+            ]);
+            return '';
+        }
+        
+        $user_roles = $user->roles;
+        
+        // Priority: ui_patron_owner > ui_member
+        if (in_array('ui_patron_owner', $user_roles)) {
+            return 'ui_patron_owner';
+        } elseif (in_array('ui_member', $user_roles)) {
+            return 'ui_member';
+        }
+        
+        return '';
+    }
+    
+    /**
+     * Get child relations for a parent user (matches legacy ui_get_child_relations behavior)
+     * 
+     * Uses JetEngine relation 24 to get family member relationships.
+     * 
+     * @param int $parent_id Parent user ID
+     * @return array Array of child user IDs
+     */
+    public function uiGetChildRelations(int $parent_id): array {
+        if (!function_exists('jet_engine')) {
+            Helper::getInstance()->debug('LGL WP Users: JetEngine not available, cannot get child relations', [
+                'parent_id' => $parent_id
+            ]);
+            return [];
+        }
+        
+        try {
+            $relation = \jet_engine()->relations->get_active_relations(24);
+            if (!$relation) {
+                Helper::getInstance()->debug('LGL WP Users: Could not get JetEngine relation 24', [
+                    'parent_id' => $parent_id
+                ]);
+                return [];
+            }
+            
+            $related_ids = $relation->get_children($parent_id, 'ids');
+            
+            // Ensure we return an array
+            if (!is_array($related_ids)) {
+                return [];
+            }
+            
+            return $related_ids;
+            
+        } catch (\Exception $e) {
+            Helper::getInstance()->error('LGL WP Users: Error getting child relations', [
+                'parent_id' => $parent_id,
+                'error' => $e->getMessage()
+            ]);
+            return [];
         }
     }
     

@@ -16,7 +16,8 @@ use UpstateInternational\LGL\LGL\Connection;
 use UpstateInternational\LGL\LGL\ApiSettings;
 use UpstateInternational\LGL\LGL\Payments;
 use UpstateInternational\LGL\Core\Plugin;
-use UpstateInternational\LGL\Email\EmailBlocker;
+// DISABLED: EmailBlocker module - conflicts with WPSMTP Pro email blocking
+// use UpstateInternational\LGL\Email\EmailBlocker;
 
 /**
  * TestingHandler Class
@@ -242,9 +243,12 @@ class TestingHandler {
                 echo $this->runArchitectureTest();
                 break;
                 
+            // DISABLED: Email blocking test - Email blocking now handled by WPSMTP Pro
+            /*
             case 'email-blocking':
                 echo $this->runEmailBlockingTest();
                 break;
+            */
                 
             case 'add_family_member':
                 echo $this->runAddFamilyMemberTest();
@@ -1591,6 +1595,18 @@ class TestingHandler {
      * and showing which ones get blocked/allowed
      */
     private function runEmailBlockingTest(): string {
+        // DISABLED: Email blocking test - Email blocking now handled by WPSMTP Pro
+        // Configure email blocking via: WordPress Admin → WP Mail SMTP → Settings → Email Controls
+        ob_start();
+        echo '<div class="notice notice-info">';
+        echo '<p>⚠️ <strong>Email Blocking Test Disabled</strong></p>';
+        echo '<p>Email blocking is now handled by WPSMTP Pro plugin.</p>';
+        echo '<p>To configure email blocking, go to: <strong>WordPress Admin → WP Mail SMTP → Settings → Email Controls</strong></p>';
+        echo '</div>';
+        return ob_get_clean();
+        
+        /*
+        // OLD CODE - DISABLED
         ob_start();
         
         echo '<div class="notice notice-info"><p>🔄 Testing Email Blocking Levels...</p></div>';
@@ -1777,6 +1793,7 @@ class TestingHandler {
         }
         
         return ob_get_clean();
+        */
     }
     
     /**

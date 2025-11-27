@@ -2,16 +2,27 @@
 /**
  * Email Blocking Settings Page
  * 
- * Admin interface for managing email blocking configuration, whitelist, and viewing blocked emails log.
+ * ⚠️ DISABLED MODULE ⚠️
+ * 
+ * This module has been DISABLED due to conflicts with WPSMTP Pro plugin.
+ * Email blocking is now handled by WPSMTP Pro's email blocking module.
+ * 
+ * To configure email blocking:
+ * - Go to: WordPress Admin → WP Mail SMTP → Settings → Email Controls
+ * - Use WPSMTP Pro's built-in email blocking features
+ * 
+ * This class is kept for reference only and is NOT registered in the plugin architecture.
  * 
  * @package UpstateInternational\LGL
  * @since 2.2.0
+ * @deprecated Disabled - use WPSMTP Pro email blocking instead
  */
 
 namespace UpstateInternational\LGL\Admin;
 
 use UpstateInternational\LGL\LGL\Helper;
-use UpstateInternational\LGL\Email\EmailBlocker;
+// DISABLED: EmailBlocker module - conflicts with WPSMTP Pro email blocking
+// use UpstateInternational\LGL\Email\EmailBlocker;
 
 /**
  * EmailBlockingSettingsPage Class

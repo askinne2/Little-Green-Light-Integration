@@ -13,7 +13,8 @@ namespace UpstateInternational\LGL\Core;
 
 use UpstateInternational\LGL\Admin\DashboardWidgets;
 use UpstateInternational\LGL\Email\DailyEmailManager;
-use UpstateInternational\LGL\Email\EmailBlocker;
+// DISABLED: EmailBlocker module - conflicts with WPSMTP Pro email blocking
+// use UpstateInternational\LGL\Email\EmailBlocker;
 use UpstateInternational\LGL\WooCommerce\SubscriptionRenewalManager;
 use UpstateInternational\LGL\Core\ServiceContainer;
 use UpstateInternational\LGL\Core\HookManager;
@@ -167,6 +168,10 @@ class Plugin {
             // Initialize email services
             $this->container->get('email.daily_manager');
             
+            // DISABLED: Email Blocker module - conflicts with WPSMTP Pro email blocking
+            // Email blocking is now handled by WPSMTP Pro plugin's email blocking module
+            // See: WordPress Admin → WP Mail SMTP → Settings → Email Controls
+            /*
             // Initialize email blocker with DI
             $emailBlocker = $this->container->get('email.blocker');
             $emailBlocker->init();
@@ -181,6 +186,7 @@ class Plugin {
                 $this->renderEmailBlockerDiagnostic($emailBlocker);
                 exit;
             }, 5);
+            */
             
             // Initialize WooCommerce services
             if (class_exists('WooCommerce')) {
@@ -624,10 +630,17 @@ class Plugin {
     /**
      * Render email blocker diagnostic tool
      * 
+     * DISABLED: Email blocking now handled by WPSMTP Pro
+     * 
      * @param \UpstateInternational\LGL\Email\EmailBlocker $emailBlocker Email blocker instance
      * @return void
+     * @deprecated Disabled - use WPSMTP Pro email blocking instead
      */
     private function renderEmailBlockerDiagnostic(\UpstateInternational\LGL\Email\EmailBlocker $emailBlocker): void {
+        // DISABLED: This method is no longer used - email blocking handled by WPSMTP Pro
+        // Configure email blocking via: WordPress Admin → WP Mail SMTP → Settings → Email Controls
+        wp_die('Email blocking diagnostic tool is disabled. Email blocking is now handled by WPSMTP Pro plugin. Configure via: WordPress Admin → WP Mail SMTP → Settings → Email Controls');
+        return;
         // Prevent output buffering issues
         if (ob_get_level()) {
             ob_end_clean();
